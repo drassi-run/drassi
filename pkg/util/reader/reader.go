@@ -1,0 +1,58 @@
+package utilreader
+
+import (
+	"archive/tar"
+	"bytes"
+	"context"
+	"io"
+
+	"github.com/dungdm93/drasi/pkg/util"
+	"github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
+)
+
+// FileEntry is a file to copy to a container
+type FileEntry struct {
+	Name    string // Name of file entry
+	Mode    int64  // Permission and mode bits
+	Content string
+	Uid     int    // User ID of owner
+	Gid     int    // Group ID of owner
+	Uname   string // User name of owner
+	Gname   string // Group name of owner
+}
+
+func FromFileEntries(ctx context.Context, entries ...*FileEntry) (io.Reader, error) {
+	logger := util.Logger(ctx)
+	buf := new(bytes.Buffer)
+	tw := tar.NewWriter(buf)
+
+	for _, entry := range entries {
+		logger.Debugf("Writing entry to tarball %s len:%d", entry.Name, len(entry.Content))
+		hdr := &tar.Header{
+			Name:  entry.Name,
+			Mode:  entry.Mode,
+			Size:  int64(len(entry.Content)),
+			Uid:   entry.Uid,
+			Gid:   entry.Gid,
+			Uname: entry.Uname,
+			Gname: entry.Gname,
+		}
+		if err := tw.WriteHeader(hdr); err != nil {
+			return nil, err
+		}
+		if _, err := tw.Write([]byte(entry.Content)); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := tw.Close(); err != nil {
+		return nil, err
+	}
+	return buf, nil
+}
+
+func FromFilesystem(fs billy.Filesystem, path string, matcher gitignore.Matcher) (io.Reader, error) {
+	//	TODO
+	return nil, nil
+}
