@@ -3,8 +3,6 @@ package container
 import (
 	"context"
 	"io"
-
-	"github.com/compose-spec/compose-go/v2/types"
 )
 
 type ContainerRuntime interface {
@@ -19,7 +17,7 @@ type ContainerRuntime interface {
 }
 
 type LaunchContainerRequest struct {
-	Config types.ServiceConfig
+	Config ContainerConfig
 }
 
 type LaunchContainerResponse struct {
