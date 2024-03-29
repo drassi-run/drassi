@@ -1,0 +1,107 @@
+package container
+
+import (
+	"github.com/docker/cli/opts"
+	"time"
+)
+
+// containerOptions is a data object with all the options for creating a container
+type containerOptions struct {
+	attach              opts.ListOpts
+	volumes             opts.ListOpts
+	tmpfs               opts.ListOpts
+	mounts              opts.MountOpt
+	blkioWeightDevice   opts.WeightdeviceOpt
+	deviceReadBps       opts.ThrottledeviceOpt
+	deviceWriteBps      opts.ThrottledeviceOpt
+	links               opts.ListOpts
+	aliases             opts.ListOpts
+	linkLocalIPs        opts.ListOpts
+	deviceReadIOps      opts.ThrottledeviceOpt
+	deviceWriteIOps     opts.ThrottledeviceOpt
+	env                 opts.ListOpts
+	labels              opts.ListOpts
+	deviceCgroupRules   opts.ListOpts
+	devices             opts.ListOpts
+	gpus                opts.GpuOpts
+	ulimits             *opts.UlimitOpt
+	sysctls             *opts.MapOpts
+	publish             opts.ListOpts
+	expose              opts.ListOpts
+	dns                 opts.ListOpts
+	dnsSearch           opts.ListOpts
+	dnsOptions          opts.ListOpts
+	extraHosts          opts.ListOpts
+	volumesFrom         opts.ListOpts
+	envFile             opts.ListOpts
+	capAdd              opts.ListOpts
+	capDrop             opts.ListOpts
+	groupAdd            opts.ListOpts
+	securityOpt         opts.ListOpts
+	storageOpt          opts.ListOpts
+	labelsFile          opts.ListOpts
+	loggingOpts         opts.ListOpts
+	privileged          bool
+	pidMode             string
+	utsMode             string
+	usernsMode          string
+	cgroupnsMode        string
+	publishAll          bool
+	stdin               bool
+	tty                 bool
+	oomKillDisable      bool
+	oomScoreAdj         int
+	containerIDFile     string
+	entrypoint          string
+	hostname            string
+	domainname          string
+	memory              opts.MemBytes
+	memoryReservation   opts.MemBytes
+	memorySwap          opts.MemSwapBytes
+	kernelMemory        opts.MemBytes
+	user                string
+	workingDir          string
+	cpuCount            int64
+	cpuShares           int64
+	cpuPercent          int64
+	cpuPeriod           int64
+	cpuRealtimePeriod   int64
+	cpuRealtimeRuntime  int64
+	cpuQuota            int64
+	cpus                opts.NanoCPUs
+	cpusetCpus          string
+	cpusetMems          string
+	blkioWeight         uint16
+	ioMaxBandwidth      opts.MemBytes
+	ioMaxIOps           uint64
+	swappiness          int64
+	netMode             opts.NetworkOpt
+	macAddress          string
+	ipv4Address         string
+	ipv6Address         string
+	ipcMode             string
+	pidsLimit           int64
+	restartPolicy       string
+	readonlyRootfs      bool
+	loggingDriver       string
+	cgroupParent        string
+	volumeDriver        string
+	stopSignal          string
+	stopTimeout         int
+	isolation           string
+	shmSize             opts.MemBytes
+	noHealthcheck       bool
+	healthCmd           string
+	healthInterval      time.Duration
+	healthTimeout       time.Duration
+	healthStartPeriod   time.Duration
+	healthStartInterval time.Duration
+	healthRetries       int
+	runtime             string
+	autoRemove          bool
+	init                bool
+	annotations         *opts.MapOpts
+
+	Image string
+	Args  []string
+}
