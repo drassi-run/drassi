@@ -3,6 +3,7 @@ package model
 import (
 	"context"
 	"strconv"
+	"strings"
 )
 
 type Evaluable[R any] interface {
@@ -22,21 +23,22 @@ func newIdent[R any](value R) Evaluable[R] {
 	return identity[R]{value: value}
 }
 
+type converter[R any] func(string) (R, error)
 type expression[R any] struct {
-	expr      string
-	converter func(string) (R, error)
+	expr string
+	conv converter[R]
 }
 
 func (e expression[R]) Evaluate(ctx context.Context) (R, error) {
 	val := e.expr // TODO
-	return e.converter(val)
+	return e.conv(val)
 }
 
 // A little helper to create new expression easier
-func newExpr[R any](expr string, con func(string) (R, error)) Evaluable[R] {
+func newExpr[R any](expr string, conv converter[R]) Evaluable[R] {
 	return expression[R]{
-		expr:      expr,
-		converter: con,
+		expr: expr,
+		conv: conv,
 	}
 }
 
@@ -56,4 +58,21 @@ func toString(s string) (string, error) {
 
 func toMatrix(s string) (Matrix, error) {
 	return Matrix{}, nil // TODO
+}
+
+const (
+	OpenExpression  = "${{"
+	CloseExpression = "}}"
+)
+
+func newEvaluable[R any](s string, con converter[R]) (Evaluable[R], error) {
+	if strings.Contains(s, OpenExpression) {
+		return newExpr(s, con), nil
+	}
+
+	if v, err := con(s); err != nil {
+		return nil, err
+	} else {
+		return newIdent(v), nil
+	}
 }
