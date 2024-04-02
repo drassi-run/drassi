@@ -1,5 +1,7 @@
 package contexts
 
+// The github context contains information about the workflow run and the event that triggered the run.
+// https://docs.github.com/en/actions/learn-github-actions/contexts#github-context
 type Github struct {
 	Action            string       `json:"action" yaml:"action"`
 	ActionPath        string       `json:"action_path" yaml:"action_path"`

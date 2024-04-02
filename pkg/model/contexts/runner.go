@@ -2,6 +2,8 @@ package contexts
 
 import "github.com/dungdm93/drasi/pkg/model"
 
+// The `runner` context contains information about the runner that is executing the current job.
+// https://docs.github.com/en/actions/learn-github-actions/contexts#runner-context
 type Runner struct {
 	Name      string             `json:"name" yaml:"name"`
 	Os        model.Machine      `json:"os" yaml:"os"`
