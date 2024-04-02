@@ -18,7 +18,7 @@ type Input struct {
 
 	// A string representing the default value. The default value is used when an input parameter isn't specified in a workflow file.
 	// https://docs.github.com/en/actions/creating-actions/metadata-syntax-for-github-actions#inputsinput_iddefault
-	Default any `json:"default,omitempty" yaml:"default,omitempty"`
+	Default Evaluable[any] `json:"default,omitempty" yaml:"default,omitempty"` // TODO type args
 
 	// The value of this parameter is a string specifying the data type of the input.
 	// This must be one of: boolean, choice, number, environment or string.

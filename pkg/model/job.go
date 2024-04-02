@@ -9,7 +9,7 @@ package model
 type Job struct {
 	// The name of the job displayed on GitHub
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idname
-	Name string `json:"name,omitempty" yaml:"name,omitempty"`
+	Name Evaluable[string] `json:"name,omitempty" yaml:"name,omitempty"`
 
 	// You can modify the default permissions granted to the GITHUB_TOKEN,
 	// adding or removing access as required, so that you only allow the minimum required access.
@@ -135,7 +135,7 @@ type Step struct {
 
 	// A name for your step to display on GitHub.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsname
-	Name string `json:"name,omitempty" yaml:"name,omitempty"`
+	Name Evaluable[string] `json:"name,omitempty" yaml:"name,omitempty"`
 
 	// You can use the if conditional to prevent a step from running unless a condition is met.
 	// You can use any supported context and expression to create a conditional.
@@ -188,10 +188,11 @@ type StepRun struct {
 	// For more information, see https://help.github.com/en/actions/automating-your-workflow-with-github-actions/workflow-syntax-for-github-actions#using-a-specific-shell.
 	// Each run keyword represents a new process and shell in the virtual environment. When you provide multi-line commands, each line runs in the same shell.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsrun
-	Run Evaluable[string] `json:"run,omitempty" yaml:"run,omitempty" validate:"required"` // Evaluable?
+	Run Evaluable[string] `json:"run,omitempty" yaml:"run,omitempty" validate:"required"`
 
-	Shell      Shell  `json:"shell,omitempty" yaml:"shell,omitempty"`
-	WorkingDir string `json:"working-directory,omitempty" yaml:"working-directory,omitempty"`
+	Shell Shell `json:"shell,omitempty" yaml:"shell,omitempty"`
+
+	WorkingDir Evaluable[string] `json:"working-directory,omitempty" yaml:"working-directory,omitempty"`
 }
 
 // To set custom environment variables, you need to specify the variables in the workflow file.
