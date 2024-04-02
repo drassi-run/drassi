@@ -10,6 +10,9 @@ type Workflow struct {
 	// The name for workflow runs generated from the workflow.
 	// GitHub displays the workflow run name in the list of workflow runs on your repository's 'Actions' tab.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#run-name
+	//
+	// Context available: `github`, `inputs`, `vars`
+	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
 	RunName Evaluable[string] `json:"run-name,omitempty" yaml:"run-name,omitempty"`
 
 	// The name of the GitHub event that triggers the workflow.

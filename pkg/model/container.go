@@ -4,6 +4,9 @@ type Container struct {
 	// The Docker image to use as the container to run the action.
 	// The value can be the Docker Hub image name or a registry name.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idcontainerimage
+	//
+	// Context available: `github`, `needs`, `strategy`, `matrix`, `vars`, `inputs`
+	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
 	Image Evaluable[string] `json:"image,omitempty" yaml:"image,omitempty" validate:"required"`
 
 	// If the image's container registry requires authentication to pull the image,
@@ -33,6 +36,8 @@ type Container struct {
 	Options string `json:"options,omitempty" yaml:"options,omitempty"`
 }
 
+// Context available: `github`, `needs`, `strategy`, `matrix`, `env`, `vars`, `secrets`, `inputs`
+// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
 type ContainerCredentials struct {
 	Username Evaluable[string] `json:"username,omitempty" yaml:"username,omitempty"`
 	Password Evaluable[string] `json:"password,omitempty" yaml:"password,omitempty"`

@@ -18,6 +18,9 @@ type Input struct {
 
 	// A string representing the default value. The default value is used when an input parameter isn't specified in a workflow file.
 	// https://docs.github.com/en/actions/creating-actions/metadata-syntax-for-github-actions#inputsinput_iddefault
+	//
+	// Context available: `github`, `inputs`, `vars`
+	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
 	Default Evaluable[any] `json:"default,omitempty" yaml:"default,omitempty"` // TODO type args
 
 	// The value of this parameter is a string specifying the data type of the input.
@@ -41,8 +44,11 @@ const (
 )
 
 type Output struct {
-	Description string            `json:"description,omitempty" yaml:"description,omitempty"`
-	Value       Evaluable[string] `json:"value,omitempty" yaml:"value,omitempty"`
+	Description string `json:"description,omitempty" yaml:"description,omitempty"`
+
+	// Context available: `github`, `jobs`, `vars`, `inputs`
+	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
+	Value Evaluable[string] `json:"value,omitempty" yaml:"value,omitempty"`
 }
 
 // A string identifier to associate with the secret.

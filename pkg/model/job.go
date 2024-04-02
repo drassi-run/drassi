@@ -9,6 +9,9 @@ package model
 type Job struct {
 	// The name of the job displayed on GitHub
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idname
+	//
+	// Context available: `github`, `needs`, `strategy`, `matrix`, `vars`, `inputs`
+	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
 	Name Evaluable[string] `json:"name,omitempty" yaml:"name,omitempty"`
 
 	// You can modify the default permissions granted to the GITHUB_TOKEN,
@@ -26,6 +29,10 @@ type Job struct {
 	// Expressions in an if conditional do not require the ${{ }} syntax.
 	// For more information, see https://help.github.com/en/articles/contexts-and-expression-syntax-for-github-actions.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idif
+	//
+	// Context available: `github`, `needs`, `vars`, `inputs`
+	// Special functions: `always`, `cancelled`, `success`, `failure`
+	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
 	If Evaluable[bool] `json:"if,omitempty" yaml:"if,omitempty"`
 
 	// A strategy creates a build matrix for your jobs. You can define different variations of an environment to run each job in.
@@ -43,6 +50,9 @@ type Job struct {
 
 	// Prevents a workflow run from failing when a job fails. Set to true to allow a workflow run to pass when this job fails.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idcontinue-on-error
+	//
+	// Context available: `github`, `needs`, `strategy`, `vars`, `matrix`, `inputs`
+	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
 	ContinueOnError Evaluable[bool] `json:"continue-on-error,omitempty" yaml:"continue-on-error,omitempty"`
 }
 
@@ -79,6 +89,9 @@ type JobNormal struct {
 
 	// The maximum number of minutes to let a workflow run before GitHub automatically cancels it. Default: 360
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idtimeout-minutes
+	//
+	// Context available: `github`, `needs`, `strategy`, `matrix`, `vars`, `inputs`
+	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
 	TimeoutMinutes Evaluable[int64] `json:"timeout-minutes,omitempty" yaml:"timeout-minutes,omitempty"`
 
 	// A container to run any steps in a job that don't already specify a container.
@@ -135,6 +148,10 @@ type Step struct {
 
 	// A name for your step to display on GitHub.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsname
+	//
+	// Context available: `github`, `needs`, `strategy`, `matrix`, `job`, `runner`, `env`, `vars`, `secrets`, `steps`, `inputs`
+	// Special functions: `hashFiles`
+	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
 	Name Evaluable[string] `json:"name,omitempty" yaml:"name,omitempty"`
 
 	// You can use the if conditional to prevent a step from running unless a condition is met.
@@ -142,6 +159,10 @@ type Step struct {
 	// Expressions in an if conditional do not require the ${{ }} syntax.
 	// For more information, see https://help.github.com/en/articles/contexts-and-expression-syntax-for-github-actions.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsif
+	//
+	// Context available: `github`, `needs`, `strategy`, `matrix`, `job`, `runner`, `env`, `vars`, `steps`, `inputs`
+	// Special functions: `always`, `cancelled`, `success`, `failure`, `hashFiles`
+	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
 	If Evaluable[bool] `json:"if,omitempty" yaml:"if,omitempty"`
 
 	// A map of the input parameters defined by the action. Each input parameter is a key/value pair.
@@ -155,10 +176,18 @@ type Step struct {
 
 	// Prevents a job from failing when a step fails. Set to true to allow a job to pass when this step fails.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepscontinue-on-error
+	//
+	// Context available: `github`, `needs`, `strategy`, `matrix`, `job`, `runner`, `env`, `vars`, `secrets`, `steps`, `inputs`
+	// Special functions: `hashFiles`
+	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
 	ContinueOnError Evaluable[bool] `json:"continue-on-error,omitempty" yaml:"continue-on-error,omitempty"`
 
 	// The maximum number of minutes to run the step before killing the process.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepstimeout-minutes
+	//
+	// Context available: `github`, `needs`, `strategy`, `matrix`, `job`, `runner`, `env`, `vars`, `secrets`, `steps`, `inputs`
+	// Special functions: `hashFiles`
+	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
 	TimeoutMinutes Evaluable[int64] `json:"timeout-minutes,omitempty" yaml:"timeout-minutes,omitempty"`
 }
 
@@ -188,25 +217,52 @@ type StepRun struct {
 	// For more information, see https://help.github.com/en/actions/automating-your-workflow-with-github-actions/workflow-syntax-for-github-actions#using-a-specific-shell.
 	// Each run keyword represents a new process and shell in the virtual environment. When you provide multi-line commands, each line runs in the same shell.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsrun
+	//
+	// Context available: `github`, `needs`, `strategy`, `matrix`, `job`, `runner`, `env`, `vars`, `secrets`, `steps`, `inputs`
+	// Special functions: `hashFiles`
+	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
 	Run Evaluable[string] `json:"run,omitempty" yaml:"run,omitempty" validate:"required"`
 
 	Shell Shell `json:"shell,omitempty" yaml:"shell,omitempty"`
 
+	// Context available: `github`, `needs`, `strategy`, `matrix`, `job`, `runner`, `env`, `vars`, `secrets`, `steps`, `inputs`
+	// Special functions: `hashFiles`
+	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
 	WorkingDir Evaluable[string] `json:"working-directory,omitempty" yaml:"working-directory,omitempty"`
 }
 
 // To set custom environment variables, you need to specify the variables in the workflow file.
 // You can define environment variables for a step, job, or entire workflow using the jobs.<job_id>.steps[*].env, jobs.<job_id>.env, and env keywords.
 // For more information, see https://docs.github.com/en/actions/learn-github-actions/variables
+//
+// Context available:
+// - in workflow level: `github`, `secrets`, `inputs`, `vars`
+// - in job level: `github`, `needs`, `strategy`, `matrix`, `vars`, `secrets`, `inputs`
+// - in step level: `github`, `needs`, `strategy`, `matrix`, `job`, `runner`, `env`, `vars`, `secrets`, `steps`, `inputs`
+// - in container: `github`, `needs`, `strategy`, `matrix`, `job`, `runner`, `env`, `vars`, `secrets`, `inputs`
+// Special functions:
+// - in step level: `hashFiles`
+// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
 type Env map[string]Evaluable[string]
 
+// Context available:
+// - in job level: `github`, `needs`, `strategy`, `matrix`, `inputs`, `vars`
+// - in step level: `github`, `needs`, `strategy`, `matrix`, `job`, `runner`, `env`, `vars`, `secrets`, `steps`, `inputs`
+// Special functions:
+// - in step level: `hashFiles`
+// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
 type With map[string]Evaluable[string]
 
+// Context available: `github`, `needs`, `strategy`, `matrix`, `job`, `runner`, `env`, `vars`, `secrets`, `steps`, `inputs`
+// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
 type JobOutputs map[string]Evaluable[string]
 
 type JobSecrets struct {
 	// A pair consisting of a string identifier for the secret and the value of the secret.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idsecretssecret_id
+	//
+	// Context available: `github`, `needs`, `strategy`, `matrix`, `secrets`, `inputs`, `vars`
+	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
 	Secrets map[string]Evaluable[string]
 
 	// Use the inherit keyword to pass all the calling workflow's secrets to the called workflow.
@@ -219,15 +275,25 @@ type JobSecrets struct {
 // https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idenvironment
 type Environment struct {
 	// The name of the environment configured in the repo.
+	// Context available: `github`, `needs`, `strategy`, `matrix`, `vars`, `inputs`
+	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
 	Name Evaluable[string] `json:"name,omitempty" yaml:"name,omitempty"`
+
 	// A deployment URL
+	//
+	// Context available: `github`, `needs`, `strategy`, `matrix`, `job`, `runner`, `env`, `vars`, `steps`, `inputs`
+	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
 	Url Evaluable[string] `json:"url,omitempty" yaml:"url,omitempty"`
 }
 
 type Defaults struct {
+	// Context available:
+	// - in workflow level: N/A (not an expression)
+	// - in job level: `github`, `needs`, `strategy`, `matrix`, `env`, `vars`, `inputs`
+	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
 	Run struct {
-		Shell      Shell  `json:"shell,omitempty" yaml:"shell,omitempty"`
-		WorkingDir string `json:"working-directory,omitempty" yaml:"working-directory,omitempty"`
+		Shell      Evaluable[Shell]  `json:"shell,omitempty" yaml:"shell,omitempty"`
+		WorkingDir Evaluable[string] `json:"working-directory,omitempty" yaml:"working-directory,omitempty"`
 	} `json:"run,omitempty" yaml:"run,omitempty"`
 }
 
@@ -267,11 +333,17 @@ type RunsOn struct {
 	Group string `json:"group,omitempty" yaml:"group,omitempty"`
 
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idruns-on
+	//
+	// Context available: `github`, `needs`, `strategy`, `matrix`, `vars`, `inputs`
+	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
 	Labels Evaluable[string] `json:"labels,omitempty" yaml:"labels,omitempty"`
 }
 
 // A strategy creates a build matrix for your jobs. You can define different variations of an environment to run each job in.
 // https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstrategy
+//
+// Context available: `github`, `needs`, `vars`, `inputs`
+// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
 type Strategy struct {
 	Matrix Evaluable[Matrix] `json:"matrix,omitempty" yaml:"matrix,omitempty"`
 	// When set to true, GitHub cancels all in-progress jobs if any matrix job fails. Default: true
@@ -299,6 +371,11 @@ type Concurrency struct {
 	// in the repository is in progress, the queued job or workflow will be pending. Any previously pending job
 	// or workflow in the concurrency group will be canceled.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#example-concurrency-groups-1
+	//
+	// Context available:
+	// - in workflow level: `github`, `inputs`, `vars`
+	// - in job level: `github`, `needs`, `strategy`, `matrix`, `inputs`, `vars`
+	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
 	Group Evaluable[string] `json:"group,omitempty" yaml:"group,omitempty"`
 
 	// To cancel any currently running job or workflow in the same concurrency group, specify cancel-in-progress: true.
