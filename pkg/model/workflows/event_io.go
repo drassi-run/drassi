@@ -1,4 +1,4 @@
-package model
+package workflows
 
 // A string identifier to associate with the input. The value of <input_id> is a map of the input's metadata.
 // The <input_id> must be a unique identifier within the inputs object.

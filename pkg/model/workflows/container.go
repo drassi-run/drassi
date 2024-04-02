@@ -1,4 +1,4 @@
-package model
+package workflows
 
 type Container struct {
 	// The Docker image to use as the container to run the action.

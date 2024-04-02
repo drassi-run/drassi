@@ -1,4 +1,4 @@
-package model
+package workflows
 
 type empty = struct{}
 type onEventWithTypes[T ~string] struct {

@@ -1,6 +1,10 @@
-package model
+package workflows
 
-import "github.com/google/shlex"
+import (
+	"github.com/google/shlex"
+
+	"github.com/dungdm93/drasi/pkg/model"
+)
 
 // Shell You can override the default shell settings in the runner's operating system using the shell keyword.
 // You can use built-in shell keywords, or you can define a custom set of shell options.
@@ -26,16 +30,16 @@ var (
 	powershellCommand = []string{"powershell", "-command", ". '{0}'"}
 )
 
-func (s Shell) SupportedPlatform(platform Machine) bool {
+func (s Shell) SupportedPlatform(platform model.Machine) bool {
 	switch s {
 	case "": // unspecified `shell` parameter
-		return platform == Linux || platform == MacOS
+		return platform == model.Linux || platform == model.MacOS
 	case Bash, Pwsh, Python:
 		return true // Support all platforms
 	case Sh:
-		return platform == Linux || platform == MacOS
+		return platform == model.Linux || platform == model.MacOS
 	case Cmd, Powershell:
-		return platform == Windows
+		return platform == model.Windows
 	default:
 		return true // Custom shell
 	}

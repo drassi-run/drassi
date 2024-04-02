@@ -1,4 +1,4 @@
-package model
+package workflows
 
 import (
 	"github.com/mitchellh/mapstructure"

@@ -1,4 +1,4 @@
-package model
+package workflows
 
 import "reflect"
 
