@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-type klass[E any] struct {
+type evaluableTestStruct[E any] struct {
 	DirectValue  E            `json:"direct,omitempty" yaml:"direct,omitempty"`
 	Expr         E            `json:"expr,omitempty" yaml:"expr,omitempty"`
 	ListOfExpr   []E          `json:"list_of_expr,omitempty" yaml:"list_of_expr,omitempty"`
@@ -58,8 +58,8 @@ func testDecodeEvaluableHook[R any](t *testing.T, value R) {
 		"map_of_expr":    dict,
 		"struct_of_expr": strct,
 	}
-	obj := klass[Evaluable[R]]{}
-	err := decode(data, &obj)
+	obj := evaluableTestStruct[Evaluable[R]]{}
+	err := decodeEvaluable(data, &obj)
 
 	assert.NilError(t, err)
 
@@ -95,7 +95,7 @@ func compareExpr[R any](t *testing.T, obj Evaluable[R], expr string) {
 	assert.Equal(t, e.expr, expr)
 }
 
-func decode(source any, target any) error {
+func decodeEvaluable(source any, target any) error {
 	metadata := mapstructure.Metadata{}
 	config := &mapstructure.DecoderConfig{
 		DecodeHook: DecodeEvaluableHook,
