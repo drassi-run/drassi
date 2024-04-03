@@ -267,7 +267,7 @@ const (
 	EventWorkflowRun              Event = "workflow_run"
 )
 
-type OnBranchProtectionRule = onEventWithTypes[EventBranchProtectionRuleActivity]
+type OnBranchProtectionRule onEventWithTypes[EventBranchProtectionRuleActivity]
 type EventBranchProtectionRuleActivity string
 
 const (
@@ -276,14 +276,7 @@ const (
 	EventBranchProtectionRuleActivityDeleted EventBranchProtectionRuleActivity = "deleted"
 )
 
-// all activity types
-var defaultEventBranchProtectionRuleActivities = []EventBranchProtectionRuleActivity{
-	EventBranchProtectionRuleActivityCreate,
-	EventBranchProtectionRuleActivityEdited,
-	EventBranchProtectionRuleActivityDeleted,
-}
-
-type OnCheckRun = onEventWithTypes[EventCheckRunActivity]
+type OnCheckRun onEventWithTypes[EventCheckRunActivity]
 type EventCheckRunActivity string
 
 const (
@@ -293,20 +286,13 @@ const (
 	EventCheckRunActivityRequestedAction EventCheckRunActivity = "requested_action"
 )
 
-// all activity types
-var defaultEventCheckRunActivities = []EventCheckRunActivity{
-	EventCheckRunActivityCreated,
-	EventCheckRunActivityRerequested,
-	EventCheckRunActivityCompleted,
-	EventCheckRunActivityRequestedAction,
-}
-
-type OnCheckSuite = onEventWithTypes[EventCheckSuiteActivity]
+type OnCheckSuite onEventWithTypes[EventCheckSuiteActivity]
 type EventCheckSuiteActivity string
 
 const (
-	EventCheckSuiteActivityCompleted EventCheckSuiteActivity = "completed"
-	// TODO: mismatch between GitHub docs & json schema
+	EventCheckSuiteActivityCompleted   EventCheckSuiteActivity = "completed"
+	EventCheckSuiteActivityRequested   EventCheckSuiteActivity = "requested"
+	EventCheckSuiteActivityRerequested EventCheckSuiteActivity = "rerequested"
 )
 
 type OnCreate = empty
@@ -314,7 +300,7 @@ type OnDelete = empty
 type OnDeployment = empty
 type OnDeploymentStatus = empty
 
-type OnDiscussion = onEventWithTypes[EventDiscussionActivity]
+type OnDiscussion onEventWithTypes[EventDiscussionActivity]
 type EventDiscussionActivity string
 
 const (
@@ -333,24 +319,7 @@ const (
 	EventDiscussionActivityUnanswered      EventDiscussionActivity = "unanswered"
 )
 
-// all activity types
-var defaultEventDiscussionActivities = []EventDiscussionActivity{
-	EventDiscussionActivityCreated,
-	EventDiscussionActivityEdited,
-	EventDiscussionActivityDeleted,
-	EventDiscussionActivityTransferred,
-	EventDiscussionActivityPinned,
-	EventDiscussionActivityUnpinned,
-	EventDiscussionActivityLabeled,
-	EventDiscussionActivityUnlabeled,
-	EventDiscussionActivityLocked,
-	EventDiscussionActivityUnlocked,
-	EventDiscussionActivityCategoryChanged,
-	EventDiscussionActivityAnswered,
-	EventDiscussionActivityUnanswered,
-}
-
-type OnDiscussionComment = onEventWithTypes[EventDiscussionCommentActivity]
+type OnDiscussionComment onEventWithTypes[EventDiscussionCommentActivity]
 type EventDiscussionCommentActivity string
 
 const (
@@ -359,17 +328,10 @@ const (
 	EventDiscussionCommentActivityDeleted EventDiscussionCommentActivity = "deleted"
 )
 
-// all activity types
-var defaultEventDiscussionCommentActivities = []EventDiscussionCommentActivity{
-	EventDiscussionCommentActivityCreated,
-	EventDiscussionCommentActivityEdited,
-	EventDiscussionCommentActivityDeleted,
-}
-
 type OnFork = empty
 type OnGollum = empty
 
-type OnIssueComment = onEventWithTypes[EventIssueCommentActivity]
+type OnIssueComment onEventWithTypes[EventIssueCommentActivity]
 type EventIssueCommentActivity string
 
 const (
@@ -378,14 +340,7 @@ const (
 	EventIssueCommentActivityDeleted EventIssueCommentActivity = "deleted"
 )
 
-// all activity types
-var defaultEventIssueCommentActivities = []EventIssueCommentActivity{
-	EventIssueCommentActivityCreated,
-	EventIssueCommentActivityEdited,
-	EventIssueCommentActivityDeleted,
-}
-
-type OnIssues = onEventWithTypes[EventIssuesActivity]
+type OnIssues onEventWithTypes[EventIssuesActivity]
 type EventIssuesActivity string
 
 const (
@@ -407,27 +362,7 @@ const (
 	EventIssuesActivityDemilestoned EventIssuesActivity = "demilestoned"
 )
 
-// all activity types
-var defaultEventIssuesActivities = []EventIssuesActivity{
-	EventIssuesActivityOpened,
-	EventIssuesActivityEdited,
-	EventIssuesActivityDeleted,
-	EventIssuesActivityTransferred,
-	EventIssuesActivityPinned,
-	EventIssuesActivityUnpinned,
-	EventIssuesActivityClosed,
-	EventIssuesActivityReopened,
-	EventIssuesActivityAssigned,
-	EventIssuesActivityUnassigned,
-	EventIssuesActivityLabeled,
-	EventIssuesActivityUnlabeled,
-	EventIssuesActivityLocked,
-	EventIssuesActivityUnlocked,
-	EventIssuesActivityMilestoned,
-	EventIssuesActivityDemilestoned,
-}
-
-type OnLabel = onEventWithTypes[EventLabelActivity]
+type OnLabel onEventWithTypes[EventLabelActivity]
 type EventLabelActivity string
 
 const (
@@ -436,24 +371,12 @@ const (
 	EventLabelActivityDeleted EventLabelActivity = "deleted"
 )
 
-// all activity types
-var defaultEventLabelActivities = []EventLabelActivity{
-	EventLabelActivityCreated,
-	EventLabelActivityEdited,
-	EventLabelActivityDeleted,
-}
-
-type OnMergeGroup = onEventWithTypes[EventMergeGroupActivity]
+type OnMergeGroup onEventWithTypes[EventMergeGroupActivity]
 type EventMergeGroupActivity string
 
 const EventMergeGroupActivityChecksRequested EventMergeGroupActivity = "checks_requested"
 
-// all activity types
-var defaultEventMergeGroupActivities = []EventMergeGroupActivity{
-	EventMergeGroupActivityChecksRequested,
-}
-
-type OnMilestone = onEventWithTypes[EventMilestoneActivity]
+type OnMilestone onEventWithTypes[EventMilestoneActivity]
 type EventMilestoneActivity string
 
 const (
@@ -464,18 +387,9 @@ const (
 	EventMilestoneActivityDeleted EventMilestoneActivity = "deleted"
 )
 
-// all activity types
-var defaultEventMilestoneActivities = []EventMilestoneActivity{
-	EventMilestoneActivityCreated,
-	EventMilestoneActivityClosed,
-	EventMilestoneActivityOpened,
-	EventMilestoneActivityEdited,
-	EventMilestoneActivityDeleted,
-}
-
 type OnPageBuild = empty
 
-type OnProject = onEventWithTypes[EventProjectActivity]
+type OnProject onEventWithTypes[EventProjectActivity]
 type EventProjectActivity string
 
 const (
@@ -486,16 +400,7 @@ const (
 	EventProjectActivityDeleted  EventProjectActivity = "deleted"
 )
 
-// all activity types
-var defaultEventProjectActivities = []EventProjectActivity{
-	EventProjectActivityCreated,
-	EventProjectActivityClosed,
-	EventProjectActivityReopened,
-	EventProjectActivityEdited,
-	EventProjectActivityDeleted,
-}
-
-type OnProjectCard = onEventWithTypes[EventProjectCardActivity]
+type OnProjectCard onEventWithTypes[EventProjectCardActivity]
 type EventProjectCardActivity string
 
 const (
@@ -506,16 +411,7 @@ const (
 	EventProjectCardActivityDeleted   EventProjectCardActivity = "deleted"
 )
 
-// all activity types
-var defaultEventProjectCardActivities = []EventProjectCardActivity{
-	EventProjectCardActivityCreated,
-	EventProjectCardActivityMoved,
-	EventProjectCardActivityConverted,
-	EventProjectCardActivityEdited,
-	EventProjectCardActivityDeleted,
-}
-
-type OnProjectColumn = onEventWithTypes[EventProjectColumnActivity]
+type OnProjectColumn onEventWithTypes[EventProjectColumnActivity]
 type EventProjectColumnActivity string
 
 const (
@@ -524,14 +420,6 @@ const (
 	EventProjectColumnActivityMoved   EventProjectColumnActivity = "moved"
 	EventProjectColumnActivityDeleted EventProjectColumnActivity = "deleted"
 )
-
-// all activity types
-var defaultEventProjectColumnActivities = []EventProjectColumnActivity{
-	EventProjectColumnActivityCreated,
-	EventProjectColumnActivityUpdated,
-	EventProjectColumnActivityMoved,
-	EventProjectColumnActivityDeleted,
-}
 
 type OnPublic = empty
 
@@ -565,13 +453,7 @@ const (
 	EventPullRequestActivityAutoMergeDisabled    EventPullRequestActivity = "auto_merge_disabled"
 )
 
-var defaultEventPullRequestActivities = []EventPullRequestActivity{
-	EventPullRequestActivityOpened,
-	EventPullRequestActivitySynchronize,
-	EventPullRequestActivityReopened,
-}
-
-type OnPullRequestReview = onEventWithTypes[EventPullRequestReviewActivity]
+type OnPullRequestReview onEventWithTypes[EventPullRequestReviewActivity]
 type EventPullRequestReviewActivity string
 
 const (
@@ -580,14 +462,7 @@ const (
 	EventPullRequestReviewActivityDismissed EventPullRequestReviewActivity = "dismissed"
 )
 
-// all activity types
-var defaultEventPullRequestReviewActivities = []EventPullRequestReviewActivity{
-	EventPullRequestReviewActivitySubmitted,
-	EventPullRequestReviewActivityEdited,
-	EventPullRequestReviewActivityDismissed,
-}
-
-type OnPullRequestReviewComment = onEventWithTypes[EventPullRequestReviewCommentActivity]
+type OnPullRequestReviewComment onEventWithTypes[EventPullRequestReviewCommentActivity]
 type EventPullRequestReviewCommentActivity string
 
 const (
@@ -595,13 +470,6 @@ const (
 	EventPullRequestReviewCommentActivityEdited  EventPullRequestReviewCommentActivity = "edited"
 	EventPullRequestReviewCommentActivityDeleted EventPullRequestReviewCommentActivity = "deleted"
 )
-
-// all activity types
-var defaultEventPullRequestReviewCommentActivities = []EventPullRequestReviewCommentActivity{
-	EventPullRequestReviewCommentActivityCreated,
-	EventPullRequestReviewCommentActivityEdited,
-	EventPullRequestReviewCommentActivityDeleted,
-}
 
 type OnPullRequestTarget struct {
 	onEventWithTypes[EventPullRequestTargetActivity]
@@ -629,15 +497,9 @@ const (
 	EventPullRequestTargetActivityAutoMergeDisabled    EventPullRequestTargetActivity = "auto_merge_disabled"
 )
 
-var defaultEventPullRequestTargetActivities = []EventPullRequestTargetActivity{
-	EventPullRequestTargetActivityOpened,
-	EventPullRequestTargetActivitySynchronize,
-	EventPullRequestTargetActivityReopened,
-}
+type OnPush onEventWithRef
 
-type OnPush = onEventWithRef
-
-type OnRegistryPackage = onEventWithTypes[EventRegistryPackageActivity]
+type OnRegistryPackage onEventWithTypes[EventRegistryPackageActivity]
 type EventRegistryPackageActivity string
 
 const (
@@ -645,13 +507,7 @@ const (
 	EventRegistryPackageActivityUpdated   EventRegistryPackageActivity = "updated"
 )
 
-// all activity types
-var defaultEventRegistryPackageActivity = []EventRegistryPackageActivity{
-	EventRegistryPackageActivityPublished,
-	EventRegistryPackageActivityUpdated,
-}
-
-type OnRelease = onEventWithTypes[EventReleaseActivity]
+type OnRelease onEventWithTypes[EventReleaseActivity]
 type EventReleaseActivity string
 
 const (
@@ -664,18 +520,7 @@ const (
 	EventReleaseActivityReleased    EventReleaseActivity = "released"
 )
 
-// all activity types
-var defaultEventReleaseActivity = []EventReleaseActivity{
-	EventReleaseActivityPublished,
-	EventReleaseActivityUnpublished,
-	EventReleaseActivityCreated,
-	EventReleaseActivityEdited,
-	EventReleaseActivityDeleted,
-	EventReleaseActivityPrereleased,
-	EventReleaseActivityReleased,
-}
-
-type OnRepositoryDispatch = onEventWithTypes[EventRepositoryDispatchActivity]
+type OnRepositoryDispatch onEventWithTypes[EventRepositoryDispatchActivity]
 type EventRepositoryDispatchActivity string // any strings
 
 type OnSchedule []struct {
@@ -684,14 +529,10 @@ type OnSchedule []struct {
 }
 type OnStatus = empty
 
-type OnWatch = onEventWithTypes[EventWatchActivity]
+type OnWatch onEventWithTypes[EventWatchActivity]
 type EventWatchActivity string
 
 const EventWatchActivityStarted EventWatchActivity = "started"
-
-var defaultEventWatchActivities = []EventWatchActivity{
-	EventWatchActivityStarted,
-}
 
 type OnWorkflowCall struct {
 	// When using the workflow_call keyword, you can optionally specify inputs that are passed to the called workflow from the caller workflow.
@@ -728,8 +569,3 @@ const (
 	EventWorkflowRunActivityRequested  EventWorkflowRunActivity = "requested"
 	EventWorkflowRunActivityInProgress EventWorkflowRunActivity = "in_progress"
 )
-
-var defaultEventWorkflowRunActivities = []EventWorkflowRunActivity{
-	EventWorkflowRunActivityCompleted,
-	EventWorkflowRunActivityRequested,
-}
