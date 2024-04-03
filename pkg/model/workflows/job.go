@@ -22,7 +22,7 @@ type Job struct {
 	// Identifies any jobs that must complete successfully before this job will run. It can be a string or array of strings.
 	// If a job fails, all jobs that need it are skipped unless the jobs use a conditional statement that causes the job to continue.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idneeds
-	Needs []string `json:"needs,omitempty" yaml:"needs,omitempty"`
+	Needs JobNeeds `json:"needs,omitempty" yaml:"needs,omitempty"`
 
 	// You can use the if conditional to prevent a job from running unless a condition is met.
 	// You can use any supported context and expression to create a conditional.
@@ -253,6 +253,8 @@ type Env map[string]Evaluable[string]
 // https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
 type With map[string]Evaluable[string]
 
+type JobNeeds []string
+
 // Context available: `github`, `needs`, `strategy`, `matrix`, `job`, `runner`, `env`, `vars`, `secrets`, `steps`, `inputs`
 // https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
 type JobOutputs map[string]Evaluable[string]
@@ -336,7 +338,7 @@ type RunsOn struct {
 	//
 	// Context available: `github`, `needs`, `strategy`, `matrix`, `vars`, `inputs`
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
-	Labels Evaluable[string] `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Labels []Evaluable[string] `json:"labels,omitempty" yaml:"labels,omitempty"`
 }
 
 // A strategy creates a build matrix for your jobs. You can define different variations of an environment to run each job in.
