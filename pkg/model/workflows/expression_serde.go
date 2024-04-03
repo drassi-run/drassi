@@ -1,6 +1,9 @@
 package workflows
 
-import "reflect"
+import (
+	"github.com/dungdm93/drasi/pkg/model"
+	"reflect"
+)
 
 var (
 	typeEvaluableBool    = reflect.TypeFor[Evaluable[bool]]()
@@ -45,4 +48,8 @@ func DecodeEvaluableHook(fromType reflect.Type, toType reflect.Type, data any) (
 	}
 
 	return data, nil
+}
+
+func init() {
+	model.RegisterDecodeHook(DecodeEvaluableHook)
 }

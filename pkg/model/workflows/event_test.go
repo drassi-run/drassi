@@ -1,6 +1,7 @@
 package workflows
 
 import (
+	"github.com/dungdm93/drasi/pkg/model"
 	"github.com/mitchellh/mapstructure"
 	"gotest.tools/v3/assert"
 	"testing"
@@ -50,7 +51,7 @@ func testSenerio(t *testing.T, check func(tt *testing.T, data map[string]any, va
 func TestOnBranchProtectionRule(t *testing.T) {
 	var check = func(tt *testing.T, data map[string]any, value any) {
 		obj := klass[OnBranchProtectionRule]{}
-		err := decode(data, &obj)
+		err := model.Decode(data, &obj)
 
 		if value == "error" {
 			assert.ErrorType(tt, err, &mapstructure.Error{})
@@ -76,7 +77,7 @@ func TestOnBranchProtectionRule(t *testing.T) {
 func TestOnCheckRun(t *testing.T) {
 	var check = func(tt *testing.T, data map[string]any, value any) {
 		obj := klass[OnCheckRun]{}
-		err := decode(data, &obj)
+		err := model.Decode(data, &obj)
 
 		if value == "error" {
 			assert.ErrorType(tt, err, &mapstructure.Error{})
@@ -102,7 +103,7 @@ func TestOnCheckRun(t *testing.T) {
 func TestOnCheckSuite(t *testing.T) {
 	var check = func(tt *testing.T, data map[string]any, value any) {
 		obj := klass[OnCheckSuite]{}
-		err := decode(data, &obj)
+		err := model.Decode(data, &obj)
 
 		if value == "error" {
 			assert.ErrorType(tt, err, &mapstructure.Error{})
@@ -128,7 +129,7 @@ func TestOnCheckSuite(t *testing.T) {
 func TestOnDiscussion(t *testing.T) {
 	var check = func(tt *testing.T, data map[string]any, value any) {
 		obj := klass[OnDiscussion]{}
-		err := decode(data, &obj)
+		err := model.Decode(data, &obj)
 
 		if value == "error" {
 			assert.ErrorType(tt, err, &mapstructure.Error{})
@@ -154,7 +155,7 @@ func TestOnDiscussion(t *testing.T) {
 func TestOnDiscussionComment(t *testing.T) {
 	var check = func(tt *testing.T, data map[string]any, value any) {
 		obj := klass[OnDiscussionComment]{}
-		err := decode(data, &obj)
+		err := model.Decode(data, &obj)
 
 		if value == "error" {
 			assert.ErrorType(tt, err, &mapstructure.Error{})
@@ -180,7 +181,7 @@ func TestOnDiscussionComment(t *testing.T) {
 func TestOnIssueComment(t *testing.T) {
 	var check = func(tt *testing.T, data map[string]any, value any) {
 		obj := klass[OnIssueComment]{}
-		err := decode(data, &obj)
+		err := model.Decode(data, &obj)
 
 		if value == "error" {
 			assert.ErrorType(tt, err, &mapstructure.Error{})
@@ -206,7 +207,7 @@ func TestOnIssueComment(t *testing.T) {
 func TestOnIssues(t *testing.T) {
 	var check = func(tt *testing.T, data map[string]any, value any) {
 		obj := klass[OnIssues]{}
-		err := decode(data, &obj)
+		err := model.Decode(data, &obj)
 
 		if value == "error" {
 			assert.ErrorType(tt, err, &mapstructure.Error{})
@@ -232,7 +233,7 @@ func TestOnIssues(t *testing.T) {
 func TestOnLabel(t *testing.T) {
 	var check = func(tt *testing.T, data map[string]any, value any) {
 		obj := klass[OnLabel]{}
-		err := decode(data, &obj)
+		err := model.Decode(data, &obj)
 
 		if value == "error" {
 			assert.ErrorType(tt, err, &mapstructure.Error{})
@@ -258,7 +259,7 @@ func TestOnLabel(t *testing.T) {
 func TestOnMergeGroup(t *testing.T) {
 	var check = func(tt *testing.T, data map[string]any, value any) {
 		obj := klass[OnMergeGroup]{}
-		err := decode(data, &obj)
+		err := model.Decode(data, &obj)
 
 		if value == "error" {
 			assert.ErrorType(tt, err, &mapstructure.Error{})
@@ -284,7 +285,7 @@ func TestOnMergeGroup(t *testing.T) {
 func TestOnMilestone(t *testing.T) {
 	var check = func(tt *testing.T, data map[string]any, value any) {
 		obj := klass[OnMilestone]{}
-		err := decode(data, &obj)
+		err := model.Decode(data, &obj)
 
 		if value == "error" {
 			assert.ErrorType(tt, err, &mapstructure.Error{})
@@ -310,7 +311,7 @@ func TestOnMilestone(t *testing.T) {
 func TestOnProject(t *testing.T) {
 	var check = func(tt *testing.T, data map[string]any, value any) {
 		obj := klass[OnProject]{}
-		err := decode(data, &obj)
+		err := model.Decode(data, &obj)
 
 		if value == "error" {
 			assert.ErrorType(tt, err, &mapstructure.Error{})
@@ -336,7 +337,7 @@ func TestOnProject(t *testing.T) {
 func TestOnProjectCard(t *testing.T) {
 	var check = func(tt *testing.T, data map[string]any, value any) {
 		obj := klass[OnProjectCard]{}
-		err := decode(data, &obj)
+		err := model.Decode(data, &obj)
 
 		if value == "error" {
 			assert.ErrorType(tt, err, &mapstructure.Error{})
@@ -362,7 +363,7 @@ func TestOnProjectCard(t *testing.T) {
 func TestOnProjectColumn(t *testing.T) {
 	var check = func(tt *testing.T, data map[string]any, value any) {
 		obj := klass[OnProjectColumn]{}
-		err := decode(data, &obj)
+		err := model.Decode(data, &obj)
 
 		if value == "error" {
 			assert.ErrorType(tt, err, &mapstructure.Error{})
@@ -388,7 +389,7 @@ func TestOnProjectColumn(t *testing.T) {
 func TestOnPullRequest(t *testing.T) {
 	var check = func(tt *testing.T, data map[string]any, value any) {
 		obj := klass[OnPullRequest]{}
-		err := decode(data, &obj)
+		err := model.Decode(data, &obj)
 
 		if value == "error" {
 			assert.ErrorType(tt, err, &mapstructure.Error{})
@@ -414,7 +415,7 @@ func TestOnPullRequest(t *testing.T) {
 func TestOnPullRequestReview(t *testing.T) {
 	var check = func(tt *testing.T, data map[string]any, value any) {
 		obj := klass[OnPullRequestReview]{}
-		err := decode(data, &obj)
+		err := model.Decode(data, &obj)
 
 		if value == "error" {
 			assert.ErrorType(tt, err, &mapstructure.Error{})
@@ -440,7 +441,7 @@ func TestOnPullRequestReview(t *testing.T) {
 func TestOnPullRequestReviewComment(t *testing.T) {
 	var check = func(tt *testing.T, data map[string]any, value any) {
 		obj := klass[OnPullRequestReviewComment]{}
-		err := decode(data, &obj)
+		err := model.Decode(data, &obj)
 
 		if value == "error" {
 			assert.ErrorType(tt, err, &mapstructure.Error{})
@@ -466,7 +467,7 @@ func TestOnPullRequestReviewComment(t *testing.T) {
 func TestOnPullRequestTarget(t *testing.T) {
 	var check = func(tt *testing.T, data map[string]any, value any) {
 		obj := klass[OnPullRequestTarget]{}
-		err := decode(data, &obj)
+		err := model.Decode(data, &obj)
 
 		if value == "error" {
 			assert.ErrorType(tt, err, &mapstructure.Error{})
@@ -492,7 +493,7 @@ func TestOnPullRequestTarget(t *testing.T) {
 func TestOnRegistryPackage(t *testing.T) {
 	var check = func(tt *testing.T, data map[string]any, value any) {
 		obj := klass[OnRegistryPackage]{}
-		err := decode(data, &obj)
+		err := model.Decode(data, &obj)
 
 		if value == "error" {
 			assert.ErrorType(tt, err, &mapstructure.Error{})
@@ -518,7 +519,7 @@ func TestOnRegistryPackage(t *testing.T) {
 func TestOnRelease(t *testing.T) {
 	var check = func(tt *testing.T, data map[string]any, value any) {
 		obj := klass[OnRelease]{}
-		err := decode(data, &obj)
+		err := model.Decode(data, &obj)
 
 		if value == "error" {
 			assert.ErrorType(tt, err, &mapstructure.Error{})
@@ -544,7 +545,7 @@ func TestOnRelease(t *testing.T) {
 func TestOnWatch(t *testing.T) {
 	var check = func(tt *testing.T, data map[string]any, value any) {
 		obj := klass[OnWatch]{}
-		err := decode(data, &obj)
+		err := model.Decode(data, &obj)
 
 		if value == "error" {
 			assert.ErrorType(tt, err, &mapstructure.Error{})
@@ -570,7 +571,7 @@ func TestOnWatch(t *testing.T) {
 func TestOnWorkflowRun(t *testing.T) {
 	var check = func(tt *testing.T, data map[string]any, value any) {
 		obj := klass[OnWorkflowRun]{}
-		err := decode(data, &obj)
+		err := model.Decode(data, &obj)
 
 		if value == "error" {
 			assert.ErrorType(tt, err, &mapstructure.Error{})

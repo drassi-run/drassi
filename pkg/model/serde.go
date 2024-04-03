@@ -1,6 +1,16 @@
-package workflows
+package model
 
-import "reflect"
+import (
+	"reflect"
+
+	"github.com/mitchellh/mapstructure"
+)
+
+var hooks []mapstructure.DecodeHookFunc
+
+func RegisterDecodeHook(fn mapstructure.DecodeHookFunc) {
+	hooks = append(hooks, fn)
+}
 
 // comparable to yaml.Unmarshaler, decoder allow a type to define its own custom logic to convert value
 // see https://github.com/mitchellh/mapstructure/pull/294
@@ -38,4 +48,23 @@ func DecoderHook(from reflect.Value, to reflect.Value) (any, error) {
 		// d == nil: all input already processed
 		return u, nil
 	}
+}
+
+func init() {
+	RegisterDecodeHook(DecoderHook)
+}
+
+func Decode(source any, target any) error {
+	metadata := mapstructure.Metadata{}
+	config := &mapstructure.DecoderConfig{
+		DecodeHook: mapstructure.ComposeDecodeHookFunc(hooks...),
+		Result:     target,
+		TagName:    "mapstructure",
+		Metadata:   &metadata,
+	}
+	decoder, err := mapstructure.NewDecoder(config)
+	if err != nil {
+		return err
+	}
+	return decoder.Decode(source)
 }

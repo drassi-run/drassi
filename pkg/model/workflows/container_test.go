@@ -1,7 +1,7 @@
 package workflows
 
 import (
-	"github.com/mitchellh/mapstructure"
+	"github.com/dungdm93/drasi/pkg/model"
 	"gotest.tools/v3/assert"
 	"testing"
 )
@@ -50,25 +50,7 @@ func testDecodeContainer[C any](tt *testing.T, value C) {
 	}
 
 	obj := containerTestStruct{}
-	err := decode(data, &obj)
+	err := model.Decode(data, &obj)
 
 	assert.NilError(tt, err)
-}
-
-func decode(source any, target any) error {
-	metadata := mapstructure.Metadata{}
-	config := &mapstructure.DecoderConfig{
-		DecodeHook: mapstructure.ComposeDecodeHookFunc(
-			DecoderHook,
-			DecodeEvaluableHook,
-		),
-		Result:   target,
-		TagName:  "mapstructure",
-		Metadata: &metadata,
-	}
-	decoder, err := mapstructure.NewDecoder(config)
-	if err != nil {
-		return err
-	}
-	return decoder.Decode(source)
 }
