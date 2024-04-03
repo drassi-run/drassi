@@ -7,7 +7,7 @@ import (
 )
 
 type klass[E any] struct {
-	Event *E `json:"event,omitempty" yaml:"event,omitempty"`
+	Event *E `mapstructure:"event,omitempty"`
 }
 
 func createMockData(types any) map[string]any {

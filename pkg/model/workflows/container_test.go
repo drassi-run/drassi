@@ -7,12 +7,12 @@ import (
 )
 
 type containerTestStruct struct {
-	Con          Container             `json:"con" yaml:"con"`
-	ConPtr       *Container            `json:"conPtr" yaml:"conPtr"`
-	ListOfCon    []Container           `json:"listOfCon" yaml:"listOfCon"`
-	MapOfCon     map[string]Container  `json:"mapOfCon" yaml:"mapOfCon"`
-	ListOfConPtr []*Container          `json:"listOfConPtr" yaml:"listOfConPtr"`
-	MapOfConPtr  map[string]*Container `json:"mapOfConPtr" yaml:"mapOfConPtr"`
+	Con          Container             `mapstructure:"con"`
+	ConPtr       *Container            `mapstructure:"conPtr"`
+	ListOfCon    []Container           `mapstructure:"listOfCon"`
+	MapOfCon     map[string]Container  `mapstructure:"mapOfCon"`
+	ListOfConPtr []*Container          `mapstructure:"listOfConPtr"`
+	MapOfConPtr  map[string]*Container `mapstructure:"mapOfConPtr"`
 }
 
 func TestDecodeContainer(t *testing.T) {
@@ -63,7 +63,7 @@ func decode(source any, target any) error {
 			DecodeEvaluableHook,
 		),
 		Result:   target,
-		TagName:  "yaml",
+		TagName:  "mapstructure",
 		Metadata: &metadata,
 	}
 	decoder, err := mapstructure.NewDecoder(config)

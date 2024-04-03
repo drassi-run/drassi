@@ -1,23 +1,23 @@
 package workflows
 
 import (
-	"github.com/mitchellh/mapstructure"
+	"github.com/dungdm93/drasi/pkg/model"
 	"gotest.tools/v3/assert"
 	"reflect"
 	"testing"
 )
 
 type evaluableTestStruct[E any] struct {
-	DirectValue  E            `json:"direct,omitempty" yaml:"direct,omitempty"`
-	Expr         E            `json:"expr,omitempty" yaml:"expr,omitempty"`
-	ListOfExpr   []E          `json:"list_of_expr,omitempty" yaml:"list_of_expr,omitempty"`
-	MapOfExpr    map[string]E `json:"map_of_expr,omitempty" yaml:"map_of_expr,omitempty"`
+	DirectValue  E            `mapstructure:"direct,omitempty"`
+	Expr         E            `mapstructure:"expr,omitempty"`
+	ListOfExpr   []E          `mapstructure:"list_of_expr,omitempty"`
+	MapOfExpr    map[string]E `mapstructure:"map_of_expr,omitempty"`
 	StructOfExpr struct {
-		DirectValue E            `json:"direct,omitempty" yaml:"direct,omitempty"`
-		Expr        E            `json:"expr,omitempty" yaml:"expr,omitempty"`
-		ListOfExpr  []E          `json:"list_of_expr,omitempty" yaml:"list_of_expr,omitempty"`
-		MapOfExpr   map[string]E `json:"map_of_expr,omitempty" yaml:"map_of_expr,omitempty"`
-	} `json:"struct_of_expr,omitempty" yaml:"struct_of_expr,omitempty"`
+		DirectValue E            `mapstructure:"direct,omitempty"`
+		Expr        E            `mapstructure:"expr,omitempty"`
+		ListOfExpr  []E          `mapstructure:"list_of_expr,omitempty"`
+		MapOfExpr   map[string]E `mapstructure:"map_of_expr,omitempty"`
+	} `mapstructure:"struct_of_expr,omitempty"`
 }
 
 func TestDecodeEvaluableHook(t *testing.T) {
@@ -59,7 +59,7 @@ func testDecodeEvaluableHook[R any](t *testing.T, value R) {
 		"struct_of_expr": strct,
 	}
 	obj := evaluableTestStruct[Evaluable[R]]{}
-	err := decodeEvaluable(data, &obj)
+	err := model.Decode(data, &obj)
 
 	assert.NilError(t, err)
 
@@ -93,19 +93,4 @@ func compareExpr[R any](t *testing.T, obj Evaluable[R], expr string) {
 	assert.Equal(t, reflect.TypeOf(obj), reflect.TypeFor[expression[R]]())
 	var e = obj.(expression[R])
 	assert.Equal(t, e.expr, expr)
-}
-
-func decodeEvaluable(source any, target any) error {
-	metadata := mapstructure.Metadata{}
-	config := &mapstructure.DecoderConfig{
-		DecodeHook: DecodeEvaluableHook,
-		Result:     target,
-		TagName:    "yaml",
-		Metadata:   &metadata,
-	}
-	decoder, err := mapstructure.NewDecoder(config)
-	if err != nil {
-		return err
-	}
-	return decoder.Decode(source)
 }
