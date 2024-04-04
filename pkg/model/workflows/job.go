@@ -1,12 +1,22 @@
 package workflows
 
+type Job interface {
+	isJob()
+}
+
+// ensure Job implementations
+var (
+	_ Job = (*NormalJob)(nil)
+	_ Job = (*ReusableWorkflowCallJob)(nil)
+)
+
 // A workflow run is made up of one or more jobs. Jobs run in parallel by default. To run jobs sequentially,
 // you can define dependencies on other jobs using the jobs.<job_id>.needs keyword.
 // Each job runs in a fresh instance of the virtual environment specified by runs-on.
 // You can run an unlimited number of jobs as long as you are within the workflow usage limits.
 // For more information, see https://help.github.com/en/github/automating-your-workflow-with-github-actions/workflow-syntax-for-github-actions#usage-limits.
 // https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobs
-type Job struct {
+type BaseJob struct {
 	// The name of the job displayed on GitHub
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idname
 	//
@@ -56,8 +66,8 @@ type Job struct {
 	ContinueOnError Evaluable[bool] `json:"continue-on-error,omitempty" yaml:"continue-on-error,omitempty" mapstructure:"continue-on-error,omitempty"`
 }
 
-type JobNormal struct {
-	Job `yaml:",inline" mapstructure:",squash"`
+type NormalJob struct {
+	BaseJob `yaml:",inline" mapstructure:",squash"`
 
 	// The type of machine to run the job on. The machine can be either a GitHub-hosted runner, or a self-hosted runner.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idruns-on
@@ -113,13 +123,15 @@ type JobNormal struct {
 	Services map[string]Container `json:"services,omitempty" yaml:"services,omitempty" mapstructure:"services,omitempty"`
 }
 
+func (j *NormalJob) isJob() {}
+
 // Each job must have an id to associate with the job.
 // The key job_id is a string and its value is a map of the job's configuration data.
 // You must replace <job_id> with a string that is unique to the jobs object.
 // The <job_id> must start with a letter or _ and contain only alphanumeric characters, -, or _.", type: "object
 // https://docs.github.com/en/actions/using-workflows/reusing-workflows#calling-a-reusable-workflow
-type JobReusableWorkflowCall struct {
-	Job `yaml:",inline" mapstructure:",squash"`
+type ReusableWorkflowCallJob struct {
+	BaseJob `yaml:",inline" mapstructure:",squash"`
 
 	// The location and version of a reusable workflow file to run as a job, of the form './{path/to}/{localfile}.yml'
 	// or '{owner}/{repo}/{path}/{filename}@{ref}'. {ref} can be a SHA, a release tag, or a branch name.
@@ -139,6 +151,8 @@ type JobReusableWorkflowCall struct {
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idsecrets
 	Secrets JobSecrets `json:"secrets,omitempty" yaml:"secrets,omitempty" mapstructure:"secrets,omitempty"`
 }
+
+func (j *ReusableWorkflowCallJob) isJob() {}
 
 type Step struct {
 	// A unique identifier for the step. You can use the id to reference the step in contexts.
