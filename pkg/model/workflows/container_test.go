@@ -17,25 +17,34 @@ type containerTestStruct struct {
 
 func TestDecodeContainer(t *testing.T) {
 	t.Run("string", func(tt *testing.T) {
-		testDecodeContainer[string](tt, "ubuntu:22.04")
+		con := Container{Image: newIdent("ubuntu:22.04")}
+		testDecodeContainer(tt, "ubuntu:22.04", con)
 	})
 
 	t.Run("expr", func(tt *testing.T) {
-		testDecodeContainer[string](tt, "${{ foobar }}")
+		con := Container{Image: newExpr("${{ foobar }}", toString)}
+		testDecodeContainer(tt, "${{ foobar }}", con)
 	})
 
 	t.Run("map", func(tt *testing.T) {
-		testDecodeContainer[map[string]any](tt, map[string]any{
+		con := Container{
+			Image: newIdent("ubuntu:22.04"),
+			Credentials: &ContainerCredentials{
+				Username: newIdent("username"),
+				Password: newExpr("${{ foobar }}", toString),
+			},
+		}
+		testDecodeContainer(tt, map[string]any{
 			"image": "ubuntu:22.04",
 			"credentials": map[string]any{
 				"username": "username",
 				"password": "${{ foobar }}",
 			},
-		})
+		}, con)
 	})
 }
 
-func testDecodeContainer[C any](tt *testing.T, value C) {
+func testDecodeContainer[C any](tt *testing.T, value C, con Container) {
 	data := map[string]any{
 		"con":       value,
 		"conPtr":    value,
@@ -49,8 +58,18 @@ func testDecodeContainer[C any](tt *testing.T, value C) {
 		},
 	}
 
-	obj := containerTestStruct{}
-	err := model.Decode(data, &obj)
-
+	actual := containerTestStruct{}
+	err := model.Decode(data, &actual)
 	assert.NilError(tt, err)
+
+	opt := comparerForEvaluable[string]()
+	expected := containerTestStruct{
+		Con:          con,
+		ConPtr:       &con,
+		ListOfCon:    []Container{con},
+		ListOfConPtr: []*Container{&con},
+		MapOfCon:     map[string]Container{"key": con},
+		MapOfConPtr:  map[string]*Container{"key": &con},
+	}
+	assert.DeepEqual(tt, actual, expected, opt)
 }

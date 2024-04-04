@@ -2,10 +2,28 @@ package workflows
 
 import (
 	"github.com/dungdm93/drasi/pkg/model"
+	"github.com/google/go-cmp/cmp"
 	"gotest.tools/v3/assert"
 	"reflect"
 	"testing"
 )
+
+func comparerForEvaluable[R any](opts ...cmp.Option) cmp.Option {
+	return cmp.Comparer(func(x, y Evaluable[R]) bool {
+		if reflect.TypeOf(x) != reflect.TypeOf(y) {
+			return false
+		}
+		switch a := x.(type) {
+		case identity[R]:
+			b, ok := y.(identity[R])
+			return ok && cmp.Equal(a.value, b.value, opts...)
+		case expression[R]:
+			b, ok := y.(expression[R])
+			return ok && cmp.Equal(a.expr, b.expr, opts...)
+		}
+		return false
+	})
+}
 
 type evaluableTestStruct[E any] struct {
 	DirectValue  E            `mapstructure:"direct,omitempty"`
@@ -22,23 +40,23 @@ type evaluableTestStruct[E any] struct {
 
 func TestDecodeEvaluableHook(t *testing.T) {
 	t.Run("bool", func(tt *testing.T) {
-		testDecodeEvaluableHook[bool](tt, true)
+		testDecodeEvaluableHook[bool](tt, true, toBool)
 	})
 
 	t.Run("int64", func(tt *testing.T) {
-		testDecodeEvaluableHook[int64](tt, 123456)
+		testDecodeEvaluableHook[int64](tt, 123456, toInteger)
 	})
 
 	t.Run("float64", func(tt *testing.T) {
-		testDecodeEvaluableHook[float64](tt, 123456.789)
+		testDecodeEvaluableHook[float64](tt, 123456.789, toFloat)
 	})
 
 	t.Run("string", func(tt *testing.T) {
-		testDecodeEvaluableHook[string](tt, "hello world")
+		testDecodeEvaluableHook[string](tt, "hello world", toString)
 	})
 }
 
-func testDecodeEvaluableHook[R any](t *testing.T, value R) {
+func testDecodeEvaluableHook[R any](tt *testing.T, value R, con converter[R]) {
 	var expr = "${{ expr }}"
 	var list = []any{value, "${{ expr }}"}
 	var dict = map[string]any{
@@ -61,36 +79,28 @@ func testDecodeEvaluableHook[R any](t *testing.T, value R) {
 	obj := evaluableTestStruct[Evaluable[R]]{}
 	err := model.Decode(data, &obj)
 
-	assert.NilError(t, err)
+	assert.NilError(tt, err)
 
-	assert.Equal(t, obj.DirectValue, newIdent(value))
-	compareExpr(t, obj.Expr, expr)
+	opt := comparerForEvaluable[R]()
+	i := newIdent(value)
+	e := newExpr(expr, con)
+
+	assert.DeepEqual(tt, obj.DirectValue, i, opt)
+	assert.DeepEqual(tt, obj.Expr, e, opt)
 
 	// List
-	assert.Equal(t, len(obj.ListOfExpr), 2)
-	assert.Equal(t, obj.ListOfExpr[0], newIdent(value))
-	compareExpr(t, obj.ListOfExpr[1], expr)
+	assert.DeepEqual(tt, obj.ListOfExpr, []Evaluable[R]{i, e}, opt)
 
-	// Map
-	assert.Equal(t, len(obj.MapOfExpr), 2)
-	assert.Equal(t, obj.MapOfExpr["first"], newIdent(value))
-	compareExpr(t, obj.MapOfExpr["second"], expr)
+	//// Map
+	assert.DeepEqual(tt, obj.MapOfExpr, map[string]Evaluable[R]{"first": i, "second": e}, opt)
 
-	// Struct
-	assert.Equal(t, obj.StructOfExpr.DirectValue, newIdent(value))
-	compareExpr(t, obj.StructOfExpr.Expr, expr)
+	//// Struct
+	assert.DeepEqual(tt, obj.StructOfExpr.DirectValue, i, opt)
+	assert.DeepEqual(tt, obj.StructOfExpr.Expr, e, opt)
 
-	assert.Equal(t, len(obj.StructOfExpr.ListOfExpr), 2)
-	assert.Equal(t, obj.StructOfExpr.ListOfExpr[0], newIdent(value))
-	compareExpr(t, obj.StructOfExpr.ListOfExpr[1], expr)
+	// List
+	assert.DeepEqual(tt, obj.StructOfExpr.ListOfExpr, []Evaluable[R]{i, e}, opt)
 
-	assert.Equal(t, len(obj.StructOfExpr.MapOfExpr), 2)
-	assert.Equal(t, obj.StructOfExpr.MapOfExpr["first"], newIdent(value))
-	compareExpr(t, obj.StructOfExpr.MapOfExpr["second"], expr)
-}
-
-func compareExpr[R any](t *testing.T, obj Evaluable[R], expr string) {
-	assert.Equal(t, reflect.TypeOf(obj), reflect.TypeFor[expression[R]]())
-	var e = obj.(expression[R])
-	assert.Equal(t, e.expr, expr)
+	//// Map
+	assert.DeepEqual(tt, obj.StructOfExpr.MapOfExpr, map[string]Evaluable[R]{"first": i, "second": e}, opt)
 }

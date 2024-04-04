@@ -56,39 +56,20 @@ func testDecodeConcurrency(tt *testing.T, value any, con Concurrency) {
 		},
 	}
 
-	obj := concurrencyTestStruct{}
-	err := model.Decode(data, &obj)
+	actual := concurrencyTestStruct{}
+	err := model.Decode(data, &actual)
 
+	opt := comparerForEvaluable[string]()
+	expected := concurrencyTestStruct{
+		Con:          con,
+		ConPtr:       &con,
+		ListOfCon:    []Concurrency{con},
+		ListOfConPtr: []*Concurrency{&con},
+		MapOfCon:     map[string]Concurrency{"key": con},
+		MapOfConPtr:  map[string]*Concurrency{"key": &con},
+	}
 	assert.NilError(tt, err)
-	assert.Check(tt, assertEqualConcurrency(obj.Con, con))
-	assert.Check(tt, assertEqualConcurrency(*obj.ConPtr, con))
-	assert.Equal(tt, len(obj.ListOfCon), 1)
-	assert.Check(tt, assertEqualConcurrency(obj.ListOfCon[0], con))
-	assert.Equal(tt, len(obj.MapOfCon), 1)
-	assert.Check(tt, assertEqualConcurrency(obj.MapOfCon["key"], con))
-	assert.Equal(tt, len(obj.ListOfConPtr), 1)
-	assert.Check(tt, assertEqualConcurrency(*obj.ListOfConPtr[0], con))
-	assert.Equal(tt, len(obj.MapOfConPtr), 1)
-	assert.Check(tt, assertEqualConcurrency(*obj.MapOfConPtr["key"], con))
-}
-
-func assertEqualConcurrency(a, b Concurrency) bool {
-	if a.CancelInProgress != b.CancelInProgress {
-		return false
-	}
-	if ai, aok := a.Group.(identity[string]); aok {
-		if bi, bok := b.Group.(identity[string]); bok {
-			return ai.value == bi.value
-		}
-		return false
-	}
-	if ae, aok := a.Group.(expression[string]); aok {
-		if be, bok := b.Group.(expression[string]); bok {
-			return ae.expr == be.expr
-		}
-		return false
-	}
-	return false
+	assert.DeepEqual(tt, actual, expected, opt)
 }
 
 type permissionTestStruct struct {
