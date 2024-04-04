@@ -54,14 +54,26 @@ func init() {
 	RegisterDecodeHook(DecoderHook)
 }
 
+type DecodeOption func(config *mapstructure.DecoderConfig)
+
 func Decode(source any, target any) error {
+	opt := func(config *mapstructure.DecoderConfig) {
+		config.DecodeHook = mapstructure.ComposeDecodeHookFunc(hooks...)
+	}
+	return DecodeWithOptions(source, target, opt)
+}
+
+func DecodeWithOptions(source any, target any, opts ...DecodeOption) error {
 	metadata := mapstructure.Metadata{}
 	config := &mapstructure.DecoderConfig{
-		DecodeHook: mapstructure.ComposeDecodeHookFunc(hooks...),
-		Result:     target,
-		TagName:    "mapstructure",
-		Metadata:   &metadata,
+		Result:   target,
+		TagName:  "mapstructure",
+		Metadata: &metadata,
 	}
+	for _, o := range opts {
+		o(config)
+	}
+
 	decoder, err := mapstructure.NewDecoder(config)
 	if err != nil {
 		return err
