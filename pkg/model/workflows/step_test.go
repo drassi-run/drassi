@@ -38,6 +38,14 @@ func TestDecodeStep(t *testing.T) {
 		testDecodeStep(tt, usesInput, step)
 	})
 
+	t.Run("conflict/empty", func(tt *testing.T) {
+		input := map[string]any{}
+		var step Step = &RunStep{}
+		err := model.Decode(input, &step)
+
+		assert.ErrorContains(tt, err, "map MUST be contains either `run` or `uses`")
+	})
+
 	t.Run("conflict/map-contains-both", func(tt *testing.T) {
 		input := map[string]any{
 			"run":  "echo hello world",
@@ -63,7 +71,7 @@ func TestDecodeStep(t *testing.T) {
 		assert.ErrorContains(tt, err, fmt.Sprintf("map contains `uses` CAN'T be decode to %T", step))
 	})
 
-	t.Run("nil", func(tt *testing.T) {
+	t.Run("absent", func(tt *testing.T) {
 		type stepStruct struct {
 			Step       Step            `mapstructure:"step,omitempty"`
 			ListOfStep []Step          `mapstructure:"listOfStep,omitempty"`
@@ -71,6 +79,25 @@ func TestDecodeStep(t *testing.T) {
 		}
 		step := stepStruct{}
 		err := model.Decode(map[string]any{}, &step)
+
+		assert.NilError(tt, err)
+		assert.Check(tt, step.Step == nil)
+		assert.Check(tt, step.ListOfStep == nil)
+		assert.Check(tt, step.MapOfStep == nil)
+	})
+
+	t.Run("nil", func(tt *testing.T) {
+		type stepStruct struct {
+			Step       Step            `mapstructure:"step,omitempty"`
+			ListOfStep []Step          `mapstructure:"listOfStep,omitempty"`
+			MapOfStep  map[string]Step `mapstructure:"mapOfStep,omitempty"`
+		}
+		step := stepStruct{}
+		err := model.Decode(map[string]any{
+			"step":       nil,
+			"listOfStep": nil,
+			"mapOfStep":  nil,
+		}, &step)
 
 		assert.NilError(tt, err)
 		assert.Check(tt, step.Step == nil)

@@ -49,6 +49,14 @@ func TestDecodeJob(t *testing.T) {
 		testDecodeJob(tt, usesInput, job)
 	})
 
+	t.Run("conflict/empty", func(tt *testing.T) {
+		input := map[string]any{}
+		var job Job = &NormalJob{}
+		err := model.Decode(input, &job)
+
+		assert.ErrorContains(tt, err, "map MUST be contains either `runs-on` or `uses`")
+	})
+
 	t.Run("conflict/map-contains-both", func(tt *testing.T) {
 		input := map[string]any{
 			"runs-on": "ubuntu",
@@ -74,7 +82,7 @@ func TestDecodeJob(t *testing.T) {
 		assert.ErrorContains(tt, err, fmt.Sprintf("map contains `uses` CAN'T be decode to %T", job))
 	})
 
-	t.Run("nil", func(tt *testing.T) {
+	t.Run("absent", func(tt *testing.T) {
 		type jobStruct struct {
 			Job       Job            `mapstructure:"job,omitempty"`
 			ListOfJob []Job          `mapstructure:"listOfJob,omitempty"`
@@ -82,6 +90,25 @@ func TestDecodeJob(t *testing.T) {
 		}
 		job := jobStruct{}
 		err := model.Decode(map[string]any{}, &job)
+
+		assert.NilError(tt, err)
+		assert.Check(tt, job.Job == nil)
+		assert.Check(tt, job.ListOfJob == nil)
+		assert.Check(tt, job.MapOfJob == nil)
+	})
+
+	t.Run("nil", func(tt *testing.T) {
+		type jobStruct struct {
+			Job       Job            `mapstructure:"job,omitempty"`
+			ListOfJob []Job          `mapstructure:"listOfJob,omitempty"`
+			MapOfJob  map[string]Job `mapstructure:"mapOfJob,omitempty"`
+		}
+		job := jobStruct{}
+		err := model.Decode(map[string]any{
+			"job":       nil,
+			"listOfJob": nil,
+			"mapOfJob":  nil,
+		}, &job)
 
 		assert.NilError(tt, err)
 		assert.Check(tt, job.Job == nil)
