@@ -10,6 +10,14 @@ import (
 
 func comparerForEvaluable[R any](opts ...cmp.Option) cmp.Option {
 	return cmp.Comparer(func(x, y Evaluable[R]) bool {
+		if x == nil {
+			return y == nil
+		}
+		if y == nil {
+			return x == nil
+		}
+
+		// x != nil && y != nil
 		if reflect.TypeOf(x) != reflect.TypeOf(y) {
 			return false
 		}

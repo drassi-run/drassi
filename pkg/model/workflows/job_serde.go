@@ -1,7 +1,5 @@
 package workflows
 
-import "fmt"
-
 func (n *JobNeeds) DecodeMapstructure(input any) (any, error) {
 	if s, ok := input.(string); ok {
 		return []string{s}, nil
@@ -20,12 +18,16 @@ func (s *JobSecrets) DecodeMapstructure(input any) (any, error) {
 			if secret, err := newEvaluable(v, toString); err != nil {
 				return nil, err
 			} else {
+				if s.Secrets == nil {
+					s.Secrets = make(map[string]Evaluable[string])
+				}
 				s.Secrets[k] = secret
 			}
 		}
 		return nil, nil
 	}
-	return nil, fmt.Errorf("unsupport input %s, type %T", input, input)
+	// process JobSecrets normal way
+	return input, nil
 }
 
 func (e *Environment) DecodeMapstructure(input any) (any, error) {
@@ -43,15 +45,25 @@ func (e *Environment) DecodeMapstructure(input any) (any, error) {
 
 func (r *RunsOn) DecodeMapstructure(input any) (any, error) {
 	var labels []string
-	switch input.(type) {
+	switch i := input.(type) {
 	case string:
-		s := input.(string)
-		labels = []string{s}
+		labels = []string{i}
+		input = nil
 	case []string:
-		labels = input.([]string)
-	default:
-		// process RunsOn normal way
-		return input, nil
+		labels = i
+		input = nil
+	case map[string]any:
+		if lb, ok := i["labels"]; ok {
+			switch l := lb.(type) {
+			case string:
+				labels = []string{l}
+			case []string:
+				labels = l
+			default:
+				return input, nil
+			}
+			delete(i, "labels")
+		}
 	}
 	for _, l := range labels {
 		if label, err := newEvaluable(l, toString); err != nil {
@@ -60,5 +72,5 @@ func (r *RunsOn) DecodeMapstructure(input any) (any, error) {
 			r.Labels = append(r.Labels, label)
 		}
 	}
-	return nil, nil
+	return input, nil
 }
