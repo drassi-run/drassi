@@ -1,7 +1,9 @@
 package workflows
 
 import (
+	"fmt"
 	"github.com/dungdm93/drasi/pkg/model"
+	"github.com/google/go-cmp/cmp"
 	"github.com/mitchellh/copystructure"
 	"gotest.tools/v3/assert"
 	"testing"
@@ -13,6 +15,114 @@ func clone[T any](i any) any {
 	} else {
 		return o.(T)
 	}
+}
+
+type jobTestStruct struct {
+	Job          Job             `mapstructure:"job"`
+	JobPtr       *Job            `mapstructure:"jobPtr"`
+	ListOfJob    []Job           `mapstructure:"listOfJob"`
+	ListOfJobPtr []*Job          `mapstructure:"listOfJobPtr"`
+	MapOfJob     map[string]Job  `mapstructure:"mapOfJob"`
+	MapOfJobPtr  map[string]*Job `mapstructure:"mapOfJobPtr"`
+}
+
+func TestDecodeJob(t *testing.T) {
+	runsOnInput := map[string]any{
+		"runs-on": "ubuntu",
+	}
+	usesInput := map[string]any{
+		"uses": "./path/to/the/workflow.yaml",
+	}
+
+	t.Run("normal", func(tt *testing.T) {
+		job := &NormalJob{
+			RunsOn: RunsOn{
+				Labels: []Evaluable[string]{newIdent("ubuntu")},
+			},
+		}
+		testDecodeJob(tt, runsOnInput, job)
+	})
+	t.Run("reusableWorkflowCall", func(tt *testing.T) {
+		job := &ReusableWorkflowCallJob{
+			Uses: "./path/to/the/workflow.yaml",
+		}
+		testDecodeJob(tt, usesInput, job)
+	})
+
+	t.Run("conflict/map-contains-both", func(tt *testing.T) {
+		input := map[string]any{
+			"runs-on": "ubuntu",
+			"uses":    "./path/to/the/workflow.yaml",
+		}
+		var job Job = &NormalJob{}
+		err := model.Decode(input, &job)
+
+		assert.ErrorContains(tt, err, "map MUST be contains either `runs-on` or `uses`")
+	})
+
+	t.Run("conflict/runs-on-ReusableWorkflowCallJob", func(tt *testing.T) {
+		var job Job = &ReusableWorkflowCallJob{}
+		err := model.Decode(runsOnInput, &job)
+
+		assert.ErrorContains(tt, err, fmt.Sprintf("map contains `runs-on` CAN'T be decode to %T", job))
+	})
+
+	t.Run("conflict/uses-to-NormalJob", func(tt *testing.T) {
+		var job Job = &NormalJob{}
+		err := model.Decode(usesInput, &job)
+
+		assert.ErrorContains(tt, err, fmt.Sprintf("map contains `uses` CAN'T be decode to %T", job))
+	})
+
+	t.Run("nil", func(tt *testing.T) {
+		type jobStruct struct {
+			Job       Job            `mapstructure:"job,omitempty"`
+			ListOfJob []Job          `mapstructure:"listOfJob,omitempty"`
+			MapOfJob  map[string]Job `mapstructure:"mapOfJob,omitempty"`
+		}
+		job := jobStruct{}
+		err := model.Decode(map[string]any{}, &job)
+
+		assert.NilError(tt, err)
+		assert.Check(tt, job.Job == nil)
+		assert.Check(tt, job.ListOfJob == nil)
+		assert.Check(tt, job.MapOfJob == nil)
+	})
+}
+
+func testDecodeJob[T any](tt *testing.T, value T, job Job) {
+	data := map[string]any{
+		"job":       clone[T](value),
+		"jobPtr":    clone[T](value),
+		"listOfJob": []any{clone[T](value)},
+		"mapOfJob": map[string]any{
+			"key": clone[T](value),
+		},
+		"listOfJobPtr": []any{clone[T](value)},
+		"mapOfJobPtr": map[string]any{
+			"key": clone[T](value),
+		},
+	}
+
+	actual := jobTestStruct{}
+	err := model.Decode(data, &actual)
+
+	opt := []cmp.Option{
+		comparerForEvaluable[string](),
+		comparerForEvaluable[bool](),
+		comparerForEvaluable[int64](),
+		comparerForEvaluable[float64](),
+	}
+	expected := jobTestStruct{
+		Job:          job,
+		JobPtr:       &job,
+		ListOfJob:    []Job{job},
+		ListOfJobPtr: []*Job{&job},
+		MapOfJob:     map[string]Job{"key": job},
+		MapOfJobPtr:  map[string]*Job{"key": &job},
+	}
+	assert.NilError(tt, err)
+	assert.DeepEqual(tt, actual, expected, opt...)
 }
 
 type jobNeedsTestStruct struct {
