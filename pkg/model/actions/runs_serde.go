@@ -23,7 +23,7 @@ func DecodeRunsHook(from reflect.Value, to reflect.Value) (any, error) {
 
 	using, ok := m["using"].(string)
 	if !ok {
-		return nil, fmt.Errorf("`using` key is required, and MUST be a string")
+		return nil, fmt.Errorf("`using` is required, and MUST be a string")
 	}
 
 	if using == "composite" {
