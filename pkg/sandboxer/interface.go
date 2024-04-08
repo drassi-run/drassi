@@ -6,7 +6,9 @@ import (
 )
 
 type Sandboxer interface {
-	io.Closer
+	Close() error
+	Connect(context.Context) error
+
 	LaunchSandbox(context.Context, LaunchSandboxRequest) (LaunchSandboxResponse, error)
 	TerminateSandbox(context.Context, TerminateSandboxRequest) (TerminateSandboxResponse, error)
 	ExecuteSandbox(context.Context, ExecuteSandboxRequest) (ExecuteSandboxResponse, error)
@@ -35,10 +37,12 @@ type ExecuteSandboxRequest struct {
 	Cmd       []string
 	Env       map[string]string
 	User      string
+	Group     string
 	Workdir   string
 }
 
 type ExecuteSandboxResponse struct {
+	ExitCode int
 }
 
 type CopyFromSandboxRequest struct {
