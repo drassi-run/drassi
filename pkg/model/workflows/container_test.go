@@ -17,21 +17,21 @@ type containerTestStruct struct {
 
 func TestDecodeContainer(t *testing.T) {
 	t.Run("string", func(tt *testing.T) {
-		con := Container{Image: newIdent("ubuntu:22.04")}
+		con := Container{Image: NewIdent("ubuntu:22.04")}
 		testDecodeContainer(tt, "ubuntu:22.04", con)
 	})
 
 	t.Run("expr", func(tt *testing.T) {
-		con := Container{Image: newExpr("${{ foobar }}", toString)}
+		con := Container{Image: NewExpr("${{ foobar }}", toString)}
 		testDecodeContainer(tt, "${{ foobar }}", con)
 	})
 
 	t.Run("map", func(tt *testing.T) {
 		con := Container{
-			Image: newIdent("ubuntu:22.04"),
+			Image: NewIdent("ubuntu:22.04"),
 			Credentials: &ContainerCredentials{
-				Username: newIdent("username"),
-				Password: newExpr("${{ foobar }}", toString),
+				Username: NewIdent("username"),
+				Password: NewExpr("${{ foobar }}", toString),
 			},
 		}
 		testDecodeContainer(tt, map[string]any{

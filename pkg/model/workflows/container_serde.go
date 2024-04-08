@@ -2,7 +2,7 @@ package workflows
 
 func (c *Container) DecodeMapstructure(input any) (any, error) {
 	if s, ok := input.(string); ok {
-		if image, err := newEvaluable(s, toString); err != nil {
+		if image, err := NewEvaluable(s, toString); err != nil {
 			return nil, err
 		} else {
 			c.Image = image

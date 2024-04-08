@@ -62,7 +62,7 @@ func (s *JobSecrets) DecodeMapstructure(input any) (any, error) {
 	}
 	if m, ok := input.(map[string]string); ok {
 		for k, v := range m {
-			if secret, err := newEvaluable(v, toString); err != nil {
+			if secret, err := NewEvaluable(v, toString); err != nil {
 				return nil, err
 			} else {
 				if s.Secrets == nil {
@@ -79,7 +79,7 @@ func (s *JobSecrets) DecodeMapstructure(input any) (any, error) {
 
 func (e *Environment) DecodeMapstructure(input any) (any, error) {
 	if s, ok := input.(string); ok {
-		if name, err := newEvaluable(s, toString); err != nil {
+		if name, err := NewEvaluable(s, toString); err != nil {
 			return nil, err
 		} else {
 			e.Name = name
@@ -113,7 +113,7 @@ func (r *RunsOn) DecodeMapstructure(input any) (any, error) {
 		}
 	}
 	for _, l := range labels {
-		if label, err := newEvaluable(l, toString); err != nil {
+		if label, err := NewEvaluable(l, toString); err != nil {
 			return nil, err
 		} else {
 			r.Labels = append(r.Labels, label)

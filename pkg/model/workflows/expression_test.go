@@ -90,8 +90,8 @@ func testDecodeEvaluableHook[R any](tt *testing.T, value R, con converter[R]) {
 	assert.NilError(tt, err)
 
 	opt := comparerForEvaluable[R]()
-	i := newIdent(value)
-	e := newExpr(expr, con)
+	i := NewIdent(value)
+	e := NewExpr(expr, con)
 
 	assert.DeepEqual(tt, obj.DirectValue, i, opt)
 	assert.DeepEqual(tt, obj.Expr, e, opt)

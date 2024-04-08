@@ -19,7 +19,7 @@ func (i identity[R]) Evaluate(context.Context) (R, error) {
 }
 
 // A little helper to create new identity easier
-func newIdent[R any](value R) Evaluable[R] {
+func NewIdent[R any](value R) Evaluable[R] {
 	return identity[R]{value: value}
 }
 
@@ -35,7 +35,7 @@ func (e expression[R]) Evaluate(ctx context.Context) (R, error) {
 }
 
 // A little helper to create new expression easier
-func newExpr[R any](expr string, conv converter[R]) Evaluable[R] {
+func NewExpr[R any](expr string, conv converter[R]) Evaluable[R] {
 	return expression[R]{
 		expr: expr,
 		conv: conv,
@@ -65,14 +65,14 @@ const (
 	CloseExpression = "}}"
 )
 
-func newEvaluable[R any](s string, con converter[R]) (Evaluable[R], error) {
+func NewEvaluable[R any](s string, con converter[R]) (Evaluable[R], error) {
 	if strings.Contains(s, OpenExpression) {
-		return newExpr(s, con), nil
+		return NewExpr(s, con), nil
 	}
 
 	if v, err := con(s); err != nil {
 		return nil, err
 	} else {
-		return newIdent(v), nil
+		return NewIdent(v), nil
 	}
 }

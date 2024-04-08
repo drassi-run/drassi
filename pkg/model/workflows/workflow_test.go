@@ -18,21 +18,21 @@ type concurrencyTestStruct struct {
 func TestDecodeConcurrency(t *testing.T) {
 	t.Run("string", func(tt *testing.T) {
 		c := Concurrency{
-			Group: newIdent("group1"),
+			Group: NewIdent("group1"),
 		}
 		testDecodeConcurrency(tt, "group1", c)
 	})
 
 	t.Run("expr", func(tt *testing.T) {
 		c := Concurrency{
-			Group: newExpr("${{ foobar }}", toString),
+			Group: NewExpr("${{ foobar }}", toString),
 		}
 		testDecodeConcurrency(tt, "${{ foobar }}", c)
 	})
 
 	t.Run("map", func(tt *testing.T) {
 		c := Concurrency{
-			Group:            newExpr("${{ foobar }}", toString),
+			Group:            NewExpr("${{ foobar }}", toString),
 			CancelInProgress: true,
 		}
 		testDecodeConcurrency(tt, map[string]any{

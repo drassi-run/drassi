@@ -27,7 +27,7 @@ func TestDecodeStep(t *testing.T) {
 
 	t.Run("run", func(tt *testing.T) {
 		step := &RunStep{
-			Run: newIdent("echo hello world"),
+			Run: NewIdent("echo hello world"),
 		}
 		testDecodeStep(tt, runInput, step)
 	})

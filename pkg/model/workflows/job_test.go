@@ -37,7 +37,7 @@ func TestDecodeJob(t *testing.T) {
 	t.Run("normal", func(tt *testing.T) {
 		job := &NormalJob{
 			RunsOn: RunsOn{
-				Labels: []Evaluable[string]{newIdent("ubuntu")},
+				Labels: []Evaluable[string]{NewIdent("ubuntu")},
 			},
 		}
 		testDecodeJob(tt, runsOnInput, job)
@@ -222,8 +222,8 @@ func TestDecodeJobSecrets(t *testing.T) {
 	t.Run("expr", func(tt *testing.T) {
 		js := JobSecrets{
 			Secrets: map[string]Evaluable[string]{
-				"normal":     newIdent("normal"),
-				"expression": newExpr("${{ expression }}", toString),
+				"normal":     NewIdent("normal"),
+				"expression": NewExpr("${{ expression }}", toString),
 			},
 		}
 		v := map[string]string{
@@ -276,22 +276,22 @@ type environmentTestStruct struct {
 func TestDecodeEnvironment(t *testing.T) {
 	t.Run("string", func(tt *testing.T) {
 		env := Environment{
-			Name: newIdent("name1"),
+			Name: NewIdent("name1"),
 		}
 		testDecodeEnvironment(tt, "name1", env)
 	})
 
 	t.Run("expr", func(tt *testing.T) {
 		env := Environment{
-			Name: newExpr("${{ foobar }}", toString),
+			Name: NewExpr("${{ foobar }}", toString),
 		}
 		testDecodeEnvironment(tt, "${{ foobar }}", env)
 	})
 
 	t.Run("map/string", func(tt *testing.T) {
 		env := Environment{
-			Name: newIdent("name1"),
-			Url:  newExpr("${{ foobar }}", toString),
+			Name: NewIdent("name1"),
+			Url:  NewExpr("${{ foobar }}", toString),
 		}
 		v := map[string]any{
 			"name": "name1",
@@ -302,8 +302,8 @@ func TestDecodeEnvironment(t *testing.T) {
 
 	t.Run("map/expr", func(tt *testing.T) {
 		env := Environment{
-			Name: newExpr("${{ foobar }}", toString),
-			Url:  newIdent("url1"),
+			Name: NewExpr("${{ foobar }}", toString),
+			Url:  NewIdent("url1"),
 		}
 		v := map[string]any{
 			"name": "${{ foobar }}",
@@ -355,14 +355,14 @@ type runOnTestStruct struct {
 func TestDecodeRunsOn(t *testing.T) {
 	t.Run("string", func(tt *testing.T) {
 		ro := RunsOn{
-			Labels: []Evaluable[string]{newIdent("label1")},
+			Labels: []Evaluable[string]{NewIdent("label1")},
 		}
 		testDecodeRunsOn(tt, "label1", ro)
 	})
 
 	t.Run("expr", func(tt *testing.T) {
 		ro := RunsOn{
-			Labels: []Evaluable[string]{newExpr("${{ foobar }}", toString)},
+			Labels: []Evaluable[string]{NewExpr("${{ foobar }}", toString)},
 		}
 		testDecodeRunsOn(tt, "${{ foobar }}", ro)
 	})
@@ -370,8 +370,8 @@ func TestDecodeRunsOn(t *testing.T) {
 	t.Run("list", func(tt *testing.T) {
 		ro := RunsOn{
 			Labels: []Evaluable[string]{
-				newIdent("label1"),
-				newExpr("${{ foobar }}", toString),
+				NewIdent("label1"),
+				NewExpr("${{ foobar }}", toString),
 			},
 		}
 		testDecodeRunsOn(tt, []string{"label1", "${{ foobar }}"}, ro)
@@ -379,7 +379,7 @@ func TestDecodeRunsOn(t *testing.T) {
 
 	t.Run("map/string", func(tt *testing.T) {
 		ro := RunsOn{
-			Labels: []Evaluable[string]{newIdent("label1")},
+			Labels: []Evaluable[string]{NewIdent("label1")},
 		}
 		v := map[string]any{
 			"labels": "label1",
@@ -389,7 +389,7 @@ func TestDecodeRunsOn(t *testing.T) {
 
 	t.Run("map/expr", func(tt *testing.T) {
 		ro := RunsOn{
-			Labels: []Evaluable[string]{newExpr("${{ foobar }}", toString)},
+			Labels: []Evaluable[string]{NewExpr("${{ foobar }}", toString)},
 		}
 		v := map[string]any{
 			"labels": "${{ foobar }}",
@@ -401,8 +401,8 @@ func TestDecodeRunsOn(t *testing.T) {
 		ro := RunsOn{
 			Group: "foobar",
 			Labels: []Evaluable[string]{
-				newIdent("label1"),
-				newExpr("${{ foobar }}", toString),
+				NewIdent("label1"),
+				NewExpr("${{ foobar }}", toString),
 			},
 		}
 		v := map[string]any{
