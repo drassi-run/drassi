@@ -3,6 +3,8 @@ package sandboxer
 import (
 	"context"
 	"io"
+
+	"github.com/dungdm93/drasi/pkg/container"
 )
 
 type Sandboxer interface {
@@ -18,6 +20,9 @@ type Sandboxer interface {
 }
 
 type LaunchSandboxRequest struct {
+	JobName           string
+	JobContainer      *container.ContainerConfig
+	ServiceContainers map[string]*container.ContainerConfig
 }
 
 type LaunchSandboxResponse struct {
