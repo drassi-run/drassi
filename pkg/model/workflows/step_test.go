@@ -108,15 +108,15 @@ func TestDecodeStep(t *testing.T) {
 
 func testDecodeStep[T any](tt *testing.T, value T, step Step) {
 	data := map[string]any{
-		"step":       clone[T](value),
-		"stepPtr":    clone[T](value),
-		"listOfStep": []any{clone[T](value)},
+		"step":       clone(value),
+		"stepPtr":    clone(value),
+		"listOfStep": []any{clone(value)},
 		"mapOfStep": map[string]any{
-			"key": clone[T](value),
+			"key": clone(value),
 		},
-		"listOfStepPtr": []any{clone[T](value)},
+		"listOfStepPtr": []any{clone(value)},
 		"mapOfStepPtr": map[string]any{
-			"key": clone[T](value),
+			"key": clone(value),
 		},
 	}
 

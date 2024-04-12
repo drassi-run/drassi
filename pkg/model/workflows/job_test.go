@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func clone[T any](i any) any {
+func clone[T any](i T) T {
 	if o, err := copystructure.Copy(i); err != nil {
 		return i
 	} else {
@@ -119,15 +119,15 @@ func TestDecodeJob(t *testing.T) {
 
 func testDecodeJob[T any](tt *testing.T, value T, job Job) {
 	data := map[string]any{
-		"job":       clone[T](value),
-		"jobPtr":    clone[T](value),
-		"listOfJob": []any{clone[T](value)},
+		"job":       clone(value),
+		"jobPtr":    clone(value),
+		"listOfJob": []any{clone(value)},
 		"mapOfJob": map[string]any{
-			"key": clone[T](value),
+			"key": clone(value),
 		},
-		"listOfJobPtr": []any{clone[T](value)},
+		"listOfJobPtr": []any{clone(value)},
 		"mapOfJobPtr": map[string]any{
-			"key": clone[T](value),
+			"key": clone(value),
 		},
 	}
 
@@ -174,15 +174,15 @@ func TestDecodeJobNeeds(t *testing.T) {
 
 func testDecodeJobNeeds[T any](tt *testing.T, value T, jn JobNeeds) {
 	data := map[string]any{
-		"jn":       clone[T](value),
-		"jnPtr":    clone[T](value),
-		"listOfJn": []any{clone[T](value)},
+		"jn":       clone(value),
+		"jnPtr":    clone(value),
+		"listOfJn": []any{clone(value)},
 		"mapOfJn": map[string]any{
-			"key": clone[T](value),
+			"key": clone(value),
 		},
-		"listOfJnPtr": []any{clone[T](value)},
+		"listOfJnPtr": []any{clone(value)},
 		"mapOfJnPtr": map[string]any{
-			"key": clone[T](value),
+			"key": clone(value),
 		},
 	}
 
@@ -236,15 +236,15 @@ func TestDecodeJobSecrets(t *testing.T) {
 
 func testDecodeJobSecrets[T any](tt *testing.T, value T, js JobSecrets) {
 	data := map[string]any{
-		"js":       clone[T](value),
-		"jsPtr":    clone[T](value),
-		"listOfJs": []any{clone[T](value)},
+		"js":       clone(value),
+		"jsPtr":    clone(value),
+		"listOfJs": []any{clone(value)},
 		"mapOfJs": map[string]any{
-			"key": clone[T](value),
+			"key": clone(value),
 		},
-		"listOfJsPtr": []any{clone[T](value)},
+		"listOfJsPtr": []any{clone(value)},
 		"mapOfJsPtr": map[string]any{
-			"key": clone[T](value),
+			"key": clone(value),
 		},
 	}
 
@@ -315,15 +315,15 @@ func TestDecodeEnvironment(t *testing.T) {
 
 func testDecodeEnvironment[T any](tt *testing.T, value T, env Environment) {
 	data := map[string]any{
-		"environment":       clone[T](value),
-		"environmentPtr":    clone[T](value),
-		"listOfEnvironment": []any{clone[T](value)},
+		"environment":       clone(value),
+		"environmentPtr":    clone(value),
+		"listOfEnvironment": []any{clone(value)},
 		"mapOfEnvironment": map[string]any{
-			"key": clone[T](value),
+			"key": clone(value),
 		},
-		"listOfEnvironmentPtr": []any{clone[T](value)},
+		"listOfEnvironmentPtr": []any{clone(value)},
 		"mapOfEnvironmentPtr": map[string]any{
-			"key": clone[T](value),
+			"key": clone(value),
 		},
 	}
 
@@ -415,15 +415,15 @@ func TestDecodeRunsOn(t *testing.T) {
 
 func testDecodeRunsOn[T any](tt *testing.T, value T, ro RunsOn) {
 	data := map[string]any{
-		"ro":       clone[T](value),
-		"roPtr":    clone[T](value),
-		"listOfRo": []any{clone[T](value)},
+		"ro":       clone(value),
+		"roPtr":    clone(value),
+		"listOfRo": []any{clone(value)},
 		"mapOfRo": map[string]any{
-			"key": clone[T](value),
+			"key": clone(value),
 		},
-		"listOfRoPtr": []any{clone[T](value)},
+		"listOfRoPtr": []any{clone(value)},
 		"mapOfRoPtr": map[string]any{
-			"key": clone[T](value),
+			"key": clone(value),
 		},
 	}
 
