@@ -62,7 +62,7 @@ func testDecodeContainer[C any](tt *testing.T, value C, con Container) {
 	err := model.Decode(data, &actual)
 	assert.NilError(tt, err)
 
-	opt := comparerForEvaluable[string]()
+	opts := comparerForEvaluable[string]()
 	expected := containerTestStruct{
 		Con:          con,
 		ConPtr:       &con,
@@ -71,5 +71,5 @@ func testDecodeContainer[C any](tt *testing.T, value C, con Container) {
 		MapOfCon:     map[string]Container{"key": con},
 		MapOfConPtr:  map[string]*Container{"key": &con},
 	}
-	assert.DeepEqual(tt, actual, expected, opt)
+	assert.DeepEqual(tt, actual, expected, opts...)
 }

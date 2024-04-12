@@ -3,7 +3,6 @@ package workflows
 import (
 	"fmt"
 	"github.com/dungdm93/drasi/pkg/model"
-	"github.com/google/go-cmp/cmp"
 	"github.com/mitchellh/copystructure"
 	"gotest.tools/v3/assert"
 	"testing"
@@ -134,12 +133,7 @@ func testDecodeJob[T any](tt *testing.T, value T, job Job) {
 	actual := jobTestStruct{}
 	err := model.Decode(data, &actual)
 
-	opt := []cmp.Option{
-		comparerForEvaluable[string](),
-		comparerForEvaluable[bool](),
-		comparerForEvaluable[int64](),
-		comparerForEvaluable[float64](),
-	}
+	opts := commonComparerForEvaluable()
 	expected := jobTestStruct{
 		Job:          job,
 		JobPtr:       &job,
@@ -149,7 +143,7 @@ func testDecodeJob[T any](tt *testing.T, value T, job Job) {
 		MapOfJobPtr:  map[string]*Job{"key": &job},
 	}
 	assert.NilError(tt, err)
-	assert.DeepEqual(tt, actual, expected, opt...)
+	assert.DeepEqual(tt, actual, expected, opts...)
 }
 
 type jobNeedsTestStruct struct {
@@ -189,7 +183,7 @@ func testDecodeJobNeeds[T any](tt *testing.T, value T, jn JobNeeds) {
 	actual := jobNeedsTestStruct{}
 	err := model.Decode(data, &actual)
 
-	opt := comparerForEvaluable[string]()
+	opts := comparerForEvaluable[string]()
 	expected := jobNeedsTestStruct{
 		JN:          jn,
 		JNPtr:       &jn,
@@ -199,7 +193,7 @@ func testDecodeJobNeeds[T any](tt *testing.T, value T, jn JobNeeds) {
 		MapOfJNPtr:  map[string]*JobNeeds{"key": &jn},
 	}
 	assert.NilError(tt, err)
-	assert.DeepEqual(tt, actual, expected, opt)
+	assert.DeepEqual(tt, actual, expected, opts...)
 }
 
 type jobSecretTestStruct struct {
@@ -251,7 +245,7 @@ func testDecodeJobSecrets[T any](tt *testing.T, value T, js JobSecrets) {
 	actual := jobSecretTestStruct{}
 	err := model.Decode(data, &actual)
 
-	opt := comparerForEvaluable[string]()
+	opts := comparerForEvaluable[string]()
 	expected := jobSecretTestStruct{
 		JS:          js,
 		JSPtr:       &js,
@@ -261,7 +255,7 @@ func testDecodeJobSecrets[T any](tt *testing.T, value T, js JobSecrets) {
 		MapOfJSPtr:  map[string]*JobSecrets{"key": &js},
 	}
 	assert.NilError(tt, err)
-	assert.DeepEqual(tt, actual, expected, opt)
+	assert.DeepEqual(tt, actual, expected, opts...)
 }
 
 type environmentTestStruct struct {
@@ -330,7 +324,7 @@ func testDecodeEnvironment[T any](tt *testing.T, value T, env Environment) {
 	actual := environmentTestStruct{}
 	err := model.Decode(data, &actual)
 
-	opt := comparerForEvaluable[string]()
+	opts := comparerForEvaluable[string]()
 	expected := environmentTestStruct{
 		Environment:          env,
 		EnvironmentPtr:       &env,
@@ -340,7 +334,7 @@ func testDecodeEnvironment[T any](tt *testing.T, value T, env Environment) {
 		MapOfEnvironmentPtr:  map[string]*Environment{"key": &env},
 	}
 	assert.NilError(tt, err)
-	assert.DeepEqual(tt, actual, expected, opt)
+	assert.DeepEqual(tt, actual, expected, opts...)
 }
 
 type runOnTestStruct struct {
@@ -430,7 +424,7 @@ func testDecodeRunsOn[T any](tt *testing.T, value T, ro RunsOn) {
 	actual := runOnTestStruct{}
 	err := model.Decode(data, &actual)
 
-	opt := comparerForEvaluable[string]()
+	opts := comparerForEvaluable[string]()
 	expected := runOnTestStruct{
 		RO:          ro,
 		ROPtr:       &ro,
@@ -440,5 +434,5 @@ func testDecodeRunsOn[T any](tt *testing.T, value T, ro RunsOn) {
 		MapOfROPtr:  map[string]*RunsOn{"key": &ro},
 	}
 	assert.NilError(tt, err)
-	assert.DeepEqual(tt, actual, expected, opt)
+	assert.DeepEqual(tt, actual, expected, opts...)
 }

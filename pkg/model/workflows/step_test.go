@@ -3,7 +3,6 @@ package workflows
 import (
 	"fmt"
 	"github.com/dungdm93/drasi/pkg/model"
-	"github.com/google/go-cmp/cmp"
 	"gotest.tools/v3/assert"
 	"testing"
 )
@@ -123,12 +122,7 @@ func testDecodeStep[T any](tt *testing.T, value T, step Step) {
 	actual := stepTestStruct{}
 	err := model.Decode(data, &actual)
 
-	opt := []cmp.Option{
-		comparerForEvaluable[string](),
-		comparerForEvaluable[bool](),
-		comparerForEvaluable[int64](),
-		comparerForEvaluable[float64](),
-	}
+	opts := commonComparerForEvaluable()
 	expected := stepTestStruct{
 		Step:          step,
 		StepPtr:       &step,
@@ -138,5 +132,5 @@ func testDecodeStep[T any](tt *testing.T, value T, step Step) {
 		MapOfStepPtr:  map[string]*Step{"key": &step},
 	}
 	assert.NilError(tt, err)
-	assert.DeepEqual(tt, actual, expected, opt...)
+	assert.DeepEqual(tt, actual, expected, opts...)
 }
