@@ -6,13 +6,20 @@ import (
 )
 
 var (
+	typeDecoder          = reflect.TypeFor[model.Decoder]()
 	typeEvaluableBool    = reflect.TypeFor[Evaluable[bool]]()
 	typeEvaluableInteger = reflect.TypeFor[Evaluable[int64]]()
 	typeEvaluableFloat   = reflect.TypeFor[Evaluable[float64]]()
 	typeEvaluableString  = reflect.TypeFor[Evaluable[string]]()
+	typeConditional      = reflect.TypeFor[Conditional]()
 )
 
 func DecodeEvaluableHook(fromType reflect.Type, toType reflect.Type, data any) (any, error) {
+	if toType.Implements(typeDecoder) {
+		// let's toType decode its self
+		return data, nil
+	}
+
 	if toType.Implements(typeEvaluableBool) {
 		if fromType.Kind() == reflect.Bool {
 			b := data.(bool)
@@ -50,6 +57,20 @@ func DecodeEvaluableHook(fromType reflect.Type, toType reflect.Type, data any) (
 	return data, nil
 }
 
+func DecodeConditionalHook(fromType reflect.Type, toType reflect.Type, data any) (any, error) {
+	if toType.Implements(typeDecoder) {
+		// let's toType decode its self
+		return data, nil
+	}
+	if !toType.Implements(typeConditional) || fromType.Kind() != reflect.String {
+		return data, nil
+	}
+
+	s := data.(string)
+	return NewConditional(s), nil
+}
+
 func init() {
 	model.RegisterDecodeHook(DecodeEvaluableHook)
+	model.RegisterDecodeHook(DecodeConditionalHook)
 }
