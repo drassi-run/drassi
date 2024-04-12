@@ -15,7 +15,7 @@ type usesActionStepRunner struct {
 	step   *workflows.BaseStep
 	repo   *repository
 	rev    string
-	runner StepRunner // TODO ActionRunner
+	action StepRunner // TODO ActionRunner
 }
 
 func (e *usesActionStepRunner) Initialize(ctx context.Context) error {
@@ -24,17 +24,17 @@ func (e *usesActionStepRunner) Initialize(ctx context.Context) error {
 }
 
 func (e *usesActionStepRunner) PreTask() *Task {
-	t := e.runner.PreTask()
+	t := e.action.PreTask()
 	return fixupTask(t, e.step)
 }
 
 func (e *usesActionStepRunner) MainTask() *Task {
-	t := e.runner.MainTask()
+	t := e.action.MainTask()
 	return fixupTask(t, e.step)
 }
 
 func (e *usesActionStepRunner) PostTask() *Task {
-	t := e.runner.PostTask()
+	t := e.action.PostTask()
 	return fixupTask(t, e.step)
 }
 
