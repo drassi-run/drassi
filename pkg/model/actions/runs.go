@@ -27,7 +27,7 @@ type JavaScriptRuns struct {
 	// If not set, then pre-if defaults to always().
 	// In pre-if, status check functions evaluate against the job's status, not the action's own status.
 	// https://docs.github.com/en/actions/creating-actions/metadata-syntax-for-github-actions#runspre-if
-	PreIf workflows.Evaluable[bool] `json:"pre-if,omitempty" yaml:"pre-if,omitempty" mapstructure:"pre-if,omitempty"`
+	PreIf workflows.Conditional `json:"pre-if,omitempty" yaml:"pre-if,omitempty" mapstructure:"pre-if,omitempty"`
 
 	// Allows you to run a script at the end of a job, once the main: action has completed.
 	// For example, you can use post: to terminate certain processes or remove unneeded files.
@@ -40,7 +40,7 @@ type JavaScriptRuns struct {
 	// If not set, then post-if defaults to always().
 	// In post-if, status check functions evaluate against the job's status, not the action's own status.
 	// https://docs.github.com/en/actions/creating-actions/metadata-syntax-for-github-actions#runspost-if
-	PostIf workflows.Evaluable[bool] `json:"post-if,omitempty" yaml:"post-if,omitempty" mapstructure:"post-if,omitempty"`
+	PostIf workflows.Conditional `json:"post-if,omitempty" yaml:"post-if,omitempty" mapstructure:"post-if,omitempty"`
 }
 
 func (r *JavaScriptRuns) isRuns() {
@@ -86,17 +86,16 @@ type DockerRuns struct {
 	// in either the workspace, `HOME`, or as a `STATE_` variable.
 	// The `pre-entrypoint:` action always runs by default but you can override this using `pre-if`.
 	// https://docs.github.com/en/actions/creating-actions/metadata-syntax-for-github-actions#runspre-entrypoint
-	PreEntrypoint string                    `json:"pre-entrypoint,omitempty" yaml:"pre-entrypoint,omitempty" mapstructure:"pre-entrypoint,omitempty"`
-	PreIf         workflows.Evaluable[bool] `json:"pre-if,omitempty" yaml:"pre-if,omitempty" mapstructure:"pre-if,omitempty"`
+	PreEntrypoint string                `json:"pre-entrypoint,omitempty" yaml:"pre-entrypoint,omitempty" mapstructure:"pre-entrypoint,omitempty"`
+	PreIf         workflows.Conditional `json:"pre-if,omitempty" yaml:"pre-if,omitempty" mapstructure:"pre-if,omitempty"`
 
 	// Allows you to run a cleanup script once the `runs.entrypoint` action has completed. GitHub Actions uses `docker run` to launch this action.
 	// Because GitHub Actions runs the script inside a new container using the same base image, the runtime state is different from the main `entrypoint` container.
 	// You can access any state you need in either the workspace, `HOME`, or as a `STATE_` variable.
 	// The `post-entrypoint:` action always runs by default but you can override this using `post-if`.
 	// https://docs.github.com/en/actions/creating-actions/metadata-syntax-for-github-actions#runspost-entrypoint
-	PostEntrypoint string `json:"post-entrypoint,omitempty" yaml:"post-entrypoint,omitempty" mapstructure:"post-entrypoint,omitempty"`
-
-	PostIf workflows.Evaluable[bool] `json:"post-if,omitempty" yaml:"post-if,omitempty" mapstructure:"post-if,omitempty"`
+	PostEntrypoint string                `json:"post-entrypoint,omitempty" yaml:"post-entrypoint,omitempty" mapstructure:"post-entrypoint,omitempty"`
+	PostIf         workflows.Conditional `json:"post-if,omitempty" yaml:"post-if,omitempty" mapstructure:"post-if,omitempty"`
 }
 
 func (r *DockerRuns) isRuns() {
