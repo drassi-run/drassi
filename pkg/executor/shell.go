@@ -97,7 +97,8 @@ func (s Shell) FixupScript(script string) string {
 	case Pwsh, Powershell:
 		scriptPrepend := "$ErrorActionPreference = 'stop'"
 		scriptAppend := `if ((Test-Path -LiteralPath variable:\LASTEXITCODE)) { exit $LASTEXITCODE }`
-		return fmt.Sprintf("%s\n%s\n%s", scriptAppend, script, scriptPrepend)
+		return fmt.Sprintf("%s\n%s\n%s", scriptPrepend, script, scriptAppend)
+	default:
+		return script
 	}
-	return script
 }
