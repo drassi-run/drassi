@@ -4,32 +4,34 @@ import (
 	"github.com/dungdm93/drasi/pkg/model"
 	"github.com/google/go-cmp/cmp"
 	"gotest.tools/v3/assert"
-	"reflect"
 	"testing"
 )
 
-func comparerForEvaluable[R any](opts ...cmp.Option) cmp.Option {
-	return cmp.Comparer(func(x, y Evaluable[R]) bool {
-		if x == nil {
-			return y == nil
-		}
-		if y == nil {
-			return x == nil
-		}
+func commonComparerForEvaluable(opts ...cmp.Option) []cmp.Option {
+	var o []cmp.Option
+	o = append(o, comparerForEvaluable[bool](opts...)...)
+	o = append(o, comparerForEvaluable[int64](opts...)...)
+	o = append(o, comparerForEvaluable[float64](opts...)...)
+	o = append(o, comparerForEvaluable[string](opts...)...)
+	return o
+}
 
-		// x != nil && y != nil
-		if reflect.TypeOf(x) != reflect.TypeOf(y) {
-			return false
-		}
-		switch a := x.(type) {
-		case identity[R]:
-			b, ok := y.(identity[R])
-			return ok && cmp.Equal(a.value, b.value, opts...)
-		case expression[R]:
-			b, ok := y.(expression[R])
-			return ok && cmp.Equal(a.expr, b.expr, opts...)
-		}
-		return false
+func comparerForEvaluable[R any](opts ...cmp.Option) []cmp.Option {
+	return []cmp.Option{
+		comparerForIdentity[R](opts...),
+		comparerForExpression[R](opts...),
+	}
+}
+
+func comparerForIdentity[R any](opts ...cmp.Option) cmp.Option {
+	return cmp.Comparer(func(x, y identity[R]) bool {
+		return cmp.Equal(x.value, y.value, opts...)
+	})
+}
+
+func comparerForExpression[R any](opts ...cmp.Option) cmp.Option {
+	return cmp.Comparer(func(x, y expression[R]) bool {
+		return cmp.Equal(x.expr, y.expr, opts...)
 	})
 }
 
@@ -89,26 +91,71 @@ func testDecodeEvaluableHook[R any](tt *testing.T, value R, con converter[R]) {
 
 	assert.NilError(tt, err)
 
-	opt := comparerForEvaluable[R]()
+	opts := comparerForEvaluable[R]()
 	i := NewIdent(value)
 	e := NewExpr(expr, con)
 
-	assert.DeepEqual(tt, obj.DirectValue, i, opt)
-	assert.DeepEqual(tt, obj.Expr, e, opt)
+	assert.DeepEqual(tt, obj.DirectValue, i, opts...)
+	assert.DeepEqual(tt, obj.Expr, e, opts...)
 
 	// List
-	assert.DeepEqual(tt, obj.ListOfExpr, []Evaluable[R]{i, e}, opt)
+	assert.DeepEqual(tt, obj.ListOfExpr, []Evaluable[R]{i, e}, opts...)
 
 	//// Map
-	assert.DeepEqual(tt, obj.MapOfExpr, map[string]Evaluable[R]{"first": i, "second": e}, opt)
+	assert.DeepEqual(tt, obj.MapOfExpr, map[string]Evaluable[R]{"first": i, "second": e}, opts...)
 
 	//// Struct
-	assert.DeepEqual(tt, obj.StructOfExpr.DirectValue, i, opt)
-	assert.DeepEqual(tt, obj.StructOfExpr.Expr, e, opt)
+	assert.DeepEqual(tt, obj.StructOfExpr.DirectValue, i, opts...)
+	assert.DeepEqual(tt, obj.StructOfExpr.Expr, e, opts...)
 
 	// List
-	assert.DeepEqual(tt, obj.StructOfExpr.ListOfExpr, []Evaluable[R]{i, e}, opt)
+	assert.DeepEqual(tt, obj.StructOfExpr.ListOfExpr, []Evaluable[R]{i, e}, opts...)
 
 	//// Map
-	assert.DeepEqual(tt, obj.StructOfExpr.MapOfExpr, map[string]Evaluable[R]{"first": i, "second": e}, opt)
+	assert.DeepEqual(tt, obj.StructOfExpr.MapOfExpr, map[string]Evaluable[R]{"first": i, "second": e}, opts...)
+}
+
+type conditionalTestStruct struct {
+	Conditional          Conditional             `mapstructure:"conditional"`
+	ConditionalPtr       *Conditional            `mapstructure:"conditionalPtr"`
+	ListOfConditional    []Conditional           `mapstructure:"listOfConditional"`
+	MapOfConditional     map[string]Conditional  `mapstructure:"mapOfConditional"`
+	ListOfConditionalPtr []*Conditional          `mapstructure:"listOfConditionalPtr"`
+	MapOfConditionalPtr  map[string]*Conditional `mapstructure:"mapOfConditionalPtr"`
+}
+
+func TestDecodeConditional(t *testing.T) {
+	val := "foobar"
+	con := NewConditional("foobar")
+	testDecodeConditional(t, val, con)
+}
+
+func testDecodeConditional(tt *testing.T, val string, con Conditional) {
+	data := map[string]any{
+		"conditional":       clone(val),
+		"conditionalPtr":    clone(val),
+		"listOfConditional": []any{clone(val)},
+		"mapOfConditional": map[string]any{
+			"key": clone(val),
+		},
+		"listOfConditionalPtr": []string{clone(val)},
+		"mapOfConditionalPtr": map[string]any{
+			"key": clone(val),
+		},
+	}
+
+	actual := conditionalTestStruct{}
+	err := model.Decode(data, &actual)
+
+	opt := comparerForExpression[bool]()
+	expected := conditionalTestStruct{
+		Conditional:          con,
+		ConditionalPtr:       &con,
+		ListOfConditional:    []Conditional{con},
+		ListOfConditionalPtr: []*Conditional{&con},
+		MapOfConditional:     map[string]Conditional{"key": con},
+		MapOfConditionalPtr:  map[string]*Conditional{"key": &con},
+	}
+	assert.NilError(tt, err)
+	assert.DeepEqual(tt, actual, expected, opt)
 }

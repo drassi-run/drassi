@@ -3,13 +3,12 @@ package workflows
 import (
 	"fmt"
 	"github.com/dungdm93/drasi/pkg/model"
-	"github.com/google/go-cmp/cmp"
 	"github.com/mitchellh/copystructure"
 	"gotest.tools/v3/assert"
 	"testing"
 )
 
-func clone[T any](i any) any {
+func clone[T any](i T) T {
 	if o, err := copystructure.Copy(i); err != nil {
 		return i
 	} else {
@@ -119,27 +118,22 @@ func TestDecodeJob(t *testing.T) {
 
 func testDecodeJob[T any](tt *testing.T, value T, job Job) {
 	data := map[string]any{
-		"job":       clone[T](value),
-		"jobPtr":    clone[T](value),
-		"listOfJob": []any{clone[T](value)},
+		"job":       clone(value),
+		"jobPtr":    clone(value),
+		"listOfJob": []any{clone(value)},
 		"mapOfJob": map[string]any{
-			"key": clone[T](value),
+			"key": clone(value),
 		},
-		"listOfJobPtr": []any{clone[T](value)},
+		"listOfJobPtr": []any{clone(value)},
 		"mapOfJobPtr": map[string]any{
-			"key": clone[T](value),
+			"key": clone(value),
 		},
 	}
 
 	actual := jobTestStruct{}
 	err := model.Decode(data, &actual)
 
-	opt := []cmp.Option{
-		comparerForEvaluable[string](),
-		comparerForEvaluable[bool](),
-		comparerForEvaluable[int64](),
-		comparerForEvaluable[float64](),
-	}
+	opts := commonComparerForEvaluable()
 	expected := jobTestStruct{
 		Job:          job,
 		JobPtr:       &job,
@@ -149,7 +143,7 @@ func testDecodeJob[T any](tt *testing.T, value T, job Job) {
 		MapOfJobPtr:  map[string]*Job{"key": &job},
 	}
 	assert.NilError(tt, err)
-	assert.DeepEqual(tt, actual, expected, opt...)
+	assert.DeepEqual(tt, actual, expected, opts...)
 }
 
 type jobNeedsTestStruct struct {
@@ -174,22 +168,22 @@ func TestDecodeJobNeeds(t *testing.T) {
 
 func testDecodeJobNeeds[T any](tt *testing.T, value T, jn JobNeeds) {
 	data := map[string]any{
-		"jn":       clone[T](value),
-		"jnPtr":    clone[T](value),
-		"listOfJn": []any{clone[T](value)},
+		"jn":       clone(value),
+		"jnPtr":    clone(value),
+		"listOfJn": []any{clone(value)},
 		"mapOfJn": map[string]any{
-			"key": clone[T](value),
+			"key": clone(value),
 		},
-		"listOfJnPtr": []any{clone[T](value)},
+		"listOfJnPtr": []any{clone(value)},
 		"mapOfJnPtr": map[string]any{
-			"key": clone[T](value),
+			"key": clone(value),
 		},
 	}
 
 	actual := jobNeedsTestStruct{}
 	err := model.Decode(data, &actual)
 
-	opt := comparerForEvaluable[string]()
+	opts := comparerForEvaluable[string]()
 	expected := jobNeedsTestStruct{
 		JN:          jn,
 		JNPtr:       &jn,
@@ -199,7 +193,7 @@ func testDecodeJobNeeds[T any](tt *testing.T, value T, jn JobNeeds) {
 		MapOfJNPtr:  map[string]*JobNeeds{"key": &jn},
 	}
 	assert.NilError(tt, err)
-	assert.DeepEqual(tt, actual, expected, opt)
+	assert.DeepEqual(tt, actual, expected, opts...)
 }
 
 type jobSecretTestStruct struct {
@@ -236,22 +230,22 @@ func TestDecodeJobSecrets(t *testing.T) {
 
 func testDecodeJobSecrets[T any](tt *testing.T, value T, js JobSecrets) {
 	data := map[string]any{
-		"js":       clone[T](value),
-		"jsPtr":    clone[T](value),
-		"listOfJs": []any{clone[T](value)},
+		"js":       clone(value),
+		"jsPtr":    clone(value),
+		"listOfJs": []any{clone(value)},
 		"mapOfJs": map[string]any{
-			"key": clone[T](value),
+			"key": clone(value),
 		},
-		"listOfJsPtr": []any{clone[T](value)},
+		"listOfJsPtr": []any{clone(value)},
 		"mapOfJsPtr": map[string]any{
-			"key": clone[T](value),
+			"key": clone(value),
 		},
 	}
 
 	actual := jobSecretTestStruct{}
 	err := model.Decode(data, &actual)
 
-	opt := comparerForEvaluable[string]()
+	opts := comparerForEvaluable[string]()
 	expected := jobSecretTestStruct{
 		JS:          js,
 		JSPtr:       &js,
@@ -261,7 +255,7 @@ func testDecodeJobSecrets[T any](tt *testing.T, value T, js JobSecrets) {
 		MapOfJSPtr:  map[string]*JobSecrets{"key": &js},
 	}
 	assert.NilError(tt, err)
-	assert.DeepEqual(tt, actual, expected, opt)
+	assert.DeepEqual(tt, actual, expected, opts...)
 }
 
 type environmentTestStruct struct {
@@ -315,22 +309,22 @@ func TestDecodeEnvironment(t *testing.T) {
 
 func testDecodeEnvironment[T any](tt *testing.T, value T, env Environment) {
 	data := map[string]any{
-		"environment":       clone[T](value),
-		"environmentPtr":    clone[T](value),
-		"listOfEnvironment": []any{clone[T](value)},
+		"environment":       clone(value),
+		"environmentPtr":    clone(value),
+		"listOfEnvironment": []any{clone(value)},
 		"mapOfEnvironment": map[string]any{
-			"key": clone[T](value),
+			"key": clone(value),
 		},
-		"listOfEnvironmentPtr": []any{clone[T](value)},
+		"listOfEnvironmentPtr": []any{clone(value)},
 		"mapOfEnvironmentPtr": map[string]any{
-			"key": clone[T](value),
+			"key": clone(value),
 		},
 	}
 
 	actual := environmentTestStruct{}
 	err := model.Decode(data, &actual)
 
-	opt := comparerForEvaluable[string]()
+	opts := comparerForEvaluable[string]()
 	expected := environmentTestStruct{
 		Environment:          env,
 		EnvironmentPtr:       &env,
@@ -340,7 +334,7 @@ func testDecodeEnvironment[T any](tt *testing.T, value T, env Environment) {
 		MapOfEnvironmentPtr:  map[string]*Environment{"key": &env},
 	}
 	assert.NilError(tt, err)
-	assert.DeepEqual(tt, actual, expected, opt)
+	assert.DeepEqual(tt, actual, expected, opts...)
 }
 
 type runOnTestStruct struct {
@@ -415,22 +409,22 @@ func TestDecodeRunsOn(t *testing.T) {
 
 func testDecodeRunsOn[T any](tt *testing.T, value T, ro RunsOn) {
 	data := map[string]any{
-		"ro":       clone[T](value),
-		"roPtr":    clone[T](value),
-		"listOfRo": []any{clone[T](value)},
+		"ro":       clone(value),
+		"roPtr":    clone(value),
+		"listOfRo": []any{clone(value)},
 		"mapOfRo": map[string]any{
-			"key": clone[T](value),
+			"key": clone(value),
 		},
-		"listOfRoPtr": []any{clone[T](value)},
+		"listOfRoPtr": []any{clone(value)},
 		"mapOfRoPtr": map[string]any{
-			"key": clone[T](value),
+			"key": clone(value),
 		},
 	}
 
 	actual := runOnTestStruct{}
 	err := model.Decode(data, &actual)
 
-	opt := comparerForEvaluable[string]()
+	opts := comparerForEvaluable[string]()
 	expected := runOnTestStruct{
 		RO:          ro,
 		ROPtr:       &ro,
@@ -440,5 +434,5 @@ func testDecodeRunsOn[T any](tt *testing.T, value T, ro RunsOn) {
 		MapOfROPtr:  map[string]*RunsOn{"key": &ro},
 	}
 	assert.NilError(tt, err)
-	assert.DeepEqual(tt, actual, expected, opt)
+	assert.DeepEqual(tt, actual, expected, opts...)
 }

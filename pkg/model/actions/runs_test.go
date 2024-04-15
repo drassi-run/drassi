@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func clone[T any](i any) any {
+func clone[T any](i T) T {
 	if o, err := copystructure.Copy(i); err != nil {
 		return i
 	} else {
@@ -129,15 +129,15 @@ func TestDecodeRuns(t *testing.T) {
 
 func testDecodeRuns[T any](tt *testing.T, value T, runs Runs) {
 	data := map[string]any{
-		"runs":       clone[T](value),
-		"runsPtr":    clone[T](value),
-		"listOfRuns": []any{clone[T](value)},
+		"runs":       clone(value),
+		"runsPtr":    clone(value),
+		"listOfRuns": []any{clone(value)},
 		"mapOfRuns": map[string]any{
-			"key": clone[T](value),
+			"key": clone(value),
 		},
-		"listOfRunsPtr": []any{clone[T](value)},
+		"listOfRunsPtr": []any{clone(value)},
 		"mapOfRunsPtr": map[string]any{
-			"key": clone[T](value),
+			"key": clone(value),
 		},
 	}
 

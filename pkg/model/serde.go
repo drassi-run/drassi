@@ -12,9 +12,9 @@ func RegisterDecodeHook(fn mapstructure.DecodeHookFunc) {
 	hooks = append(hooks, fn)
 }
 
-// comparable to yaml.Unmarshaler, decoder allow a type to define its own custom logic to convert value
+// comparable to yaml.Unmarshaler, Decoder allow a type to define its own custom logic to convert value
 // see https://github.com/mitchellh/mapstructure/pull/294
-type decoder interface {
+type Decoder interface {
 	DecodeMapstructure(any) (any, error)
 }
 
@@ -22,13 +22,13 @@ type decoder interface {
 // adapted to support types derived from built-in types, as DecodeMapstructure would not be able to mutate internal
 // value, so need to invoke DecodeMapstructure defined by pointer to type
 func DecoderHook(from reflect.Value, to reflect.Value) (any, error) {
-	// If the destination implements the decoder interface
-	u, ok := to.Interface().(decoder)
+	// If the destination implements the Decoder interface
+	u, ok := to.Interface().(Decoder)
 	if !ok {
 		// for non-struct types we need to invoke func (*type) DecodeMapstructure()
 		if to.CanAddr() {
 			pto := to.Addr()
-			u, ok = pto.Interface().(decoder)
+			u, ok = pto.Interface().(Decoder)
 		}
 		if !ok {
 			return from.Interface(), nil
@@ -37,7 +37,7 @@ func DecoderHook(from reflect.Value, to reflect.Value) (any, error) {
 	// If it is nil and a pointer, create and assign the target value first
 	if to.Type().Kind() == reflect.Ptr && to.IsNil() {
 		to.Set(reflect.New(to.Type().Elem()))
-		u = to.Interface().(decoder)
+		u = to.Interface().(Decoder)
 	}
 	// Call the custom DecodeMapstructure method
 	if d, err := u.DecodeMapstructure(from.Interface()); err != nil {

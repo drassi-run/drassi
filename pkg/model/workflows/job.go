@@ -43,7 +43,7 @@ type BaseJob struct {
 	// Context available: `github`, `needs`, `vars`, `inputs`
 	// Special functions: `always`, `cancelled`, `success`, `failure`
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
-	If Evaluable[bool] `json:"if,omitempty" yaml:"if,omitempty" mapstructure:"if,omitempty"`
+	If Conditional `json:"if,omitempty" yaml:"if,omitempty" mapstructure:"if,omitempty"`
 
 	// A strategy creates a build matrix for your jobs. You can define different variations of an environment to run each job in.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstrategy

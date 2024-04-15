@@ -3,7 +3,6 @@ package workflows
 import (
 	"fmt"
 	"github.com/dungdm93/drasi/pkg/model"
-	"github.com/google/go-cmp/cmp"
 	"gotest.tools/v3/assert"
 	"testing"
 )
@@ -108,27 +107,22 @@ func TestDecodeStep(t *testing.T) {
 
 func testDecodeStep[T any](tt *testing.T, value T, step Step) {
 	data := map[string]any{
-		"step":       clone[T](value),
-		"stepPtr":    clone[T](value),
-		"listOfStep": []any{clone[T](value)},
+		"step":       clone(value),
+		"stepPtr":    clone(value),
+		"listOfStep": []any{clone(value)},
 		"mapOfStep": map[string]any{
-			"key": clone[T](value),
+			"key": clone(value),
 		},
-		"listOfStepPtr": []any{clone[T](value)},
+		"listOfStepPtr": []any{clone(value)},
 		"mapOfStepPtr": map[string]any{
-			"key": clone[T](value),
+			"key": clone(value),
 		},
 	}
 
 	actual := stepTestStruct{}
 	err := model.Decode(data, &actual)
 
-	opt := []cmp.Option{
-		comparerForEvaluable[string](),
-		comparerForEvaluable[bool](),
-		comparerForEvaluable[int64](),
-		comparerForEvaluable[float64](),
-	}
+	opts := commonComparerForEvaluable()
 	expected := stepTestStruct{
 		Step:          step,
 		StepPtr:       &step,
@@ -138,5 +132,5 @@ func testDecodeStep[T any](tt *testing.T, value T, step Step) {
 		MapOfStepPtr:  map[string]*Step{"key": &step},
 	}
 	assert.NilError(tt, err)
-	assert.DeepEqual(tt, actual, expected, opt...)
+	assert.DeepEqual(tt, actual, expected, opts...)
 }

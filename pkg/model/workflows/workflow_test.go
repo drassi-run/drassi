@@ -59,7 +59,7 @@ func testDecodeConcurrency(tt *testing.T, value any, con Concurrency) {
 	actual := concurrencyTestStruct{}
 	err := model.Decode(data, &actual)
 
-	opt := comparerForEvaluable[string]()
+	opts := comparerForEvaluable[string]()
 	expected := concurrencyTestStruct{
 		Con:          con,
 		ConPtr:       &con,
@@ -69,7 +69,7 @@ func testDecodeConcurrency(tt *testing.T, value any, con Concurrency) {
 		MapOfConPtr:  map[string]*Concurrency{"key": &con},
 	}
 	assert.NilError(tt, err)
-	assert.DeepEqual(tt, actual, expected, opt)
+	assert.DeepEqual(tt, actual, expected, opts...)
 }
 
 type permissionTestStruct struct {

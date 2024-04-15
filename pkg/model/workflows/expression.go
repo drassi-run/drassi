@@ -14,13 +14,13 @@ type identity[R any] struct {
 	value R
 }
 
-func (i identity[R]) Evaluate(context.Context) (R, error) {
+func (i *identity[R]) Evaluate(context.Context) (R, error) {
 	return i.value, nil
 }
 
 // A little helper to create new identity easier
 func NewIdent[R any](value R) Evaluable[R] {
-	return identity[R]{value: value}
+	return &identity[R]{value: value}
 }
 
 type converter[R any] func(string) (R, error)
@@ -29,14 +29,18 @@ type expression[R any] struct {
 	conv converter[R]
 }
 
-func (e expression[R]) Evaluate(ctx context.Context) (R, error) {
+func (e *expression[R]) Evaluate(ctx context.Context) (R, error) {
 	val := e.expr // TODO
 	return e.conv(val)
 }
 
+func (e *expression[bool]) Meet(ctx context.Context) (bool, error) {
+	return e.Evaluate(ctx)
+}
+
 // A little helper to create new expression easier
 func NewExpr[R any](expr string, conv converter[R]) Evaluable[R] {
-	return expression[R]{
+	return &expression[R]{
 		expr: expr,
 		conv: conv,
 	}
@@ -74,5 +78,18 @@ func NewEvaluable[R any](s string, con converter[R]) (Evaluable[R], error) {
 		return nil, err
 	} else {
 		return NewIdent(v), nil
+	}
+}
+
+// Conditional is Evaluable[bool] type used by `if`, `pre-if` and `post-if`.
+// The `${{ }}` expression syntax is optional and can be omitted. GitHub Actions always evaluates it as an expression.
+type Conditional interface {
+	Meet(context.Context) (bool, error)
+}
+
+func NewConditional(s string) Conditional {
+	return &expression[bool]{
+		expr: s,
+		conv: toBool,
 	}
 }
