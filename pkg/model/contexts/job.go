@@ -42,24 +42,16 @@ const (
 // https://docs.github.com/en/actions/learn-github-actions/contexts#steps-context
 type Step struct {
 	Outputs    map[string]string `json:"outputs" yaml:"outputs"`
-	Conclusion StepConclusion    `json:"conclusion" yaml:"conclusion"`
-	Outcome    StepOutcome       `json:"outcome" yaml:"outcome"`
+	Conclusion StepResult        `json:"conclusion" yaml:"conclusion"`
+	Outcome    StepResult        `json:"outcome" yaml:"outcome"`
 }
 
-type StepConclusion string
+// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Common/ActionResult.cs
+type StepResult string
 
 const (
-	StepConclusionSuccess   = "success"
-	StepConclusionFailure   = "failure"
-	StepConclusionCancelled = "cancelled"
-	StepConclusionSkipped   = "skipped"
-)
-
-type StepOutcome string
-
-const (
-	StepOutcomeSuccess   = "success"
-	StepOutcomeFailure   = "failure"
-	StepOutcomeCancelled = "cancelled"
-	StepOutcomeSkipped   = "skipped"
+	StepResultSuccess   StepResult = "success"
+	StepResultFailure   StepResult = "failure"
+	StepResultCancelled StepResult = "cancelled"
+	StepResultSkipped   StepResult = "skipped"
 )
