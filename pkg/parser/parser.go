@@ -1,0 +1,361 @@
+package parser
+
+import (
+	"errors"
+	"fmt"
+	"slices"
+
+	"github.com/dungdm93/drasi/pkg/parser/constants"
+)
+
+const (
+	MaxExpressionLength = 21000
+)
+
+var (
+	ErrorsTooFewParameters  = errors.New("too few parameter")
+	ErrorsTooManyParameters = errors.New("too many parameter")
+	ErrorsMaxDepthExceeded  = errors.New("exceeded max depth")
+	ErrorsMaxLengthExceeded = errors.New("exceed max length")
+)
+
+type (
+	Parser struct {
+	}
+
+	parseContext struct {
+		Lexer                *Lexer
+		Token                *LexicalToken
+		LastToken            *LexicalToken
+		Expression           string
+		AllowUnknownKeywords bool
+		FnsInfo              map[string]IFnInfo[iFn]
+		NamedValsInfo        map[string]INamedValueInfo[iNamedValue]
+		Operands             []IExpressionNode
+		Operators            []*LexicalToken
+	}
+)
+
+func (p *Parser) newParseContext(expression string, namedVals []INamedValueInfo[iNamedValue], fns []IFnInfo[iFn], allowUnknownKeyWords bool) *parseContext {
+	result := parseContext{
+		AllowUnknownKeywords: allowUnknownKeyWords,
+		FnsInfo:              map[string]IFnInfo[iFn]{},
+		NamedValsInfo:        map[string]INamedValueInfo[iNamedValue]{},
+	}
+	if len(expression) > MaxExpressionLength {
+		panic(ErrorsMaxLengthExceeded)
+	}
+
+	for _, value := range namedVals {
+		result.NamedValsInfo[value.GetName()] = value
+	}
+
+	for _, function := range fns {
+		result.FnsInfo[function.GetName()] = function
+	}
+	result.Lexer = NewLexer(expression)
+	return &result
+}
+
+/*
+Create Tree
+	Create parseContext
+		Create noop trace writer
+		Create LexicalAnalyzer from Expression
+		Add functions info to parseContext
+		Add named values info to parseContext
+		|-> createTree with parseContext
+
+*/
+
+func (p *Parser) CreateTree(expression string, namedValues []INamedValueInfo[iNamedValue], functions []IFnInfo[iFn]) IExpressionNode {
+	parseContext := p.newParseContext(expression, namedValues, functions, false)
+	return p.createTree(parseContext)
+}
+
+func (p *Parser) createTree(pCtx *parseContext) IExpressionNode {
+	for {
+		token, haveToken := pCtx.Lexer.TryGetNextToken()
+		pCtx.Token = token
+		if !haveToken {
+			break
+		}
+		if pCtx.Token.Kind() == LTKUnexpected {
+			panic(fmt.Sprintf("unexpected token, rawValue: %s, kind: %s, expression: %s", pCtx.Token.RawValue(),
+				pCtx.Token.Kind(),
+				pCtx.Expression))
+		}
+		if pCtx.Token.IsOperator() {
+			p.pushOperator(pCtx)
+		} else {
+			p.pushOperand(pCtx)
+		}
+		pCtx.LastToken = pCtx.Token
+	}
+	// no tokens
+	if pCtx.LastToken == nil {
+		return nil
+	}
+	// check unexpected end of expression
+	if len(pCtx.Operators) > 0 {
+		var unexpectedLastToken bool
+		switch pCtx.LastToken.Kind() {
+		// Legal
+		case LTKEndGroup, LTKEndIndex, LTKEndParameters:
+			break
+			// Illegal
+		case LTKFunction:
+			unexpectedLastToken = true
+		default:
+			unexpectedLastToken = pCtx.LastToken.IsOperator()
+		}
+		if unexpectedLastToken || len(pCtx.Lexer.UnclosedTokens()) > 0 {
+			panic(fmt.Errorf("unexpected last token, rawValue: %s, kind: %s, expression: %s", pCtx.LastToken.RawValue(),
+				pCtx.LastToken.Kind(),
+				pCtx.Expression))
+		}
+	}
+	for len(pCtx.Operators) > 0 {
+		p.flushTopOperator(pCtx)
+	}
+	if len(pCtx.Operands) > 1 {
+		panic("invalid number of operands")
+	}
+	root := pCtx.Operands[0].(IExpressionNode)
+	if err := p.checkMaxDepth(pCtx, root, 1); err != nil {
+		panic(err)
+	}
+	return root
+}
+
+func (p *Parser) pushOperator(pCtx *parseContext) {
+	if pCtx.Token.Associativity() == AssociativityLeftToRight {
+		tk := pCtx.Token
+		for len(pCtx.Operators) > 0 {
+			topOp := pCtx.Operators[len(pCtx.Operators)-1]
+			if topOp.Precedence() >= tk.Precedence() &&
+				topOp.Kind() != LTKStartGroup &&
+				topOp.Kind() != LTKStartIndex &&
+				topOp.Kind() != LTKStartParameters &&
+				topOp.Kind() != LTKSeparator {
+				p.flushTopOperator(pCtx)
+				continue
+			}
+			break
+		}
+	}
+	pCtx.Operators = append(pCtx.Operators, pCtx.Token)
+	// Process closing operators now, since context.LastToken is required
+	// to accurately process TokenKind.LTKEndParameters
+	switch pCtx.Token.Kind() {
+	case LTKEndGroup, LTKEndIndex, LTKEndParameters:
+		p.flushTopOperator(pCtx)
+	}
+}
+
+func (p *Parser) pushOperand(pCtx *parseContext) {
+	switch pCtx.Token.Kind() {
+	case LTKFunction:
+		fn := pCtx.Token.RawValue()
+		if fnInfo := p.tryGetFnInfo(pCtx, fn); fnInfo != nil {
+			node := fnInfo.CreateNode().(iFn).(IExpressionNode)
+			node.setName(fn)
+			pCtx.Operands = append(pCtx.Operands, node)
+		} else {
+			if pCtx.AllowUnknownKeywords {
+				node := new(NoOpFn)
+				node.setName(fn)
+				pCtx.Operands = append(pCtx.Operands, node)
+			} else {
+				panic(fmt.Errorf("unrecognized function"))
+			}
+		}
+	case LTKNamedValue:
+		name := pCtx.Token.RawValue()
+		if namedValInfo, exist := pCtx.NamedValsInfo[name]; exist {
+			node := namedValInfo.CreateNode().(iNamedValue).(IExpressionNode)
+			node.setName(name)
+			pCtx.Operands = append(pCtx.Operands, node)
+		} else {
+			if pCtx.AllowUnknownKeywords {
+				node := new(NoOpNamedValue)
+				node.setName(name)
+				pCtx.Operands = append(pCtx.Operands, node)
+			} else {
+				panic(fmt.Errorf("unrecognized named value"))
+			}
+		}
+
+	default:
+		pCtx.Operands = append(pCtx.Operands, newNodeFromToken(pCtx.Token))
+	}
+}
+
+func (p *Parser) flushTopOperator(pCtx *parseContext) {
+	switch pCtx.Operators[len(pCtx.Operators)-1].Kind() {
+	case LTKEndIndex: // "]"
+		p.flushTopEndIndex(pCtx)
+		return
+	case LTKEndGroup: // ")" logical grouping
+		p.flushTopEndGroup(pCtx)
+		return
+	case LTKEndParameters: // ")" function call
+		p.flushTopEndParameters(pCtx)
+		return
+	}
+	// remove top operator
+	tk := pCtx.Operators[len(pCtx.Operators)-1]
+	pCtx.Operators = pCtx.Operators[:len(pCtx.Operators)-1]
+
+	node := newNodeFromToken(tk).(iContainer)
+	operands := p.popOperands(pCtx, tk.OperandCount())
+	for _, o := range operands {
+		if _, isAnd := node.(*And); isAnd {
+			nestedAnd, isAnd := o.(*And)
+			if isAnd {
+				for _, p := range nestedAnd.Parameters() {
+					node.AddParameter(p)
+				}
+				continue
+			}
+		}
+		if _, isOr := node.(*Or); isOr {
+			nestedOr, isOr := o.(*Or)
+			if isOr {
+				for _, p := range nestedOr.Parameters() {
+					node.AddParameter(p)
+				}
+				continue
+			}
+		}
+		node.AddParameter(o)
+	}
+	// Push the node to the operand stack
+	pCtx.Operands = append(pCtx.Operands, node)
+}
+
+func (p *Parser) strictPopOnOperator(pCtx *parseContext, expectedKind LexicalTokenKind) (popped *LexicalToken) {
+	top := pCtx.Operators[len(pCtx.Operators)-1]
+	if top.Kind() != expectedKind {
+		panic(fmt.Sprintf("expected operator %s to be of kind %s", expectedKind, top.Kind()))
+	}
+	pCtx.Operators = pCtx.Operators[:len(pCtx.Operators)-1]
+	return top
+}
+
+// popOperands remove the number
+func (p *Parser) popOperands(pCtx *parseContext, count int) []IExpressionNode {
+	result := []IExpressionNode{}
+	for i := 0; i < count; i++ {
+		result = append(result, pCtx.Operands[len(pCtx.Operands)-1])
+		pCtx.Operands = pCtx.Operands[:len(pCtx.Operands)-1]
+	}
+	slices.Reverse(result)
+	return result
+}
+
+// flushTopEndIndex:
+// - remove top end index from operator stack,
+// - calculate its required operands
+// - create a new container node with parameters point to operator node as parent
+// - push back container node to operands stack
+func (p *Parser) flushTopEndIndex(pCtx *parseContext) {
+	// Pop the operators
+	// Pop end index
+	p.strictPopOnOperator(pCtx, LTKEndIndex)
+	// Pop start index
+	tk := p.strictPopOnOperator(pCtx, LTKStartIndex)
+	node := newNodeFromToken(tk).(iContainer)
+
+	ops := p.popOperands(pCtx, tk.OperandCount())
+	for _, o := range ops {
+		node.AddParameter(o)
+	}
+	pCtx.Operands = append(pCtx.Operands, node)
+}
+
+// flushTopEndGroup remove top logical group ")" from operator stack
+func (p *Parser) flushTopEndGroup(pCtx *parseContext) {
+	p.strictPopOnOperator(pCtx, LTKEndGroup)
+	p.strictPopOnOperator(pCtx, LTKStartGroup)
+}
+
+// flushTopEndParameters remove top end parameter ")" end of function call
+func (p *Parser) flushTopEndParameters(pCtx *parseContext) {
+	tk := p.strictPopOnOperator(pCtx, LTKEndParameters)
+	// Sanity check top tk is the current token
+	if tk != pCtx.Token {
+		panic(fmt.Errorf("expected popped token to be the current token"))
+	}
+	var fn iFn
+	// no parameter fn
+	if pCtx.LastToken.Kind() == LTKStartParameters {
+		// node already exist on operand stack
+		fn = pCtx.Operands[len(pCtx.Operands)-1].(iFn)
+	} else {
+		// parameter fn
+		var seperatorCnt int
+		for pCtx.Operators[len(pCtx.Operators)-1].Kind() == LTKSeparator {
+			seperatorCnt++
+			pCtx.Operators = pCtx.Operators[:len(pCtx.Operators)-1]
+		}
+		// eg: func(x,y,z) -> 2 separator -> 3 params
+		fnOperands := p.popOperands(pCtx, seperatorCnt+1)
+		// node already exist on operand stack
+		fn = pCtx.Operands[len(pCtx.Operands)-1].(iFn)
+		// add operand to the fn node
+		for _, operand := range fnOperands {
+			fn.AddParameter(operand)
+		}
+	}
+	p.strictPopOnOperator(pCtx, LTKStartParameters)
+	fnInfo := p.tryGetFnInfo(pCtx, fn.getName())
+	if fnInfo != nil && pCtx.AllowUnknownKeywords {
+	}
+	if err := p.fnLimitCheck(fn, fnInfo); err != nil {
+		panic(err)
+	}
+}
+
+// update to return type maybe ?
+func (p *Parser) tryGetFnInfo(pCtx *parseContext, name string) (result IFnInfo[iFn]) {
+	// defer func() {
+	// 	if err := recover(); err != nil {
+	// 		result = nil
+	// 	}
+	// }()
+	eFn, existEfn := NewExpressionConstants().WellKnownFns[name]
+	cFn, existCfn := pCtx.FnsInfo[name]
+	if existEfn && eFn.GetName() != "" {
+		result = eFn
+	}
+	// if eFn.GetName() != "" {
+	// 	result = eFn
+	// }
+	if existCfn {
+		result = cFn
+	}
+	return result
+}
+
+func (p *Parser) fnLimitCheck(f iFn, expected IFnInfo[iFn]) (err error) {
+	if len(f.Parameters()) < expected.MinParameters() {
+		err = ErrorsTooFewParameters
+	}
+	if len(f.Parameters()) > expected.MaxParameters() {
+		err = ErrorsTooManyParameters
+	}
+	return err
+}
+
+func (p *Parser) checkMaxDepth(pCtx *parseContext, node IExpressionNode, depth int) (err error) {
+	if depth > constants.MaxDepth {
+		return ErrorsMaxDepthExceeded
+	}
+	if container, isContainer := node.(iContainer); isContainer {
+		for _, param := range container.Parameters() {
+			_ = p.checkMaxDepth(pCtx, param, depth+1)
+		}
+	}
+	return nil
+}
