@@ -90,7 +90,7 @@ type RunStep struct {
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
 	Run Evaluable[string] `json:"run,omitempty" yaml:"run,omitempty" mapstructure:"run,omitempty" validate:"required"`
 
-	Shell Shell `json:"shell,omitempty" yaml:"shell,omitempty" mapstructure:"shell,omitempty"`
+	Shell string `json:"shell,omitempty" yaml:"shell,omitempty" mapstructure:"shell,omitempty"`
 
 	// Context available: `github`, `needs`, `strategy`, `matrix`, `job`, `runner`, `env`, `vars`, `secrets`, `steps`, `inputs`
 	// Special functions: `hashFiles`

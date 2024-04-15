@@ -1,9 +1,10 @@
-package workflows
+package executor
 
 import (
-	"github.com/google/shlex"
+	"fmt"
 
 	"github.com/dungdm93/drasi/pkg/model"
+	"github.com/google/shlex"
 )
 
 // Shell You can override the default shell settings in the runner's operating system using the shell keyword.
@@ -64,4 +65,39 @@ func (s Shell) Command() ([]string, error) {
 	default:
 		return shlex.Split(string(s)) // Custom shell
 	}
+}
+
+// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/Handlers/ScriptHandlerHelpers.cs#L23-L31
+func (s Shell) Extension() string {
+	switch s {
+	case "": // unspecified `shell` parameter
+		return ".sh"
+	case Bash:
+		return ".sh"
+	case Pwsh:
+		return ".ps1"
+	case Python:
+		return ".py"
+	case Sh:
+		return ".sh"
+	case Cmd:
+		return ".cmd"
+	case Powershell:
+		return ".ps1"
+	default:
+		return ""
+	}
+}
+
+// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/Handlers/ScriptHandlerHelpers.cs#L51-L68
+func (s Shell) FixupScript(script string) string {
+	switch s {
+	case Cmd:
+		return fmt.Sprintf("@echo off\n%s", script)
+	case Pwsh, Powershell:
+		scriptPrepend := "$ErrorActionPreference = 'stop'"
+		scriptAppend := `if ((Test-Path -LiteralPath variable:\LASTEXITCODE)) { exit $LASTEXITCODE }`
+		return fmt.Sprintf("%s\n%s\n%s", scriptAppend, script, scriptPrepend)
+	}
+	return script
 }

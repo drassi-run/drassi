@@ -102,7 +102,7 @@ type Defaults struct {
 	// - in job level: `github`, `needs`, `strategy`, `matrix`, `env`, `vars`, `inputs`
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
 	Run struct {
-		Shell      Evaluable[Shell]  `json:"shell,omitempty" yaml:"shell,omitempty" mapstructure:"shell,omitempty"`
+		Shell      string            `json:"shell,omitempty" yaml:"shell,omitempty" mapstructure:"shell,omitempty"`
 		WorkingDir Evaluable[string] `json:"working-directory,omitempty" yaml:"working-directory,omitempty" mapstructure:"working-directory,omitempty"`
 	} `json:"run,omitempty" yaml:"run,omitempty" mapstructure:"run,omitempty"`
 }
