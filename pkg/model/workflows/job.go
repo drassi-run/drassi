@@ -1,7 +1,7 @@
 package workflows
 
 type Job interface {
-	isJob()
+	Base() *BaseJob
 }
 
 // ensure Job implementations
@@ -66,6 +66,10 @@ type BaseJob struct {
 	ContinueOnError Evaluable[bool] `json:"continue-on-error,omitempty" yaml:"continue-on-error,omitempty" mapstructure:"continue-on-error,omitempty"`
 }
 
+func (j *BaseJob) Base() *BaseJob {
+	return j
+}
+
 type NormalJob struct {
 	BaseJob `yaml:",inline" mapstructure:",squash"`
 
@@ -123,8 +127,6 @@ type NormalJob struct {
 	Services map[string]Container `json:"services,omitempty" yaml:"services,omitempty" mapstructure:"services,omitempty"`
 }
 
-func (j *NormalJob) isJob() {}
-
 // Each job must have an id to associate with the job.
 // The key job_id is a string and its value is a map of the job's configuration data.
 // You must replace <job_id> with a string that is unique to the jobs object.
@@ -151,8 +153,6 @@ type ReusableWorkflowCallJob struct {
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idsecrets
 	Secrets JobSecrets `json:"secrets,omitempty" yaml:"secrets,omitempty" mapstructure:"secrets,omitempty"`
 }
-
-func (j *ReusableWorkflowCallJob) isJob() {}
 
 // Context available:
 // - in job level: `github`, `needs`, `strategy`, `matrix`, `inputs`, `vars`

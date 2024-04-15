@@ -1,8 +1,14 @@
 package workflows
 
 type Step interface {
-	isStep()
+	Base() *BaseStep
 }
+
+// ensure Step implementations
+var (
+	_ Step = (*UsesStep)(nil)
+	_ Step = (*RunStep)(nil)
+)
 
 type BaseStep struct {
 	// A unique identifier for the step. You can use the id to reference the step in contexts.
@@ -55,6 +61,10 @@ type BaseStep struct {
 	TimeoutMinutes Evaluable[int64] `json:"timeout-minutes,omitempty" yaml:"timeout-minutes,omitempty" mapstructure:"timeout-minutes,omitempty"`
 }
 
+func (s *BaseStep) Base() *BaseStep {
+	return s
+}
+
 type UsesStep struct {
 	BaseStep `yaml:",inline" mapstructure:",squash"`
 
@@ -71,9 +81,6 @@ type UsesStep struct {
 	// For more details, see https://help.github.com/en/articles/virtual-environments-for-github-actions.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsuses
 	Uses string `json:"uses,omitempty" yaml:"uses,omitempty" mapstructure:"uses,omitempty" validate:"required"`
-}
-
-func (s *UsesStep) isStep() {
 }
 
 type RunStep struct {
@@ -96,7 +103,4 @@ type RunStep struct {
 	// Special functions: `hashFiles`
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
 	WorkingDir Evaluable[string] `json:"working-directory,omitempty" yaml:"working-directory,omitempty" mapstructure:"working-directory,omitempty"`
-}
-
-func (s *RunStep) isStep() {
 }
