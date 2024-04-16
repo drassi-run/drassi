@@ -5,13 +5,17 @@ import (
 
 	"gotest.tools/v3/assert"
 
-	"expression_parser/runner"
-	"expression_parser/runner/mocks"
+	"github.com/dungdm93/drasi/pkg/runner"
+	"github.com/dungdm93/drasi/pkg/runner/mocks"
 )
 
 /*
 Example are from https://docs.github.com/en/actions/learn-github-actions/expressions#example-of-literals
-Note that unquoted string literal will be considered named value
+Named values are value that was passed to evaluation context state as a meaningful object.
+Named values contains value that will be taken out when evaluating expression.
+Example of named value: github, job,.... Expression will be something like: ${{ github.actor }}
+
+Note that unquoted string literal will be considered named values.
 eg: Mona the Octocat is not a string literal.
 'Mona the Octocat' is a string literal
 */
