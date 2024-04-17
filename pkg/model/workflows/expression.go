@@ -93,3 +93,65 @@ func NewConditional(s string) Conditional {
 		conv: toBool,
 	}
 }
+
+type biCond struct {
+	left  Conditional
+	right Conditional
+}
+
+type orCond biCond
+
+func (c *orCond) Meet(ctx context.Context) (bool, error) {
+	l, err := c.left.Meet(ctx)
+	if err != nil || !l {
+		return l, err
+	}
+
+	r, err := c.right.Meet(ctx)
+	if err != nil || !r {
+		return r, err
+	}
+
+	return true, nil
+}
+
+func NewConditionalOr(l, r Conditional) Conditional {
+	return &orCond{left: l, right: r}
+}
+
+type andCond biCond
+
+func (c *andCond) Meet(ctx context.Context) (bool, error) {
+	l, err := c.left.Meet(ctx)
+	if err != nil || l {
+		return l, err
+	}
+
+	r, err := c.right.Meet(ctx)
+	if err != nil || r {
+		return r, err
+	}
+
+	return false, nil
+}
+
+func NewConditionalAnd(l, r Conditional) Conditional {
+	return &andCond{left: l, right: r}
+}
+
+type notCond struct {
+	original Conditional
+}
+
+func (c *notCond) Meet(ctx context.Context) (bool, error) {
+	o, err := c.original.Meet(ctx)
+	if err != nil {
+		return o, err
+	} else {
+		return !o, nil
+	}
+}
+
+func NewConditionalNot(c Conditional) Conditional {
+	return &notCond{original: c}
+}
