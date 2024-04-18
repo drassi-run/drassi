@@ -47,15 +47,15 @@ type Github struct {
 type RefType string
 
 const (
-	RefTypeBranch = "branch"
-	RefTypeTag    = "tag"
+	RefTypeBranch RefType = "branch"
+	RefTypeTag    RefType = "tag"
 )
 
 type SecretSource string
 
 const (
-	SecretSourceNone       = "None"
-	SecretSourceActions    = "Actions"
-	SecretSourceCodespaces = "Codespaces"
-	SecretSourceDependabot = "Dependabot"
+	SecretSourceNone       SecretSource = "None"
+	SecretSourceActions    SecretSource = "Actions"
+	SecretSourceCodespaces SecretSource = "Codespaces"
+	SecretSourceDependabot SecretSource = "Dependabot"
 )

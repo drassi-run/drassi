@@ -71,5 +71,5 @@ type Strategy struct {
 // https://docs.github.com/en/actions/learn-github-actions/contexts#needs-context
 type Need struct {
 	Outputs map[string]string `json:"outputs" yaml:"outputs"`
-	Result  JobResult         `json:"result" yaml:"result"`
+	Result  ActionResult      `json:"result" yaml:"result"`
 }
