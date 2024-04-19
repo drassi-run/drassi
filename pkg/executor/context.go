@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"github.com/dungdm93/drasi/pkg/model/contexts"
 	"github.com/dungdm93/drasi/pkg/model/workflows"
 	utilreader "github.com/dungdm93/drasi/pkg/util/reader"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 type ExecutionEnvironment interface {
@@ -38,6 +40,8 @@ type RunContext struct {
 	StepInfo
 
 	Default workflows.Defaults
+
+	paths []string
 }
 
 func (rCtx *RunContext) runStep(
@@ -121,16 +125,16 @@ func (rCtx *RunContext) initializeRunStep(ctx context.Context, step *workflows.B
 
 func (rCtx *RunContext) finalizeRunStep(ctx context.Context) error {
 	workflowPath := rCtx.GetWorkflowPath()
-	if err := updateRunContext(ctx, rCtx, filepath.Join(workflowPath, "ENVS.txt"), parseEnvFile, rCtx.updateEnv); err != nil {
+	if err := updateRunContext(ctx, rCtx, filepath.Join(workflowPath, "ENVS.txt"), utilreader.ParseEnvVars, rCtx.updateEnv); err != nil {
 		return err
 	}
-	if err := updateRunContext(ctx, rCtx, filepath.Join(workflowPath, "STATE.txt"), parseEnvFile, rCtx.saveState); err != nil {
+	if err := updateRunContext(ctx, rCtx, filepath.Join(workflowPath, "STATE.txt"), utilreader.ParseEnvVars, rCtx.saveState); err != nil {
 		return err
 	}
-	if err := updateRunContext(ctx, rCtx, filepath.Join(workflowPath, "OUTPUT.txt"), parseEnvFile, rCtx.setOutput); err != nil {
+	if err := updateRunContext(ctx, rCtx, filepath.Join(workflowPath, "OUTPUT.txt"), utilreader.ParseEnvVars, rCtx.setOutput); err != nil {
 		return err
 	}
-	if err := updateRunContext(ctx, rCtx, filepath.Join(workflowPath, "PATH.txt"), readLine, rCtx.updatePath); err != nil {
+	if err := updateRunContext(ctx, rCtx, filepath.Join(workflowPath, "PATH.txt"), utilreader.ReadLine, rCtx.updatePath); err != nil {
 		return err
 	}
 	return nil
@@ -156,8 +160,32 @@ func (rCtx *RunContext) setOutput(data map[string]string) error {
 	panic("implement me")
 }
 
+// Add paths to the context and remove duplicates
+// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L107
 func (rCtx *RunContext) updatePath(paths []string) error {
-	panic("implement me")
+	if len(paths) == 0 {
+		return nil
+	}
+	slices.Reverse(paths)
+
+	newPaths := make([]string, 0, len(paths))
+	set := sets.New(paths[0])
+
+	for _, path := range paths[1:] {
+		if !set.Has(path) {
+			newPaths = append(newPaths, path)
+			set.Insert(path)
+		}
+	}
+	for _, path := range rCtx.paths {
+		if !set.Has(path) {
+			newPaths = append(newPaths, path)
+			set.Insert(path)
+		}
+	}
+
+	rCtx.paths = newPaths
+	return nil
 }
 
 func (rCtx *RunContext) evaluateCondition(ctx context.Context, step *workflows.BaseStep, stage Stage,
@@ -200,12 +228,4 @@ func updateRunContext[R any](
 		return err
 	}
 	return updater(data)
-}
-
-func parseEnvFile(reader io.Reader) (map[string]string, error) {
-	panic("implement me")
-}
-
-func readLine(reader io.Reader) ([]string, error) {
-	panic("implement me")
 }
