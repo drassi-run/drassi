@@ -9,13 +9,12 @@ import (
 // + `uses: docker://alpine:3.8`
 // + `uses: docker://gcr.io/cloud-builders/gradle`
 type usesDockerStepRunner struct {
-	rCtx  *RunContext
 	step  *workflows.UsesStep
 	image string
 }
 
-func (e *usesDockerStepRunner) Initialize(ctx context.Context) error {
-	return e.rCtx.PullImage(ctx, e.image)
+func (e *usesDockerStepRunner) Initialize(ctx context.Context, rCtx *StepRunContext) error {
+	return rCtx.PullImage(ctx, e.image)
 }
 
 func (e *usesDockerStepRunner) PreTask() *Task {
@@ -31,8 +30,8 @@ func (e *usesDockerStepRunner) MainTask() *Task {
 	}
 }
 
-func (e *usesDockerStepRunner) executeMain(ctx context.Context) error {
-	return e.rCtx.RunContainer(ctx, e.image, nil, nil, nil, "")
+func (e *usesDockerStepRunner) executeMain(ctx context.Context, rCtx *StepRunContext) error {
+	return rCtx.RunContainer(ctx, e.image, nil, nil, nil, "")
 }
 
 func (e *usesDockerStepRunner) PostTask() *Task {

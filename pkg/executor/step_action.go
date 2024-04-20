@@ -11,14 +11,13 @@ import (
 // + Using a public action in a subdirectory: `uses: actions/aws/ec2@main`
 // + Using a local action: `uses: ./.github/actions/hello-world-action`
 type usesActionStepRunner struct {
-	rCtx   *RunContext
 	step   *workflows.UsesStep
 	repo   *repository
 	rev    string
 	action ActionRunner
 }
 
-func (e *usesActionStepRunner) Initialize(ctx context.Context) error {
+func (e *usesActionStepRunner) Initialize(ctx context.Context, rCtx *StepRunContext) error {
 	//TODO implement me
 	panic("implement me")
 }

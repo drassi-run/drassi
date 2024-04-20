@@ -82,7 +82,7 @@ func (c *StepRunContext) runStep(
 
 	ch := make(chan error)
 	go func() {
-		ch <- task.Run(timeoutCtx)
+		ch <- task.Run(timeoutCtx, c)
 	}()
 
 	select {
