@@ -22,22 +22,22 @@ type Task struct {
 }
 
 type JobRunner struct {
-	rCtx   *RunContext
+	rCtx   *JobRunContext
 	job    workflows.Job
 	runner StepsRunner
 }
 
 func (s *JobRunner) Initialize(ctx context.Context) error {
-	//TODO implement me
+	//TODO launch sandbox
 	panic("implement me")
 }
 
 func (s *JobRunner) Run(ctx context.Context) error {
-	//TODO implement me
+	//TODO run pre -> main -> post
 	panic("implement me")
 }
 
 func (s *JobRunner) Finalize(ctx context.Context) error {
-	//TODO implement me
+	//TODO terminate sandbox
 	panic("implement me")
 }

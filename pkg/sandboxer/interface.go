@@ -7,6 +7,20 @@ import (
 	"github.com/dungdm93/drasi/pkg/container"
 )
 
+type Sandbox interface {
+	Execute(ctx context.Context, cmd []string, env map[string]string, workdir string) error
+	CopyIn(ctx context.Context, reader io.Reader, dst string) error
+	CopyOut(ctx context.Context, src string) (io.Reader, error)
+
+	RunContainer(ctx context.Context, image string, entrypoint []string, cmd []string, env map[string]string, workdir string) error
+	PullImage(ctx context.Context, image string) error
+	BuildImage(ctx context.Context, image string, dockerfile string, contextPath string) error
+
+	GetWorkPath() string
+	GetWorkflowPath() string
+	GetActionsPath() string
+}
+
 type Sandboxer interface {
 	Close() error
 	Connect(context.Context) error

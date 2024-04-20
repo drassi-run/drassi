@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/dungdm93/drasi/pkg/model/workflows"
+	"github.com/dungdm93/drasi/pkg/sandboxer"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -13,7 +14,7 @@ var (
 )
 
 type JobRunContext struct {
-	ExecutionEnvironment
+	sandboxer.Sandbox
 
 	defaultRun struct {
 		shell   string
