@@ -11,16 +11,16 @@ import (
 )
 
 type StepsRunner struct {
-	steps   []workflows.Step
-	runners []StepRunner
-	stepMap map[string]workflows.Step
+	steps    []workflows.Step
+	runners  []StepRunner
+	contexts map[string]*StepRunContext
 }
 
-func (e *StepsRunner) Initialize(ctx context.Context) (err error) {
-	e.stepMap = make(map[string]workflows.Step, len(e.steps))
+func (e *StepsRunner) Initialize(ctx context.Context, rCtx *StepRunContext) (err error) {
+	e.contexts = make(map[string]*StepRunContext, len(e.steps))
 	e.runners = make([]StepRunner, len(e.steps))
 	for i, step := range e.steps {
-		e.stepMap[step.Base().Id] = step
+		e.contexts[step.Base().Id] = rCtx.newChildContext(step)
 		e.runners[i], err = e.createStepRunner(step)
 		if err != nil {
 			return
@@ -30,8 +30,9 @@ func (e *StepsRunner) Initialize(ctx context.Context) (err error) {
 	g, ctx := errgroup.WithContext(ctx)
 	for _, runner := range e.runners {
 		r := runner
+		rChildCtx := e.contexts[r.Step().Base().Id]
 		g.Go(func() error {
-			return r.Initialize(ctx)
+			return r.Initialize(ctx, rChildCtx)
 		})
 	}
 	return g.Wait()
@@ -41,14 +42,12 @@ func (e *StepsRunner) createStepRunner(step workflows.Step) (StepRunner, error) 
 	switch s := step.(type) {
 	case *workflows.RunStep:
 		r := &runStepRunner{
-			rCtx: e.rCtx, // TODO .Clone()
 			step: s,
 		}
 		return r, nil
 	case *workflows.UsesStep:
 		if image, ok := strings.CutPrefix(s.Uses, "docker://"); ok {
 			r := &usesDockerStepRunner{
-				rCtx:  e.rCtx, // TODO .Clone()
 				step:  s,
 				image: image,
 			}
@@ -59,7 +58,6 @@ func (e *StepsRunner) createStepRunner(step workflows.Step) (StepRunner, error) 
 				return nil, err
 			}
 			r := &usesActionStepRunner{
-				rCtx: e.rCtx, // TODO .Clone()
 				step: s,
 				repo: repo,
 			}
@@ -112,7 +110,11 @@ func (e *StepsRunner) executeTasks(stage Stage, tasks []*Task) func(context.Cont
 
 	return func(ctx context.Context, rCtx *StepRunContext) error {
 		for _, task := range tasks {
-			_ = rCtx.runStep(ctx, task)
+			rChildCtx := e.contexts[task.StepID]
+			if rChildCtx == nil || rChildCtx.parent != rCtx {
+				return fmt.Errorf("StepRunContext for task %s need to be initialize correctly", task.StepID)
+			}
+			_ = rChildCtx.runStep(ctx, task)
 		}
 		return nil
 	}
