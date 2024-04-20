@@ -212,20 +212,3 @@ func (rCtx *RunContext) evaluateTimeout(ctx context.Context, step *workflows.Bas
 func (rCtx *RunContext) evaluateContinueOnError(ctx context.Context, step *workflows.BaseStep) (bool, error) {
 	return step.ContinueOnError.Evaluate(ctx)
 }
-
-func updateRunContext[R any](
-	ctx context.Context, rCtx *RunContext,
-	path string,
-	parser func(reader io.Reader) (R, error),
-	updater func(data R) error,
-) error {
-	r, err := rCtx.CopyOut(ctx, path)
-	if err != nil {
-		return err
-	}
-	data, err := parser(r)
-	if err != nil {
-		return err
-	}
-	return updater(data)
-}

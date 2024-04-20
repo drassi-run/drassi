@@ -2,9 +2,13 @@ package executor
 
 import (
 	"context"
+	"io"
+	"path/filepath"
+	"time"
 
 	"github.com/dungdm93/drasi/pkg/model/contexts"
 	"github.com/dungdm93/drasi/pkg/model/workflows"
+	utilreader "github.com/dungdm93/drasi/pkg/util/reader"
 )
 
 type StepRunContext struct {
@@ -38,6 +42,109 @@ func (c *StepRunContext) newChildContext() *StepRunContext {
 	}
 }
 
+func (c *StepRunContext) runStep(
+	ctx context.Context,
+	step *workflows.BaseStep,
+	task *Task,
+) error {
+	if err := c.setupEnv(ctx, step); err != nil {
+		return err
+	}
+
+	if meet, err := c.evaluateIf(ctx, task.Condition); err == nil {
+		c.result.Conclusion = contexts.ActionResultFailure
+		c.result.Outcome = contexts.ActionResultFailure
+		return err
+	} else if !meet {
+		c.result.Conclusion = contexts.ActionResultSkipped
+		c.result.Outcome = contexts.ActionResultSkipped
+		// TODO logging
+		return nil
+	}
+
+	if err := c.initializeRunStep(ctx, step); err != nil {
+		return err
+	}
+
+	timeout, err := c.evaluateTimeoutMinutes(ctx, step.TimeoutMinutes)
+	if err != nil {
+		return err
+	}
+
+	timeoutCtx, cancel := context.WithTimeout(ctx, time.Duration(timeout)*time.Minute)
+	defer cancel()
+
+	ch := make(chan error)
+	go func() {
+		ch <- task.Run(timeoutCtx)
+	}()
+
+	select {
+	case <-ctx.Done():
+		err = ctx.Err()
+	case err = <-ch:
+	}
+
+	if err != nil {
+		c.result.Outcome = contexts.ActionResultFailure
+
+		if continueOnError, parseErr := c.evaluateContinueOnError(ctx, step.ContinueOnError); parseErr != nil {
+			c.result.Conclusion = contexts.ActionResultFailure
+			return parseErr
+		} else if continueOnError {
+			c.result.Conclusion = contexts.ActionResultSuccess
+			//logger.Infof("Failed but continue next step")
+			err = nil
+		} else {
+			c.result.Conclusion = contexts.ActionResultFailure
+		}
+
+		//logger.WithField("stepResult", stepResult.Outcome).Errorf("  \u274C  Failure - %s %s", stage, stepString)
+	} else {
+		c.result.Conclusion = contexts.ActionResultSuccess
+		c.result.Outcome = contexts.ActionResultSuccess
+	}
+
+	if err := c.finalizeRunStep(ctx); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *StepRunContext) initializeRunStep(ctx context.Context, step *workflows.BaseStep) error {
+	files := []*utilreader.FileEntry{
+		{Name: "GITHUB_OUTPUT", Mode: 0o666},
+		{Name: "GITHUB_STATE", Mode: 0o666},
+		{Name: "GITHUB_PATH", Mode: 0o666},
+		{Name: "GITHUB_ENV", Mode: 0o666},
+		{Name: "GITHUB_STEP_SUMMARY", Mode: 0o666},
+	}
+	if r, err := utilreader.FromFileEntries(ctx, files...); err != nil {
+		return err
+	} else {
+		return c.CopyIn(ctx, r, c.GetWorkflowPath())
+	}
+}
+
+func (c *StepRunContext) finalizeRunStep(ctx context.Context) error {
+	workflowPath := c.GetWorkflowPath()
+
+	if err := updateRunContext(ctx, c, filepath.Join(workflowPath, "GITHUB_OUTPUT"), utilreader.ParseEnvVars, c.setOutput); err != nil {
+		return err
+	}
+	if err := updateRunContext(ctx, c, filepath.Join(workflowPath, "GITHUB_STATE"), utilreader.ParseEnvVars, c.saveState); err != nil {
+		return err
+	}
+	if err := updateRunContext(ctx, c, filepath.Join(workflowPath, "GITHUB_PATH"), utilreader.ReadLine, c.addPath); err != nil {
+		return err
+	}
+	if err := updateRunContext(ctx, c, filepath.Join(workflowPath, "GITHUB_ENV"), utilreader.ParseEnvVars, c.setEnv); err != nil {
+		return err
+	}
+	// TODO update GITHUB_STEP_SUMMARY
+	return nil
+}
+
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L186
 // https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#adding-a-job-summary
 func (c *StepRunContext) createStepSummary() error {
@@ -57,6 +164,10 @@ func (c *StepRunContext) saveState(state map[string]string) error {
 func (c *StepRunContext) setOutput(output map[string]string) error {
 	c.result.Outputs = output
 	return nil
+}
+
+func (c *StepRunContext) setupEnv(ctx context.Context, step *workflows.BaseStep) error {
+	panic("implement me")
 }
 
 func (c *StepRunContext) evaluateName(ctx context.Context, name workflows.Evaluable[string]) (string, error) {
@@ -127,4 +238,21 @@ func (c *StepRunContext) evaluateWorkingDir(ctx context.Context, workDir workflo
 		return "", nil
 	}
 	return workDir.Evaluate(ctx)
+}
+
+func updateRunContext[R any](
+	ctx context.Context, c *StepRunContext,
+	path string,
+	parser func(reader io.Reader) (R, error),
+	updater func(data R) error,
+) error {
+	r, err := c.CopyOut(ctx, path)
+	if err != nil {
+		return err
+	}
+	data, err := parser(r)
+	if err != nil {
+		return err
+	}
+	return updater(data)
 }
