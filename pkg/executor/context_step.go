@@ -28,16 +28,18 @@ func rootStepRunContext(jobContext *JobRunContext) *StepRunContext {
 	return &StepRunContext{
 		JobRunContext: jobContext,
 		parent:        nil,
+		step:          nil,
 		envOverride:   make(map[string]string),
 		input:         make(map[string]string),
 		result:        &contexts.Step{},
 	}
 }
 
-func (c *StepRunContext) newChildContext() *StepRunContext {
+func (c *StepRunContext) newChildContext(step workflows.Step) *StepRunContext {
 	return &StepRunContext{
 		JobRunContext: c.JobRunContext,
 		parent:        c,
+		step:          step,
 		envOverride:   make(map[string]string),
 		input:         make(map[string]string),
 		result:        &contexts.Step{},
