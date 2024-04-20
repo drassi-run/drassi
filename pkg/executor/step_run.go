@@ -10,11 +10,10 @@ import (
 )
 
 type runStepRunner struct {
-	rCtx *RunContext
 	step *workflows.RunStep
 }
 
-func (e *runStepRunner) Initialize(_ context.Context) error {
+func (e *runStepRunner) Initialize(_ context.Context, _ *StepRunContext) error {
 	return nil
 }
 
@@ -31,10 +30,10 @@ func (e *runStepRunner) MainTask() *Task {
 	}
 }
 
-func (e *runStepRunner) executeMain(ctx context.Context) error {
-	shell := Shell(e.getShell())
+func (e *runStepRunner) executeMain(ctx context.Context, rCtx *StepRunContext) error {
+	shell := Shell(e.getShell(rCtx))
 
-	workdir, err := e.getWorkingDir(ctx)
+	workdir, err := e.getWorkingDir(ctx, rCtx)
 	if err != nil {
 		return err
 	}
@@ -45,7 +44,7 @@ func (e *runStepRunner) executeMain(ctx context.Context) error {
 	}
 	script = shell.FixupScript(script)
 
-	cmd, scriptName, err := e.getCommand(shell)
+	cmd, scriptName, err := e.getCommand(shell, rCtx)
 	if err != nil {
 		return err
 	}
@@ -58,10 +57,10 @@ func (e *runStepRunner) executeMain(ctx context.Context) error {
 		return err
 	}
 
-	if err = e.rCtx.CopyIn(ctx, reader, scriptName); err != nil {
+	if err = rCtx.CopyIn(ctx, reader, scriptName); err != nil {
 		return err
 	}
-	return e.rCtx.Execute(ctx, cmd, nil, workdir)
+	return rCtx.Execute(ctx, cmd, nil, workdir)
 }
 
 func (e *runStepRunner) PostTask() *Task {
@@ -72,25 +71,22 @@ func (e *runStepRunner) Step() workflows.Step {
 	return e.step
 }
 
-func (e *runStepRunner) getShell() string {
+func (e *runStepRunner) getShell(rCtx *StepRunContext) string {
 	if e.step.Shell != "" {
 		return e.step.Shell
 	}
-	return e.rCtx.Default.Run.Shell
+	return rCtx.defaultRun.shell
 }
 
-func (e *runStepRunner) getWorkingDir(ctx context.Context) (string, error) {
+func (e *runStepRunner) getWorkingDir(ctx context.Context, rCtx *StepRunContext) (string, error) {
 	if e.step.WorkingDir != nil {
-		return e.step.WorkingDir.Evaluate(ctx)
+		return rCtx.evaluateWorkingDir(ctx, e.step.WorkingDir)
 	}
-	if e.rCtx.Default.Run.WorkingDir != nil {
-		return e.rCtx.Default.Run.WorkingDir.Evaluate(ctx)
-	}
-	return "", nil
+	return rCtx.defaultRun.workDir, nil
 }
 
-func (e *runStepRunner) getCommand(shell Shell) ([]string, string, error) {
-	scriptName := getScriptName(e.rCtx, shell, e.step.Id)
+func (e *runStepRunner) getCommand(shell Shell, rCtx *StepRunContext) ([]string, string, error) {
+	scriptName := getScriptName(rCtx, shell, e.step.Id)
 	cmds, err := shell.Command()
 	if err != nil {
 		return nil, "", err
@@ -103,11 +99,11 @@ func (e *runStepRunner) getCommand(shell Shell) ([]string, string, error) {
 	return c, scriptName, nil
 }
 
-func getScriptName(rc *RunContext, shell Shell, name string) string {
+func getScriptName(rCtx *StepRunContext, shell Shell, name string) string {
 	scriptName := name
-	for stepInfo := &rc.StepInfo; stepInfo.Parent != nil; stepInfo = stepInfo.Parent {
-		scriptName = fmt.Sprintf("%s-composite-%s", stepInfo.Parent.StepId, scriptName)
-	}
+	//for stepInfo := &rc.StepInfo; stepInfo.Parent != nil; stepInfo = stepInfo.Parent {
+	//	scriptName = fmt.Sprintf("%s-composite-%s", stepInfo.Parent.StepId, scriptName)
+	//}
 	scriptName += shell.Extension()
 	return fmt.Sprintf("workflow/%s", scriptName)
 }

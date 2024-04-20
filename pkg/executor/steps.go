@@ -11,7 +11,6 @@ import (
 )
 
 type StepsRunner struct {
-	rCtx    *RunContext
 	steps   []workflows.Step
 	runners []StepRunner
 	stepMap map[string]workflows.Step
@@ -106,18 +105,14 @@ func (e *StepsRunner) createStageTask(stage Stage, fn func(StepRunner) *Task) *T
 	}
 }
 
-func (e *StepsRunner) executeTasks(stage Stage, tasks []*Task) func(context.Context) error {
+func (e *StepsRunner) executeTasks(stage Stage, tasks []*Task) func(context.Context, *StepRunContext) error {
 	if stage == StagePost {
 		slices.Reverse(tasks) // in place reverse
 	}
 
-	return func(ctx context.Context) error {
+	return func(ctx context.Context, rCtx *StepRunContext) error {
 		for _, task := range tasks {
-			step, ok := e.stepMap[task.StepID]
-			if !ok {
-				return fmt.Errorf("unknown step id: %s", task.StepID)
-			}
-			_ = e.rCtx.runStep(ctx, step.Base(), task)
+			_ = rCtx.runStep(ctx, task)
 		}
 		return nil
 	}

@@ -7,12 +7,11 @@ import (
 )
 
 type compositeActionRunner struct {
-	rCtx   *RunContext
 	action *actions.CompositeRuns
 	runner StepsRunner
 }
 
-func (e *compositeActionRunner) Initialize(ctx context.Context) error {
+func (e *compositeActionRunner) Initialize(ctx context.Context, rCtx *StepRunContext) error {
 	//TODO implement me
 	panic("implement me")
 }

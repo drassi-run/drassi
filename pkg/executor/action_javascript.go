@@ -7,13 +7,12 @@ import (
 )
 
 type javaScriptActionRunner struct {
-	rCtx   *RunContext
 	action *actions.JavaScriptRuns
 	repo   *repository
 	rev    string
 }
 
-func (e *javaScriptActionRunner) Initialize(ctx context.Context) error {
+func (e *javaScriptActionRunner) Initialize(ctx context.Context, rCtx *StepRunContext) error {
 	panic("Copy repo to sandbox")
 }
 

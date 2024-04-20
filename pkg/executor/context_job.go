@@ -15,6 +15,11 @@ var (
 type JobRunContext struct {
 	ExecutionEnvironment
 
+	defaultRun struct {
+		shell   string
+		workDir string
+	}
+
 	env   map[string]string
 	paths []string
 }

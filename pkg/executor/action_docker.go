@@ -8,12 +8,11 @@ import (
 )
 
 type dockerActionRunner struct {
-	rCtx   *RunContext
 	action *actions.DockerRuns
 	image  string
 }
 
-func (e *dockerActionRunner) Initialize(ctx context.Context) error {
+func (e *dockerActionRunner) Initialize(ctx context.Context, rCtx *StepRunContext) error {
 	if i, ok := strings.CutPrefix(e.action.Image, "docker://"); ok {
 		// TODO pull image
 		e.image = i
@@ -35,10 +34,10 @@ func (e *dockerActionRunner) PreTask() *Task {
 	}
 }
 
-func (e *dockerActionRunner) executePre(ctx context.Context) error {
+func (e *dockerActionRunner) executePre(ctx context.Context, rCtx *StepRunContext) error {
 	entrypoint := []string{e.action.PreEntrypoint}
 	env := e.evaluateEnv()
-	return e.rCtx.RunContainer(ctx, e.image, entrypoint, nil, env, "")
+	return rCtx.RunContainer(ctx, e.image, entrypoint, nil, env, "")
 }
 
 func (e *dockerActionRunner) MainTask() *Task {
@@ -48,10 +47,10 @@ func (e *dockerActionRunner) MainTask() *Task {
 	}
 }
 
-func (e *dockerActionRunner) executeMain(ctx context.Context) error {
+func (e *dockerActionRunner) executeMain(ctx context.Context, rCtx *StepRunContext) error {
 	entrypoint := []string{e.action.Entrypoint}
 	env := e.evaluateEnv()
-	return e.rCtx.RunContainer(ctx, e.image, entrypoint, nil, env, "")
+	return rCtx.RunContainer(ctx, e.image, entrypoint, nil, env, "")
 }
 
 func (e *dockerActionRunner) PostTask() *Task {
@@ -65,10 +64,10 @@ func (e *dockerActionRunner) PostTask() *Task {
 	}
 }
 
-func (e *dockerActionRunner) executePost(ctx context.Context) error {
+func (e *dockerActionRunner) executePost(ctx context.Context, rCtx *StepRunContext) error {
 	entrypoint := []string{e.action.PostEntrypoint}
 	env := e.evaluateEnv()
-	return e.rCtx.RunContainer(ctx, e.image, entrypoint, nil, env, "")
+	return rCtx.RunContainer(ctx, e.image, entrypoint, nil, env, "")
 }
 
 func (e *dockerActionRunner) Action() actions.Runs {

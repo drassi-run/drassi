@@ -18,7 +18,7 @@ type Task struct {
 	StepID    string
 	Stage     Stage
 	Condition workflows.Conditional // default true
-	Run       func(context.Context) error
+	Run       func(context.Context, *StepRunContext) error
 }
 
 type JobRunner struct {

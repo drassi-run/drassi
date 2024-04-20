@@ -7,9 +7,16 @@ import (
 )
 
 type ActionRunner interface {
-	Initialize(ctx context.Context) error
+	Initialize(ctx context.Context, rCtx *StepRunContext) error
 	PreTask() *Task
 	MainTask() *Task
 	PostTask() *Task
 	Action() actions.Runs
 }
+
+// ensure ActionRunner implementations
+var (
+	_ ActionRunner = (*javaScriptActionRunner)(nil)
+	_ ActionRunner = (*dockerActionRunner)(nil)
+	_ ActionRunner = (*compositeActionRunner)(nil)
+)
