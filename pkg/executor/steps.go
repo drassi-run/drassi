@@ -50,7 +50,7 @@ func (e *StepsRunner) createStepRunner(step workflows.Step) (StepRunner, error) 
 		if image, ok := strings.CutPrefix(s.Uses, "docker://"); ok {
 			r := &usesDockerStepRunner{
 				rCtx:  e.rCtx, // TODO .Clone()
-				step:  s.Base(),
+				step:  s,
 				image: image,
 			}
 			return r, nil
@@ -61,7 +61,7 @@ func (e *StepsRunner) createStepRunner(step workflows.Step) (StepRunner, error) 
 			}
 			r := &usesActionStepRunner{
 				rCtx: e.rCtx, // TODO .Clone()
-				step: s.Base(),
+				step: s,
 				repo: repo,
 			}
 			return r, nil

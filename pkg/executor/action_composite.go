@@ -31,3 +31,7 @@ func (e *compositeActionRunner) PostTask() *Task {
 	//TODO implement me
 	panic("implement me")
 }
+
+func (e *compositeActionRunner) Action() actions.Runs {
+	return e.action
+}

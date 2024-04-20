@@ -10,7 +10,7 @@ import (
 // + `uses: docker://gcr.io/cloud-builders/gradle`
 type usesDockerStepRunner struct {
 	rCtx  *RunContext
-	step  *workflows.BaseStep
+	step  *workflows.UsesStep
 	image string
 }
 
@@ -37,4 +37,8 @@ func (e *usesDockerStepRunner) executeMain(ctx context.Context) error {
 
 func (e *usesDockerStepRunner) PostTask() *Task {
 	return nil
+}
+
+func (e *usesDockerStepRunner) Step() workflows.Step {
+	return e.step
 }

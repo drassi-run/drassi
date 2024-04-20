@@ -8,7 +8,7 @@ import (
 
 type javaScriptActionRunner struct {
 	rCtx   *RunContext
-	action actions.JavaScriptRuns
+	action *actions.JavaScriptRuns
 	repo   *repository
 	rev    string
 }
@@ -30,4 +30,8 @@ func (e *javaScriptActionRunner) MainTask() *Task {
 func (e *javaScriptActionRunner) PostTask() *Task {
 	//TODO implement me
 	panic("implement me")
+}
+
+func (e *javaScriptActionRunner) Action() actions.Runs {
+	return e.action
 }

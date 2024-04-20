@@ -2,6 +2,7 @@ package executor
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"path/filepath"
 	"time"
@@ -14,6 +15,7 @@ import (
 type StepRunContext struct {
 	*JobRunContext
 	parent *StepRunContext
+	step   workflows.Step
 
 	envOverride map[string]string
 	input       map[string]string
@@ -44,10 +46,14 @@ func (c *StepRunContext) newChildContext() *StepRunContext {
 
 func (c *StepRunContext) runStep(
 	ctx context.Context,
-	step *workflows.BaseStep,
 	task *Task,
 ) error {
-	if err := c.setupEnv(ctx, step); err != nil {
+	base := c.step.Base()
+	if task.StepID != base.Id {
+		return fmt.Errorf("task step ID does not match step ID %s", task.StepID)
+	}
+
+	if err := c.setupEnv(ctx, c.step); err != nil {
 		return err
 	}
 
@@ -62,11 +68,11 @@ func (c *StepRunContext) runStep(
 		return nil
 	}
 
-	if err := c.initializeRunStep(ctx, step); err != nil {
+	if err := c.initializeRunStep(ctx); err != nil {
 		return err
 	}
 
-	timeout, err := c.evaluateTimeoutMinutes(ctx, step.TimeoutMinutes)
+	timeout, err := c.evaluateTimeoutMinutes(ctx, base.TimeoutMinutes)
 	if err != nil {
 		return err
 	}
@@ -88,7 +94,7 @@ func (c *StepRunContext) runStep(
 	if err != nil {
 		c.result.Outcome = contexts.ActionResultFailure
 
-		if continueOnError, parseErr := c.evaluateContinueOnError(ctx, step.ContinueOnError); parseErr != nil {
+		if continueOnError, parseErr := c.evaluateContinueOnError(ctx, base.ContinueOnError); parseErr != nil {
 			c.result.Conclusion = contexts.ActionResultFailure
 			return parseErr
 		} else if continueOnError {
@@ -111,7 +117,7 @@ func (c *StepRunContext) runStep(
 	return nil
 }
 
-func (c *StepRunContext) initializeRunStep(ctx context.Context, step *workflows.BaseStep) error {
+func (c *StepRunContext) initializeRunStep(ctx context.Context) error {
 	files := []*utilreader.FileEntry{
 		{Name: "GITHUB_OUTPUT", Mode: 0o666},
 		{Name: "GITHUB_STATE", Mode: 0o666},
@@ -166,7 +172,7 @@ func (c *StepRunContext) setOutput(output map[string]string) error {
 	return nil
 }
 
-func (c *StepRunContext) setupEnv(ctx context.Context, step *workflows.BaseStep) error {
+func (c *StepRunContext) setupEnv(ctx context.Context, step workflows.Step) error {
 	panic("implement me")
 }
 
