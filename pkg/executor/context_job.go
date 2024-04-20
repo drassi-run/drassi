@@ -13,6 +13,8 @@ var (
 )
 
 type JobRunContext struct {
+	ExecutionEnvironment
+
 	env   map[string]string
 	paths []string
 }
