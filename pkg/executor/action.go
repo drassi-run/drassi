@@ -3,13 +3,13 @@ package executor
 import (
 	"context"
 
-	"github.com/dungdm93/drasi/pkg/model/workflows"
+	"github.com/dungdm93/drasi/pkg/model/actions"
 )
 
-type StepRunner interface {
+type ActionRunner interface {
 	Initialize(ctx context.Context) error
 	PreTask() *Task
 	MainTask() *Task
 	PostTask() *Task
-	Step() workflows.Step
+	Action() actions.Runs
 }

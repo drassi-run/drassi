@@ -71,6 +71,10 @@ func (e *dockerActionRunner) executePost(ctx context.Context) error {
 	return e.rCtx.RunContainer(ctx, e.image, entrypoint, nil, env, "")
 }
 
+func (e *dockerActionRunner) Action() actions.Runs {
+	return e.action
+}
+
 func (e *dockerActionRunner) evaluateEnv() map[string]string {
 	// TODO compute env from  e.action.Env
 	return nil

@@ -68,6 +68,10 @@ func (e *runStepRunner) PostTask() *Task {
 	return nil
 }
 
+func (e *runStepRunner) Step() workflows.Step {
+	return e.step
+}
+
 func (e *runStepRunner) getShell() string {
 	if e.step.Shell != "" {
 		return e.step.Shell

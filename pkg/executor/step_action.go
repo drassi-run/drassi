@@ -12,10 +12,10 @@ import (
 // + Using a local action: `uses: ./.github/actions/hello-world-action`
 type usesActionStepRunner struct {
 	rCtx   *RunContext
-	step   *workflows.BaseStep
+	step   *workflows.UsesStep
 	repo   *repository
 	rev    string
-	action StepRunner // TODO ActionRunner
+	action ActionRunner
 }
 
 func (e *usesActionStepRunner) Initialize(ctx context.Context) error {
@@ -38,7 +38,11 @@ func (e *usesActionStepRunner) PostTask() *Task {
 	return fixupTask(t, e.step)
 }
 
-func fixupTask(t *Task, step *workflows.BaseStep) *Task {
+func (e *usesActionStepRunner) Step() workflows.Step {
+	return e.step
+}
+
+func fixupTask(t *Task, step *workflows.UsesStep) *Task {
 	if t == nil {
 		return nil
 	}
