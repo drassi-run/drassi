@@ -9,11 +9,12 @@ import (
 
 	"github.com/dungdm93/drasi/pkg/model/contexts"
 	"github.com/dungdm93/drasi/pkg/model/workflows"
+	"github.com/dungdm93/drasi/pkg/sandboxer"
 	utilreader "github.com/dungdm93/drasi/pkg/util/reader"
 )
 
 type StepRunContext struct {
-	*JobRunContext
+	job    *JobRunContext
 	parent *StepRunContext
 	step   workflows.Step
 
@@ -26,27 +27,31 @@ type StepRunContext struct {
 
 func rootStepRunContext(jobContext *JobRunContext) *StepRunContext {
 	return &StepRunContext{
-		JobRunContext: jobContext,
-		parent:        nil,
-		step:          nil,
-		envOverride:   make(map[string]string),
-		input:         make(map[string]string),
-		result:        &contexts.Step{},
+		job:         jobContext,
+		parent:      nil,
+		step:        nil,
+		envOverride: make(map[string]string),
+		input:       make(map[string]string),
+		result:      &contexts.Step{},
 	}
 }
 
-func (c *StepRunContext) newChildContext(step workflows.Step) *StepRunContext {
+func (c *StepRunContext) NewChildContext(step workflows.Step) *StepRunContext {
 	return &StepRunContext{
-		JobRunContext: c.JobRunContext,
-		parent:        c,
-		step:          step,
-		envOverride:   make(map[string]string),
-		input:         make(map[string]string),
-		result:        &contexts.Step{},
+		job:         c.job,
+		parent:      c,
+		step:        step,
+		envOverride: make(map[string]string),
+		input:       make(map[string]string),
+		result:      &contexts.Step{},
 	}
 }
 
-func (c *StepRunContext) runStep(
+func (c *StepRunContext) Sandbox() sandboxer.Sandbox {
+	return c.job.Sandbox()
+}
+
+func (c *StepRunContext) RunStep(
 	ctx context.Context,
 	task *Task,
 ) error {
@@ -130,12 +135,12 @@ func (c *StepRunContext) initializeRunStep(ctx context.Context) error {
 	if r, err := utilreader.FromFileEntries(ctx, files...); err != nil {
 		return err
 	} else {
-		return c.CopyIn(ctx, r, c.GetWorkflowPath())
+		return c.Sandbox().CopyIn(ctx, r, c.Sandbox().GetWorkflowPath())
 	}
 }
 
 func (c *StepRunContext) finalizeRunStep(ctx context.Context) error {
-	workflowPath := c.GetWorkflowPath()
+	workflowPath := c.Sandbox().GetWorkflowPath()
 
 	if err := updateRunContext(ctx, c, filepath.Join(workflowPath, "GITHUB_OUTPUT"), utilreader.ParseEnvVars, c.setOutput); err != nil {
 		return err
@@ -143,10 +148,10 @@ func (c *StepRunContext) finalizeRunStep(ctx context.Context) error {
 	if err := updateRunContext(ctx, c, filepath.Join(workflowPath, "GITHUB_STATE"), utilreader.ParseEnvVars, c.saveState); err != nil {
 		return err
 	}
-	if err := updateRunContext(ctx, c, filepath.Join(workflowPath, "GITHUB_PATH"), utilreader.ReadLine, c.addPath); err != nil {
+	if err := updateRunContext(ctx, c, filepath.Join(workflowPath, "GITHUB_PATH"), utilreader.ReadLine, c.job.addPath); err != nil {
 		return err
 	}
-	if err := updateRunContext(ctx, c, filepath.Join(workflowPath, "GITHUB_ENV"), utilreader.ParseEnvVars, c.setEnv); err != nil {
+	if err := updateRunContext(ctx, c, filepath.Join(workflowPath, "GITHUB_ENV"), utilreader.ParseEnvVars, c.job.setEnv); err != nil {
 		return err
 	}
 	// TODO update GITHUB_STEP_SUMMARY
@@ -254,7 +259,7 @@ func updateRunContext[R any](
 	parser func(reader io.Reader) (R, error),
 	updater func(data R) error,
 ) error {
-	r, err := c.CopyOut(ctx, path)
+	r, err := c.Sandbox().CopyOut(ctx, path)
 	if err != nil {
 		return err
 	}
