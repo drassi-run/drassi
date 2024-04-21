@@ -57,10 +57,10 @@ func (e *runStepRunner) executeMain(ctx context.Context, rCtx *StepRunContext) e
 		return err
 	}
 
-	if err = rCtx.CopyIn(ctx, reader, scriptName); err != nil {
+	if err = rCtx.Sandbox().CopyIn(ctx, reader, scriptName); err != nil {
 		return err
 	}
-	return rCtx.Execute(ctx, cmd, nil, workdir)
+	return rCtx.Sandbox().Execute(ctx, cmd, nil, workdir)
 }
 
 func (e *runStepRunner) PostTask() *Task {
@@ -75,14 +75,14 @@ func (e *runStepRunner) getShell(rCtx *StepRunContext) string {
 	if e.step.Shell != "" {
 		return e.step.Shell
 	}
-	return rCtx.defaultRun.shell
+	return rCtx.job.defaultRun.shell
 }
 
 func (e *runStepRunner) getWorkingDir(ctx context.Context, rCtx *StepRunContext) (string, error) {
 	if e.step.WorkingDir != nil {
 		return rCtx.evaluateWorkingDir(ctx, e.step.WorkingDir)
 	}
-	return rCtx.defaultRun.workDir, nil
+	return rCtx.job.defaultRun.workDir, nil
 }
 
 func (e *runStepRunner) getCommand(shell Shell, rCtx *StepRunContext) ([]string, string, error) {

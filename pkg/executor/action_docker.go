@@ -37,7 +37,7 @@ func (e *dockerActionRunner) PreTask() *Task {
 func (e *dockerActionRunner) executePre(ctx context.Context, rCtx *StepRunContext) error {
 	entrypoint := []string{e.action.PreEntrypoint}
 	env := e.evaluateEnv()
-	return rCtx.RunContainer(ctx, e.image, entrypoint, nil, env, "")
+	return rCtx.Sandbox().RunContainer(ctx, e.image, entrypoint, nil, env, "")
 }
 
 func (e *dockerActionRunner) MainTask() *Task {
@@ -50,7 +50,7 @@ func (e *dockerActionRunner) MainTask() *Task {
 func (e *dockerActionRunner) executeMain(ctx context.Context, rCtx *StepRunContext) error {
 	entrypoint := []string{e.action.Entrypoint}
 	env := e.evaluateEnv()
-	return rCtx.RunContainer(ctx, e.image, entrypoint, nil, env, "")
+	return rCtx.Sandbox().RunContainer(ctx, e.image, entrypoint, nil, env, "")
 }
 
 func (e *dockerActionRunner) PostTask() *Task {
@@ -67,7 +67,7 @@ func (e *dockerActionRunner) PostTask() *Task {
 func (e *dockerActionRunner) executePost(ctx context.Context, rCtx *StepRunContext) error {
 	entrypoint := []string{e.action.PostEntrypoint}
 	env := e.evaluateEnv()
-	return rCtx.RunContainer(ctx, e.image, entrypoint, nil, env, "")
+	return rCtx.Sandbox().RunContainer(ctx, e.image, entrypoint, nil, env, "")
 }
 
 func (e *dockerActionRunner) Action() actions.Runs {

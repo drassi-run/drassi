@@ -20,7 +20,7 @@ func (e *StepsRunner) Initialize(ctx context.Context, rCtx *StepRunContext) (err
 	e.contexts = make(map[string]*StepRunContext, len(e.steps))
 	e.runners = make([]StepRunner, len(e.steps))
 	for i, step := range e.steps {
-		e.contexts[step.Base().Id] = rCtx.newChildContext(step)
+		e.contexts[step.Base().Id] = rCtx.NewChildContext(step)
 		e.runners[i], err = e.createStepRunner(step)
 		if err != nil {
 			return
@@ -114,7 +114,7 @@ func (e *StepsRunner) executeTasks(stage Stage, tasks []*Task) func(context.Cont
 			if rChildCtx == nil || rChildCtx.parent != rCtx {
 				return fmt.Errorf("StepRunContext for task %s need to be initialize correctly", task.StepID)
 			}
-			_ = rChildCtx.runStep(ctx, task)
+			_ = rChildCtx.RunStep(ctx, task)
 		}
 		return nil
 	}

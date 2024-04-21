@@ -14,7 +14,7 @@ var (
 )
 
 type JobRunContext struct {
-	sandboxer.Sandbox
+	sandbox sandboxer.Sandbox
 
 	defaultRun struct {
 		shell   string
@@ -23,6 +23,10 @@ type JobRunContext struct {
 
 	env   map[string]string
 	paths []string
+}
+
+func (c *JobRunContext) Sandbox() sandboxer.Sandbox {
+	return c.sandbox
 }
 
 // Add paths to the context and remove duplicates

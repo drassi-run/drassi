@@ -14,7 +14,7 @@ type usesDockerStepRunner struct {
 }
 
 func (e *usesDockerStepRunner) Initialize(ctx context.Context, rCtx *StepRunContext) error {
-	return rCtx.PullImage(ctx, e.image)
+	return rCtx.Sandbox().PullImage(ctx, e.image)
 }
 
 func (e *usesDockerStepRunner) PreTask() *Task {
@@ -31,7 +31,7 @@ func (e *usesDockerStepRunner) MainTask() *Task {
 }
 
 func (e *usesDockerStepRunner) executeMain(ctx context.Context, rCtx *StepRunContext) error {
-	return rCtx.RunContainer(ctx, e.image, nil, nil, nil, "")
+	return rCtx.Sandbox().RunContainer(ctx, e.image, nil, nil, nil, "")
 }
 
 func (e *usesDockerStepRunner) PostTask() *Task {
