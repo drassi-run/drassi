@@ -7,7 +7,11 @@ import (
 )
 
 type WildCard struct {
-	base.ExpressionNodeBase
+	base.ExpressionNodeBs
+}
+
+func (a *WildCard) Value() any {
+	panic("not implemented")
 }
 
 func (a *WildCard) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
@@ -26,6 +30,6 @@ func (w *WildCard) ConvertToRealizedExpression(eCtx interfaces.IEvaluationContex
 	return constants.Wildcard
 }
 
-func (w *WildCard) EvaluateCore(eCtx interfaces.IEvaluationContext) any {
-	return constants.Wildcard
-}
+// func (w *WildCard) EvaluateCore(eCtx interfaces.IEvaluationContext) any {
+// 	return constants.Wildcard
+// }

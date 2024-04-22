@@ -16,9 +16,13 @@ func (a *AlwaysFn) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpr
 	return v.VisitAlwaysFn(eCtx, a)
 }
 
-func (a *AlwaysFn) EvaluateCore(eCtx interfaces.IEvaluationContext) any {
-	return true
+func (a *AlwaysFn) Value() any {
+	panic("not implemented")
 }
+
+// func (a *AlwaysFn) EvaluateCore(eCtx interfaces.IEvaluationContext) any {
+// 	return true
+// }
 
 func (a *AlwaysFn) SetName(name string) {
 	a.name = name

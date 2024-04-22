@@ -5,7 +5,7 @@ import (
 )
 
 type (
-	ExpressionNodeBase struct {
+	ExpressionNodeBs struct {
 		Container interfaces.IContainer
 		interfaces.IExpressionNode
 		Level int

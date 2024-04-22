@@ -4,21 +4,21 @@ import (
 	"github.com/dungdm93/drasi/pkg/expression/interfaces"
 )
 
-type ContainerBase struct {
+type ContainerBs struct {
 	interfaces.IContainer
-	ExpressionNodeBase
+	ExpressionNodeBs
 	Params []interfaces.IExpressionNode
 }
 
 // AddParameter add node as current container's params
-func (c *ContainerBase) AddParameter(node interfaces.IExpressionNode) {
+func (c *ContainerBs) AddParameter(node interfaces.IExpressionNode) {
 	c.Params = append(c.Params, node)
 	node.SetContainer(c)
 }
 
-// Parameters return values of all parameter of this ContainerBase node.
+// Parameters return values of all parameter of this ContainerBs node.
 // This is read-only, so we will return a slice of value
-func (c *ContainerBase) Parameters() []interfaces.IExpressionNode {
+func (c *ContainerBs) Parameters() []interfaces.IExpressionNode {
 	result := make([]interfaces.IExpressionNode, len(c.Params))
 	for _, p := range c.Params {
 		result = append(result, p)
@@ -26,6 +26,6 @@ func (c *ContainerBase) Parameters() []interfaces.IExpressionNode {
 	return result
 }
 
-func (c *ContainerBase) GetLevel() (level int) {
+func (c *ContainerBs) GetLevel() (level int) {
 	return c.Level
 }

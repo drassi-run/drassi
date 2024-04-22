@@ -13,7 +13,7 @@ type IFn interface {
 type Fn struct {
 	IFn
 	params []interfaces.IExpressionNode
-	base.ExpressionNodeBase
+	base.ExpressionNodeBs
 }
 
 // AddParameter add node as current container's params
@@ -22,7 +22,7 @@ func (f *Fn) AddParameter(node interfaces.IExpressionNode) {
 	node.SetContainer(f)
 }
 
-// Parameters return values of all parameter of this ContainerBase node.
+// Parameters return values of all parameter of this ContainerBs node.
 // This is read-only, so we will return a slice of value
 func (f *Fn) Parameters() []interfaces.IExpressionNode {
 	var result []interfaces.IExpressionNode

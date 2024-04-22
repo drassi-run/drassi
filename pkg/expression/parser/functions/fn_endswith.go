@@ -4,12 +4,15 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/dungdm93/drasi/pkg/expression/evaluator"
 	"github.com/dungdm93/drasi/pkg/expression/interfaces"
 )
 
 type EndsWithFn struct {
 	Fn
+}
+
+func (a *EndsWithFn) Value() any {
+	panic("not implemented")
 }
 
 func (a *EndsWithFn) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
@@ -20,18 +23,19 @@ func (e *EndsWithFn) TraceFullyRealized() bool {
 	return false
 }
 
-func (e *EndsWithFn) EvaluateCore(eCtx interfaces.IEvaluationContext) any {
-	l := evaluator.EvaluateWithContext(eCtx, e.Parameters()[0])
-	if l.IsPrimitive() {
-		lStr := l.ConvertToString()
-		r := evaluator.EvaluateWithContext(eCtx, e.Parameters()[1])
-		if r.IsPrimitive() {
-			rStr := r.ConvertToString()
-			return endsWithIgnoreCase(lStr, rStr)
-		}
-	}
-	return false
-}
+//
+// func (e *EndsWithFn) EvaluateCore(eCtx interfaces.IEvaluationContext) any {
+// 	l := evaluator.EvaluateWithContext(eCtx, e.Parameters()[0])
+// 	if l.IsPrimitive() {
+// 		lStr := l.ConvertToString()
+// 		r := evaluator.EvaluateWithContext(eCtx, e.Parameters()[1])
+// 		if r.IsPrimitive() {
+// 			rStr := r.ConvertToString()
+// 			return endsWithIgnoreCase(lStr, rStr)
+// 		}
+// 	}
+// 	return false
+// }
 
 func endsWithIgnoreCase(str string, suffix string) bool {
 	return strings.HasSuffix(strings.ToLower(str), strings.ToLower(suffix))
@@ -67,4 +71,8 @@ func (e *EndsWithFn) GetName() string {
 
 func (e *EndsWithFn) GetContainer() interfaces.IContainer {
 	return e.Container
+}
+
+func (c *EndsWithFn) SetContainer(cc interfaces.IContainer) {
+	c.Container = cc
 }

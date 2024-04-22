@@ -12,7 +12,7 @@ type INamedValue interface {
 // NamedValue represent keyword available from parseContext eg: github, job, steps, env
 type NamedValue struct {
 	INamedValue
-	base.ExpressionNodeBase
+	base.ExpressionNodeBs
 }
 
 func (n *NamedValue) ConvertToExpression() string {

@@ -302,7 +302,7 @@ func (e *EvaluationResult) IsPrimitive() bool {
 }
 
 // CreateIntermediateResult is useful for working with values that are not the direct evaluation result of a parameter.
-// This allows ExpressionNodeBase authors to leverage the coercion and comparison functions
+// This allows ExpressionNodeBs authors to leverage the coercion and comparison functions
 // for any values.
 //
 // Also note, the value will be canonicalized (for example numeric types converted to double) and any

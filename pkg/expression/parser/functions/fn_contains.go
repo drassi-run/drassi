@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/dungdm93/drasi/pkg/expression/evaluator"
 	"github.com/dungdm93/drasi/pkg/expression/interfaces"
 )
 
@@ -16,35 +15,40 @@ func (a *ContainsFn) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IEx
 	return v.VisitContainsFn(eCtx, a)
 }
 
+func (a *ContainsFn) Value() any {
+	panic("not implemented")
+}
+
 func (c *ContainsFn) TraceFullyRealized() bool {
 	return false
 }
 
-func (c *ContainsFn) EvaluateCore(eCtx interfaces.IEvaluationContext) any {
-	l := evaluator.EvaluateWithContext(eCtx, c.Parameters()[0])
-	if l.IsPrimitive() {
-		lStr := l.ConvertToString()
-		r := evaluator.EvaluateWithContext(eCtx, c.Parameters()[1])
-		if r.IsPrimitive() {
-			rStr := r.ConvertToString()
-			return containsIgnoreCase(lStr, rStr)
-		}
-	}
-	isCol, col := l.TryGetCollectionInterface()
-	if isCol {
-		if arr, isArr := col.(interfaces.IReadOnlyArray); isArr && arr.Count() > 0 {
-			r := evaluator.EvaluateWithContext(eCtx, c.Parameters()[1])
-			e := arr.Enumerator()
-			for e.Next() {
-				i := evaluator.CreateIntermediateResult(eCtx, e.Value())
-				if r.AbstractEqual(i) {
-					return true
-				}
-			}
-		}
-	}
-	return false
-}
+//
+// func (c *ContainsFn) EvaluateCore(eCtx interfaces.IEvaluationContext) any {
+// 	l := evaluator.EvaluateWithContext(eCtx, c.Parameters()[0])
+// 	if l.IsPrimitive() {
+// 		lStr := l.ConvertToString()
+// 		r := evaluator.EvaluateWithContext(eCtx, c.Parameters()[1])
+// 		if r.IsPrimitive() {
+// 			rStr := r.ConvertToString()
+// 			return containsIgnoreCase(lStr, rStr)
+// 		}
+// 	}
+// 	isCol, col := l.TryGetCollectionInterface()
+// 	if isCol {
+// 		if arr, isArr := col.(interfaces.IReadOnlyArray); isArr && arr.Count() > 0 {
+// 			r := evaluator.EvaluateWithContext(eCtx, c.Parameters()[1])
+// 			e := arr.Enumerator()
+// 			for e.Next() {
+// 				i := evaluator.CreateIntermediateResult(eCtx, e.Value())
+// 				if r.AbstractEqual(i) {
+// 					return true
+// 				}
+// 			}
+// 		}
+// 	}
+// 	return false
+// }
 
 func containsIgnoreCase(s string, sub string) bool {
 	return strings.Contains(strings.ToLower(s), strings.ToLower(sub))
@@ -82,6 +86,6 @@ func (c *ContainsFn) GetContainer() interfaces.IContainer {
 	return c.Container
 }
 
-func (c *ContainsFn) setContainer(cc interfaces.IContainer) {
+func (c *ContainsFn) SetContainer(cc interfaces.IContainer) {
 	c.Container = cc
 }

@@ -70,7 +70,7 @@ func ParseNumber(str string) (out float64) {
 	if str[0] == '0' && str[1] == 'x' && len(str) > 2 {
 		for i := 1; i < len(str); i++ {
 			x := str[i]
-			if (x >= '0' && x <= 9) || (x >= 'a' && x <= 'f') || (x >= 'A' && x <= 'F') {
+			if (x >= '0' && x <= '9') || (x >= 'a' && x <= 'f') || (x >= 'A' && x <= 'F') {
 				// example:
 				// Convert hexadecimal string to uint64
 				if intVal, err := strconv.ParseUint(str[2:], 16, 64); err == nil {

@@ -9,6 +9,6 @@ func (c *Container) DecodeMapstructure(input any) (any, error) {
 			return nil, nil
 		}
 	}
-	// process ContainerBase normal way
+	// process ContainerBs normal way
 	return input, nil
 }

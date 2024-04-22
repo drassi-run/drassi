@@ -3,11 +3,11 @@ package parser
 import (
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 	"unicode"
 
 	"github.com/dungdm93/drasi/pkg/expression/constants"
-	"github.com/dungdm93/drasi/pkg/expression/evaluator"
 )
 
 type Lexer struct {
@@ -33,7 +33,7 @@ func (l *Lexer) TryGetNextToken() (result *LexicalToken, haveResult bool) {
 	case constants.StartGroup:
 		// function call
 		if l.lastToken != nil && l.lastToken.kind == LTKFunction {
-			result = l.createToken(LTKStartParameters, string(c), l.index, nil)
+			result = l.createToken(LTKStartParameters, c, l.index, nil)
 		} else {
 			// logical grouping
 			result = l.createToken(LTKStartGroup, c, l.index, nil)
@@ -45,20 +45,20 @@ func (l *Lexer) TryGetNextToken() (result *LexicalToken, haveResult bool) {
 	case constants.EndGroup:
 		// function call
 		if len(l.unclosedTokens) > 0 && l.unclosedTokens[len(l.unclosedTokens)-1].kind == LTKStartParameters {
-			result = l.createToken(LTKEndParameters, string(c), l.index, nil)
+			result = l.createToken(LTKEndParameters, c, l.index, nil)
 		} else {
 			// logical grouping
 			result = l.createToken(LTKEndGroup, c, l.index, nil)
 		}
 		l.index++
 	case constants.EndIndex:
-		result = l.createToken(LTKEndIndex, string(c), l.index, nil)
+		result = l.createToken(LTKEndIndex, c, l.index, nil)
 		l.index++
 	case constants.Separator:
-		result = l.createToken(LTKSeparator, string(c), l.index, nil)
+		result = l.createToken(LTKSeparator, c, l.index, nil)
 		l.index++
 	case constants.Wildcard:
-		result = l.createToken(LTKWildcard, string(c), l.index, nil)
+		result = l.createToken(LTKWildcard, c, l.index, nil)
 		l.index++
 	case "'":
 		result = l.readStringToken()
@@ -149,7 +149,7 @@ func (l *Lexer) readNumberToken() *LexicalToken {
 		}
 	}
 	str := l.expression[start:l.index]
-	d := evaluator.ParseNumber(str)
+	d := parseNumber(str)
 	if math.IsNaN(d) {
 		return l.createToken(LTKUnexpected, str, start, nil)
 	}
@@ -353,4 +353,36 @@ func testTokenBoundary(c rune) bool {
 
 func NewLexer(expression string) *Lexer {
 	return &Lexer{expression: expression}
+}
+
+// TODO: merge with evaluator.ParseNumber
+func parseNumber(str string) (out float64) {
+	if len(str) == 0 || len(strings.TrimSpace(str)) == 0 {
+		return 0
+	}
+	out, err := strconv.ParseFloat(str, 64)
+	if err == nil {
+		return
+	}
+	// hex
+	if str[0] == '0' && str[1] == 'x' && len(str) > 2 {
+		for i := 1; i < len(str); i++ {
+			x := str[i]
+			if (x >= '0' && x <= '9') || (x >= 'a' && x <= 'f') || (x >= 'A' && x <= 'F') {
+				// example:
+				// Convert hexadecimal string to uint64
+				if intVal, err := strconv.ParseUint(str[2:], 16, 64); err == nil {
+					// Convert uint64 to float64
+					return float64(intVal)
+				}
+			}
+		}
+	}
+	if strings.EqualFold(str, constants.Infinity) {
+		return math.Inf(1)
+	}
+	if strings.EqualFold(str, constants.NegativeInfinity) {
+		return math.Inf(0)
+	}
+	return math.NaN()
 }

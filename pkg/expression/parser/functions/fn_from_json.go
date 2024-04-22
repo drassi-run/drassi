@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/dungdm93/drasi/pkg/expression/evaluator"
 	"github.com/dungdm93/drasi/pkg/expression/interfaces"
 )
 
@@ -12,16 +11,21 @@ type FromJsonFn struct {
 	Fn
 }
 
+func (a *FromJsonFn) Value() any {
+	panic("not implemented")
+}
+
 func (a *FromJsonFn) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
 	return v.VisitFromJsonFn(eCtx, a)
 }
 
-func (f *FromJsonFn) EvaluateCore(eCtx interfaces.IEvaluationContext) any {
-	json := evaluator.EvaluateWithContext(eCtx, f.Parameters()[0]).ConvertToString()
-	// TODO: implement real logic with PipelineContextData
-	// return runner.ToPipelineContextData(json)
-	return json
-}
+//
+// func (f *FromJsonFn) EvaluateCore(eCtx interfaces.IEvaluationContext) any {
+// 	json := evaluator.EvaluateWithContext(eCtx, f.Parameters()[0]).ConvertToString()
+// 	// TODO: implement real logic with PipelineContextData
+// 	// return runner.ToPipelineContextData(json)
+// 	return json
+// }
 
 func (f *FromJsonFn) TraceFullyRealized() bool {
 	return false

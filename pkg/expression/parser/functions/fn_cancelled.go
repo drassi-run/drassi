@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/dungdm93/drasi/pkg/expression/interfaces"
-	"github.com/dungdm93/drasi/pkg/runner"
 )
 
 type CancelledFn struct {
@@ -21,18 +20,23 @@ func (a *CancelledFn) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IE
 	return v.VisitCancelledFn(eCtx, a)
 }
 
-func (c *CancelledFn) EvaluateCore(eCtx interfaces.IEvaluationContext) any {
-	tplCtx := eCtx.State().(*runner.TemplateContext)
-	if tplCtx == nil {
-		panic(ErrorsTemplateContextNotFound)
-	}
-	// TODO: refactor me
-	execCtx := tplCtx.State["IExecutionContext"].(runner.IExecutionContext)
-	if execCtx == nil {
-		panic(ErrorsExecutionContextNotFound)
-	}
-	return execCtx.JobContext().Status == runner.ActionResultCancelled
+func (a *CancelledFn) Value() any {
+	panic("not implemented")
 }
+
+//
+// func (c *CancelledFn) EvaluateCore(eCtx interfaces.IEvaluationContext) any {
+// 	tplCtx := eCtx.State().(*runner.TemplateContext)
+// 	if tplCtx == nil {
+// 		panic(ErrorsTemplateContextNotFound)
+// 	}
+// 	// TODO: refactor me
+// 	execCtx := tplCtx.State["IExecutionContext"].(runner.IExecutionContext)
+// 	if execCtx == nil {
+// 		panic(ErrorsExecutionContextNotFound)
+// 	}
+// 	return execCtx.JobContext().Status == runner.ActionResultCancelled
+// }
 
 func (c *CancelledFn) ConvertToExpression() string {
 	params := make([]string, len(c.Parameters()))
@@ -66,7 +70,7 @@ func (c *CancelledFn) GetContainer() interfaces.IContainer {
 	return c.Container
 }
 
-func (c *CancelledFn) setContainer(cc interfaces.IContainer) {
+func (c *CancelledFn) SetContainer(cc interfaces.IContainer) {
 	c.Container = cc
 }
 

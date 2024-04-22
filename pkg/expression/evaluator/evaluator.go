@@ -12,15 +12,15 @@ import (
 )
 
 func EvaluateWithContext(eCtx interfaces.IEvaluationContext, e interfaces.IExpressionNode) *EvaluationResult {
-	// visitor := new(ExpressionNodeVisitor)
+	visitor := new(ExpressionNodeVisitor)
 
 	var level int
 	if e.GetContainer() != nil {
 		level = e.GetContainer().GetLevel() + 1
 	}
 
-	coreResult := e.EvaluateCore(eCtx)
-
+	// coreResult := e.EvaluateCore(eCtx)
+	coreResult := e.Accept(eCtx, visitor)
 	_, kind, raw := ConvertToCanonicalValue(coreResult)
 	result := NewEvaluationResultSkipTrace(eCtx, level, coreResult, kind, raw)
 	if e.TraceFullyRealized() {

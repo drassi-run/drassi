@@ -3,14 +3,17 @@ package operators
 import (
 	"fmt"
 
-	"github.com/dungdm93/drasi/pkg/expression/evaluator"
 	"github.com/dungdm93/drasi/pkg/expression/interfaces"
 	"github.com/dungdm93/drasi/pkg/expression/parser/base"
 )
 
 type Equal struct {
-	base.ContainerBase
-	base.ExpressionNodeBase
+	base.ContainerBs
+	base.ExpressionNodeBs
+}
+
+func (a *Equal) Value() any {
+	panic("not implemented")
 }
 
 func (a *Equal) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
@@ -33,11 +36,11 @@ func (e *Equal) ConvertToRealizedExpression(eCtx interfaces.IEvaluationContext) 
 	return fmt.Sprintf("(%s == %s)", e.Params[0].ConvertToRealizedExpression(eCtx), e.Params[1].ConvertToRealizedExpression(eCtx))
 }
 
-func (e *Equal) EvaluateCore(eCtx interfaces.IEvaluationContext) any {
-	l := evaluator.EvaluateWithContext(eCtx, e.Params[0])
-	r := evaluator.EvaluateWithContext(eCtx, e.Params[1])
-	return l.AbstractEqual(r)
-}
+// func (e *Equal) EvaluateCore(eCtx interfaces.IEvaluationContext) any {
+// 	l := evaluator.EvaluateWithContext(eCtx, e.Params[0])
+// 	r := evaluator.EvaluateWithContext(eCtx, e.Params[1])
+// 	return l.AbstractEqual(r)
+// }
 
 func (e *Equal) GetContainer() interfaces.IContainer {
 	return e.Container

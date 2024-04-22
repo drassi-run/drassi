@@ -4,18 +4,21 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/dungdm93/drasi/pkg/expression/evaluator"
 	"github.com/dungdm93/drasi/pkg/expression/interfaces"
 	"github.com/dungdm93/drasi/pkg/expression/parser/base"
 )
 
 type And struct {
-	base.ContainerBase
-	base.ExpressionNodeBase
+	base.ContainerBs
+	base.ExpressionNodeBs
 }
 
 func (a *And) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
 	return v.VisitAnd(eCtx, a)
+}
+
+func (a *And) Value() any {
+	panic("not implemented")
 }
 
 func (a *And) ConvertToExpression() string {
@@ -38,16 +41,17 @@ func (a *And) ConvertToRealizedExpression(eCtx interfaces.IEvaluationContext) st
 	return fmt.Sprintf("(%s)", strings.Join(expressions, " && "))
 }
 
-func (a *And) EvaluateCore(eCtx interfaces.IEvaluationContext) any {
-	result := &evaluator.EvaluationResult{}
-	for _, param := range a.Params {
-		result = evaluator.EvaluateWithContext(eCtx, param)
-		if result.IsFalsy() {
-			return result.Value()
-		}
-	}
-	return result.Value()
-}
+//
+// func (a *And) EvaluateCore(eCtx interfaces.IEvaluationContext) any {
+// 	result := &evaluator.EvaluationResult{}
+// 	for _, param := range a.Params {
+// 		result = evaluator.EvaluateWithContext(eCtx, param)
+// 		if result.IsFalsy() {
+// 			return result.Value()
+// 		}
+// 	}
+// 	return result.Value()
+// }
 
 func (a *And) TraceFullyRealized() bool {
 	return false

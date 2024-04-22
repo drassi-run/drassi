@@ -9,17 +9,21 @@ import (
 )
 
 type NoOpFn struct {
-	base.ExpressionNodeBase
+	base.ExpressionNodeBs
 	Fn
+}
+
+func (a *NoOpFn) Value() any {
+	panic("not implemented")
 }
 
 func (n *NoOpFn) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
 	return v.VisitNoopFn(eCtx, n)
 }
 
-func (n *NoOpFn) EvaluateCore(eCtx interfaces.IEvaluationContext) any {
-	return nil
-}
+// func (n *NoOpFn) EvaluateCore(eCtx interfaces.IEvaluationContext) any {
+// 	return nil
+// }
 
 func (n *NoOpFn) TraceFullyRealized() bool {
 	return false
