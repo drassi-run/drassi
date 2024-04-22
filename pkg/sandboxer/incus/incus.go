@@ -57,7 +57,10 @@ func (i *incus) LaunchSandbox(ctx context.Context, request sandboxer.LaunchSandb
 		return res, err
 	}
 
-	res.SandboxId = name
+	res.Sandbox = &incusSandbox{
+		sandboxId: name,
+		sandboxer: i,
+	}
 	return res, nil
 }
 
@@ -90,8 +93,12 @@ func (i *incus) createInstance(ctx context.Context, name string, request sandbox
 
 func (i *incus) TerminateSandbox(ctx context.Context, request sandboxer.TerminateSandboxRequest) (sandboxer.TerminateSandboxResponse, error) {
 	res := sandboxer.TerminateSandboxResponse{}
+	sandbox, ok := request.Sandbox.(*incusSandbox)
+	if !ok {
+		return res, fmt.Errorf("unsupport sandbox type %T", request.Sandbox)
+	}
 
-	name := request.SandboxId
+	name := sandbox.sandboxId
 	ct, _, err := i.client.GetInstance(name)
 	if err != nil {
 		return res, err

@@ -25,11 +25,11 @@ type StepRunContext struct {
 	state  map[string]string
 }
 
-func rootStepRunContext(jobContext *JobRunContext) *StepRunContext {
+func NewStepRunContext(jobContext *JobRunContext, step workflows.Step) *StepRunContext {
 	return &StepRunContext{
 		job:         jobContext,
 		parent:      nil,
-		step:        nil,
+		step:        step,
 		envOverride: make(map[string]string),
 		input:       make(map[string]string),
 		result:      &contexts.Step{},
@@ -180,7 +180,8 @@ func (c *StepRunContext) setOutput(output map[string]string) error {
 }
 
 func (c *StepRunContext) setupEnv(ctx context.Context, step workflows.Step) error {
-	panic("implement me")
+	// TODO "implement me"
+	return nil
 }
 
 func (c *StepRunContext) evaluateName(ctx context.Context, name workflows.Evaluable[string]) (string, error) {
