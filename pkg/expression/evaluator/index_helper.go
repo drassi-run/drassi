@@ -1,0 +1,177 @@
+package evaluator
+
+import (
+	"math"
+
+	"github.com/dungdm93/drasi/pkg/expression/interfaces"
+	"github.com/dungdm93/drasi/pkg/expression/parser"
+)
+
+type (
+	IndexHelper struct {
+		param  interfaces.IExpressionNode
+		result *EvaluationResult
+		intIdx *int
+		strIdx *string
+	}
+)
+
+func newIndexHelper(eCtx interfaces.IEvaluationContext, param interfaces.IExpressionNode) *IndexHelper {
+	h := &IndexHelper{
+		param:  param,
+		result: EvaluateWithContext(eCtx, param),
+	}
+
+	h.intIdx = h.lazyIntegerIndex()
+	h.strIdx = h.lazyStringIndex()
+	return h
+}
+
+func (h *IndexHelper) lazyStringIndex() *string {
+	if h.result.IsPrimitive() {
+		str := h.result.ConvertToString()
+		return &str
+	}
+	return nil
+}
+
+func (h *IndexHelper) lazyIntegerIndex() *int {
+	doubleIndex := h.result.ConvertToNumber()
+	if math.IsNaN(doubleIndex) || doubleIndex < 0 {
+		return nil
+	}
+
+	floorIndex := math.Floor(doubleIndex)
+	if floorIndex > math.MaxInt {
+		return nil
+	}
+	i := int(floorIndex)
+	return &i
+}
+
+func (h *IndexHelper) HasIntegerIndex() bool {
+	return h.intIdx != nil
+}
+
+func (h *IndexHelper) HasStringIndex() bool {
+	return h.strIdx != nil
+}
+
+func (h *IndexHelper) IsWildcard() bool {
+	_, ok := h.param.(*parser.WildCard)
+	return ok
+}
+
+func (h *IndexHelper) IntegerIndex() int {
+	if h.intIdx == nil {
+		return 0
+	}
+	return *h.intIdx
+}
+
+func (h *IndexHelper) StringIndex() string {
+	if h.strIdx == nil {
+		return ""
+	}
+	return *h.strIdx
+}
+
+type (
+	FilteredArray struct {
+		a []any
+	}
+)
+
+func newFilteredArray() *FilteredArray {
+	return &FilteredArray{a: make([]any, 0)}
+}
+
+func (f *FilteredArray) Add(v any) {
+	f.a = append(f.a, v)
+}
+
+func (f *FilteredArray) Count() int {
+	return len(f.a)
+}
+
+func (f *FilteredArray) GetValue(idx int) any {
+	return f.a[idx]
+}
+
+func (f *FilteredArray) Enumerator() *interfaces.Enumerator {
+	return interfaces.NewEnumerator(f.a)
+}
+
+func handleFilteredArray(eCtx interfaces.IEvaluationContext, fa *FilteredArray, i interfaces.IContainer) any {
+	result := &FilteredArray{}
+	idx := newIndexHelper(eCtx, i.Parameters()[1])
+	ef := fa.Enumerator()
+	for ef.Next() {
+		item := ef.Value()
+		itemResult := CreateIntermediateResult(eCtx, item)
+		ok, nestedCollection := itemResult.TryGetCollectionInterface()
+		if ok {
+			if nestedObj, ok := nestedCollection.(interfaces.IReadOnlyObj); ok {
+				if idx.IsWildcard() {
+					of := nestedObj.Enumerator()
+					for of.Next() {
+						result.Add(of.Value())
+					}
+				}
+				if idx.HasStringIndex() {
+					exist, nestedObjVal := nestedObj.GetValue(idx.StringIndex())
+					if exist {
+						result.Add(nestedObjVal)
+					}
+				}
+			}
+		}
+		if nestedArray, ok := nestedCollection.(interfaces.IReadOnlyArray); ok {
+			if idx.IsWildcard() {
+				af := nestedArray.Enumerator()
+				for af.Next() {
+					result.Add(af.Value())
+				}
+			}
+			if idx.HasIntegerIndex() && idx.IntegerIndex() < nestedArray.Count() {
+				result.Add(nestedArray.GetValue(idx.IntegerIndex()))
+			}
+		}
+
+	}
+	return result
+}
+
+func handleObject(eCtx interfaces.IEvaluationContext, obj interfaces.IReadOnlyObj, i interfaces.IContainer) any {
+	idx := newIndexHelper(eCtx, i.Parameters()[1])
+	if idx.IsWildcard() {
+		fa := newFilteredArray()
+		for _, v := range obj.Values() {
+			fa.Add(v)
+		}
+		return fa
+	}
+	if idx.HasStringIndex() {
+		exist, result := obj.GetValue(idx.StringIndex())
+		if exist {
+			return result
+		}
+	}
+	return nil
+}
+
+func handleArray(eCtx interfaces.IEvaluationContext, arr interfaces.IReadOnlyArray, i interfaces.IContainer) any {
+	idx := newIndexHelper(eCtx, i.Parameters()[1])
+	if idx.IsWildcard() {
+		fa := newFilteredArray()
+		e := arr.Enumerator()
+		for e.Next() {
+			fa.Add(e.Value())
+		}
+		return fa
+	}
+	if idx.HasIntegerIndex() && idx.IntegerIndex() < arr.Count() {
+		return arr.GetValue(idx.IntegerIndex())
+	}
+	return nil
+}
