@@ -3,11 +3,9 @@ package executor
 import (
 	"context"
 	"fmt"
-	"slices"
-	"strings"
-
 	"github.com/dungdm93/drasi/pkg/model/workflows"
 	"golang.org/x/sync/errgroup"
+	"slices"
 )
 
 type StepsRunner struct {
@@ -21,7 +19,7 @@ func (e *StepsRunner) Initialize(ctx context.Context, rCtx *StepRunContext) (err
 	e.runners = make([]StepRunner, len(e.steps))
 	for i, step := range e.steps {
 		e.contexts[step.Base().Id] = rCtx.NewChildContext(step)
-		e.runners[i], err = e.createStepRunner(step)
+		e.runners[i], err = NewStepRunner(step)
 		if err != nil {
 			return
 		}
@@ -36,36 +34,6 @@ func (e *StepsRunner) Initialize(ctx context.Context, rCtx *StepRunContext) (err
 		})
 	}
 	return g.Wait()
-}
-
-func (e *StepsRunner) createStepRunner(step workflows.Step) (StepRunner, error) {
-	switch s := step.(type) {
-	case *workflows.RunStep:
-		r := &runStepRunner{
-			step: s,
-		}
-		return r, nil
-	case *workflows.UsesStep:
-		if image, ok := strings.CutPrefix(s.Uses, "docker://"); ok {
-			r := &usesDockerStepRunner{
-				step:  s,
-				image: image,
-			}
-			return r, nil
-		} else {
-			repo, err := parseRepository(s.Uses)
-			if err != nil {
-				return nil, err
-			}
-			r := &usesActionStepRunner{
-				step: s,
-				repo: repo,
-			}
-			return r, nil
-		}
-	default:
-		return nil, fmt.Errorf("unknown step type: %T", step)
-	}
 }
 
 func (e *StepsRunner) PreTask() *Task {

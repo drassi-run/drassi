@@ -2,8 +2,9 @@ package executor
 
 import (
 	"context"
-
+	"github.com/dungdm93/drasi/pkg/container"
 	"github.com/dungdm93/drasi/pkg/model/workflows"
+	"github.com/dungdm93/drasi/pkg/sandboxer"
 )
 
 type Stage string
@@ -22,22 +23,67 @@ type Task struct {
 }
 
 type JobRunner struct {
-	rCtx   *JobRunContext
-	job    workflows.Job
-	runner StepsRunner
+	job       *workflows.NormalJob
+	jobId     string
+	sandboxer sandboxer.Sandboxer
+
+	rCtx *JobRunContext
 }
 
-func (s *JobRunner) Initialize(ctx context.Context) error {
-	//TODO launch sandbox
-	panic("implement me")
+func NewJobRunner(job *workflows.NormalJob, jobId string, sandboxer sandboxer.Sandboxer) *JobRunner {
+	return &JobRunner{
+		job:       job,
+		jobId:     jobId,
+		sandboxer: sandboxer,
+	}
 }
 
-func (s *JobRunner) Run(ctx context.Context) error {
-	//TODO run pre -> main -> post
-	panic("implement me")
+func (e *JobRunner) Initialize(ctx context.Context) (err error) {
+	e.rCtx = &JobRunContext{
+		job: e.job,
+	}
+
+	var jobContainer *container.ContainerConfig
+	if e.job.Container != nil {
+		jobContainer, err = toContainerConfig(ctx, e.rCtx, e.job.Container)
+		if err != nil {
+			return err
+		}
+	}
+	var serviceContainers = make(map[string]*container.ContainerConfig)
+	for name, con := range e.job.Services {
+		serviceContainers[name], err = toContainerConfig(ctx, e.rCtx, con)
+		if err != nil {
+			return err
+		}
+	}
+
+	req := sandboxer.LaunchSandboxRequest{
+		JobId:             e.jobId,
+		JobEnv:            e.rCtx.env,
+		JobContainer:      jobContainer,
+		ServiceContainers: serviceContainers,
+	}
+	res, err := e.sandboxer.LaunchSandbox(ctx, req)
+	if err != nil {
+		return err
+	}
+	e.rCtx.sandbox = res.Sandbox
+	return nil
 }
 
-func (s *JobRunner) Finalize(ctx context.Context) error {
-	//TODO terminate sandbox
-	panic("implement me")
+func (e *JobRunner) Run(ctx context.Context) error {
+	return e.rCtx.RunJob(ctx)
+}
+
+func (e *JobRunner) Finalize(ctx context.Context) error {
+	req := sandboxer.TerminateSandboxRequest{
+		Sandbox: e.rCtx.sandbox,
+	}
+	_, err := e.sandboxer.TerminateSandbox(ctx, req)
+	return err
+}
+
+func toContainerConfig(ctx context.Context, rCtx *JobRunContext, container *workflows.Container) (*container.ContainerConfig, error) {
+	return nil, nil
 }

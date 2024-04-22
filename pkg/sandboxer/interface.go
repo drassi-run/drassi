@@ -34,18 +34,19 @@ type Sandboxer interface {
 }
 
 type LaunchSandboxRequest struct {
-	JobName           string
+	JobId             string
+	JobEnv            map[string]string
 	JobContainer      *container.ContainerConfig
 	ServiceContainers map[string]*container.ContainerConfig
 }
 
 type LaunchSandboxResponse struct {
-	SandboxId string
+	Sandbox Sandbox
 }
 
 type TerminateSandboxRequest struct {
-	SandboxId string
-	Timeout   *int
+	Sandbox Sandbox
+	Timeout *int
 }
 
 type TerminateSandboxResponse struct {

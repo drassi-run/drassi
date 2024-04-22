@@ -2,10 +2,10 @@ package incus
 
 import (
 	"context"
-	"github.com/dungdm93/drasi/pkg/sandboxer"
 	"io"
 
 	"github.com/dungdm93/drasi/pkg/container"
+	"github.com/dungdm93/drasi/pkg/sandboxer"
 )
 
 type incusSandbox struct {
@@ -22,6 +22,8 @@ type incusSandbox struct {
 	workflowPath string
 	actionsPath  string
 }
+
+var _ sandboxer.Sandbox = (*incusSandbox)(nil)
 
 // used to execute script or action
 func (c *incusSandbox) Execute(ctx context.Context, cmd []string, env map[string]string, workdir string) error {
@@ -43,7 +45,8 @@ func (c *incusSandbox) CopyOut(ctx context.Context, src string) (io.Reader, erro
 
 // used to run docker action
 // https://docs.github.com/en/actions/creating-actions/metadata-syntax-for-github-actions#runsusing-for-docker-container-actions
-func (c *incusSandbox) RunContainer(ctx context.Context, image string, entrypoint string, cmd []string, env map[string]string, workdir string) error {
+func (c *incusSandbox) RunContainer(ctx context.Context, image string, entrypoint []string, cmd []string, env map[string]string, workdir string) error {
+	//TODO implement me
 	panic("implement me")
 }
 

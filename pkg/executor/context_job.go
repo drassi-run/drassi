@@ -6,6 +6,7 @@ import (
 
 	"github.com/dungdm93/drasi/pkg/model/workflows"
 	"github.com/dungdm93/drasi/pkg/sandboxer"
+	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -15,6 +16,7 @@ var (
 
 type JobRunContext struct {
 	sandbox sandboxer.Sandbox
+	job     *workflows.NormalJob
 
 	defaultRun struct {
 		shell   string
@@ -23,10 +25,86 @@ type JobRunContext struct {
 
 	env   map[string]string
 	paths []string
+
+	stepContexts map[string]*StepRunContext
+	runners      []StepRunner
 }
 
 func (c *JobRunContext) Sandbox() sandboxer.Sandbox {
 	return c.sandbox
+}
+
+func (c *JobRunContext) RunJob(ctx context.Context) error {
+	if err := c.makeRunners(); err != nil {
+		return err
+	}
+
+	if err := c.initializeRunners(ctx); err != nil {
+		return err
+	}
+
+	if err := c.runStage(ctx, StagePre, func(runner StepRunner) *Task {
+		return runner.PreTask()
+	}); err != nil {
+		return err
+	}
+	if err := c.runStage(ctx, StageMain, func(runner StepRunner) *Task {
+		return runner.MainTask()
+	}); err != nil {
+		return err
+	}
+	if err := c.runStage(ctx, StagePost, func(runner StepRunner) *Task {
+		return runner.PostTask()
+	}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *JobRunContext) makeRunners() error {
+	c.stepContexts = make(map[string]*StepRunContext, len(c.job.Steps))
+	c.runners = make([]StepRunner, len(c.job.Steps))
+	var err error
+	for i, step := range c.job.Steps {
+		c.stepContexts[step.Base().Id] = NewStepRunContext(c, step)
+		c.runners[i], err = NewStepRunner(step)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *JobRunContext) initializeRunners(ctx context.Context) error {
+	g, ctx := errgroup.WithContext(ctx)
+	for i, step := range c.job.Steps {
+		runner := c.runners[i]
+		rCtx := c.stepContexts[step.Base().Id]
+		g.Go(func() error {
+			return runner.Initialize(ctx, rCtx)
+		})
+	}
+	return g.Wait()
+}
+
+func (c *JobRunContext) runStage(ctx context.Context, stage Stage, fn func(runner StepRunner) *Task) error {
+	var tasks []*Task
+	for _, runner := range c.runners {
+		if t := fn(runner); t != nil {
+			tasks = append(tasks, t)
+		}
+	}
+	if stage == StagePost {
+		slices.Reverse(tasks) // in place reverse
+	}
+	for _, task := range tasks {
+		rCtx := c.stepContexts[task.StepID]
+		if err := rCtx.RunStep(ctx, task); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // Add paths to the context and remove duplicates
@@ -221,5 +299,27 @@ func (c *JobRunContext) evaluateJobSecrets(ctx context.Context, secrets *workflo
 		}
 	}
 
+	return m, nil
+}
+
+func (c *JobRunContext) evaluateContainerCredentials(ctx context.Context, cred workflows.Evaluable[string]) (string, error) {
+	if cred == nil {
+		return "", nil
+	}
+	return cred.Evaluate(ctx)
+}
+
+func (c *JobRunContext) evaluateContainerEnv(ctx context.Context, env workflows.Env) (map[string]string, error) {
+	if env == nil {
+		return nil, nil
+	}
+	m := map[string]string{}
+	for k, v := range env {
+		if value, err := v.Evaluate(ctx); err != nil {
+			return nil, err
+		} else {
+			m[k] = value
+		}
+	}
 	return m, nil
 }
