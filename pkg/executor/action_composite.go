@@ -40,21 +40,15 @@ func (e *compositeActionRunner) Initialize(ctx context.Context, rCtx *StepRunCon
 }
 
 func (e *compositeActionRunner) PreTask() *Task {
-	return e.createStageTask(StagePre, func(runner StepRunner) *Task {
-		return runner.PreTask()
-	})
+	return e.createStageTask(StagePre, StepRunner.PreTask)
 }
 
 func (e *compositeActionRunner) MainTask() *Task {
-	return e.createStageTask(StageMain, func(runner StepRunner) *Task {
-		return runner.MainTask()
-	})
+	return e.createStageTask(StageMain, StepRunner.MainTask)
 }
 
 func (e *compositeActionRunner) PostTask() *Task {
-	return e.createStageTask(StagePost, func(runner StepRunner) *Task {
-		return runner.PostTask()
-	})
+	return e.createStageTask(StagePost, StepRunner.PostTask)
 }
 
 func (e *compositeActionRunner) Action() actions.Runs {
