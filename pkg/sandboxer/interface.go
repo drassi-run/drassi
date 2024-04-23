@@ -10,7 +10,7 @@ import (
 type Sandbox interface {
 	Execute(ctx context.Context, cmd []string, env map[string]string, workdir string) error
 	CopyIn(ctx context.Context, reader io.Reader, dst string) error
-	CopyOut(ctx context.Context, src string) (io.Reader, error)
+	CopyOut(ctx context.Context, src string) (io.ReadCloser, error)
 
 	RunContainer(ctx context.Context, image string, entrypoint []string, cmd []string, env map[string]string, workdir string) error
 	PullImage(ctx context.Context, image string) error
