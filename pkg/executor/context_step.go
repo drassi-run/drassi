@@ -51,6 +51,14 @@ func (c *StepRunContext) Sandbox() sandboxer.Sandbox {
 	return c.job.Sandbox()
 }
 
+func (c *StepRunContext) RootContext() *StepRunContext {
+	r := c
+	for r.parent != nil {
+		r = r.parent
+	}
+	return r
+}
+
 func (c *StepRunContext) RunStep(ctx context.Context, task *Task) error {
 	base := c.step.Base()
 	if task.StepID != base.Id {
@@ -61,7 +69,7 @@ func (c *StepRunContext) RunStep(ctx context.Context, task *Task) error {
 		return err
 	}
 
-	if meet, err := c.evaluateIf(ctx, task.Condition); err == nil {
+	if meet, err := c.evaluateIf(ctx, task.Condition); err != nil {
 		c.result.Conclusion = contexts.ActionResultFailure
 		c.result.Outcome = contexts.ActionResultFailure
 		return err
