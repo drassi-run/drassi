@@ -19,7 +19,6 @@ func evaluateWithContext(eCtx expression.IEvaluationContext, e expression.IExpre
 		level = e.GetContainer().GetLevel() + 1
 	}
 
-	// coreResult := e.EvaluateCore(eCtx)
 	coreResult := e.Accept(eCtx, visitor)
 	_, kind, raw := convertToCanonicalValue(coreResult)
 	result := NewEvaluationResultSkipTrace(eCtx, level, coreResult, kind, raw)
