@@ -1,6 +1,7 @@
 package executor
 
 import (
+	"archive/tar"
 	"context"
 	"fmt"
 	"io"
@@ -200,9 +201,16 @@ func updateRunContext[R any](
 		return err
 	}
 	defer r.Close()
-	data, err := parser(r)
-	if err != nil {
-		return err
-	}
-	return updater(data)
+
+	return utilreader.Untar(r, func(hdr *tar.Header, reader io.Reader) error {
+		if hdr.Name != "" {
+			return fmt.Errorf("expected read single file with empty name, got %s", hdr.Name)
+		}
+
+		if data, err := parser(reader); err != nil {
+			return err
+		} else {
+			return updater(data)
+		}
+	})
 }

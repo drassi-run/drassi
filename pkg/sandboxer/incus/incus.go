@@ -11,8 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/docker/docker/pkg/archive"
 	"github.com/dungdm93/drasi/pkg/sandboxer"
+	utilreader "github.com/dungdm93/drasi/pkg/util/reader"
 	"github.com/gorilla/websocket"
 	incusclient "github.com/lxc/incus/client"
 	incusapi "github.com/lxc/incus/shared/api"
@@ -193,14 +193,13 @@ func (i *incus) CopyToSandbox(ctx context.Context, request sandboxer.CopyToSandb
 	res := sandboxer.CopyToSandboxResponse{}
 
 	handler := newUntarHandler(i.client, request.SandboxId, request.DestinationPath)
-	err := untar(request.Content, handler)
+	err := utilreader.Untar(request.Content, handler)
 	return res, err
 }
 
-type tarHandler = func(string, io.Reader, *incusclient.InstanceFileResponse) error
-type untarHandler = func(*tar.Header, io.Reader) error
+type fileHandler = func(string, io.Reader, *incusclient.InstanceFileResponse) error
 
-func (i *incus) walk(inst, root, name string, h tarHandler) error {
+func (i *incus) walk(inst, root, name string, h fileHandler) error {
 	path := filepath.Join(root, name)
 	buf, resp, err := i.client.GetInstanceFile(inst, path)
 	if err != nil {
@@ -225,32 +224,7 @@ func (i *incus) walk(inst, root, name string, h tarHandler) error {
 	return nil
 }
 
-func untar(r io.Reader, h untarHandler) error {
-	xr, err := archive.DecompressStream(r)
-	if err != nil {
-		return err
-	}
-	defer xr.Close()
-	tr := tar.NewReader(xr)
-
-	for {
-		hdr, err := tr.Next()
-		if err != nil {
-			if err == io.EOF {
-				break // end of tar archive
-			}
-			return err
-		}
-
-		if err := h(hdr, tr); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func newTarHandler(tw *tar.Writer) tarHandler {
+func newTarHandler(tw *tar.Writer) fileHandler {
 	h := func(name string, r io.Reader, resp *incusclient.InstanceFileResponse) error {
 		var buf *bytes.Buffer
 		hdr := &tar.Header{
@@ -298,7 +272,7 @@ func newTarHandler(tw *tar.Writer) tarHandler {
 	return h
 }
 
-func newUntarHandler(client incusclient.InstanceServer, inst, root string) untarHandler {
+func newUntarHandler(client incusclient.InstanceServer, inst, root string) utilreader.UntarHandler {
 	h := func(hdr *tar.Header, r io.Reader) error {
 		path := filepath.Join(root, hdr.Name)
 		args := incusclient.InstanceFileArgs{

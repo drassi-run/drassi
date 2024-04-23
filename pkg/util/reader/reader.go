@@ -9,6 +9,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/docker/docker/pkg/archive"
 	"github.com/dungdm93/drasi/pkg/util"
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
@@ -132,4 +133,31 @@ func ParseEnvVars(reader io.Reader) (map[string]string, error) {
 		return nil, err
 	}
 	return env, nil
+}
+
+type UntarHandler = func(*tar.Header, io.Reader) error
+
+func Untar(r io.Reader, h UntarHandler) error {
+	xr, err := archive.DecompressStream(r)
+	if err != nil {
+		return err
+	}
+	defer xr.Close()
+
+	tr := tar.NewReader(xr)
+	for {
+		hdr, err := tr.Next()
+		if err != nil {
+			if err == io.EOF {
+				break // end of tar archive
+			}
+			return err
+		}
+
+		if err := h(hdr, tr); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
