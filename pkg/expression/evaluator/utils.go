@@ -7,9 +7,10 @@ import (
 	"strings"
 
 	"github.com/dungdm93/drasi/pkg/expression"
+	"github.com/dungdm93/drasi/pkg/secret_masker"
 )
 
-func formatValue(masker expression.ISecretMasker, value any, kind expression.ValueKind) string {
+func formatValue(masker interfaces.ISecretMasker, value any, kind expression.ValueKind) string {
 	switch kind {
 	case expression.ValueKindNull:
 		return expression.Null
@@ -44,7 +45,7 @@ func escapeSingleQuotes(value string) string {
 	return strings.ReplaceAll(value, "'", "''")
 }
 
-func formatValueFromResult(masker expression.ISecretMasker, result expression.IEvaluationResult) string {
+func formatValueFromResult(masker interfaces.ISecretMasker, result expression.IEvaluationResult) string {
 	return formatValue(masker, result.Value(), result.GetKind())
 }
 

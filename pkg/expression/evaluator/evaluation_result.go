@@ -56,16 +56,10 @@ func (e *EvaluationResult) Level() int {
 }
 
 func (e *EvaluationResult) traceValue(eCtx expression.IEvaluationContext) {
-	if !e.omitTracing {
-		e.traceValue1(eCtx, e.value, e.kind)
-	}
-
-}
-
-func (e *EvaluationResult) traceValue1(eCtx expression.IEvaluationContext, val any, kind expression.ValueKind) {
 	if !e.omitTracing && eCtx.Masker() != nil {
-		e.traceVerbose(eCtx, fmt.Sprintf("=> %s", formatValue(eCtx.Masker(), val, kind)))
+		e.traceVerbose(eCtx, fmt.Sprintf("=> %s", formatValue(eCtx.Masker(), e.value, e.kind)))
 	}
+
 }
 
 func (e *EvaluationResult) traceVerbose(eCtx expression.IEvaluationContext, msg string) {
@@ -311,10 +305,7 @@ func createIntermediateResult(eCtx expression.IEvaluationContext, obj any) *Eval
 	return NewEvaluationResultSkipTrace(eCtx, 0, val, kind, raw)
 }
 
-// TryGetCollectionInterface perform type assert if EvaluationResult's value implement IReadOnlyObj or IReadOnlyArray
-// and
-// return
-// corresponding interface
+// TryGetCollectionInterface perform type assert if EvaluationResult's value implement IReadOnlyObj or IReadOnlyArray and return corresponding interface
 func (e *EvaluationResult) TryGetCollectionInterface() (ok bool, collection any) {
 	if e.kind == expression.ValueKindObject || e.kind == expression.ValueKindArray {
 		obj := e.value

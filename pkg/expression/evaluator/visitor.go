@@ -7,6 +7,7 @@ import (
 
 	"github.com/dungdm93/drasi/pkg/expression"
 	"github.com/dungdm93/drasi/pkg/expression/parser"
+	"github.com/dungdm93/drasi/pkg/model/contexts"
 	"github.com/dungdm93/drasi/pkg/runner"
 )
 
@@ -35,16 +36,11 @@ func (e expressionNodeVisitor) VisitAnd(eCtx expression.IEvaluationContext, c ex
 }
 
 func (e expressionNodeVisitor) VisitCancelledFn(eCtx expression.IEvaluationContext, c expression.IExpressionNode) any {
-	tplCtx := eCtx.State().(*runner.TemplateContext)
+	tplCtx := eCtx.State().(*contexts.Context)
 	if tplCtx == nil {
 		panic(ErrorsTemplateContextNotFound)
 	}
-	// TODO: refactor me
-	execCtx := tplCtx.State["IExecutionContext"].(runner.IExecutionContext)
-	if execCtx == nil {
-		panic(ErrorsExecutionContextNotFound)
-	}
-	return execCtx.JobContext().Status == runner.ActionResultCancelled
+	return tplCtx.Job.Status == contexts.JobStatusCancelled
 }
 
 func (e expressionNodeVisitor) VisitContainsFn(eCtx expression.IEvaluationContext, c expression.IContainer) any {

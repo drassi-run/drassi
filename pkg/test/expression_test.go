@@ -9,6 +9,7 @@ import (
 	"github.com/dungdm93/drasi/pkg/expression/evaluator"
 	"github.com/dungdm93/drasi/pkg/expression/parser"
 	"github.com/dungdm93/drasi/pkg/expression/parser/functions"
+	"github.com/dungdm93/drasi/pkg/model/contexts"
 	"github.com/dungdm93/drasi/pkg/runner"
 	"github.com/dungdm93/drasi/pkg/runner/mocks"
 )
@@ -93,7 +94,6 @@ func Test_EvaluateSimpleFns(t *testing.T) {
 		functions.NewFunctionInfo[functions.AlwaysFn]("always", 0, 2147483647),
 	}
 	tcs := []testcase{
-		{"always()", true, expression.ValueKindBoolean},
 		{"contains('Hello world', 'llo')", true, expression.ValueKindBoolean},
 		{"startsWith('Hello world', 'He')", true, expression.ValueKindBoolean},
 		{"endsWith('Hello world', 'world')", true, expression.ValueKindBoolean},
@@ -118,7 +118,7 @@ func Test_EvaluateStatusCheckFns(t *testing.T) {
 		name             string
 		expression       string
 		expectedValue    any
-		setUpTemplateCtx func() *runner.TemplateContext
+		setUpTemplateCtx func() *contexts.Context
 	}
 	var namedVals []parser.INamedValueInfo[parser.INamedValue]
 	fns := []functions.IFnInfo[functions.IFn]{
@@ -130,22 +130,22 @@ func Test_EvaluateStatusCheckFns(t *testing.T) {
 
 	// testcase cases
 	tcs := []testcase{
+		// always()
+		{"always()", "always()", true, func() *runner.TemplateContext {
+			return &runner.TemplateContext{}
+		}},
 		// cancelled()
 		{
-			"invoke cancelled() evaluated to true", "cancelled()", true, func() *runner.TemplateContext {
-				execCtx := new(mocks.IExecutionContext)
-				execCtx.On("JobContext").Return(&runner.JobContext{Status: runner.ActionResultCancelled}).Once()
-				return &runner.TemplateContext{State: map[string]any{
-					"IExecutionContext": execCtx,
+			"invoke cancelled() evaluated to true", "cancelled()", true, func() *contexts.Context {
+				return &contexts.Context{Job: contexts.Job{
+					Status: contexts.JobStatusCancelled,
 				}}
 			},
 		},
 		{
-			"invoke cancelled() evaluated to false", "cancelled()", false, func() *runner.TemplateContext {
-				execCtx := new(mocks.IExecutionContext)
-				execCtx.On("JobContext").Return(&runner.JobContext{Status: runner.ActionResultSuccess}).Once()
-				return &runner.TemplateContext{State: map[string]any{
-					"IExecutionContext": execCtx,
+			"invoke cancelled() evaluated to false", "cancelled()", false, func() *contexts.Context {
+				return &contexts.Context{Job: contexts.Job{
+					Status: contexts.JobStatusSuccess,
 				}}
 			},
 		},

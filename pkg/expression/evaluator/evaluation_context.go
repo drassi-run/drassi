@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/dungdm93/drasi/pkg/expression"
+	"github.com/dungdm93/drasi/pkg/secret_masker"
 )
 
 type (
@@ -11,7 +12,7 @@ type (
 		state        any
 		options      *EvaluationOption
 		trace        expression.ITraceWriter
-		masker       expression.ISecretMasker
+		masker       interfaces.ISecretMasker
 		traceResults map[expression.IExpressionNode]string
 	}
 )
@@ -25,7 +26,7 @@ func (e *evaluationContext) State() any {
 	return e.state
 }
 
-func (e *evaluationContext) Masker() expression.ISecretMasker {
+func (e *evaluationContext) Masker() interfaces.ISecretMasker {
 	return e.masker
 }
 
@@ -33,7 +34,7 @@ func (e *evaluationContext) Trace() expression.ITraceWriter {
 	return e.trace
 }
 
-func newEvaluationContext(trace expression.ITraceWriter, masker expression.ISecretMasker, state any, options *EvaluationOption,
+func newEvaluationContext(trace expression.ITraceWriter, masker interfaces.ISecretMasker, state any, options *EvaluationOption,
 	node expression.IExpressionNode) *evaluationContext {
 	if trace == nil {
 		panic(ErrorsEmptyTrace)

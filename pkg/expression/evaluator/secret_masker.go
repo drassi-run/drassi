@@ -1,30 +1,30 @@
 package evaluator
 
 import (
-	"github.com/dungdm93/drasi/pkg/expression"
+	"github.com/dungdm93/drasi/pkg/secret_masker"
 )
 
 // TODO next phase
-
-// secretMasker is doing Noop currently
-type secretMasker struct {
+// noOpSecretMasker is doing Noop currently
+// Original implementations, see https://github.com/actions/runner/blob/main/src/Sdk/DTLogging/Logging/SecretMasker.cs
+type noOpSecretMasker struct {
 	originalValueSecrets map[string]struct{}
 }
 
-func (s secretMasker) AddRegex(pattern string) {
+func (s noOpSecretMasker) AddRegex(pattern string) {
 }
 
-func (s secretMasker) AddValue(value string) {
+func (s noOpSecretMasker) AddValue(value string) {
 }
 
-func (s secretMasker) Clone() expression.ISecretMasker {
-	return secretMasker{originalValueSecrets: s.originalValueSecrets}
+func (s noOpSecretMasker) Clone() interfaces.ISecretMasker {
+	return noOpSecretMasker{originalValueSecrets: s.originalValueSecrets}
 }
 
-func (s secretMasker) MaskSecrets(input string) string {
+func (s noOpSecretMasker) MaskSecrets(input string) string {
 	return input
 }
 
-func newSecretMasker() expression.ISecretMasker {
-	return &secretMasker{}
+func newNoOpSecretMasker() interfaces.ISecretMasker {
+	return &noOpSecretMasker{}
 }

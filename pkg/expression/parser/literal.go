@@ -8,6 +8,7 @@ import (
 
 	"github.com/dungdm93/drasi/pkg/expression"
 	"github.com/dungdm93/drasi/pkg/expression/parser/base"
+	"github.com/dungdm93/drasi/pkg/secret_masker"
 )
 
 type literal struct {
@@ -67,7 +68,7 @@ func (l *literal) SetName(name string) {
 }
 
 // TODO: merge with evaluator.FormatValue
-func formatValue(masker expression.ISecretMasker, value any, kind expression.ValueKind) string {
+func formatValue(masker interfaces.ISecretMasker, value any, kind expression.ValueKind) string {
 	switch kind {
 	case expression.ValueKindNull:
 		return expression.Null

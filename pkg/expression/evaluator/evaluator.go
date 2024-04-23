@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/dungdm93/drasi/pkg/expression"
+	"github.com/dungdm93/drasi/pkg/secret_masker"
 )
 
 func evaluateWithContext(eCtx expression.IEvaluationContext, e expression.IExpressionNode) *EvaluationResult {
@@ -28,14 +29,14 @@ func evaluateWithContext(eCtx expression.IEvaluationContext, e expression.IExpre
 	return result
 }
 
-func Evaluate(e expression.IExpressionNode, trace expression.ITraceWriter, masker expression.ISecretMasker, state any, opt *EvaluationOption) *EvaluationResult {
+func Evaluate(e expression.IExpressionNode, trace expression.ITraceWriter, masker interfaces.ISecretMasker, state any, opt *EvaluationOption) *EvaluationResult {
 	if e.GetContainer() != nil {
 		panic(errors.New("evaluate can only be called from root node"))
 	}
 	if masker != nil {
 		masker = masker.Clone()
 	} else {
-		masker = newSecretMasker()
+		masker = newNoOpSecretMasker()
 	}
 	eTrace := newEvaluationTraceWriter(trace, masker)
 	eCtx := newEvaluationContext(eTrace, masker, state, opt, e)
