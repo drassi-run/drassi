@@ -51,10 +51,7 @@ func (c *StepRunContext) Sandbox() sandboxer.Sandbox {
 	return c.job.Sandbox()
 }
 
-func (c *StepRunContext) RunStep(
-	ctx context.Context,
-	task *Task,
-) error {
+func (c *StepRunContext) RunStep(ctx context.Context, task *Task) error {
 	base := c.step.Base()
 	if task.StepID != base.Id {
 		return fmt.Errorf("task step ID does not match step ID %s", task.StepID)
@@ -182,76 +179,6 @@ func (c *StepRunContext) setOutput(output map[string]string) error {
 func (c *StepRunContext) setupEnv(ctx context.Context, step workflows.Step) error {
 	// TODO "implement me"
 	return nil
-}
-
-func (c *StepRunContext) evaluateName(ctx context.Context, name workflows.Evaluable[string]) (string, error) {
-	return name.Evaluate(ctx)
-}
-
-func (c *StepRunContext) evaluateIf(ctx context.Context, condition workflows.Conditional) (bool, error) {
-	if condition == nil {
-		return true, nil
-	}
-	return condition.Meet(ctx)
-}
-
-func (c *StepRunContext) evaluateWith(ctx context.Context, with workflows.With) (map[string]string, error) {
-	if with == nil {
-		return nil, nil
-	}
-
-	m := map[string]string{}
-	for k, v := range with {
-		if value, err := v.Evaluate(ctx); err != nil {
-			return nil, err
-		} else {
-			m[k] = value
-		}
-	}
-	return m, nil
-}
-
-func (c *StepRunContext) evaluateEnv(ctx context.Context, env workflows.Env) (map[string]string, error) {
-	if env == nil {
-		return nil, nil
-	}
-	m := map[string]string{}
-	for k, v := range env {
-		if value, err := v.Evaluate(ctx); err != nil {
-			return nil, err
-		} else {
-			m[k] = value
-		}
-	}
-	return m, nil
-}
-
-func (c *StepRunContext) evaluateContinueOnError(ctx context.Context, coe workflows.Evaluable[bool]) (bool, error) {
-	if coe == nil {
-		return false, nil
-	}
-	return coe.Evaluate(ctx)
-}
-
-func (c *StepRunContext) evaluateTimeoutMinutes(ctx context.Context, timeout workflows.Evaluable[int64]) (int64, error) {
-	if timeout == nil {
-		return 360, nil
-	}
-	return timeout.Evaluate(ctx)
-}
-
-func (c *StepRunContext) evaluateRun(ctx context.Context, run workflows.Evaluable[string]) (string, error) {
-	if run == nil {
-		return "", nil
-	}
-	return run.Evaluate(ctx)
-}
-
-func (c *StepRunContext) evaluateWorkingDir(ctx context.Context, workDir workflows.Evaluable[string]) (string, error) {
-	if workDir == nil {
-		return "", nil
-	}
-	return workDir.Evaluate(ctx)
 }
 
 func updateRunContext[R any](
