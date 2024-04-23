@@ -11,7 +11,7 @@ type JoinFn struct {
 	Fn
 }
 
-func (a *JoinFn) Value() any {
+func (j *JoinFn) Value() any {
 	panic("not implemented")
 }
 
@@ -21,12 +21,12 @@ func (a *JoinFn) Value() any {
 //
 // The purpose is so the end user can understand how their expression expanded at run time. For example, consider
 // the expression: eq(variables.publish, 'true'). The runtime-expanded expression may be: eq('true', 'true')
-func (f *JoinFn) TraceFullyRealized() bool {
+func (j *JoinFn) TraceFullyRealized() bool {
 	return true
 }
 
-func (a *JoinFn) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
-	return v.VisitJoinFn(eCtx, a)
+func (j *JoinFn) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
+	return v.VisitJoinFn(eCtx, j)
 }
 
 //
@@ -61,7 +61,7 @@ func (a *JoinFn) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpres
 // 					result.WriteString(nextItemStr)
 // 				}
 // 			}
-// 			return result.String()
+// 			return result.ValueKindString()
 // 		}
 // 	}
 // 	if items.IsPrimitive() {
@@ -70,38 +70,38 @@ func (a *JoinFn) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpres
 // 	return ""
 // }
 
-func (f *JoinFn) SetName(name string) {
-	f.Name = name
+func (j *JoinFn) SetName(name string) {
+	j.Name = name
 }
 
-func (f *JoinFn) GetName() string {
-	return f.Name
+func (j *JoinFn) GetName() string {
+	return j.Name
 }
 
-func (f *JoinFn) GetContainer() interfaces.IContainer {
-	return f.Container
+func (j *JoinFn) GetContainer() interfaces.IContainer {
+	return j.Container
 }
 
-func (f *JoinFn) SetContainer(c interfaces.IContainer) {
-	f.Container = c
+func (j *JoinFn) SetContainer(c interfaces.IContainer) {
+	j.Container = c
 }
 
-func (f *JoinFn) ConvertToExpression() string {
-	params := make([]string, len(f.Parameters()))
-	for i, param := range f.Parameters() {
+func (j *JoinFn) ConvertToExpression() string {
+	params := make([]string, len(j.Parameters()))
+	for i, param := range j.Parameters() {
 		params[i] = param.ConvertToExpression()
 	}
-	return fmt.Sprintf("%s(%s)", f.GetName(), strings.Join(params, ", "))
+	return fmt.Sprintf("%s(%s)", j.GetName(), strings.Join(params, ", "))
 }
 
-func (f *JoinFn) ConvertToRealizedExpression(eCtx interfaces.IEvaluationContext) string {
-	exist, result := eCtx.TryGetTraceResult(f)
+func (j *JoinFn) ConvertToRealizedExpression(eCtx interfaces.IEvaluationContext) string {
+	exist, result := eCtx.TryGetTraceResult(j)
 	if exist {
 		return result
 	}
-	params := make([]string, len(f.Parameters()))
-	for i, param := range f.Parameters() {
+	params := make([]string, len(j.Parameters()))
+	for i, param := range j.Parameters() {
 		params[i] = param.ConvertToRealizedExpression(eCtx)
 	}
-	return fmt.Sprintf("%s(%s)", f.GetName(), strings.Join(params, ", "))
+	return fmt.Sprintf("%s(%s)", j.GetName(), strings.Join(params, ", "))
 }

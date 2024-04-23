@@ -12,12 +12,12 @@ type NotEqual struct {
 	base.ContainerBs
 }
 
-func (a *NotEqual) Value() any {
+func (n *NotEqual) Value() any {
 	panic("not implemented")
 }
 
-func (a *NotEqual) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
-	return v.VisitNotEqual(eCtx, a)
+func (n *NotEqual) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
+	return v.VisitNotEqual(eCtx, n)
 }
 
 func (n *NotEqual) TraceFullyRealized() bool {
@@ -35,13 +35,6 @@ func (n *NotEqual) ConvertToRealizedExpression(eCtx interfaces.IEvaluationContex
 	}
 	return fmt.Sprintf("%s != %s", n.Params[0].ConvertToRealizedExpression(eCtx), n.Params[1].ConvertToRealizedExpression(eCtx))
 }
-
-//
-// func (n *NotEqual) EvaluateCore(eCtx interfaces.IEvaluationContext) any {
-// 	l := evaluator.EvaluateWithContext(eCtx, n.Params[0])
-// 	r := evaluator.EvaluateWithContext(eCtx, n.Params[1])
-// 	return l.AbstractNotEqual(r)
-// }
 
 func (n *NotEqual) GetContainer() interfaces.IContainer {
 	return n.Container

@@ -12,12 +12,12 @@ type Not struct {
 	base.ContainerBs
 }
 
-func (a *Not) Value() any {
+func (n *Not) Value() any {
 	panic("not implemented")
 }
 
-func (a *Not) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
-	return v.VisitNot(eCtx, a)
+func (n *Not) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
+	return v.VisitNot(eCtx, n)
 }
 
 func (n *Not) TraceFullyRealized() bool {
@@ -35,11 +35,6 @@ func (n *Not) ConvertToRealizedExpression(eCtx interfaces.IEvaluationContext) st
 	}
 	return fmt.Sprintf("!%s", n.Params[0].ConvertToRealizedExpression(eCtx))
 }
-
-//
-// func (n *Not) EvaluateCore(eCtx interfaces.IEvaluationContext) any {
-// 	return evaluator.EvaluateWithContext(eCtx, n.Params[0]).IsFalsy()
-// }
 
 func (n *Not) GetContainer() interfaces.IContainer {
 	return n.Container

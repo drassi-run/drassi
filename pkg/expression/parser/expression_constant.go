@@ -6,17 +6,17 @@ import (
 	"github.com/dungdm93/drasi/pkg/expression/parser/functions"
 )
 
-type ExpressionConstant struct {
+type expressionConstant struct {
 	WellKnownFns map[string]functions.IFnInfo[functions.IFn]
 }
 
-var e *ExpressionConstant
+var e *expressionConstant
 
-func NewExpressionConstants() *ExpressionConstant {
+func newExpressionConstants() *expressionConstant {
 	if e != nil {
 		return e
 	}
-	e = &ExpressionConstant{WellKnownFns: make(map[string]functions.IFnInfo[functions.IFn])}
+	e = &expressionConstant{WellKnownFns: make(map[string]functions.IFnInfo[functions.IFn])}
 	// WellKnownFns:
 	// [x] contains
 	// [x] endsWith

@@ -8,11 +8,11 @@ import (
 	"strings"
 
 	"github.com/dungdm93/drasi/pkg/expression/interfaces"
-	"github.com/dungdm93/drasi/pkg/expression/parser"
+	"github.com/dungdm93/drasi/pkg/expression/shared"
 )
 
-func EvaluateWithContext(eCtx interfaces.IEvaluationContext, e interfaces.IExpressionNode) *EvaluationResult {
-	visitor := new(ExpressionNodeVisitor)
+func evaluateWithContext(eCtx interfaces.IEvaluationContext, e interfaces.IExpressionNode) *EvaluationResult {
+	visitor := new(expressionNodeVisitor)
 
 	var level int
 	if e.GetContainer() != nil {
@@ -21,7 +21,7 @@ func EvaluateWithContext(eCtx interfaces.IEvaluationContext, e interfaces.IExpre
 
 	// coreResult := e.EvaluateCore(eCtx)
 	coreResult := e.Accept(eCtx, visitor)
-	_, kind, raw := ConvertToCanonicalValue(coreResult)
+	_, kind, raw := convertToCanonicalValue(coreResult)
 	result := NewEvaluationResultSkipTrace(eCtx, level, coreResult, kind, raw)
 	if e.TraceFullyRealized() {
 		eCtx.SetTraceResult(e, result)
@@ -36,21 +36,21 @@ func Evaluate(e interfaces.IExpressionNode, trace interfaces.ITraceWriter, maske
 	if masker != nil {
 		masker = masker.Clone()
 	} else {
-		masker = parser.NewSecretMasker()
+		masker = newSecretMasker()
 	}
-	eTrace := parser.NewEvaluationTraceWriter(trace, masker)
-	eCtx := NewEvaluationContext(eTrace, masker, state, opt, e)
+	eTrace := newEvaluationTraceWriter(trace, masker)
+	eCtx := newEvaluationContext(eTrace, masker, state, opt, e)
 	eCtx.trace.Info(fmt.Sprintf("Evaluating: %s", e.ConvertToExpression()))
-	result := EvaluateWithContext(eCtx, e)
-	TraceTreeResult(eCtx, e, result.value, result.kind)
+	result := evaluateWithContext(eCtx, e)
+	traceTreeResult(eCtx, e, result.value, result.kind)
 	return result
 }
 
-func TraceTreeResult(eCtx *EvaluationContext, e interfaces.IExpressionNode, result any, kind interfaces.ValueKind) {
+func traceTreeResult(eCtx *evaluationContext, e interfaces.IExpressionNode, result any, kind shared.ValueKind) {
 	realizedExp := e.ConvertToRealizedExpression(eCtx)
-	traceValue := FormatValue(eCtx.masker, result, kind)
+	traceValue := formatValue(eCtx.masker, result, kind)
 	if !strings.EqualFold(realizedExp, traceValue) {
-		if kind == interfaces.Number && realizedExp == fmt.Sprintf("'%s'", traceValue) {
+		if kind == shared.ValueKindNumber && realizedExp == fmt.Sprintf("'%s'", traceValue) {
 			// Don't bother tracing the realized expression when the result is a number and the
 			// realized expression is a precisely matching string.
 		} else {
@@ -60,56 +60,56 @@ func TraceTreeResult(eCtx *EvaluationContext, e interfaces.IExpressionNode, resu
 	eCtx.trace.Info(fmt.Sprintf("Result: %s", traceValue))
 }
 
-func ConvertToCanonicalValue(input any) (value any, kind interfaces.ValueKind, raw any) {
+func convertToCanonicalValue(input any) (value any, kind shared.ValueKind, raw any) {
 	if input == nil {
-		kind = interfaces.Null
+		kind = shared.ValueKindNull
 		return
 	}
 	if _, castable := input.(bool); castable {
-		kind = interfaces.Boolean
+		kind = shared.ValueKindBoolean
 		value = input
 		return
 	}
 	if _, castable := input.(float64); castable {
 		value = input
-		kind = interfaces.Number
+		kind = shared.ValueKindNumber
 		return
 	}
 	if _, castable := input.(string); castable {
-		kind = interfaces.String
+		kind = shared.ValueKindString
 		value = input
 		return
 	}
 	if b, castable := input.(interfaces.IBool); castable {
-		kind = interfaces.Boolean
+		kind = shared.ValueKindBoolean
 		raw = input
 		value = b.GetValue()
 		return
 	}
 	if b, castable := input.(interfaces.INumber); castable {
-		kind = interfaces.Number
+		kind = shared.ValueKindNumber
 		raw = input
 		value = b.GetValue()
 		return
 	}
 	if b, castable := input.(interfaces.IString); castable {
-		kind = interfaces.String
+		kind = shared.ValueKindString
 		raw = input
 		value = b.GetValue()
 		return
 	}
 	if _, castable := input.(interfaces.IReadOnlyObj); castable {
-		kind = interfaces.Object
+		kind = shared.ValueKindObject
 		value = input
 		return
 	}
 	if _, castable := input.(interfaces.IReadOnlyArray); castable {
-		kind = interfaces.Array
+		kind = shared.ValueKindArray
 		value = input
 		return
 	}
 	if _, castable := input.(interfaces.INull); castable {
-		kind = interfaces.Null
+		kind = shared.ValueKindNull
 		raw = input
 		value = nil
 		return
@@ -139,7 +139,7 @@ func ConvertToCanonicalValue(input any) (value any, kind interfaces.ValueKind, r
 			isWellKnownNumber = true
 		}
 		if isWellKnownNumber {
-			kind = interfaces.Number
+			kind = shared.ValueKindNumber
 			value, err := strconv.ParseFloat(input.(string), 64)
 			if err != nil {
 				panic(err)
@@ -147,7 +147,7 @@ func ConvertToCanonicalValue(input any) (value any, kind interfaces.ValueKind, r
 			return value, kind, nil
 		}
 	}
-	kind = interfaces.Object
+	kind = shared.ValueKindObject
 	value = input
 	return
 }

@@ -11,12 +11,12 @@ type EndsWithFn struct {
 	Fn
 }
 
-func (a *EndsWithFn) Value() any {
+func (e *EndsWithFn) Value() any {
 	panic("not implemented")
 }
 
-func (a *EndsWithFn) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
-	return v.VisitEndsWithFn(eCtx, a)
+func (e *EndsWithFn) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
+	return v.VisitEndsWithFn(eCtx, e)
 }
 
 func (e *EndsWithFn) TraceFullyRealized() bool {
@@ -73,6 +73,6 @@ func (e *EndsWithFn) GetContainer() interfaces.IContainer {
 	return e.Container
 }
 
-func (c *EndsWithFn) SetContainer(cc interfaces.IContainer) {
-	c.Container = cc
+func (e *EndsWithFn) SetContainer(cc interfaces.IContainer) {
+	e.Container = cc
 }

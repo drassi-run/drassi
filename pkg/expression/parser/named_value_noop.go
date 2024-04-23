@@ -8,35 +8,30 @@ type NoOpNamedValue struct {
 	NamedValue
 }
 
-func (a *NoOpNamedValue) Value() any {
+func (n *NoOpNamedValue) Value() any {
 	panic("not implemented")
 }
 
-func (a *NoOpNamedValue) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
-	return v.VisitNoopNamedValue(eCtx, a)
+func (n *NoOpNamedValue) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
+	return v.VisitNoopNamedValue(eCtx, n)
 }
 
-// func (c *NoOpNamedValue) EvaluateCore(eCtx interfaces.IEvaluationContext) (result any) {
-//
-// 	return nil
-// }
-
-func (c *NoOpNamedValue) TraceFullyRealized() bool {
+func (n *NoOpNamedValue) TraceFullyRealized() bool {
 	return true
 }
 
-func (c *NoOpNamedValue) GetContainer() interfaces.IContainer {
-	return c.Container
+func (n *NoOpNamedValue) GetContainer() interfaces.IContainer {
+	return n.Container
 }
 
-func (c *NoOpNamedValue) SetContainer(cc interfaces.IContainer) {
-	c.Container = cc
+func (n *NoOpNamedValue) SetContainer(cc interfaces.IContainer) {
+	n.Container = cc
 }
 
-func (c *NoOpNamedValue) SetName(name string) {
-	c.ExpressionNodeBs.Name = name
+func (n *NoOpNamedValue) SetName(name string) {
+	n.ExpressionNodeBs.Name = name
 }
 
-func (c *NoOpNamedValue) GetName() string {
-	return c.Name
+func (n *NoOpNamedValue) GetName() string {
+	return n.Name
 }

@@ -21,19 +21,19 @@ func NewFunctionInfo[T any](name string, minParameters, maxParameters int) *FnIn
 	}
 }
 
-func (n *FnInfo[T]) GetName() string {
-	return n.name
+func (f *FnInfo[T]) GetName() string {
+	return f.name
 }
 
-func (n *FnInfo[T]) MinParameters() int {
-	return n.minParameters
+func (f *FnInfo[T]) MinParameters() int {
+	return f.minParameters
 }
 
-func (n *FnInfo[T]) MaxParameters() int {
-	return n.maxParameters
+func (f *FnInfo[T]) MaxParameters() int {
+	return f.maxParameters
 }
 
 // CreateNode create a node with of type T that is embed type Fn
-func (n *FnInfo[T]) CreateNode() any {
+func (f *FnInfo[T]) CreateNode() any {
 	return new(T)
 }

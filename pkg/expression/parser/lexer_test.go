@@ -48,52 +48,52 @@ func TestTryGetNextToken(t *testing.T) {
 	testCases := []struct {
 		name       string
 		expression string
-		expected   []LexicalTokenKind
+		expected   []lexicalTokenKind
 	}{
 		{
 			name:       "Empty expression",
 			expression: "",
-			expected:   []LexicalTokenKind{},
+			expected:   []lexicalTokenKind{},
 		},
 		{
 			name:       "Complex expression",
 			expression: "true && (10 > 5 || 'hello' == 'world')",
-			expected:   []LexicalTokenKind{LTKBoolean, LTKLogicalOperator, LTKStartGroup, LTKNumber, LTKLogicalOperator, LTKNumber, LTKLogicalOperator, LTKString, LTKLogicalOperator, LTKString, LTKEndGroup},
+			expected:   []lexicalTokenKind{lexicalTokenKindBoolean, lexicalTokenKindLogicalOperator, lexicalTokenKindStartGroup, lexicalTokenKindNumber, lexicalTokenKindLogicalOperator, lexicalTokenKindNumber, lexicalTokenKindLogicalOperator, lexicalTokenKindString, lexicalTokenKindLogicalOperator, lexicalTokenKindString, lexicalTokenKindEndGroup},
 		},
 		{
 			name:       "Unclosed tokens",
 			expression: "(2 != 3",
-			expected:   []LexicalTokenKind{LTKStartGroup, LTKNumber, LTKLogicalOperator, LTKNumber},
+			expected:   []lexicalTokenKind{lexicalTokenKindStartGroup, lexicalTokenKindNumber, lexicalTokenKindLogicalOperator, lexicalTokenKindNumber},
 		},
 		{
 			name:       "Access property name",
 			expression: "github.actor",
-			expected:   []LexicalTokenKind{LTKNamedValue, LTKDereference, LTKPropertyName},
+			expected:   []lexicalTokenKind{lexicalTokenKindNamedValue, lexicalTokenKindDereference, lexicalTokenKindPropertyName},
 		},
 		{
 			name:       "String literal",
 			expression: "'It''s open source!'",
-			expected:   []LexicalTokenKind{LTKString},
+			expected:   []lexicalTokenKind{lexicalTokenKindString},
 		},
 		{
 			name:       "Compare",
 			expression: "( 2 > 3 )",
-			expected:   []LexicalTokenKind{LTKStartGroup, LTKNumber, LTKLogicalOperator, LTKNumber, LTKEndGroup},
+			expected:   []lexicalTokenKind{lexicalTokenKindStartGroup, lexicalTokenKindNumber, lexicalTokenKindLogicalOperator, lexicalTokenKindNumber, lexicalTokenKindEndGroup},
 		},
 		{
 			name:       "Function expression",
 			expression: "contains('Hello world', 'llo')",
-			expected:   []LexicalTokenKind{LTKFunction, LTKStartParameters, LTKString, LTKSeparator, LTKString, LTKEndParameters},
+			expected:   []lexicalTokenKind{lexicalTokenKindFunction, lexicalTokenKindStartParameters, lexicalTokenKindString, lexicalTokenKindSeparator, lexicalTokenKindString, lexicalTokenKindEndParameters},
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			lexer := NewLexer(tc.expression)
-			var tokens []*LexicalToken
+			lexer := newLexer(tc.expression)
+			var tokens []*lexicalToken
 
 			for {
-				token, haveResult := lexer.TryGetNextToken()
+				token, haveResult := lexer.tryGetNextToken()
 				if !haveResult {
 					break
 				}
@@ -107,7 +107,7 @@ func TestTryGetNextToken(t *testing.T) {
 
 			for i, expected := range tc.expected {
 				if tokens[i].kind != expected {
-					t.Errorf("LTKUnexpected token kind at index %d: expected %v, got %s, value %v", i, expected,
+					t.Errorf("lexicalTokenKindUnexpected token kind at index %d: expected %v, got %s, value %v", i, expected,
 						tokens[i].kind, tokens[i].rawValue)
 				}
 			}
@@ -119,39 +119,39 @@ func TestUnclosedTokens(t *testing.T) {
 	testCases := []struct {
 		name             string
 		expression       string
-		expectedUnclosed []LexicalTokenKind
+		expectedUnclosed []lexicalTokenKind
 	}{
 		{
 			name:             "No unclosed tokens",
 			expression:       "1 != 2",
-			expectedUnclosed: []LexicalTokenKind{},
+			expectedUnclosed: []lexicalTokenKind{},
 		},
 		{
 			name:             "Unclosed group",
 			expression:       "(1 != 2",
-			expectedUnclosed: []LexicalTokenKind{LTKStartGroup},
+			expectedUnclosed: []lexicalTokenKind{lexicalTokenKindStartGroup},
 		},
 		{
 			name:             "Unclosed index and group",
 			expression:       "arr[0 != (2",
-			expectedUnclosed: []LexicalTokenKind{LTKStartIndex, LTKStartGroup},
+			expectedUnclosed: []lexicalTokenKind{lexicalTokenKindStartIndex, lexicalTokenKindStartGroup},
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			lexer := NewLexer(tc.expression)
-			var lastClosed []*LexicalToken
+			lexer := newLexer(tc.expression)
+			var lastClosed []*lexicalToken
 
 			for {
-				token, haveResult := lexer.TryGetNextToken()
+				token, haveResult := lexer.tryGetNextToken()
 				if !haveResult {
 					break
 				}
 				lastClosed = append(lastClosed, token)
 			}
 
-			unclosedTokens := lexer.UnclosedTokens()
+			unclosedTokens := lexer.getUnclosedTokens()
 
 			if len(unclosedTokens) != len(tc.expectedUnclosed) {
 				t.Errorf("Expected %d unclosed tokens, but got %d", len(tc.expectedUnclosed), len(unclosedTokens))
@@ -160,7 +160,7 @@ func TestUnclosedTokens(t *testing.T) {
 
 			for i, expected := range tc.expectedUnclosed {
 				if unclosedTokens[i].kind != expected {
-					t.Errorf("LTKUnexpected unclosed token at index %d: expected %v, got %v", i, expected, unclosedTokens[i])
+					t.Errorf("lexicalTokenKindUnexpected unclosed token at index %d: expected %v, got %v", i, expected, unclosedTokens[i])
 				}
 			}
 		})
@@ -170,20 +170,20 @@ func TestUnclosedTokens(t *testing.T) {
 func TestCreateToken(t *testing.T) {
 	testCases := []struct {
 		name        string
-		kind        LexicalTokenKind
+		kind        lexicalTokenKind
 		rawValue    string
 		startIndex  int
 		parsedValue any
-		expected    *LexicalToken
+		expected    *lexicalToken
 	}{
 		{
 			name:        "Valid number token",
-			kind:        LTKNumber,
+			kind:        lexicalTokenKindNumber,
 			rawValue:    "42.0",
 			startIndex:  0,
 			parsedValue: 42.0,
-			expected: &LexicalToken{
-				kind:        LTKNumber,
+			expected: &lexicalToken{
+				kind:        lexicalTokenKindNumber,
 				rawValue:    "42.0",
 				index:       0,
 				parsedValue: 42.0,
@@ -191,25 +191,25 @@ func TestCreateToken(t *testing.T) {
 		},
 		{
 			name:        "Valid string token",
-			kind:        LTKString,
+			kind:        lexicalTokenKindString,
 			rawValue:    "'hello'",
 			startIndex:  0,
 			parsedValue: "hello",
-			expected: &LexicalToken{
-				kind:        LTKString,
+			expected: &lexicalToken{
+				kind:        lexicalTokenKindString,
 				rawValue:    "'hello'",
 				index:       0,
 				parsedValue: "hello",
 			},
 		},
 		{
-			name:        "LTKUnexpected token",
-			kind:        LTKUnexpected,
+			name:        "lexicalTokenKindUnexpected token",
+			kind:        lexicalTokenKindUnexpected,
 			rawValue:    "!@#",
 			startIndex:  0,
 			parsedValue: nil,
-			expected: &LexicalToken{
-				kind:     LTKUnexpected,
+			expected: &lexicalToken{
+				kind:     lexicalTokenKindUnexpected,
 				rawValue: "!@#",
 				index:    0,
 			},
@@ -217,20 +217,20 @@ func TestCreateToken(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		lexer := new(Lexer)
+		lexer := new(lexer)
 		t.Run(tc.name, func(t *testing.T) {
 			token := lexer.createToken(tc.kind, tc.rawValue, tc.startIndex, tc.parsedValue)
 			if token.kind != tc.expected.kind {
-				t.Errorf("LTKUnexpected token kind: expected %s, got %s", tc.expected.kind, token.kind)
+				t.Errorf("lexicalTokenKindUnexpected token kind: expected %s, got %s", tc.expected.kind, token.kind)
 			}
 			if token.rawValue != tc.expected.rawValue {
-				t.Errorf("LTKUnexpected raw value: expected %v, got %v", tc.expected.rawValue, token.rawValue)
+				t.Errorf("lexicalTokenKindUnexpected raw value: expected %v, got %v", tc.expected.rawValue, token.rawValue)
 			}
 			if token.index != tc.expected.index {
-				t.Errorf("LTKUnexpected index: expected %v, got %v", tc.expected.index, token.index)
+				t.Errorf("lexicalTokenKindUnexpected index: expected %v, got %v", tc.expected.index, token.index)
 			}
 			if token.parsedValue != tc.expected.parsedValue {
-				t.Errorf("LTKUnexpected parsed value: expected %v, got %v", tc.expected.parsedValue, token.parsedValue)
+				t.Errorf("lexicalTokenKindUnexpected parsed value: expected %v, got %v", tc.expected.parsedValue, token.parsedValue)
 			}
 		})
 	}
@@ -240,13 +240,13 @@ func TestReadKeywordToken(t *testing.T) {
 	testCases := []struct {
 		name          string
 		expression    string
-		expectedToken *LexicalToken
+		expectedToken *lexicalToken
 	}{
 		{
-			name:       "LTKNull keyword",
+			name:       "lexicalTokenKindNull keyword",
 			expression: "null",
-			expectedToken: &LexicalToken{
-				kind:        LTKNull,
+			expectedToken: &lexicalToken{
+				kind:        lexicalTokenKindNull,
 				rawValue:    "null",
 				index:       0,
 				parsedValue: nil,
@@ -255,8 +255,8 @@ func TestReadKeywordToken(t *testing.T) {
 		{
 			name:       "True keyword",
 			expression: "true",
-			expectedToken: &LexicalToken{
-				kind:        LTKBoolean,
+			expectedToken: &lexicalToken{
+				kind:        lexicalTokenKindBoolean,
 				rawValue:    "true",
 				index:       0,
 				parsedValue: true,
@@ -265,8 +265,8 @@ func TestReadKeywordToken(t *testing.T) {
 		{
 			name:       "False keyword",
 			expression: "false",
-			expectedToken: &LexicalToken{
-				kind:        LTKBoolean,
+			expectedToken: &lexicalToken{
+				kind:        lexicalTokenKindBoolean,
 				rawValue:    "false",
 				index:       0,
 				parsedValue: false,
@@ -275,8 +275,8 @@ func TestReadKeywordToken(t *testing.T) {
 		{
 			name:       "NaN keyword",
 			expression: "NaN",
-			expectedToken: &LexicalToken{
-				kind:        LTKNumber,
+			expectedToken: &lexicalToken{
+				kind:        lexicalTokenKindNumber,
 				rawValue:    "NaN",
 				index:       0,
 				parsedValue: math.NaN(),
@@ -285,8 +285,8 @@ func TestReadKeywordToken(t *testing.T) {
 		{
 			name:       "Infinity keyword",
 			expression: "Infinity",
-			expectedToken: &LexicalToken{
-				kind:        LTKNumber,
+			expectedToken: &lexicalToken{
+				kind:        lexicalTokenKindNumber,
 				rawValue:    "Infinity",
 				index:       0,
 				parsedValue: math.Inf(1),
@@ -295,8 +295,8 @@ func TestReadKeywordToken(t *testing.T) {
 		{
 			name:       "Fn keyword",
 			expression: "someFunction()",
-			expectedToken: &LexicalToken{
-				kind:        LTKFunction,
+			expectedToken: &lexicalToken{
+				kind:        lexicalTokenKindFunction,
 				rawValue:    "someFunction",
 				index:       0,
 				parsedValue: nil,
@@ -305,18 +305,18 @@ func TestReadKeywordToken(t *testing.T) {
 		{
 			name:       "Named value keyword",
 			expression: "someValue",
-			expectedToken: &LexicalToken{
-				kind:        LTKNamedValue,
+			expectedToken: &lexicalToken{
+				kind:        lexicalTokenKindNamedValue,
 				rawValue:    "someValue",
 				index:       0,
 				parsedValue: nil,
 			},
 		},
 		{
-			name:       "LTKUnexpected keyword",
+			name:       "lexicalTokenKindUnexpected keyword",
 			expression: "!@#$%",
-			expectedToken: &LexicalToken{
-				kind:     LTKUnexpected,
+			expectedToken: &lexicalToken{
+				kind:     lexicalTokenKindUnexpected,
 				rawValue: "!@#$%",
 				index:    0,
 			},
@@ -325,20 +325,20 @@ func TestReadKeywordToken(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			lexer := new(Lexer)
+			lexer := new(lexer)
 			lexer.expression = tc.expression
 			token := lexer.readKeywordToken()
 			if token.kind != tc.expectedToken.kind {
-				t.Errorf("LTKUnexpected token kind: expected %s, got %s", tc.expectedToken.kind, token.kind)
+				t.Errorf("lexicalTokenKindUnexpected token kind: expected %s, got %s", tc.expectedToken.kind, token.kind)
 			}
 			if token.rawValue != tc.expectedToken.rawValue {
-				t.Errorf("LTKUnexpected raw value: expected %v, got %v", tc.expectedToken.rawValue, token.rawValue)
+				t.Errorf("lexicalTokenKindUnexpected raw value: expected %v, got %v", tc.expectedToken.rawValue, token.rawValue)
 			}
 			if token.index != tc.expectedToken.index {
-				t.Errorf("LTKUnexpected index: expected %v, got %v", tc.expectedToken.index, token.index)
+				t.Errorf("lexicalTokenKindUnexpected index: expected %v, got %v", tc.expectedToken.index, token.index)
 			}
 			if diff(token.parsedValue, tc.expectedToken.parsedValue) {
-				t.Errorf("LTKUnexpected parsed value: expected %v, got %v", tc.expectedToken.parsedValue, token.parsedValue)
+				t.Errorf("lexicalTokenKindUnexpected parsed value: expected %v, got %v", tc.expectedToken.parsedValue, token.parsedValue)
 			}
 		})
 	}

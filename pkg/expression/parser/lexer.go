@@ -7,17 +7,17 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/dungdm93/drasi/pkg/expression/constants"
+	"github.com/dungdm93/drasi/pkg/expression/shared"
 )
 
-type Lexer struct {
+type lexer struct {
 	expression     string
 	index          int
-	lastToken      *LexicalToken
-	unclosedTokens []*LexicalToken
+	lastToken      *lexicalToken
+	unclosedTokens []*lexicalToken
 }
 
-func (l *Lexer) TryGetNextToken() (result *LexicalToken, haveResult bool) {
+func (l *lexer) tryGetNextToken() (result *lexicalToken, haveToken bool) {
 	runes := []rune(l.expression)
 	for l.index < len(l.expression) && unicode.IsSpace(runes[l.index]) {
 		l.index++
@@ -30,35 +30,35 @@ func (l *Lexer) TryGetNextToken() (result *LexicalToken, haveResult bool) {
 	// read the first character to determine the type of token.
 	c := string(l.expression[l.index])
 	switch c {
-	case constants.StartGroup:
+	case shared.StartGroup:
 		// function call
-		if l.lastToken != nil && l.lastToken.kind == LTKFunction {
-			result = l.createToken(LTKStartParameters, c, l.index, nil)
+		if l.lastToken != nil && l.lastToken.kind == lexicalTokenKindFunction {
+			result = l.createToken(lexicalTokenKindStartParameters, c, l.index, nil)
 		} else {
 			// logical grouping
-			result = l.createToken(LTKStartGroup, c, l.index, nil)
+			result = l.createToken(lexicalTokenKindStartGroup, c, l.index, nil)
 		}
 		l.index++
-	case constants.StartIndex:
-		result = l.createToken(LTKStartIndex, c, l.index, nil)
+	case shared.StartIndex:
+		result = l.createToken(lexicalTokenKindStartIndex, c, l.index, nil)
 		l.index++
-	case constants.EndGroup:
+	case shared.EndGroup:
 		// function call
-		if len(l.unclosedTokens) > 0 && l.unclosedTokens[len(l.unclosedTokens)-1].kind == LTKStartParameters {
-			result = l.createToken(LTKEndParameters, c, l.index, nil)
+		if len(l.unclosedTokens) > 0 && l.unclosedTokens[len(l.unclosedTokens)-1].kind == lexicalTokenKindStartParameters {
+			result = l.createToken(lexicalTokenKindEndParameters, c, l.index, nil)
 		} else {
 			// logical grouping
-			result = l.createToken(LTKEndGroup, c, l.index, nil)
+			result = l.createToken(lexicalTokenKindEndGroup, c, l.index, nil)
 		}
 		l.index++
-	case constants.EndIndex:
-		result = l.createToken(LTKEndIndex, c, l.index, nil)
+	case shared.EndIndex:
+		result = l.createToken(lexicalTokenKindEndIndex, c, l.index, nil)
 		l.index++
-	case constants.Separator:
-		result = l.createToken(LTKSeparator, c, l.index, nil)
+	case shared.Separator:
+		result = l.createToken(lexicalTokenKindSeparator, c, l.index, nil)
 		l.index++
-	case constants.Wildcard:
-		result = l.createToken(LTKWildcard, c, l.index, nil)
+	case shared.Wildcard:
+		result = l.createToken(lexicalTokenKindWildcard, c, l.index, nil)
 		l.index++
 	case "'":
 		result = l.readStringToken()
@@ -68,11 +68,11 @@ func (l *Lexer) TryGetNextToken() (result *LexicalToken, haveResult bool) {
 	default:
 		if c == "." {
 			// number
-			if l.lastToken == nil || l.lastToken.kind == LTKSeparator || l.lastToken.kind == LTKStartGroup || l.lastToken.kind == LTKStartIndex || l.lastToken.kind == LTKStartParameters || l.lastToken.kind == LTKLogicalOperator {
+			if l.lastToken == nil || l.lastToken.kind == lexicalTokenKindSeparator || l.lastToken.kind == lexicalTokenKindStartGroup || l.lastToken.kind == lexicalTokenKindStartIndex || l.lastToken.kind == lexicalTokenKindStartParameters || l.lastToken.kind == lexicalTokenKindLogicalOperator {
 				result = l.readNumberToken()
 			} else {
 				// .
-				result = l.createToken(LTKDereference, c, l.index, nil)
+				result = l.createToken(lexicalTokenKindDereference, c, l.index, nil)
 				l.index++
 			}
 		} else if c == "-" || c == "+" || (c >= "0" && c <= "9") {
@@ -85,11 +85,11 @@ func (l *Lexer) TryGetNextToken() (result *LexicalToken, haveResult bool) {
 	return result, true
 }
 
-func (l *Lexer) UnclosedTokens() []*LexicalToken {
+func (l *lexer) getUnclosedTokens() []*lexicalToken {
 	return l.unclosedTokens
 }
 
-func (l *Lexer) readKeywordToken() *LexicalToken {
+func (l *lexer) readKeywordToken() *lexicalToken {
 	runes := []rune(l.expression)
 	startIndex := l.index
 	l.index++
@@ -98,29 +98,29 @@ func (l *Lexer) readKeywordToken() *LexicalToken {
 		l.index++
 	}
 	str := l.expression[startIndex:l.index]
-	if IsLegalKeyWord(str) {
+	if isLegalKeyWord(str) {
 		// Test if follows property dereference operator.
-		if l.lastToken != nil && l.lastToken.kind == LTKDereference {
-			return l.createToken(LTKPropertyName, str, startIndex, nil)
+		if l.lastToken != nil && l.lastToken.kind == lexicalTokenKindDereference {
+			return l.createToken(lexicalTokenKindPropertyName, str, startIndex, nil)
 		}
-		// LTKNull
-		if strings.EqualFold(str, constants.Null) {
-			return l.createToken(LTKNull, str, startIndex, nil)
+		// lexicalTokenKindNull
+		if strings.EqualFold(str, shared.Null) {
+			return l.createToken(lexicalTokenKindNull, str, startIndex, nil)
 		}
-		// LTKBoolean
-		if strings.EqualFold(str, constants.True) {
-			return l.createToken(LTKBoolean, str, startIndex, true)
+		// lexicalTokenKindBoolean
+		if strings.EqualFold(str, shared.True) {
+			return l.createToken(lexicalTokenKindBoolean, str, startIndex, true)
 		}
-		if strings.EqualFold(str, constants.False) {
-			return l.createToken(LTKBoolean, str, startIndex, false)
+		if strings.EqualFold(str, shared.False) {
+			return l.createToken(lexicalTokenKindBoolean, str, startIndex, false)
 		}
 		// NaN
-		if strings.EqualFold(str, constants.NaN) {
-			return l.createToken(LTKNumber, str, startIndex, math.NaN())
+		if strings.EqualFold(str, shared.NaN) {
+			return l.createToken(lexicalTokenKindNumber, str, startIndex, math.NaN())
 		}
 		// Infinity
-		if strings.EqualFold(str, constants.Infinity) {
-			return l.createToken(LTKNumber, str, startIndex, math.Inf(1))
+		if strings.EqualFold(str, shared.Infinity) {
+			return l.createToken(lexicalTokenKindNumber, str, startIndex, math.Inf(1))
 		}
 		// Lookahead
 		tmpIndex := l.index
@@ -128,18 +128,18 @@ func (l *Lexer) readKeywordToken() *LexicalToken {
 			tmpIndex++
 		}
 		// Fn. Eg: success(), always()
-		if tmpIndex < len(l.expression) && string(l.expression[tmpIndex]) == constants.StartGroup {
-			return l.createToken(LTKFunction, str, startIndex, nil)
+		if tmpIndex < len(l.expression) && string(l.expression[tmpIndex]) == shared.StartGroup {
+			return l.createToken(lexicalTokenKindFunction, str, startIndex, nil)
 		} else {
 			// Named values. Eg github
-			return l.createToken(LTKNamedValue, str, startIndex, nil)
+			return l.createToken(lexicalTokenKindNamedValue, str, startIndex, nil)
 		}
 	} else {
-		return l.createToken(LTKUnexpected, str, startIndex, nil)
+		return l.createToken(lexicalTokenKindUnexpected, str, startIndex, nil)
 	}
 }
 
-func (l *Lexer) readNumberToken() *LexicalToken {
+func (l *lexer) readNumberToken() *lexicalToken {
 	start := l.index
 	for {
 		l.index++
@@ -151,12 +151,12 @@ func (l *Lexer) readNumberToken() *LexicalToken {
 	str := l.expression[start:l.index]
 	d := parseNumber(str)
 	if math.IsNaN(d) {
-		return l.createToken(LTKUnexpected, str, start, nil)
+		return l.createToken(lexicalTokenKindUnexpected, str, start, nil)
 	}
-	return l.createToken(LTKNumber, str, start, d)
+	return l.createToken(lexicalTokenKindNumber, str, start, d)
 }
 
-func (l *Lexer) readStringToken() *LexicalToken {
+func (l *lexer) readStringToken() *lexicalToken {
 	start := l.index
 	var closed bool
 	var str strings.Builder
@@ -182,12 +182,12 @@ func (l *Lexer) readStringToken() *LexicalToken {
 	}
 	rawValue := l.expression[start:l.index]
 	if closed {
-		return l.createToken(LTKString, rawValue, start, str.String())
+		return l.createToken(lexicalTokenKindString, rawValue, start, str.String())
 	}
-	return l.createToken(LTKUnexpected, rawValue, start, nil)
+	return l.createToken(lexicalTokenKindUnexpected, rawValue, start, nil)
 }
 
-func (l *Lexer) readOperator() *LexicalToken {
+func (l *lexer) readOperator() *lexicalToken {
 	start := l.index
 	// skip first char since we already knows what it is
 	l.index++
@@ -197,9 +197,9 @@ func (l *Lexer) readOperator() *LexicalToken {
 		l.index++
 		raw := l.expression[start:l.index]
 		switch raw {
-		case constants.NotEqual, constants.GreaterThanOrEqual, constants.LessThanOrEqual, constants.Equal,
-			constants.And, constants.Or:
-			return l.createToken(LTKLogicalOperator, raw, start, nil)
+		case shared.NotEqual, shared.GreaterThanOrEqual, shared.LessThanOrEqual, shared.Equal,
+			shared.And, shared.Or:
+			return l.createToken(lexicalTokenKindLogicalOperator, raw, start, nil)
 		}
 		l.index--
 	}
@@ -207,110 +207,110 @@ func (l *Lexer) readOperator() *LexicalToken {
 	// check for one-character operator
 	raw := l.expression[start:l.index]
 	switch raw {
-	case constants.Not, constants.GreaterThan, constants.LessThan:
-		return l.createToken(LTKLogicalOperator, raw, start, nil)
+	case shared.Not, shared.GreaterThan, shared.LessThan:
+		return l.createToken(lexicalTokenKindLogicalOperator, raw, start, nil)
 	}
 	// unexpected
 	for l.index < len(l.expression) && !testTokenBoundary(rune(l.expression[l.index])) {
 		l.index++
 	}
-	return l.createToken(LTKUnexpected, l.expression[start:l.index], start, nil)
+	return l.createToken(lexicalTokenKindUnexpected, l.expression[start:l.index], start, nil)
 }
 
-// createToken performs valid check based on last token stored in lexer, return a new LexicalToken if condition check is passed
-func (l *Lexer) createToken(kind LexicalTokenKind, rawValue string, startIndex int, parsedValue any) *LexicalToken {
+// createToken performs valid check based on last token stored in lexer, return a new lexicalToken if condition check is passed
+func (l *lexer) createToken(kind lexicalTokenKind, rawValue string, startIndex int, parsedValue any) *lexicalToken {
 	var legal bool
 	switch kind {
-	case LTKStartGroup:
-		legal = l.checkLastToken(LTKNotInitialized, LTKSeparator, LTKStartGroup, LTKStartParameters, LTKStartIndex, LTKLogicalOperator)
-	case LTKStartIndex:
-		legal = l.checkLastToken(LTKEndGroup, LTKEndParameters, LTKEndIndex, LTKWildcard,
-			LTKPropertyName, LTKNamedValue)
-	case LTKStartParameters:
-		legal = l.checkLastToken(LTKFunction)
-	case LTKEndGroup:
-		legal = l.checkLastToken(LTKEndGroup, LTKEndParameters, LTKEndIndex, LTKWildcard,
-			LTKNull, LTKBoolean, LTKNumber, LTKString, LTKPropertyName, LTKNamedValue)
-	case LTKEndIndex:
-		legal = l.checkLastToken(LTKEndGroup, LTKEndParameters, LTKEndIndex, LTKWildcard, LTKNull, LTKBoolean, LTKNumber, LTKString, LTKPropertyName, LTKNamedValue)
-	case LTKEndParameters:
-		legal = l.checkLastToken(LTKStartParameters, LTKEndGroup, LTKEndParameters, LTKEndIndex, LTKWildcard, LTKNull, LTKBoolean, LTKNumber, LTKString, LTKPropertyName, LTKNamedValue)
+	case lexicalTokenKindStartGroup:
+		legal = l.checkLastToken(lexicalTokenKindNotInitialized, lexicalTokenKindSeparator, lexicalTokenKindStartGroup, lexicalTokenKindStartParameters, lexicalTokenKindStartIndex, lexicalTokenKindLogicalOperator)
+	case lexicalTokenKindStartIndex:
+		legal = l.checkLastToken(lexicalTokenKindEndGroup, lexicalTokenKindEndParameters, lexicalTokenKindEndIndex, lexicalTokenKindWildcard,
+			lexicalTokenKindPropertyName, lexicalTokenKindNamedValue)
+	case lexicalTokenKindStartParameters:
+		legal = l.checkLastToken(lexicalTokenKindFunction)
+	case lexicalTokenKindEndGroup:
+		legal = l.checkLastToken(lexicalTokenKindEndGroup, lexicalTokenKindEndParameters, lexicalTokenKindEndIndex, lexicalTokenKindWildcard,
+			lexicalTokenKindNull, lexicalTokenKindBoolean, lexicalTokenKindNumber, lexicalTokenKindString, lexicalTokenKindPropertyName, lexicalTokenKindNamedValue)
+	case lexicalTokenKindEndIndex:
+		legal = l.checkLastToken(lexicalTokenKindEndGroup, lexicalTokenKindEndParameters, lexicalTokenKindEndIndex, lexicalTokenKindWildcard, lexicalTokenKindNull, lexicalTokenKindBoolean, lexicalTokenKindNumber, lexicalTokenKindString, lexicalTokenKindPropertyName, lexicalTokenKindNamedValue)
+	case lexicalTokenKindEndParameters:
+		legal = l.checkLastToken(lexicalTokenKindStartParameters, lexicalTokenKindEndGroup, lexicalTokenKindEndParameters, lexicalTokenKindEndIndex, lexicalTokenKindWildcard, lexicalTokenKindNull, lexicalTokenKindBoolean, lexicalTokenKindNumber, lexicalTokenKindString, lexicalTokenKindPropertyName, lexicalTokenKindNamedValue)
 		break
-	case LTKSeparator:
-		legal = l.checkLastToken(LTKEndGroup, LTKEndParameters, LTKEndIndex, LTKWildcard, LTKNull, LTKBoolean, LTKNumber, LTKString, LTKPropertyName, LTKNamedValue)
-	case LTKDereference:
-		legal = l.checkLastToken(LTKEndGroup, LTKEndParameters, LTKEndIndex, LTKWildcard, LTKPropertyName, LTKNamedValue)
-	case LTKWildcard:
-		legal = l.checkLastToken(LTKStartIndex, LTKDereference)
-	case LTKLogicalOperator:
-		if rawValue == constants.Not {
-			legal = l.checkLastToken(LTKNotInitialized, LTKSeparator, LTKStartGroup, LTKStartParameters, LTKStartIndex, LTKLogicalOperator)
+	case lexicalTokenKindSeparator:
+		legal = l.checkLastToken(lexicalTokenKindEndGroup, lexicalTokenKindEndParameters, lexicalTokenKindEndIndex, lexicalTokenKindWildcard, lexicalTokenKindNull, lexicalTokenKindBoolean, lexicalTokenKindNumber, lexicalTokenKindString, lexicalTokenKindPropertyName, lexicalTokenKindNamedValue)
+	case lexicalTokenKindDereference:
+		legal = l.checkLastToken(lexicalTokenKindEndGroup, lexicalTokenKindEndParameters, lexicalTokenKindEndIndex, lexicalTokenKindWildcard, lexicalTokenKindPropertyName, lexicalTokenKindNamedValue)
+	case lexicalTokenKindWildcard:
+		legal = l.checkLastToken(lexicalTokenKindStartIndex, lexicalTokenKindDereference)
+	case lexicalTokenKindLogicalOperator:
+		if rawValue == shared.Not {
+			legal = l.checkLastToken(lexicalTokenKindNotInitialized, lexicalTokenKindSeparator, lexicalTokenKindStartGroup, lexicalTokenKindStartParameters, lexicalTokenKindStartIndex, lexicalTokenKindLogicalOperator)
 		} else {
-			legal = l.checkLastToken(LTKEndGroup, LTKEndParameters, LTKEndIndex, LTKWildcard, LTKNull, LTKBoolean, LTKNumber, LTKString, LTKPropertyName, LTKNamedValue)
+			legal = l.checkLastToken(lexicalTokenKindEndGroup, lexicalTokenKindEndParameters, lexicalTokenKindEndIndex, lexicalTokenKindWildcard, lexicalTokenKindNull, lexicalTokenKindBoolean, lexicalTokenKindNumber, lexicalTokenKindString, lexicalTokenKindPropertyName, lexicalTokenKindNamedValue)
 		}
-	case LTKPropertyName:
-		legal = l.checkLastToken(LTKDereference)
-	case LTKNull, LTKBoolean, LTKNumber, LTKString, LTKFunction, LTKNamedValue:
-		legal = l.checkLastToken(LTKNotInitialized, LTKSeparator, LTKStartIndex, LTKStartGroup, LTKStartParameters, LTKLogicalOperator)
+	case lexicalTokenKindPropertyName:
+		legal = l.checkLastToken(lexicalTokenKindDereference)
+	case lexicalTokenKindNull, lexicalTokenKindBoolean, lexicalTokenKindNumber, lexicalTokenKindString, lexicalTokenKindFunction, lexicalTokenKindNamedValue:
+		legal = l.checkLastToken(lexicalTokenKindNotInitialized, lexicalTokenKindSeparator, lexicalTokenKindStartIndex, lexicalTokenKindStartGroup, lexicalTokenKindStartParameters, lexicalTokenKindLogicalOperator)
 	}
 	// Illegal
 	if !legal {
-		return &LexicalToken{
-			kind:     LTKUnexpected,
+		return &lexicalToken{
+			kind:     lexicalTokenKindUnexpected,
 			rawValue: rawValue,
 			index:    startIndex,
 		}
 	}
 
 	// Legal so far
-	token := &LexicalToken{
+	token := &lexicalToken{
 		kind:        kind,
 		rawValue:    rawValue,
 		index:       startIndex,
 		parsedValue: parsedValue,
 	}
 	switch kind {
-	case LTKStartGroup, LTKStartIndex, LTKStartParameters:
+	case lexicalTokenKindStartGroup, lexicalTokenKindStartIndex, lexicalTokenKindStartParameters:
 		// Track start token
 		l.unclosedTokens = append(l.unclosedTokens, token)
-	case LTKEndGroup:
+	case lexicalTokenKindEndGroup:
 		// Check inside logical grouping
-		if l.lastUnclosedKind() != LTKStartGroup {
-			return &LexicalToken{
-				kind:     LTKUnexpected,
+		if l.lastUnclosedKind() != lexicalTokenKindStartGroup {
+			return &lexicalToken{
+				kind:     lexicalTokenKindUnexpected,
 				rawValue: rawValue,
 				index:    startIndex,
 			}
 		}
 		// remove last start group
 		l.unclosedTokens = l.unclosedTokens[:len(l.unclosedTokens)-1]
-	case LTKEndIndex:
+	case lexicalTokenKindEndIndex:
 		// Check inside indexer
-		if l.lastUnclosedKind() != LTKStartIndex {
-			return &LexicalToken{
-				kind:     LTKUnexpected,
+		if l.lastUnclosedKind() != lexicalTokenKindStartIndex {
+			return &lexicalToken{
+				kind:     lexicalTokenKindUnexpected,
 				rawValue: rawValue,
 				index:    startIndex,
 			}
 		}
 		// remove last start startIndex
 		l.unclosedTokens = l.unclosedTokens[:len(l.unclosedTokens)-1]
-	case LTKEndParameters:
+	case lexicalTokenKindEndParameters:
 		// Check inside function call
-		if l.lastUnclosedKind() != LTKStartParameters {
-			return &LexicalToken{
-				kind:     LTKUnexpected,
+		if l.lastUnclosedKind() != lexicalTokenKindStartParameters {
+			return &lexicalToken{
+				kind:     lexicalTokenKindUnexpected,
 				rawValue: rawValue,
 				index:    startIndex,
 			}
 		}
 		// remove last start parameter
 		l.unclosedTokens = l.unclosedTokens[:len(l.unclosedTokens)-1]
-	case LTKSeparator: // ","
+	case lexicalTokenKindSeparator: // ","
 		// Check inside function call
-		if l.lastUnclosedKind() != LTKStartParameters {
-			return &LexicalToken{
-				kind:     LTKUnexpected,
+		if l.lastUnclosedKind() != lexicalTokenKindStartParameters {
+			return &lexicalToken{
+				kind:     lexicalTokenKindUnexpected,
 				rawValue: rawValue,
 				index:    startIndex,
 			}
@@ -319,7 +319,7 @@ func (l *Lexer) createToken(kind LexicalTokenKind, rawValue string, startIndex i
 	return token
 }
 
-func (l *Lexer) lastUnclosedKind() (kind LexicalTokenKind) {
+func (l *lexer) lastUnclosedKind() (kind lexicalTokenKind) {
 	if len(l.unclosedTokens) > 0 {
 		kind = l.unclosedTokens[len(l.unclosedTokens)-1].kind
 	}
@@ -327,10 +327,10 @@ func (l *Lexer) lastUnclosedKind() (kind LexicalTokenKind) {
 }
 
 // checkLastToken check if current token is valid based on it precedence token's kind
-func (l *Lexer) checkLastToken(allowedLastKinds ...LexicalTokenKind) (valid bool) {
-	var currentLastKind LexicalTokenKind
+func (l *lexer) checkLastToken(allowedLastKinds ...lexicalTokenKind) (valid bool) {
+	var currentLastKind lexicalTokenKind
 	if l.lastToken == nil {
-		currentLastKind = LTKNotInitialized
+		currentLastKind = lexicalTokenKindNotInitialized
 	} else {
 		currentLastKind = l.lastToken.kind
 	}
@@ -351,8 +351,8 @@ func testTokenBoundary(c rune) bool {
 	}
 }
 
-func NewLexer(expression string) *Lexer {
-	return &Lexer{expression: expression}
+func newLexer(expression string) *lexer {
+	return &lexer{expression: expression}
 }
 
 // TODO: merge with evaluator.ParseNumber
@@ -378,10 +378,10 @@ func parseNumber(str string) (out float64) {
 			}
 		}
 	}
-	if strings.EqualFold(str, constants.Infinity) {
+	if strings.EqualFold(str, shared.Infinity) {
 		return math.Inf(1)
 	}
-	if strings.EqualFold(str, constants.NegativeInfinity) {
+	if strings.EqualFold(str, shared.NegativeInfinity) {
 		return math.Inf(0)
 	}
 	return math.NaN()

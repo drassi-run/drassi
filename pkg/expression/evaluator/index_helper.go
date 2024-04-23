@@ -5,10 +5,11 @@ import (
 
 	"github.com/dungdm93/drasi/pkg/expression/interfaces"
 	"github.com/dungdm93/drasi/pkg/expression/parser"
+	"github.com/dungdm93/drasi/pkg/expression/shared"
 )
 
 type (
-	IndexHelper struct {
+	indexHelper struct {
 		param  interfaces.IExpressionNode
 		result *EvaluationResult
 		intIdx *int
@@ -16,10 +17,10 @@ type (
 	}
 )
 
-func newIndexHelper(eCtx interfaces.IEvaluationContext, param interfaces.IExpressionNode) *IndexHelper {
-	h := &IndexHelper{
+func newIndexHelper(eCtx interfaces.IEvaluationContext, param interfaces.IExpressionNode) *indexHelper {
+	h := &indexHelper{
 		param:  param,
-		result: EvaluateWithContext(eCtx, param),
+		result: evaluateWithContext(eCtx, param),
 	}
 
 	h.intIdx = h.lazyIntegerIndex()
@@ -27,7 +28,7 @@ func newIndexHelper(eCtx interfaces.IEvaluationContext, param interfaces.IExpres
 	return h
 }
 
-func (h *IndexHelper) lazyStringIndex() *string {
+func (h *indexHelper) lazyStringIndex() *string {
 	if h.result.IsPrimitive() {
 		str := h.result.ConvertToString()
 		return &str
@@ -35,7 +36,7 @@ func (h *IndexHelper) lazyStringIndex() *string {
 	return nil
 }
 
-func (h *IndexHelper) lazyIntegerIndex() *int {
+func (h *indexHelper) lazyIntegerIndex() *int {
 	doubleIndex := h.result.ConvertToNumber()
 	if math.IsNaN(doubleIndex) || doubleIndex < 0 {
 		return nil
@@ -49,27 +50,27 @@ func (h *IndexHelper) lazyIntegerIndex() *int {
 	return &i
 }
 
-func (h *IndexHelper) HasIntegerIndex() bool {
+func (h *indexHelper) hasIntegerIndex() bool {
 	return h.intIdx != nil
 }
 
-func (h *IndexHelper) HasStringIndex() bool {
+func (h *indexHelper) hasStringIndex() bool {
 	return h.strIdx != nil
 }
 
-func (h *IndexHelper) IsWildcard() bool {
+func (h *indexHelper) isWildcard() bool {
 	_, ok := h.param.(*parser.WildCard)
 	return ok
 }
 
-func (h *IndexHelper) IntegerIndex() int {
+func (h *indexHelper) intIndex() int {
 	if h.intIdx == nil {
 		return 0
 	}
 	return *h.intIdx
 }
 
-func (h *IndexHelper) StringIndex() string {
+func (h *indexHelper) strIndex() string {
 	if h.strIdx == nil {
 		return ""
 	}
@@ -77,49 +78,49 @@ func (h *IndexHelper) StringIndex() string {
 }
 
 type (
-	FilteredArray struct {
+	filteredArray struct {
 		a []any
 	}
 )
 
-func newFilteredArray() *FilteredArray {
-	return &FilteredArray{a: make([]any, 0)}
+func newFilteredArray() *filteredArray {
+	return &filteredArray{a: make([]any, 0)}
 }
 
-func (f *FilteredArray) Add(v any) {
+func (f *filteredArray) Add(v any) {
 	f.a = append(f.a, v)
 }
 
-func (f *FilteredArray) Count() int {
+func (f *filteredArray) Count() int {
 	return len(f.a)
 }
 
-func (f *FilteredArray) GetValue(idx int) any {
+func (f *filteredArray) GetValue(idx int) any {
 	return f.a[idx]
 }
 
-func (f *FilteredArray) Enumerator() *interfaces.Enumerator {
-	return interfaces.NewEnumerator(f.a)
+func (f *filteredArray) Enumerator() *shared.Enumerator {
+	return shared.NewEnumerator(f.a)
 }
 
-func handleFilteredArray(eCtx interfaces.IEvaluationContext, fa *FilteredArray, i interfaces.IContainer) any {
-	result := &FilteredArray{}
+func handleFilteredArray(eCtx interfaces.IEvaluationContext, fa *filteredArray, i interfaces.IContainer) any {
+	result := &filteredArray{}
 	idx := newIndexHelper(eCtx, i.Parameters()[1])
 	ef := fa.Enumerator()
 	for ef.Next() {
 		item := ef.Value()
-		itemResult := CreateIntermediateResult(eCtx, item)
+		itemResult := createIntermediateResult(eCtx, item)
 		ok, nestedCollection := itemResult.TryGetCollectionInterface()
 		if ok {
 			if nestedObj, ok := nestedCollection.(interfaces.IReadOnlyObj); ok {
-				if idx.IsWildcard() {
+				if idx.isWildcard() {
 					of := nestedObj.Enumerator()
 					for of.Next() {
 						result.Add(of.Value())
 					}
 				}
-				if idx.HasStringIndex() {
-					exist, nestedObjVal := nestedObj.GetValue(idx.StringIndex())
+				if idx.hasStringIndex() {
+					exist, nestedObjVal := nestedObj.GetValue(idx.strIndex())
 					if exist {
 						result.Add(nestedObjVal)
 					}
@@ -127,14 +128,14 @@ func handleFilteredArray(eCtx interfaces.IEvaluationContext, fa *FilteredArray, 
 			}
 		}
 		if nestedArray, ok := nestedCollection.(interfaces.IReadOnlyArray); ok {
-			if idx.IsWildcard() {
+			if idx.isWildcard() {
 				af := nestedArray.Enumerator()
 				for af.Next() {
 					result.Add(af.Value())
 				}
 			}
-			if idx.HasIntegerIndex() && idx.IntegerIndex() < nestedArray.Count() {
-				result.Add(nestedArray.GetValue(idx.IntegerIndex()))
+			if idx.hasIntegerIndex() && idx.intIndex() < nestedArray.Count() {
+				result.Add(nestedArray.GetValue(idx.intIndex()))
 			}
 		}
 
@@ -144,15 +145,15 @@ func handleFilteredArray(eCtx interfaces.IEvaluationContext, fa *FilteredArray, 
 
 func handleObject(eCtx interfaces.IEvaluationContext, obj interfaces.IReadOnlyObj, i interfaces.IContainer) any {
 	idx := newIndexHelper(eCtx, i.Parameters()[1])
-	if idx.IsWildcard() {
+	if idx.isWildcard() {
 		fa := newFilteredArray()
 		for _, v := range obj.Values() {
 			fa.Add(v)
 		}
 		return fa
 	}
-	if idx.HasStringIndex() {
-		exist, result := obj.GetValue(idx.StringIndex())
+	if idx.hasStringIndex() {
+		exist, result := obj.GetValue(idx.strIndex())
 		if exist {
 			return result
 		}
@@ -162,7 +163,7 @@ func handleObject(eCtx interfaces.IEvaluationContext, obj interfaces.IReadOnlyOb
 
 func handleArray(eCtx interfaces.IEvaluationContext, arr interfaces.IReadOnlyArray, i interfaces.IContainer) any {
 	idx := newIndexHelper(eCtx, i.Parameters()[1])
-	if idx.IsWildcard() {
+	if idx.isWildcard() {
 		fa := newFilteredArray()
 		e := arr.Enumerator()
 		for e.Next() {
@@ -170,8 +171,8 @@ func handleArray(eCtx interfaces.IEvaluationContext, arr interfaces.IReadOnlyArr
 		}
 		return fa
 	}
-	if idx.HasIntegerIndex() && idx.IntegerIndex() < arr.Count() {
-		return arr.GetValue(idx.IntegerIndex())
+	if idx.hasIntegerIndex() && idx.intIndex() < arr.Count() {
+		return arr.GetValue(idx.intIndex())
 	}
 	return nil
 }

@@ -1,5 +1,7 @@
 package interfaces
 
+// TODO: plan to add bi-cond interface
+
 type IExpressionNodeVisitor interface {
 	VisitAlwaysFn(eCtx IEvaluationContext, c IExpressionNode) any
 	VisitAnd(eCtx IEvaluationContext, c IContainer) any

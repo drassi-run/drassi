@@ -1,21 +1,21 @@
 package parser
 
 import (
-	"github.com/dungdm93/drasi/pkg/expression/constants"
 	"github.com/dungdm93/drasi/pkg/expression/interfaces"
 	"github.com/dungdm93/drasi/pkg/expression/parser/base"
+	"github.com/dungdm93/drasi/pkg/expression/shared"
 )
 
 type WildCard struct {
 	base.ExpressionNodeBs
 }
 
-func (a *WildCard) Value() any {
+func (w *WildCard) Value() any {
 	panic("not implemented")
 }
 
-func (a *WildCard) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
-	return v.VisitWildCard(eCtx, a)
+func (w *WildCard) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
+	return v.VisitWildCard(eCtx, w)
 }
 
 func (w *WildCard) TraceFullyRealized() bool {
@@ -23,13 +23,9 @@ func (w *WildCard) TraceFullyRealized() bool {
 }
 
 func (w *WildCard) ConvertToExpression() string {
-	return constants.Wildcard
+	return shared.Wildcard
 }
 
 func (w *WildCard) ConvertToRealizedExpression(eCtx interfaces.IEvaluationContext) string {
-	return constants.Wildcard
+	return shared.Wildcard
 }
-
-// func (w *WildCard) EvaluateCore(eCtx interfaces.IEvaluationContext) any {
-// 	return constants.Wildcard
-// }

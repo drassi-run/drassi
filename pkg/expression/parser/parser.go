@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/dungdm93/drasi/pkg/expression/constants"
 	"github.com/dungdm93/drasi/pkg/expression/interfaces"
 	"github.com/dungdm93/drasi/pkg/expression/parser/functions"
 	"github.com/dungdm93/drasi/pkg/expression/parser/operators"
+	"github.com/dungdm93/drasi/pkg/expression/shared"
 )
 
 const (
-	MaxExpressionLength = 21000
+	maxExpressionLength = 21000
 )
 
 var (
@@ -23,30 +23,26 @@ var (
 )
 
 type (
-	// Parser know how to create an AST
-	Parser struct {
-	}
-
 	parseContext struct {
-		Lexer                *Lexer
-		Token                *LexicalToken
-		LastToken            *LexicalToken
+		Lexer                *lexer
+		Token                *lexicalToken
+		LastToken            *lexicalToken
 		Expression           string
 		AllowUnknownKeywords bool
 		FnsInfo              map[string]functions.IFnInfo[functions.IFn]
 		NamedValsInfo        map[string]INamedValueInfo[INamedValue]
 		Operands             []interfaces.IExpressionNode
-		Operators            []*LexicalToken
+		Operators            []*lexicalToken
 	}
 )
 
-func (p *Parser) newParseContext(expression string, namedVals []INamedValueInfo[INamedValue], fns []functions.IFnInfo[functions.IFn], allowUnknownKeyWords bool) *parseContext {
+func newParseContext(expression string, namedVals []INamedValueInfo[INamedValue], fns []functions.IFnInfo[functions.IFn], allowUnknownKeyWords bool) *parseContext {
 	result := parseContext{
 		AllowUnknownKeywords: allowUnknownKeyWords,
 		FnsInfo:              map[string]functions.IFnInfo[functions.IFn]{},
 		NamedValsInfo:        map[string]INamedValueInfo[INamedValue]{},
 	}
-	if len(expression) > MaxExpressionLength {
+	if len(expression) > maxExpressionLength {
 		panic(ErrorsMaxLengthExceeded)
 	}
 
@@ -57,7 +53,7 @@ func (p *Parser) newParseContext(expression string, namedVals []INamedValueInfo[
 	for _, function := range fns {
 		result.FnsInfo[function.GetName()] = function
 	}
-	result.Lexer = NewLexer(expression)
+	result.Lexer = newLexer(expression)
 	return &result
 }
 
@@ -72,27 +68,27 @@ Create Tree
 
 */
 
-func (p *Parser) CreateTree(expression string, namedValues []INamedValueInfo[INamedValue],
+func CreateTree(expression string, namedValues []INamedValueInfo[INamedValue],
 	functions []functions.IFnInfo[functions.IFn]) (astRoot interfaces.IExpressionNode) {
-	return p.createTree(p.newParseContext(expression, namedValues, functions, false))
+	return createTree(newParseContext(expression, namedValues, functions, false))
 }
 
-func (p *Parser) createTree(pCtx *parseContext) interfaces.IExpressionNode {
+func createTree(pCtx *parseContext) interfaces.IExpressionNode {
 	for {
-		token, haveToken := pCtx.Lexer.TryGetNextToken()
+		token, haveToken := pCtx.Lexer.tryGetNextToken()
 		pCtx.Token = token
 		if !haveToken {
 			break
 		}
-		if pCtx.Token.Kind() == LTKUnexpected {
+		if pCtx.Token.Kind() == lexicalTokenKindUnexpected {
 			panic(fmt.Sprintf("unexpected token, rawValue: %s, kind: %s, expression: %s", pCtx.Token.RawValue(),
 				pCtx.Token.Kind(),
 				pCtx.Expression))
 		}
 		if pCtx.Token.IsOperator() {
-			p.pushOperator(pCtx)
+			pushOperator(pCtx)
 		} else {
-			p.pushOperand(pCtx)
+			pushOperand(pCtx)
 		}
 		pCtx.LastToken = pCtx.Token
 	}
@@ -105,44 +101,44 @@ func (p *Parser) createTree(pCtx *parseContext) interfaces.IExpressionNode {
 		var unexpectedLastToken bool
 		switch pCtx.LastToken.Kind() {
 		// Legal
-		case LTKEndGroup, LTKEndIndex, LTKEndParameters:
+		case lexicalTokenKindEndGroup, lexicalTokenKindEndIndex, lexicalTokenKindEndParameters:
 			break
 			// Illegal
-		case LTKFunction:
+		case lexicalTokenKindFunction:
 			unexpectedLastToken = true
 		default:
 			unexpectedLastToken = pCtx.LastToken.IsOperator()
 		}
-		if unexpectedLastToken || len(pCtx.Lexer.UnclosedTokens()) > 0 {
+		if unexpectedLastToken || len(pCtx.Lexer.getUnclosedTokens()) > 0 {
 			panic(fmt.Errorf("unexpected last token, rawValue: %s, kind: %s, expression: %s", pCtx.LastToken.RawValue(),
 				pCtx.LastToken.Kind(),
 				pCtx.Expression))
 		}
 	}
 	for len(pCtx.Operators) > 0 {
-		p.flushTopOperator(pCtx)
+		flushTopOperator(pCtx)
 	}
 	if len(pCtx.Operands) > 1 {
 		panic("invalid number of operands")
 	}
 	root := pCtx.Operands[0].(interfaces.IExpressionNode)
-	if err := p.checkMaxDepth(pCtx, root, 1); err != nil {
+	if err := checkMaxDepth(pCtx, root, 1); err != nil {
 		panic(err)
 	}
 	return root
 }
 
-func (p *Parser) pushOperator(pCtx *parseContext) {
-	if pCtx.Token.Associativity() == AssociativityLTR {
+func pushOperator(pCtx *parseContext) {
+	if pCtx.Token.Associativity() == associativityLTR {
 		tk := pCtx.Token
 		for len(pCtx.Operators) > 0 {
 			topOp := pCtx.Operators[len(pCtx.Operators)-1]
 			if topOp.Precedence() >= tk.Precedence() &&
-				topOp.Kind() != LTKStartGroup &&
-				topOp.Kind() != LTKStartIndex &&
-				topOp.Kind() != LTKStartParameters &&
-				topOp.Kind() != LTKSeparator {
-				p.flushTopOperator(pCtx)
+				topOp.Kind() != lexicalTokenKindStartGroup &&
+				topOp.Kind() != lexicalTokenKindStartIndex &&
+				topOp.Kind() != lexicalTokenKindStartParameters &&
+				topOp.Kind() != lexicalTokenKindSeparator {
+				flushTopOperator(pCtx)
 				continue
 			}
 			break
@@ -150,18 +146,18 @@ func (p *Parser) pushOperator(pCtx *parseContext) {
 	}
 	pCtx.Operators = append(pCtx.Operators, pCtx.Token)
 	// Process closing operators now, since context.LastToken is required
-	// to accurately process TokenKind.LTKEndParameters
+	// to accurately process TokenKind.lexicalTokenKindEndParameters
 	switch pCtx.Token.Kind() {
-	case LTKEndGroup, LTKEndIndex, LTKEndParameters:
-		p.flushTopOperator(pCtx)
+	case lexicalTokenKindEndGroup, lexicalTokenKindEndIndex, lexicalTokenKindEndParameters:
+		flushTopOperator(pCtx)
 	}
 }
 
-func (p *Parser) pushOperand(pCtx *parseContext) {
+func pushOperand(pCtx *parseContext) {
 	switch pCtx.Token.Kind() {
-	case LTKFunction:
+	case lexicalTokenKindFunction:
 		fn := pCtx.Token.RawValue()
-		if fnInfo := p.tryGetFnInfo(pCtx, fn); fnInfo != nil {
+		if fnInfo := tryGetFnInfo(pCtx, fn); fnInfo != nil {
 			node := fnInfo.CreateNode().(functions.IFn).(interfaces.IExpressionNode)
 			node.SetName(fn)
 			pCtx.Operands = append(pCtx.Operands, node)
@@ -174,7 +170,7 @@ func (p *Parser) pushOperand(pCtx *parseContext) {
 				panic(fmt.Errorf("unrecognized function"))
 			}
 		}
-	case LTKNamedValue:
+	case lexicalTokenKindNamedValue:
 		name := pCtx.Token.RawValue()
 		if namedValInfo, exist := pCtx.NamedValsInfo[name]; exist {
 			node := namedValInfo.CreateNode().(INamedValue).(interfaces.IExpressionNode)
@@ -195,16 +191,16 @@ func (p *Parser) pushOperand(pCtx *parseContext) {
 	}
 }
 
-func (p *Parser) flushTopOperator(pCtx *parseContext) {
+func flushTopOperator(pCtx *parseContext) {
 	switch pCtx.Operators[len(pCtx.Operators)-1].Kind() {
-	case LTKEndIndex: // "]"
-		p.flushTopEndIndex(pCtx)
+	case lexicalTokenKindEndIndex: // "]"
+		flushTopEndIndex(pCtx)
 		return
-	case LTKEndGroup: // ")" logical grouping
-		p.flushTopEndGroup(pCtx)
+	case lexicalTokenKindEndGroup: // ")" logical grouping
+		flushTopEndGroup(pCtx)
 		return
-	case LTKEndParameters: // ")" function call
-		p.flushTopEndParameters(pCtx)
+	case lexicalTokenKindEndParameters: // ")" function call
+		flushTopEndParameters(pCtx)
 		return
 	}
 	// remove top operator
@@ -212,7 +208,7 @@ func (p *Parser) flushTopOperator(pCtx *parseContext) {
 	pCtx.Operators = pCtx.Operators[:len(pCtx.Operators)-1]
 
 	node := newNodeFromToken(tk).(interfaces.IContainer)
-	operands := p.popOperands(pCtx, tk.OperandCount())
+	operands := popOperands(pCtx, tk.OperandCount())
 	for _, o := range operands {
 		if _, isAnd := node.(*operators.And); isAnd {
 			nestedAnd, isAnd := o.(*operators.And)
@@ -238,7 +234,7 @@ func (p *Parser) flushTopOperator(pCtx *parseContext) {
 	pCtx.Operands = append(pCtx.Operands, node)
 }
 
-func (p *Parser) strictPopOnOperator(pCtx *parseContext, expectedKind LexicalTokenKind) (popped *LexicalToken) {
+func strictPopOnOperator(pCtx *parseContext, expectedKind lexicalTokenKind) (popped *lexicalToken) {
 	top := pCtx.Operators[len(pCtx.Operators)-1]
 	if top.Kind() != expectedKind {
 		panic(fmt.Sprintf("expected operator %s to be of kind %s", expectedKind, top.Kind()))
@@ -248,8 +244,8 @@ func (p *Parser) strictPopOnOperator(pCtx *parseContext, expectedKind LexicalTok
 }
 
 // popOperands remove the number
-func (p *Parser) popOperands(pCtx *parseContext, count int) []interfaces.IExpressionNode {
-	result := []interfaces.IExpressionNode{}
+func popOperands(pCtx *parseContext, count int) []interfaces.IExpressionNode {
+	var result []interfaces.IExpressionNode
 	for i := 0; i < count; i++ {
 		result = append(result, pCtx.Operands[len(pCtx.Operands)-1])
 		pCtx.Operands = pCtx.Operands[:len(pCtx.Operands)-1]
@@ -263,15 +259,15 @@ func (p *Parser) popOperands(pCtx *parseContext, count int) []interfaces.IExpres
 // - calculate its required operands
 // - create a new container node with parameters point to operator node as parent
 // - push back container node to operands stack
-func (p *Parser) flushTopEndIndex(pCtx *parseContext) {
+func flushTopEndIndex(pCtx *parseContext) {
 	// Pop the operators
 	// Pop end index
-	p.strictPopOnOperator(pCtx, LTKEndIndex)
+	strictPopOnOperator(pCtx, lexicalTokenKindEndIndex)
 	// Pop start index
-	tk := p.strictPopOnOperator(pCtx, LTKStartIndex)
+	tk := strictPopOnOperator(pCtx, lexicalTokenKindStartIndex)
 	node := newNodeFromToken(tk).(interfaces.IContainer)
 
-	ops := p.popOperands(pCtx, tk.OperandCount())
+	ops := popOperands(pCtx, tk.OperandCount())
 	for _, o := range ops {
 		node.AddParameter(o)
 	}
@@ -279,32 +275,32 @@ func (p *Parser) flushTopEndIndex(pCtx *parseContext) {
 }
 
 // flushTopEndGroup remove top logical group ")" from operator stack
-func (p *Parser) flushTopEndGroup(pCtx *parseContext) {
-	p.strictPopOnOperator(pCtx, LTKEndGroup)
-	p.strictPopOnOperator(pCtx, LTKStartGroup)
+func flushTopEndGroup(pCtx *parseContext) {
+	strictPopOnOperator(pCtx, lexicalTokenKindEndGroup)
+	strictPopOnOperator(pCtx, lexicalTokenKindStartGroup)
 }
 
 // flushTopEndParameters remove top end parameter ")" end of function call
-func (p *Parser) flushTopEndParameters(pCtx *parseContext) {
-	tk := p.strictPopOnOperator(pCtx, LTKEndParameters)
+func flushTopEndParameters(pCtx *parseContext) {
+	tk := strictPopOnOperator(pCtx, lexicalTokenKindEndParameters)
 	// Sanity check top tk is the current token
 	if tk != pCtx.Token {
 		panic(fmt.Errorf("expected popped token to be the current token"))
 	}
 	var fn functions.IFn
 	// no parameter fn
-	if pCtx.LastToken.Kind() == LTKStartParameters {
+	if pCtx.LastToken.Kind() == lexicalTokenKindStartParameters {
 		// node already exist on operand stack
 		fn = pCtx.Operands[len(pCtx.Operands)-1].(functions.IFn)
 	} else {
 		// parameter fn
 		var seperatorCnt int
-		for pCtx.Operators[len(pCtx.Operators)-1].Kind() == LTKSeparator {
+		for pCtx.Operators[len(pCtx.Operators)-1].Kind() == lexicalTokenKindSeparator {
 			seperatorCnt++
 			pCtx.Operators = pCtx.Operators[:len(pCtx.Operators)-1]
 		}
 		// eg: func(x,y,z) -> 2 separator -> 3 params
-		fnOperands := p.popOperands(pCtx, seperatorCnt+1)
+		fnOperands := popOperands(pCtx, seperatorCnt+1)
 		// node already exist on operand stack
 		fn = pCtx.Operands[len(pCtx.Operands)-1].(functions.IFn)
 		// add operand to the fn node
@@ -312,23 +308,23 @@ func (p *Parser) flushTopEndParameters(pCtx *parseContext) {
 			fn.AddParameter(operand)
 		}
 	}
-	p.strictPopOnOperator(pCtx, LTKStartParameters)
-	fnInfo := p.tryGetFnInfo(pCtx, fn.GetName())
+	strictPopOnOperator(pCtx, lexicalTokenKindStartParameters)
+	fnInfo := tryGetFnInfo(pCtx, fn.GetName())
 	if fnInfo != nil && pCtx.AllowUnknownKeywords {
 	}
-	if err := p.fnLimitCheck(fn, fnInfo); err != nil {
+	if err := fnLimitCheck(fn, fnInfo); err != nil {
 		panic(err)
 	}
 }
 
 // update to return type maybe ?
-func (p *Parser) tryGetFnInfo(pCtx *parseContext, name string) (result functions.IFnInfo[functions.IFn]) {
+func tryGetFnInfo(pCtx *parseContext, name string) (result functions.IFnInfo[functions.IFn]) {
 	// defer func() {
 	// 	if err := recover(); err != nil {
 	// 		result = nil
 	// 	}
 	// }()
-	eFn, existEfn := NewExpressionConstants().WellKnownFns[name]
+	eFn, existEfn := newExpressionConstants().WellKnownFns[name]
 	cFn, existCfn := pCtx.FnsInfo[name]
 	if existEfn && eFn.GetName() != "" {
 		result = eFn
@@ -342,7 +338,7 @@ func (p *Parser) tryGetFnInfo(pCtx *parseContext, name string) (result functions
 	return result
 }
 
-func (p *Parser) fnLimitCheck(f functions.IFn, expected functions.IFnInfo[functions.IFn]) (err error) {
+func fnLimitCheck(f functions.IFn, expected functions.IFnInfo[functions.IFn]) (err error) {
 	if len(f.Parameters()) < expected.MinParameters() {
 		err = ErrorsTooFewParameters
 	}
@@ -352,13 +348,13 @@ func (p *Parser) fnLimitCheck(f functions.IFn, expected functions.IFnInfo[functi
 	return err
 }
 
-func (p *Parser) checkMaxDepth(pCtx *parseContext, node interfaces.IExpressionNode, depth int) (err error) {
-	if depth > constants.MaxDepth {
+func checkMaxDepth(pCtx *parseContext, node interfaces.IExpressionNode, depth int) (err error) {
+	if depth > shared.MaxDepth {
 		return ErrorsMaxDepthExceeded
 	}
 	if container, isContainer := node.(interfaces.IContainer); isContainer {
 		for _, param := range container.Parameters() {
-			_ = p.checkMaxDepth(pCtx, param, depth+1)
+			_ = checkMaxDepth(pCtx, param, depth+1)
 		}
 	}
 	return nil

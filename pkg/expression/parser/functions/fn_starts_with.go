@@ -11,7 +11,7 @@ type StartsWithFn struct {
 	Fn
 }
 
-func (a *StartsWithFn) Value() any {
+func (s *StartsWithFn) Value() any {
 	panic("not implemented")
 }
 

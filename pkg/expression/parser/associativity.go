@@ -1,28 +1,28 @@
 package parser
 
-// Associativity represents the associativity of operators.
-type Associativity int
+// associativity represents the associativity of operators.
+type associativity int
 
 const (
-	// AssociativityNone represents no associativity.
-	AssociativityNone Associativity = iota
+	// associativityNone represents no associativity.
+	associativityNone associativity = iota
 
-	// AssociativityLTR represents left-to-right associativity.
-	AssociativityLTR
+	// associativityLTR represents left-to-right associativity.
+	associativityLTR
 
-	// AssociativityRTL represents right-to-left associativity.
-	AssociativityRTL
+	// associativityRTL represents right-to-left associativity.
+	associativityRTL
 )
 
-func (a Associativity) String() string {
+func (a associativity) String() string {
 	switch a {
-	case AssociativityNone:
+	case associativityNone:
 		return "None"
-	case AssociativityLTR:
+	case associativityLTR:
 		return "LTR"
-	case AssociativityRTL:
+	case associativityRTL:
 		return "RTL"
 	default:
-		return "Unknown Associativity"
+		return "Unknown associativity"
 	}
 }

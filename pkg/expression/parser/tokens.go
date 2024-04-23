@@ -1,54 +1,54 @@
 package parser
 
 import (
-	"github.com/dungdm93/drasi/pkg/expression/constants"
+	"github.com/dungdm93/drasi/pkg/expression/shared"
 )
 
-// LexicalToken is only usable when created with Lexer
-type LexicalToken struct {
-	kind        LexicalTokenKind
+// lexicalToken is only usable when created with lexer
+type lexicalToken struct {
+	kind        lexicalTokenKind
 	rawValue    string
 	index       int
 	parsedValue any
 }
 
-// Kind return token's kind. If a token is created manually with default zero value for all fields, the default value of LTKNotInitialized will be returned when calling t.kind()
-func (t *LexicalToken) Kind() LexicalTokenKind {
+// Kind return token's kind. If a token is created manually with default zero value for all fields, the default value of lexicalTokenKindNotInitialized will be returned when calling t.kind()
+func (t *lexicalToken) Kind() lexicalTokenKind {
 	if t == nil {
-		return LTKNotInitialized
+		return lexicalTokenKindNotInitialized
 	}
 	return t.kind
 }
 
-func (t *LexicalToken) RawValue() string {
+func (t *lexicalToken) RawValue() string {
 	return t.rawValue
 }
 
-func (t *LexicalToken) ParsedValue() any {
+func (t *lexicalToken) ParsedValue() any {
 	return t.parsedValue
 }
 
-func (t *LexicalToken) Index() int {
+func (t *lexicalToken) Index() int {
 	return t.index
 }
 
-func (t *LexicalToken) Associativity() Associativity {
-	if t.kind == LTKStartGroup {
-		return AssociativityNone
+func (t *lexicalToken) Associativity() associativity {
+	if t.kind == lexicalTokenKindStartGroup {
+		return associativityNone
 	}
-	if t.kind == LTKLogicalOperator && t.rawValue == constants.Not {
-		return AssociativityRTL
+	if t.kind == lexicalTokenKindLogicalOperator && t.rawValue == shared.Not {
+		return associativityRTL
 	}
 	if t.IsOperator() {
-		return AssociativityLTR
+		return associativityLTR
 	}
-	return AssociativityRTL
+	return associativityRTL
 }
 
-func (t *LexicalToken) IsOperator() bool {
+func (t *lexicalToken) IsOperator() bool {
 	switch t.kind {
-	case LTKStartGroup, LTKStartIndex, LTKStartParameters, LTKEndGroup, LTKEndIndex,
-		LTKEndParameters, LTKSeparator, LTKDereference, LTKLogicalOperator:
+	case lexicalTokenKindStartGroup, lexicalTokenKindStartIndex, lexicalTokenKindStartParameters, lexicalTokenKindEndGroup, lexicalTokenKindEndIndex,
+		lexicalTokenKindEndParameters, lexicalTokenKindSeparator, lexicalTokenKindDereference, lexicalTokenKindLogicalOperator:
 		return true
 	default:
 		return false
@@ -56,48 +56,48 @@ func (t *LexicalToken) IsOperator() bool {
 }
 
 // Precedence represents Operator precedence. The value is only meaningful for operator tokens.
-func (t *LexicalToken) Precedence() int {
+func (t *lexicalToken) Precedence() int {
 	switch t.kind {
-	case LTKStartGroup:
+	case lexicalTokenKindStartGroup:
 		return 20
-	case LTKStartIndex, LTKStartParameters, LTKDereference:
+	case lexicalTokenKindStartIndex, lexicalTokenKindStartParameters, lexicalTokenKindDereference:
 		return 19
-	case LTKLogicalOperator:
+	case lexicalTokenKindLogicalOperator:
 		switch t.rawValue {
-		case constants.Not:
+		case shared.Not:
 			return 16
-		case constants.GreaterThan, constants.GreaterThanOrEqual, constants.LessThan, constants.LessThanOrEqual:
+		case shared.GreaterThan, shared.GreaterThanOrEqual, shared.LessThan, shared.LessThanOrEqual:
 			return 11
-		case constants.NotEqual, constants.Equal:
+		case shared.NotEqual, shared.Equal:
 			return 10
-		case constants.And:
+		case shared.And:
 			return 6
-		case constants.Or:
+		case shared.Or:
 			return 5
 		}
 		break
-	case LTKEndGroup, LTKEndIndex, LTKEndParameters, LTKSeparator:
+	case lexicalTokenKindEndGroup, lexicalTokenKindEndIndex, lexicalTokenKindEndParameters, lexicalTokenKindSeparator:
 		return 1
 	}
 	return 0
 }
 
-func (t *LexicalToken) OperandCount() int {
+func (t *lexicalToken) OperandCount() int {
 	switch t.kind {
-	case LTKStartIndex, LTKDereference:
+	case lexicalTokenKindStartIndex, lexicalTokenKindDereference:
 		return 2
-	case LTKLogicalOperator:
+	case lexicalTokenKindLogicalOperator:
 		switch t.rawValue {
-		case constants.Not:
+		case shared.Not:
 			return 1
-		case constants.GreaterThan, constants.GreaterThanOrEqual, constants.LessThan, constants.LessThanOrEqual, constants.Equal, constants.NotEqual, constants.And, constants.Or:
+		case shared.GreaterThan, shared.GreaterThanOrEqual, shared.LessThan, shared.LessThanOrEqual, shared.Equal, shared.NotEqual, shared.And, shared.Or:
 			return 2
 		}
 	}
 	return 0
 }
 
-func IsLegalKeyWord(str string) bool {
+func isLegalKeyWord(str string) bool {
 	if len(str) == 0 {
 		return false
 	}

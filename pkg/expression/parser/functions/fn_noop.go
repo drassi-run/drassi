@@ -13,7 +13,7 @@ type NoOpFn struct {
 	Fn
 }
 
-func (a *NoOpFn) Value() any {
+func (n *NoOpFn) Value() any {
 	panic("not implemented")
 }
 

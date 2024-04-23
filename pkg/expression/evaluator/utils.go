@@ -6,32 +6,32 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/dungdm93/drasi/pkg/expression/constants"
 	"github.com/dungdm93/drasi/pkg/expression/interfaces"
+	"github.com/dungdm93/drasi/pkg/expression/shared"
 )
 
-func FormatValue(masker interfaces.ISecretMasker, value any, kind interfaces.ValueKind) string {
+func formatValue(masker interfaces.ISecretMasker, value any, kind shared.ValueKind) string {
 	switch kind {
-	case interfaces.Null:
-		return constants.Null
-	case interfaces.Boolean:
+	case shared.ValueKindNull:
+		return shared.Null
+	case shared.ValueKindBoolean:
 		if value.(bool) {
-			return constants.True
+			return shared.True
 		}
-		return constants.False
-	case interfaces.Number:
+		return shared.False
+	case shared.ValueKindNumber:
 		str := fmt.Sprintf("%f", value.(float64))
 		if masker != nil {
 			return masker.MaskSecrets(str)
 		}
 		return str
-	case interfaces.String:
+	case shared.ValueKindString:
 		str := value.(string)
 		if masker != nil {
 			str = masker.MaskSecrets(str)
 		}
 		return escapeSingleQuotes(str)
-	case interfaces.Array, interfaces.Object:
+	case shared.ValueKindArray, shared.ValueKindObject:
 		return kind.ToString()
 	default:
 		panic(fmt.Errorf("unable to convert to realized expression. Unexpected value kind: %s", kind))
@@ -45,20 +45,20 @@ func escapeSingleQuotes(value string) string {
 	return strings.ReplaceAll(value, "'", "''")
 }
 
-func FormatValueFromResult(masker interfaces.ISecretMasker, result interfaces.IEvaluationResult) string {
-	return FormatValue(masker, result.Value(), result.GetKind())
+func formatValueFromResult(masker interfaces.ISecretMasker, result interfaces.IEvaluationResult) string {
+	return formatValue(masker, result.Value(), result.GetKind())
 }
 
-func IsPrimitive(kind interfaces.ValueKind) bool {
+func isPrimitive(kind shared.ValueKind) bool {
 	switch kind {
-	case interfaces.Null, interfaces.Boolean, interfaces.Number, interfaces.String:
+	case shared.ValueKindNull, shared.ValueKindBoolean, shared.ValueKindNumber, shared.ValueKindString:
 		return true
 	default:
 		return false
 	}
 }
 
-func ParseNumber(str string) (out float64) {
+func parseNumber(str string) (out float64) {
 	if len(str) == 0 || len(strings.TrimSpace(str)) == 0 {
 		return 0
 	}
@@ -80,10 +80,10 @@ func ParseNumber(str string) (out float64) {
 			}
 		}
 	}
-	if strings.EqualFold(str, constants.Infinity) {
+	if strings.EqualFold(str, shared.Infinity) {
 		return math.Inf(1)
 	}
-	if strings.EqualFold(str, constants.NegativeInfinity) {
+	if strings.EqualFold(str, shared.NegativeInfinity) {
 		return math.Inf(0)
 	}
 	return math.NaN()

@@ -10,17 +10,13 @@ type ContextValueNode struct {
 	base.ExpressionNodeBs
 }
 
-func (a *ContextValueNode) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
-	return v.VisitContextValueNode(eCtx, a)
+func (c *ContextValueNode) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
+	return v.VisitContextValueNode(eCtx, c)
 }
 
-func (a *ContextValueNode) Value() any {
+func (c *ContextValueNode) Value() any {
 	panic("not implemented")
 }
-
-// func (c *ContextValueNode) EvaluateCore(eCtx interfaces.IEvaluationContext) any {
-// 	return eCtx.State().(*runner.TemplateContext).ExpressionValues[c.ExpressionNodeBs.Name]
-// }
 
 func (c *ContextValueNode) TraceFullyRealized() bool {
 	return true

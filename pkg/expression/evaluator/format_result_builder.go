@@ -42,7 +42,7 @@ func (f *formatResultBuilder) appendArgument(argIdx int) {
 	argVal := f.cache[argIdx]
 	if argVal == nil {
 		// cache miss
-		var evaluationResult = EvaluateWithContext(f.ctx, f.node.Parameters()[argIdx+1])
+		var evaluationResult = evaluateWithContext(f.ctx, f.node.Parameters()[argIdx+1])
 		argVal = &argValue{
 			stringResult: evaluationResult.ConvertToString(),
 		}

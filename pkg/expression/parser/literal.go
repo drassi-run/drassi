@@ -6,90 +6,90 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/dungdm93/drasi/pkg/expression/constants"
 	"github.com/dungdm93/drasi/pkg/expression/interfaces"
 	"github.com/dungdm93/drasi/pkg/expression/parser/base"
+	"github.com/dungdm93/drasi/pkg/expression/shared"
 )
 
-type Literal struct {
+type literal struct {
 	base.ExpressionNodeBs
 	value any
-	kind  interfaces.ValueKind
+	kind  shared.ValueKind
 	name  string
 }
 
-func NewLiteral(val any) *Literal {
+func newLiteral(val any) *literal {
 	value, kind, _ := convertToCanonicalValue(val)
-	return &Literal{
+	return &literal{
 		value: value,
 		kind:  kind,
 		name:  kind.ToString(),
 	}
 }
 
-func (l *Literal) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
+func (l *literal) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
 	return v.VisitLiteral(eCtx, l)
 }
 
-func (l *Literal) Value() any {
+func (l *literal) Value() any {
 	return l.value
 }
 
-func (l *Literal) TraceFullyRealized() bool {
+func (l *literal) TraceFullyRealized() bool {
 	return false
 }
 
-// func (l *Literal) EvaluateCore(eCtx interfaces.IEvaluationContext) any {
-// 	return l.value
-// }
-
-func (l *Literal) ConvertToExpression() string {
+func (l *literal) ConvertToExpression() string {
 	return formatValue(nil, l.value, l.kind)
 }
 
-func (l *Literal) ConvertToRealizedExpression(eCtx interfaces.IEvaluationContext) string {
+func (l *literal) ConvertToRealizedExpression(eCtx interfaces.IEvaluationContext) string {
 	return formatValue(nil, l.value, l.kind)
 }
 
-func (l *Literal) GetContainer() interfaces.IContainer {
+func (l *literal) GetContainer() interfaces.IContainer {
 	return l.Container
 }
 
-func (l *Literal) GetLevel() (level int) {
+func (l *literal) SetContainer(c interfaces.IContainer) {
+	l.Container = c
+}
+
+func (l *literal) GetLevel() (level int) {
 	return l.Level
 }
 
-func (l *Literal) GetName() string {
+func (l *literal) GetName() string {
 	return l.name
 }
 
-func (l *Literal) SetName(name string) {
+func (l *literal) SetName(name string) {
 	l.name = name
 }
 
 // TODO: merge with evaluator.FormatValue
-func formatValue(masker interfaces.ISecretMasker, value any, kind interfaces.ValueKind) string {
+func formatValue(masker interfaces.ISecretMasker, value any, kind shared.ValueKind) string {
 	switch kind {
-	case interfaces.Null:
-		return constants.Null
-	case interfaces.Boolean:
+	case shared.ValueKindNull:
+		return shared.Null
+	case shared.ValueKindBoolean:
 		if value.(bool) {
-			return constants.True
+			return shared.True
 		}
-		return constants.False
-	case interfaces.Number:
+		return shared.False
+	case shared.ValueKindNumber:
 		str := fmt.Sprintf("%f", value.(float64))
 		if masker != nil {
 			return masker.MaskSecrets(str)
 		}
 		return str
-	case interfaces.String:
+	case shared.ValueKindString:
 		str := value.(string)
 		if masker != nil {
 			str = masker.MaskSecrets(str)
 		}
 		return escapeSingleQuotes(str)
-	case interfaces.Array, interfaces.Object:
+	case shared.ValueKindArray, shared.ValueKindObject:
 		return kind.ToString()
 	default:
 		panic(fmt.Errorf("unable to convert to realized expression. Unexpected value kind: %s", kind))
@@ -104,56 +104,56 @@ func escapeSingleQuotes(value string) string {
 }
 
 // TODO: merge with evaluator.ConvertToCanonicalValue
-func convertToCanonicalValue(input any) (value any, kind interfaces.ValueKind, raw any) {
+func convertToCanonicalValue(input any) (value any, kind shared.ValueKind, raw any) {
 	if input == nil {
-		kind = interfaces.Null
+		kind = shared.ValueKindNull
 		return
 	}
 	if _, castable := input.(bool); castable {
-		kind = interfaces.Boolean
+		kind = shared.ValueKindBoolean
 		value = input
 		return
 	}
 	if _, castable := input.(float64); castable {
 		value = input
-		kind = interfaces.Number
+		kind = shared.ValueKindNumber
 		return
 	}
 	if _, castable := input.(string); castable {
-		kind = interfaces.String
+		kind = shared.ValueKindString
 		value = input
 		return
 	}
 	if b, castable := input.(interfaces.IBool); castable {
-		kind = interfaces.Boolean
+		kind = shared.ValueKindBoolean
 		raw = input
 		value = b.GetValue()
 		return
 	}
 	if b, castable := input.(interfaces.INumber); castable {
-		kind = interfaces.Number
+		kind = shared.ValueKindNumber
 		raw = input
 		value = b.GetValue()
 		return
 	}
 	if b, castable := input.(interfaces.IString); castable {
-		kind = interfaces.String
+		kind = shared.ValueKindString
 		raw = input
 		value = b.GetValue()
 		return
 	}
 	if _, castable := input.(interfaces.IReadOnlyObj); castable {
-		kind = interfaces.Object
+		kind = shared.ValueKindObject
 		value = input
 		return
 	}
 	if _, castable := input.(interfaces.IReadOnlyArray); castable {
-		kind = interfaces.Array
+		kind = shared.ValueKindArray
 		value = input
 		return
 	}
 	if _, castable := input.(interfaces.INull); castable {
-		kind = interfaces.Null
+		kind = shared.ValueKindNull
 		raw = input
 		value = nil
 		return
@@ -183,7 +183,7 @@ func convertToCanonicalValue(input any) (value any, kind interfaces.ValueKind, r
 			isWellKnownNumber = true
 		}
 		if isWellKnownNumber {
-			kind = interfaces.Number
+			kind = shared.ValueKindNumber
 			value, err := strconv.ParseFloat(input.(string), 64)
 			if err != nil {
 				panic(err)
@@ -191,7 +191,7 @@ func convertToCanonicalValue(input any) (value any, kind interfaces.ValueKind, r
 			return value, kind, nil
 		}
 	}
-	kind = interfaces.Object
+	kind = shared.ValueKindObject
 	value = input
 	return
 }

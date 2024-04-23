@@ -11,21 +11,13 @@ type FromJsonFn struct {
 	Fn
 }
 
-func (a *FromJsonFn) Value() any {
+func (f *FromJsonFn) Value() any {
 	panic("not implemented")
 }
 
-func (a *FromJsonFn) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
-	return v.VisitFromJsonFn(eCtx, a)
+func (f *FromJsonFn) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
+	return v.VisitFromJsonFn(eCtx, f)
 }
-
-//
-// func (f *FromJsonFn) EvaluateCore(eCtx interfaces.IEvaluationContext) any {
-// 	json := evaluator.EvaluateWithContext(eCtx, f.Parameters()[0]).ConvertToString()
-// 	// TODO: implement real logic with PipelineContextData
-// 	// return runner.ToPipelineContextData(json)
-// 	return json
-// }
 
 func (f *FromJsonFn) TraceFullyRealized() bool {
 	return false

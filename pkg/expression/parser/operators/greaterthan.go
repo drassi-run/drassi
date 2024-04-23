@@ -12,12 +12,12 @@ type GreaterThan struct {
 	base.ContainerBs
 }
 
-func (a *GreaterThan) Value() any {
+func (g *GreaterThan) Value() any {
 	panic("not implemented")
 }
 
-func (a *GreaterThan) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
-	return v.VisitGreaterThan(eCtx, a)
+func (g *GreaterThan) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
+	return v.VisitGreaterThan(eCtx, g)
 }
 
 func (g *GreaterThan) TraceFullyRealized() bool {
@@ -35,13 +35,6 @@ func (g *GreaterThan) ConvertToRealizedExpression(eCtx interfaces.IEvaluationCon
 	}
 	return fmt.Sprintf("(%s > %s)", g.Params[0].ConvertToRealizedExpression(eCtx), g.Params[1].ConvertToRealizedExpression(eCtx))
 }
-
-//
-// func (g *GreaterThan) EvaluateCore(eCtx interfaces.IEvaluationContext) any {
-// 	l := evaluator.EvaluateWithContext(eCtx, g.Params[0])
-// 	r := evaluator.EvaluateWithContext(eCtx, g.Params[1])
-// 	return l.AbstractGreaterThan(r)
-// }
 
 func (g *GreaterThan) GetContainer() interfaces.IContainer {
 	return g.Container

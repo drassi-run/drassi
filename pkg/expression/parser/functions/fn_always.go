@@ -20,10 +20,6 @@ func (a *AlwaysFn) Value() any {
 	panic("not implemented")
 }
 
-// func (a *AlwaysFn) EvaluateCore(eCtx interfaces.IEvaluationContext) any {
-// 	return true
-// }
-
 func (a *AlwaysFn) SetName(name string) {
 	a.name = name
 }

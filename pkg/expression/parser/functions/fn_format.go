@@ -18,12 +18,12 @@ type FormatFn struct {
 	Fn
 }
 
-func (a *FormatFn) Value() any {
+func (f *FormatFn) Value() any {
 	panic("not implemented")
 }
 
-func (a *FormatFn) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
-	return v.VisitFormatFn(eCtx, a)
+func (f *FormatFn) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
+	return v.VisitFormatFn(eCtx, f)
 }
 
 func (f *FormatFn) TraceFullyRealized() bool {
@@ -95,7 +95,7 @@ func (f *FormatFn) SetContainer(c interfaces.IContainer) {
 // 		// Last segment
 // 		result.appendStatic(format[idx:])
 // 	}
-// 	return result.String()
+// 	return result.ValueKindString()
 // }
 
 func readArgIdx(str string, start int) (ok bool, argIndex int) {
@@ -141,7 +141,7 @@ func (a *argValue) StringResult() string {
 // 	return &formatResultBuilder{node: node, ctx: ctx, segments: []string{}, cache: make([]*argValue, cacheSize)}
 // }
 //
-// func (f *formatResultBuilder) String() string {
+// func (f *formatResultBuilder) ValueKindString() string {
 // 	return strings.Join(f.segments, "")
 // }
 //

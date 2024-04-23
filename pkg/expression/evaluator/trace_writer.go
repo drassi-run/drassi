@@ -1,4 +1,4 @@
-package parser
+package evaluator
 
 import (
 	"github.com/dungdm93/drasi/pkg/expression/interfaces"
@@ -9,7 +9,7 @@ type evaluationTraceWriter struct {
 	se interfaces.ISecretMasker
 }
 
-func NewEvaluationTraceWriter(tr interfaces.ITraceWriter, se interfaces.ISecretMasker) interfaces.ITraceWriter {
+func newEvaluationTraceWriter(tr interfaces.ITraceWriter, se interfaces.ISecretMasker) interfaces.ITraceWriter {
 	if se == nil {
 		panic("secret masker must be provider")
 	}

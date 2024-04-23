@@ -8,43 +8,36 @@ import (
 )
 
 type (
-	Index struct {
+	index struct {
 		base.ExpressionNodeBs
 		base.ContainerBs
 	}
-
-	// IndexHelper struct {
-	// 	param  interfaces.IExpressionNode
-	// 	result *evaluator.EvaluationResult
-	// 	intIdx *int
-	// 	strIdx *string
-	// }
 )
 
-func (a *Index) Value() any {
+func (i *index) Value() any {
 	panic("not implemented")
 }
 
-func (a *Index) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
-	return v.VisitIndex(eCtx, a)
+func (i *index) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
+	return v.VisitIndex(eCtx, i)
 }
 
-func (i *Index) TraceFullyRealized() bool {
+func (i *index) TraceFullyRealized() bool {
 	return true
 }
 
-func (i *Index) ConvertToExpression() string {
+func (i *index) ConvertToExpression() string {
 	// Verify if we can simplify the expression, we would rather return
 	// github.sha then github['sha'] so we check if this is a simple case.
-	if lt, ok := i.Params[1].(*Literal); ok {
-		if lStr, ok := lt.Value().(string); ok && IsLegalKeyWord(lStr) {
+	if lt, ok := i.Params[1].(*literal); ok {
+		if lStr, ok := lt.Value().(string); ok && isLegalKeyWord(lStr) {
 			return fmt.Sprintf("%s.%s", i.Params[0].ConvertToExpression(), i.Params[0].ConvertToExpression())
 		}
 	}
 	return fmt.Sprintf("%s[%s]", i.Params[0].ConvertToExpression(), i.Params[1].ConvertToExpression())
 }
 
-func (i *Index) ConvertToRealizedExpression(eCtx interfaces.IEvaluationContext) string {
+func (i *index) ConvertToRealizedExpression(eCtx interfaces.IEvaluationContext) string {
 	exist, result := eCtx.TryGetTraceResult(i)
 	if exist {
 		return result
@@ -52,122 +45,22 @@ func (i *Index) ConvertToRealizedExpression(eCtx interfaces.IEvaluationContext) 
 	return fmt.Sprintf("%s[%s]", i.Params[0].ConvertToExpression(), i.Params[1].ConvertToExpression())
 }
 
-//
-// func (i *Index) EvaluateCore(eCtx interfaces.IEvaluationContext) any {
-// 	l := evaluator.EvaluateWithContext(eCtx, i.Params[0])
-// 	isCol, col := l.TryGetCollectionInterface()
-// 	if !isCol {
-// 		_, isW := i.Params[1].(*WildCard)
-// 		if isW {
-// 			return newFilteredArray()
-// 		}
-// 		return nil
-// 	}
-// 	fa, isFilteredArray := col.(*FilteredArray)
-// 	if isFilteredArray {
-// 		return i.handleFilteredArray(eCtx, fa)
-// 	}
-// 	obj, isObj := col.(interfaces.IReadOnlyObj)
-// 	if isObj {
-// 		return i.handleObject(eCtx, obj)
-// 	}
-// 	arr, isArr := col.(interfaces.IReadOnlyArray)
-// 	if isArr {
-// 		return i.handleArray(eCtx, arr)
-// 	}
-// 	return nil
-// }
-
-// func (i *Index) handleFilteredArray(eCtx interfaces.IEvaluationContext, fa *FilteredArray) any {
-// 	result := &FilteredArray{}
-// 	idx := newIndexHelper(eCtx, i.Params[1])
-// 	ef := fa.Enumerator()
-// 	for ef.Next() {
-// 		item := ef.Value()
-// 		itemResult := evaluator.CreateIntermediateResult(eCtx, item)
-// 		ok, nestedCollection := itemResult.TryGetCollectionInterface()
-// 		if ok {
-// 			if nestedObj, ok := nestedCollection.(interfaces.IReadOnlyObj); ok {
-// 				if idx.IsWildcard() {
-// 					of := nestedObj.Enumerator()
-// 					for of.Next() {
-// 						result.Add(of.Value())
-// 					}
-// 				}
-// 				if idx.HasStringIndex() {
-// 					exist, nestedObjVal := nestedObj.GetValue(idx.StringIndex())
-// 					if exist {
-// 						result.Add(nestedObjVal)
-// 					}
-// 				}
-// 			}
-// 		}
-// 		if nestedArray, ok := nestedCollection.(interfaces.IReadOnlyArray); ok {
-// 			if idx.IsWildcard() {
-// 				af := nestedArray.Enumerator()
-// 				for af.Next() {
-// 					result.Add(af.Value())
-// 				}
-// 			}
-// 			if idx.HasIntegerIndex() && idx.IntegerIndex() < nestedArray.Count() {
-// 				result.Add(nestedArray.GetValue(idx.IntegerIndex()))
-// 			}
-// 		}
-//
-// 	}
-// 	return result
-// }
-//
-// func (i *Index) handleArray(eCtx interfaces.IEvaluationContext, arr interfaces.IReadOnlyArray) any {
-// 	idx := newIndexHelper(eCtx, i.Params[1])
-// 	if idx.IsWildcard() {
-// 		fa := newFilteredArray()
-// 		e := arr.Enumerator()
-// 		for e.Next() {
-// 			fa.Add(e.Value())
-// 		}
-// 		return fa
-// 	}
-// 	if idx.HasIntegerIndex() && idx.IntegerIndex() < arr.Count() {
-// 		return arr.GetValue(idx.IntegerIndex())
-// 	}
-// 	return nil
-// }
-//
-// func (i *Index) handleObject(eCtx interfaces.IEvaluationContext, obj interfaces.IReadOnlyObj) any {
-// 	idx := newIndexHelper(eCtx, i.Params[1])
-// 	if idx.IsWildcard() {
-// 		fa := newFilteredArray()
-// 		for _, v := range obj.Values() {
-// 			fa.Add(v)
-// 		}
-// 		return fa
-// 	}
-// 	if idx.HasStringIndex() {
-// 		exist, result := obj.GetValue(idx.StringIndex())
-// 		if exist {
-// 			return result
-// 		}
-// 	}
-// 	return nil
-// }
-
-func (i *Index) GetContainer() interfaces.IContainer {
+func (i *index) GetContainer() interfaces.IContainer {
 	return i.Container
 }
 
-func (i *Index) SetContainer(c interfaces.IContainer) {
+func (i *index) SetContainer(c interfaces.IContainer) {
 	i.Container = c
 }
 
-func (i *Index) GetLevel() (level int) {
+func (i *index) GetLevel() (level int) {
 	return i.Level
 }
 
-func (i *Index) GetName() string {
+func (i *index) GetName() string {
 	return i.Name
 }
 
-func (i *Index) SetName(name string) {
+func (i *index) SetName(name string) {
 	i.Name = name
 }

@@ -12,12 +12,12 @@ type Equal struct {
 	base.ExpressionNodeBs
 }
 
-func (a *Equal) Value() any {
+func (e *Equal) Value() any {
 	panic("not implemented")
 }
 
-func (a *Equal) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
-	return v.VisitEqual(eCtx, a)
+func (e *Equal) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
+	return v.VisitEqual(eCtx, e)
 }
 
 func (e *Equal) TraceFullyRealized() bool {

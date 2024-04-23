@@ -8,6 +8,7 @@ import (
 	"github.com/dungdm93/drasi/pkg/expression/evaluator"
 	"github.com/dungdm93/drasi/pkg/expression/parser"
 	"github.com/dungdm93/drasi/pkg/expression/parser/functions"
+	"github.com/dungdm93/drasi/pkg/expression/shared"
 	"github.com/dungdm93/drasi/pkg/runner"
 	"github.com/dungdm93/drasi/pkg/runner/mocks"
 )
@@ -23,96 +24,96 @@ eg: Mona the Octocat is not a string literal.
 'Mona the Octocat' is a string literal
 */
 
-func TestEvaluateLiteral(t *testing.T) {
+func Test_EvaluateLiteral(t *testing.T) {
 	type testcase struct {
-		expression    string
-		expectedValue any
-		kind          parser.LexicalTokenKind
-		name          string
+		expression        string
+		expectedValue     any
+		expectedValueKind shared.ValueKind
 	}
 	tcs := []testcase{
-		{"false", false, parser.LTKBoolean, parser.LTKBoolean.ToString()},
-		{"711", float64(711), parser.LTKNumber, parser.LTKNumber.ToString()},
-		{"-9.2", -9.2, parser.LTKNumber, parser.LTKNumber.ToString()},
-		{"0xff", float64(255), parser.LTKNumber, parser.LTKNumber.ToString()},
-		{"-2.99e-2", -0.0299, parser.LTKNumber, parser.LTKNumber.ToString()},
-		{"'It''s open source!'", "It's open source!", parser.LTKString, parser.LTKString.ToString()},
-		{"'Mona the Octocat'", "Mona the Octocat", parser.LTKString, parser.LTKString.ToString()},
+		{"false", false, shared.ValueKindBoolean},
+		{"711", float64(711), shared.ValueKindNumber},
+		{"-9.2", -9.2, shared.ValueKindNumber},
+		{"0xff", float64(255), shared.ValueKindNumber},
+		{"-2.99e-2", -0.0299, shared.ValueKindNumber},
+		{"'It''s open source!'", "It's open source!", shared.ValueKindString},
+		{"'Mona the Octocat'", "Mona the Octocat", shared.ValueKindString},
 	}
 	var namedValues []parser.INamedValueInfo[parser.INamedValue]
 	var fns []functions.IFnInfo[functions.IFn]
 	for _, tc := range tcs {
 		t.Run(tc.expression, func(t *testing.T) {
-			root := new(parser.Parser).CreateTree(tc.expression, namedValues, fns)
+			root := parser.CreateTree(tc.expression, namedValues, fns)
 			result := evaluator.Evaluate(root, nil, nil, nil, new(evaluator.EvaluationOption))
 			assert.Equal(t, tc.expectedValue, result.Value())
+			assert.Equal(t, tc.expectedValueKind, result.GetKind())
 		})
 	}
 }
 
-func TestEvaluateLogical(t *testing.T) {
+func Test_EvaluateLogical(t *testing.T) {
 	type testcase struct {
-		expression    string
-		expectedValue any
-		kind          parser.LexicalTokenKind
-		name          string
+		expression        string
+		expectedValue     any
+		expectedValueKind shared.ValueKind
 	}
 	tests := []testcase{
-		{"true", true, parser.LTKBoolean, parser.LTKBoolean.ToString()},
-		{"!true", false, parser.LTKBoolean, parser.LTKBoolean.ToString()},
-		{"!true && false", false, parser.LTKBoolean, parser.LTKBoolean.ToString()},
-		{"(1 == 1)", true, parser.LTKBoolean, parser.LTKBoolean.ToString()},
-		{"(1 == 1) && 2 == 2", true, parser.LTKBoolean, parser.LTKBoolean.ToString()},
-		{"(1 == 1) && 2 == 2", true, parser.LTKBoolean, parser.LTKBoolean.ToString()},
-		{"false || true", true, parser.LTKBoolean, parser.LTKBoolean.ToString()},
-		{"(1 < 2)", true, parser.LTKBoolean, parser.LTKBoolean.ToString()},
-		{"(1 != 1)", false, parser.LTKBoolean, parser.LTKBoolean.ToString()},
-		{"(3 <= 3) || (4 > 5)", true, parser.LTKBoolean, parser.LTKBoolean.ToString()},
-		{"!((3 > 3) && (4 >= 4))", true, parser.LTKBoolean, parser.LTKBoolean.ToString()},
+		{"true", true, shared.ValueKindBoolean},
+		{"!true", false, shared.ValueKindBoolean},
+		{"!true && false", false, shared.ValueKindBoolean},
+		{"(1 == 1)", true, shared.ValueKindBoolean},
+		{"(1 == 1) && 2 == 2", true, shared.ValueKindBoolean},
+		{"(1 == 1) && 2 == 2", true, shared.ValueKindBoolean},
+		{"false || true", true, shared.ValueKindBoolean},
+		{"(1 < 2)", true, shared.ValueKindBoolean},
+		{"(1 != 1)", false, shared.ValueKindBoolean},
+		{"(3 <= 3) || (4 > 5)", true, shared.ValueKindBoolean},
+		{"!((3 > 3) && (4 >= 4))", true, shared.ValueKindBoolean},
 	}
 	var namedValues []parser.INamedValueInfo[parser.INamedValue]
 	var fns []functions.IFnInfo[functions.IFn]
-	for _, test := range tests {
-		t.Run(test.expression, func(t *testing.T) {
-			root := new(parser.Parser).CreateTree(test.expression, namedValues, fns)
+	for _, tc := range tests {
+		t.Run(tc.expression, func(t *testing.T) {
+			root := parser.CreateTree(tc.expression, namedValues, fns)
 			result := evaluator.Evaluate(root, nil, nil, nil, new(evaluator.EvaluationOption))
-			assert.Equal(t, test.expectedValue, result.Value())
+			assert.Equal(t, tc.expectedValue, result.Value())
+			assert.Equal(t, tc.expectedValueKind, result.GetKind())
 		})
 	}
 }
 
-func TestEvaluateSimpleFns(t *testing.T) {
+func Test_EvaluateSimpleFns(t *testing.T) {
 	type testcase struct {
-		expression    string
-		expectedValue any
-		kind          parser.LexicalTokenKind
-		name          string
+		expression        string
+		expectedValue     any
+		expectedValueKind shared.ValueKind
 	}
 	var namedVals []parser.INamedValueInfo[parser.INamedValue]
 	fns := []functions.IFnInfo[functions.IFn]{
 		functions.NewFunctionInfo[functions.AlwaysFn]("always", 0, 2147483647),
 	}
 	tcs := []testcase{
-		{"always()", true, parser.LTKBoolean, parser.LTKBoolean.ToString()},
-		{"contains('Hello world', 'llo')", true, parser.LTKBoolean, parser.LTKBoolean.ToString()},
-		{"startsWith('Hello world', 'He')", true, parser.LTKBoolean, parser.LTKBoolean.ToString()},
-		{"endsWith('Hello world', 'world')", true, parser.LTKBoolean, parser.LTKBoolean.ToString()},
-		{"format('Hello {0} {1} {2}', 'Mona', 'the', 'Octocat')", "Hello Mona the Octocat", parser.LTKString, parser.LTKString.ToString()},
-		{"format('{{Hello {0} {1} {2}!}}', 'Mona', 'the', 'Octocat')", "{Hello Mona the Octocat!}", parser.LTKString, parser.LTKString.ToString()},
+		{"always()", true, shared.ValueKindBoolean},
+		{"contains('Hello world', 'llo')", true, shared.ValueKindBoolean},
+		{"startsWith('Hello world', 'He')", true, shared.ValueKindBoolean},
+		{"endsWith('Hello world', 'world')", true, shared.ValueKindBoolean},
+		{"format('Hello {0} {1} {2}', 'Mona', 'the', 'Octocat')", "Hello Mona the Octocat", shared.ValueKindString},
+		{"format('{{Hello {0} {1} {2}!}}', 'Mona', 'the', 'Octocat')", "{Hello Mona the Octocat!}", shared.ValueKindString},
 		{"fromJson('{\\\"FAVORITE_FRUIT\\\": \\\"APPLE\\\", \\\"FAVORITE_COLOR\\\": \\\"BLUE\\\"}')", "{\\\"FAVORITE_FRUIT\\\": \\\"APPLE\\\", \\\"FAVORITE_COLOR\\\": \\\"BLUE\\\"}",
-			parser.LTKString, parser.LTKString.ToString()},
+			shared.ValueKindString},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.expression, func(t *testing.T) {
-			root := new(parser.Parser).CreateTree(tc.expression, namedVals, fns)
+			root := parser.CreateTree(tc.expression, namedVals, fns)
 			result := evaluator.Evaluate(root, nil, nil, nil, new(evaluator.EvaluationOption))
 			assert.Equal(t, tc.expectedValue, result.Value())
+			assert.Equal(t, tc.expectedValueKind, result.GetKind())
 		})
 	}
 }
 
-// TestEvaluateComplexFns are testcase for functions with value depend from job status, ...
-func TestEvaluateComplexFns(t *testing.T) {
+// Test_EvaluateComplexFns are testcase for functions with value depends on from job status, ...
+func Test_EvaluateStatusCheckFns(t *testing.T) {
 	type testcase struct {
 		name             string
 		expression       string
@@ -132,19 +133,19 @@ func TestEvaluateComplexFns(t *testing.T) {
 		// cancelled()
 		{
 			"invoke cancelled() evaluated to true", "cancelled()", true, func() *runner.TemplateContext {
-				exeCtx := new(mocks.IExecutionContext)
-				exeCtx.On("JobContext").Return(&runner.JobContext{Status: runner.ActionResultCancelled}).Once()
+				execCtx := new(mocks.IExecutionContext)
+				execCtx.On("JobContext").Return(&runner.JobContext{Status: runner.ActionResultCancelled}).Once()
 				return &runner.TemplateContext{State: map[string]any{
-					"IExecutionContext": exeCtx,
+					"IExecutionContext": execCtx,
 				}}
 			},
 		},
 		{
 			"invoke cancelled() evaluated to false", "cancelled()", false, func() *runner.TemplateContext {
-				exeCtx := new(mocks.IExecutionContext)
-				exeCtx.On("JobContext").Return(&runner.JobContext{Status: runner.ActionResultSuccess}).Once()
+				execCtx := new(mocks.IExecutionContext)
+				execCtx.On("JobContext").Return(&runner.JobContext{Status: runner.ActionResultSuccess}).Once()
 				return &runner.TemplateContext{State: map[string]any{
-					"IExecutionContext": exeCtx,
+					"IExecutionContext": execCtx,
 				}}
 			},
 		},
@@ -152,47 +153,47 @@ func TestEvaluateComplexFns(t *testing.T) {
 		{
 			"invoke success() evaluated to true - composite MAIN step", "success()", true,
 			func() *runner.TemplateContext {
-				exeCtx := new(mocks.IExecutionContext)
-				exeCtx.On("IsEmbedded").Return(true).Once()
-				exeCtx.On("Stage").Return(runner.ActionRunStageMain).Once()
-				exeCtx.On("GetGitHubContext", "action_status").Return(runner.ActionResultSuccess.String())
+				execCtx := new(mocks.IExecutionContext)
+				execCtx.On("IsEmbedded").Return(true).Once()
+				execCtx.On("Stage").Return(runner.ActionRunStageMain).Once()
+				execCtx.On("GetGitHubContext", "action_status").Return(runner.ActionResultSuccess.String())
 				return &runner.TemplateContext{State: map[string]any{
-					"IExecutionContext": exeCtx,
+					"IExecutionContext": execCtx,
 				}}
 			},
 		},
 		{
 			"invoke success() evaluated to false - composite MAIN step", "success()", false,
 			func() *runner.TemplateContext {
-				exeCtx := new(mocks.IExecutionContext)
-				exeCtx.On("IsEmbedded").Return(true).Once()
-				exeCtx.On("Stage").Return(runner.ActionRunStageMain).Once()
-				exeCtx.On("GetGitHubContext", "action_status").Return(runner.ActionResultCancelled.String())
+				execCtx := new(mocks.IExecutionContext)
+				execCtx.On("IsEmbedded").Return(true).Once()
+				execCtx.On("Stage").Return(runner.ActionRunStageMain).Once()
+				execCtx.On("GetGitHubContext", "action_status").Return(runner.ActionResultCancelled.String())
 				return &runner.TemplateContext{State: map[string]any{
-					"IExecutionContext": exeCtx,
+					"IExecutionContext": execCtx,
 				}}
 			},
 		},
 		{
 			"invoke success() evaluated to true - pre, post and job-level steps", "success()", true, func() *runner.TemplateContext {
-				exeCtx := new(mocks.IExecutionContext)
-				exeCtx.On("IsEmbedded").Return(false).Once()
-				exeCtx.On("Stage").Return(runner.ActionRunStageMain).Once()
-				exeCtx.On("JobContext").Return(&runner.JobContext{Status: runner.ActionResultSuccess}).Once()
+				execCtx := new(mocks.IExecutionContext)
+				execCtx.On("IsEmbedded").Return(false).Once()
+				execCtx.On("Stage").Return(runner.ActionRunStageMain).Once()
+				execCtx.On("JobContext").Return(&runner.JobContext{Status: runner.ActionResultSuccess}).Once()
 				return &runner.TemplateContext{State: map[string]any{
-					"IExecutionContext": exeCtx,
+					"IExecutionContext": execCtx,
 				}}
 			},
 		},
 		{
 			"invoke success() evaluated to false - pre, post and job-level steps", "success()", false,
 			func() *runner.TemplateContext {
-				exeCtx := new(mocks.IExecutionContext)
-				exeCtx.On("IsEmbedded").Return(true).Once()
-				exeCtx.On("Stage").Return(runner.ActionRunStageMain).Once()
-				exeCtx.On("GetGitHubContext", "action_status").Return(runner.ActionResultFailure.String())
+				execCtx := new(mocks.IExecutionContext)
+				execCtx.On("IsEmbedded").Return(true).Once()
+				execCtx.On("Stage").Return(runner.ActionRunStageMain).Once()
+				execCtx.On("GetGitHubContext", "action_status").Return(runner.ActionResultFailure.String())
 				return &runner.TemplateContext{State: map[string]any{
-					"IExecutionContext": exeCtx,
+					"IExecutionContext": execCtx,
 				}}
 			},
 		},
@@ -200,47 +201,47 @@ func TestEvaluateComplexFns(t *testing.T) {
 		{
 			"invoke failure() evaluated to true - composite MAIN step", "failure()", true,
 			func() *runner.TemplateContext {
-				exeCtx := new(mocks.IExecutionContext)
-				exeCtx.On("IsEmbedded").Return(true).Once()
-				exeCtx.On("Stage").Return(runner.ActionRunStageMain).Once()
-				exeCtx.On("GetGitHubContext", "action_status").Return(runner.ActionResultFailure.String())
+				execCtx := new(mocks.IExecutionContext)
+				execCtx.On("IsEmbedded").Return(true).Once()
+				execCtx.On("Stage").Return(runner.ActionRunStageMain).Once()
+				execCtx.On("GetGitHubContext", "action_status").Return(runner.ActionResultFailure.String())
 				return &runner.TemplateContext{State: map[string]any{
-					"IExecutionContext": exeCtx,
+					"IExecutionContext": execCtx,
 				}}
 			},
 		},
 		{
 			"invoke failure() evaluated to false - composite MAIN step", "failure()", false,
 			func() *runner.TemplateContext {
-				exeCtx := new(mocks.IExecutionContext)
-				exeCtx.On("IsEmbedded").Return(true).Once()
-				exeCtx.On("Stage").Return(runner.ActionRunStageMain).Once()
-				exeCtx.On("GetGitHubContext", "action_status").Return(runner.ActionResultSuccess.String())
+				execCtx := new(mocks.IExecutionContext)
+				execCtx.On("IsEmbedded").Return(true).Once()
+				execCtx.On("Stage").Return(runner.ActionRunStageMain).Once()
+				execCtx.On("GetGitHubContext", "action_status").Return(runner.ActionResultSuccess.String())
 				return &runner.TemplateContext{State: map[string]any{
-					"IExecutionContext": exeCtx,
+					"IExecutionContext": execCtx,
 				}}
 			},
 		},
 		{
 			"invoke failure() evaluated to true - pre, post and job-level steps", "failure()", true, func() *runner.TemplateContext {
-				exeCtx := new(mocks.IExecutionContext)
-				exeCtx.On("IsEmbedded").Return(false).Once()
-				exeCtx.On("Stage").Return(runner.ActionRunStageMain).Once()
-				exeCtx.On("JobContext").Return(&runner.JobContext{Status: runner.ActionResultFailure}).Once()
+				execCtx := new(mocks.IExecutionContext)
+				execCtx.On("IsEmbedded").Return(false).Once()
+				execCtx.On("Stage").Return(runner.ActionRunStageMain).Once()
+				execCtx.On("JobContext").Return(&runner.JobContext{Status: runner.ActionResultFailure}).Once()
 				return &runner.TemplateContext{State: map[string]any{
-					"IExecutionContext": exeCtx,
+					"IExecutionContext": execCtx,
 				}}
 			},
 		},
 		{
 			"invoke failure() evaluated to false - pre, post and job-level steps", "failure()", false,
 			func() *runner.TemplateContext {
-				exeCtx := new(mocks.IExecutionContext)
-				exeCtx.On("IsEmbedded").Return(true).Once()
-				exeCtx.On("Stage").Return(runner.ActionRunStageMain).Once()
-				exeCtx.On("GetGitHubContext", "action_status").Return(runner.ActionResultSuccess.String())
+				execCtx := new(mocks.IExecutionContext)
+				execCtx.On("IsEmbedded").Return(true).Once()
+				execCtx.On("Stage").Return(runner.ActionRunStageMain).Once()
+				execCtx.On("GetGitHubContext", "action_status").Return(runner.ActionResultSuccess.String())
 				return &runner.TemplateContext{State: map[string]any{
-					"IExecutionContext": exeCtx,
+					"IExecutionContext": execCtx,
 				}}
 			},
 		},
@@ -248,15 +249,15 @@ func TestEvaluateComplexFns(t *testing.T) {
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
 			mock := tc.setUpTemplateCtx()
-			root := new(parser.Parser).CreateTree(tc.expression, namedVals, fns)
+			root := parser.CreateTree(tc.expression, namedVals, fns)
 			result := evaluator.Evaluate(root, nil, nil, mock, new(evaluator.EvaluationOption))
 			assert.Equal(t, tc.expectedValue, result.Value())
 		})
 	}
 }
 
-// TestEvaluateNamedValues are testcase where expression are evaluated from input template context, ...
-func TestEvaluateNamedValues(t *testing.T) {
+// Test_EvaluateNamedValues are testcase where expression are evaluated from input template context, ...
+func Test_EvaluateNamedValues(t *testing.T) {
 	type testCase struct {
 		name             string
 		expression       string
@@ -270,7 +271,7 @@ func TestEvaluateNamedValues(t *testing.T) {
 	// testcases
 	tcs := []testCase{
 		{
-			"EvaluateWithContext named value", "github.actor", "foo", func() *runner.TemplateContext {
+			"evaluateWithContext named value", "github.actor", "foo", func() *runner.TemplateContext {
 				return &runner.TemplateContext{
 					ExpressionValues: map[string]any{
 						"github": parser.NewMockGithubContext("foo"),
@@ -282,7 +283,7 @@ func TestEvaluateNamedValues(t *testing.T) {
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
 			templateCtx := tc.setUpTemplateCtx()
-			root := new(parser.Parser).CreateTree(tc.expression, namedVals, fns)
+			root := parser.CreateTree(tc.expression, namedVals, fns)
 			result := evaluator.Evaluate(root, nil, nil, templateCtx, new(evaluator.EvaluationOption))
 			assert.Equal(t, tc.expectedValue, result.Value())
 		})

@@ -12,12 +12,12 @@ type LessThan struct {
 	base.ContainerBs
 }
 
-func (a *LessThan) Value() any {
+func (l *LessThan) Value() any {
 	panic("not implemented")
 }
 
-func (a *LessThan) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
-	return v.VisitLessThan(eCtx, a)
+func (l *LessThan) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
+	return v.VisitLessThan(eCtx, l)
 }
 
 func (l *LessThan) TraceFullyRealized() bool {
@@ -35,13 +35,6 @@ func (l *LessThan) ConvertToRealizedExpression(eCtx interfaces.IEvaluationContex
 	}
 	return fmt.Sprintf("(%s < %s)", l.Params[0].ConvertToRealizedExpression(eCtx), l.Params[1].ConvertToRealizedExpression(eCtx))
 }
-
-//
-// func (l *LessThan) EvaluateCore(eCtx interfaces.IEvaluationContext) any {
-// 	left := evaluator.EvaluateWithContext(eCtx, l.Params[0])
-// 	right := evaluator.EvaluateWithContext(eCtx, l.Params[1])
-// 	return left.AbstractLessThan(right)
-// }
 
 func (l *LessThan) GetContainer() interfaces.IContainer {
 	return l.Container

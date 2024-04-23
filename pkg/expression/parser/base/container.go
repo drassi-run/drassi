@@ -19,7 +19,7 @@ func (c *ContainerBs) AddParameter(node interfaces.IExpressionNode) {
 // Parameters return values of all parameter of this ContainerBs node.
 // This is read-only, so we will return a slice of value
 func (c *ContainerBs) Parameters() []interfaces.IExpressionNode {
-	result := make([]interfaces.IExpressionNode, len(c.Params))
+	var result []interfaces.IExpressionNode
 	for _, p := range c.Params {
 		result = append(result, p)
 	}

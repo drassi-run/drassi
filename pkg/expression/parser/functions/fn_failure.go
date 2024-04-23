@@ -11,39 +11,13 @@ type FailureFn struct {
 	Fn
 }
 
-func (a *FailureFn) Value() any {
+func (f *FailureFn) Value() any {
 	panic("not implemented")
 }
 
-func (a *FailureFn) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
-	return v.VisitFailureFn(eCtx, a)
+func (f *FailureFn) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
+	return v.VisitFailureFn(eCtx, f)
 }
-
-//
-// func (f *FailureFn) EvaluateCore(eCtx interfaces.IEvaluationContext) any {
-// 	tplCtx := eCtx.State().(*runner.TemplateContext)
-// 	if tplCtx == nil {
-// 		panic(ErrorsTemplateContextNotFound)
-// 	}
-// 	// TODO: refactor me
-// 	execCtx := tplCtx.State["IExecutionContext"].(runner.IExecutionContext)
-// 	if execCtx == nil {
-// 		panic(ErrorsExecutionContextNotFound)
-// 	}
-// 	// Decide based on 'action_status' for composite MAIN steps and 'job.status' for pre, post and job-getLevel steps
-// 	isComposite := execCtx.IsEmbedded() && execCtx.Stage() == runner.ActionRunStageMain
-// 	if isComposite {
-// 		// TODO: refactor me
-// 		// If status is not parseable, evaluate actionStatus to ActionResultSuccess
-// 		if actionStatus := execCtx.GetGitHubContext("action_status"); actionStatus != "" {
-// 			if ok := runner.TryParseActionResult(actionStatus); ok {
-// 				return actionStatus == fmt.Sprintf("%s", runner.ActionResultFailure)
-// 			}
-// 			return false
-// 		}
-// 	}
-// 	return execCtx.JobContext().Status == runner.ActionResultFailure
-// }
 
 func (f *FailureFn) SetName(name string) {
 	f.Name = name

@@ -1,6 +1,6 @@
-// Package constants include string representation of tokens in Token kind. Shared knowledge between parser and lexer.
+// Package shared include shared knowledge between parser and lexer.
 // Separate package to avoid duplicate with Expression Node structs.
-package constants
+package shared
 
 const (
 	False            = "false"

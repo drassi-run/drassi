@@ -12,7 +12,7 @@ type LessThanOrEqual struct {
 	base.ContainerBs
 }
 
-func (a *LessThanOrEqual) Value() any {
+func (l *LessThanOrEqual) Value() any {
 	panic("not implemented")
 }
 
@@ -35,13 +35,6 @@ func (l *LessThanOrEqual) ConvertToRealizedExpression(eCtx interfaces.IEvaluatio
 	}
 	return fmt.Sprintf("(%s <= %s)", l.Params[0].ConvertToRealizedExpression(eCtx), l.Params[1].ConvertToRealizedExpression(eCtx))
 }
-
-//
-// func (l *LessThanOrEqual) EvaluateCore(eCtx interfaces.IEvaluationContext) any {
-// 	left := evaluator.EvaluateWithContext(eCtx, l.Params[0])
-// 	right := evaluator.EvaluateWithContext(eCtx, l.Params[1])
-// 	return left.AbstractLessThanOrEqual(right)
-// }
 
 func (l *LessThanOrEqual) GetContainer() interfaces.IContainer {
 	return l.Container

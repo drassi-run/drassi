@@ -6,27 +6,27 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/dungdm93/drasi/pkg/expression/constants"
 	"github.com/dungdm93/drasi/pkg/expression/interfaces"
+	"github.com/dungdm93/drasi/pkg/expression/shared"
 )
 
 type EvaluationResult struct {
-	kind        interfaces.ValueKind
+	kind        shared.ValueKind
 	raw         any
 	value       any
 	level       int
 	omitTracing bool
 }
 
-func NewEvaluationResultWithTrace(eCtx interfaces.IEvaluationContext, level int, val any, kind interfaces.ValueKind, raw any) *EvaluationResult {
+func NewEvaluationResultWithTrace(eCtx interfaces.IEvaluationContext, level int, val any, kind shared.ValueKind, raw any) *EvaluationResult {
 	return NewEvaluationResult(eCtx, level, val, kind, raw, false)
 }
 
-func NewEvaluationResultSkipTrace(eCtx interfaces.IEvaluationContext, level int, val any, kind interfaces.ValueKind, raw any) *EvaluationResult {
+func NewEvaluationResultSkipTrace(eCtx interfaces.IEvaluationContext, level int, val any, kind shared.ValueKind, raw any) *EvaluationResult {
 	return NewEvaluationResult(eCtx, level, val, kind, raw, true)
 }
 
-func NewEvaluationResult(eCtx interfaces.IEvaluationContext, level int, val any, kind interfaces.ValueKind, raw any, omitTracing bool) *EvaluationResult {
+func NewEvaluationResult(eCtx interfaces.IEvaluationContext, level int, val any, kind shared.ValueKind, raw any, omitTracing bool) *EvaluationResult {
 	e := &EvaluationResult{
 		kind:        kind,
 		raw:         raw,
@@ -48,7 +48,7 @@ func (e *EvaluationResult) Value() any {
 	return e.value
 }
 
-func (e *EvaluationResult) GetKind() interfaces.ValueKind {
+func (e *EvaluationResult) GetKind() shared.ValueKind {
 	return e.kind
 }
 
@@ -63,9 +63,9 @@ func (e *EvaluationResult) traceValue(eCtx interfaces.IEvaluationContext) {
 
 }
 
-func (e *EvaluationResult) traceValue1(eCtx interfaces.IEvaluationContext, val any, kind interfaces.ValueKind) {
+func (e *EvaluationResult) traceValue1(eCtx interfaces.IEvaluationContext, val any, kind shared.ValueKind) {
 	if !e.omitTracing && eCtx.Masker() != nil {
-		e.traceVerbose(eCtx, fmt.Sprintf("=> %s", FormatValue(eCtx.Masker(), val, kind)))
+		e.traceVerbose(eCtx, fmt.Sprintf("=> %s", formatValue(eCtx.Masker(), val, kind)))
 	}
 }
 
@@ -78,14 +78,14 @@ func (e *EvaluationResult) traceVerbose(eCtx interfaces.IEvaluationContext, msg 
 
 func (e *EvaluationResult) IsFalsy() bool {
 	switch e.kind {
-	case interfaces.Null:
+	case shared.ValueKindNull:
 		return true
-	case interfaces.Boolean:
+	case shared.ValueKindBoolean:
 		return !e.value.(bool)
-	case interfaces.Number:
+	case shared.ValueKindNumber:
 		numb := e.value.(float64)
 		return numb == 0 || math.IsNaN(numb)
-	case interfaces.String:
+	case shared.ValueKindString:
 		str := e.value.(string)
 		return strings.EqualFold(str, "")
 	default:
@@ -105,28 +105,28 @@ func abstractEqual(canonicalLeftValue, canonicalRightValue any) bool {
 	canonicalLeftValue, canonicalRightValue, lk, rk := coerceTypes(canonicalLeftValue, canonicalRightValue)
 	if lk == rk {
 		switch lk {
-		case interfaces.Null:
-			// Null, Null
+		case shared.ValueKindNull:
+			// ValueKindNull, ValueKindNull
 			return true
-		case interfaces.Number:
-			// Number, Number
+		case shared.ValueKindNumber:
+			// ValueKindNumber, ValueKindNumber
 			l := canonicalLeftValue.(float64)
 			r := canonicalRightValue.(float64)
 			if math.IsNaN(l) || math.IsNaN(r) {
 				return false
 			}
 			return l == r
-		case interfaces.String:
-			// String, String
+		case shared.ValueKindString:
+			// ValueKindString, ValueKindString
 			lStr := canonicalLeftValue.(string)
 			rStr := canonicalRightValue.(string)
 			return strings.EqualFold(lStr, rStr)
-		case interfaces.Boolean:
-			// Boolean, Boolean
+		case shared.ValueKindBoolean:
+			// ValueKindBoolean, ValueKindBoolean
 			lB := canonicalLeftValue.(bool)
 			rB := canonicalRightValue.(bool)
 			return lB == rB
-		case interfaces.Object, interfaces.Array:
+		case shared.ValueKindObject, shared.ValueKindArray:
 			if reflect.ValueOf(canonicalLeftValue).IsZero() || reflect.ValueOf(canonicalRightValue).IsZero() {
 				// zero value of them same kind are considered equal
 				return true
@@ -143,32 +143,32 @@ func abstractEqual(canonicalLeftValue, canonicalRightValue any) bool {
 	return false
 }
 
-func coerceTypes(canonicalLeftValue, canonicalRightValue any) (leftValue, rightValue any, lk, rk interfaces.ValueKind) {
+func coerceTypes(canonicalLeftValue, canonicalRightValue any) (leftValue, rightValue any, lk, rk shared.ValueKind) {
 	lk = getKind(canonicalLeftValue)
 	rk = getKind(canonicalRightValue)
 	if lk == rk {
 		// Same kind
 		return canonicalLeftValue, canonicalRightValue, lk, rk
 	}
-	// Number, String
-	if lk == interfaces.Number && rk == interfaces.String {
+	// ValueKindNumber, ValueKindString
+	if lk == shared.ValueKindNumber && rk == shared.ValueKindString {
 		canonicalRightValue = convertToNumber(canonicalRightValue)
-		rk = interfaces.Number
+		rk = shared.ValueKindNumber
 		return canonicalLeftValue, canonicalRightValue, lk, rk
 	}
-	// String, Number
-	if lk == interfaces.String && rk == interfaces.Number {
+	// ValueKindString, ValueKindNumber
+	if lk == shared.ValueKindString && rk == shared.ValueKindNumber {
 		canonicalLeftValue = convertToNumber(canonicalLeftValue)
-		lk = interfaces.Number
+		lk = shared.ValueKindNumber
 		return canonicalLeftValue, canonicalRightValue, lk, rk
 	}
-	// Boolean|Null, Any
-	if lk == interfaces.Boolean || lk == interfaces.Null {
+	// ValueKindBoolean|ValueKindNull, Any
+	if lk == shared.ValueKindBoolean || lk == shared.ValueKindNull {
 		canonicalLeftValue = convertToNumber(canonicalLeftValue)
 		return coerceTypes(canonicalLeftValue, canonicalRightValue)
 	}
-	// Any, Boolean|Null
-	if rk == interfaces.Boolean || rk == interfaces.Null {
+	// Any, ValueKindBoolean|ValueKindNull
+	if rk == shared.ValueKindBoolean || rk == shared.ValueKindNull {
 		canonicalRightValue = convertToNumber(canonicalRightValue)
 		return coerceTypes(canonicalLeftValue, canonicalRightValue)
 	}
@@ -178,60 +178,60 @@ func coerceTypes(canonicalLeftValue, canonicalRightValue any) (leftValue, rightV
 func convertToNumber(canonicalValue any) float64 {
 	kind := getKind(canonicalValue)
 	switch kind {
-	case interfaces.Null:
+	case shared.ValueKindNull:
 		return 0
-	case interfaces.Boolean:
+	case shared.ValueKindBoolean:
 		if canonicalValue.(bool) {
 			return 1
 		}
 		return 0
-	case interfaces.Number:
+	case shared.ValueKindNumber:
 		return canonicalValue.(float64)
-	case interfaces.String:
-		return ParseNumber(canonicalValue.(string))
+	case shared.ValueKindString:
+		return parseNumber(canonicalValue.(string))
 	}
 	return math.NaN()
 }
 
-func getKind(canonicalValue any) interfaces.ValueKind {
+func getKind(canonicalValue any) shared.ValueKind {
 	if canonicalValue == nil {
-		return interfaces.Null
+		return shared.ValueKindNull
 	}
 	if _, isBool := canonicalValue.(bool); isBool {
-		return interfaces.Boolean
+		return shared.ValueKindBoolean
 	}
 	if _, isFloat64 := canonicalValue.(float64); isFloat64 {
-		return interfaces.Number
+		return shared.ValueKindNumber
 	}
 	if _, isStr := canonicalValue.(string); isStr {
-		return interfaces.String
+		return shared.ValueKindString
 	}
 	if _, isObj := canonicalValue.(interfaces.IReadOnlyObj); isObj {
-		return interfaces.Object
+		return shared.ValueKindObject
 	}
 	if _, isArr := canonicalValue.(interfaces.IReadOnlyArray); isArr {
-		return interfaces.Array
+		return shared.ValueKindArray
 	}
-	return interfaces.Object
+	return shared.ValueKindObject
 }
 
 func (e *EvaluationResult) AbstractGreaterThan(right interfaces.IEvaluationResult) bool {
 	_, _, lk, rk := coerceTypes(e.value, right.Value())
 	if lk == rk {
 		switch lk {
-		case interfaces.Number:
-			// Number & Number
+		case shared.ValueKindNumber:
+			// ValueKindNumber & ValueKindNumber
 			l := e.value.(float64)
 			r := right.Value().(float64)
 			if math.IsNaN(l) || math.IsNaN(r) {
 				return false
 			}
 			return l > r
-		case interfaces.String:
-			// String & String
+		case shared.ValueKindString:
+			// ValueKindString & ValueKindString
 			return e.value.(string) > right.Value().(string)
-		case interfaces.Boolean:
-			// Boolean & Boolean
+		case shared.ValueKindBoolean:
+			// ValueKindBoolean & ValueKindBoolean
 			return e.value.(bool) && !right.Value().(bool)
 		}
 	}
@@ -250,16 +250,16 @@ func abstractLessThan(canonicalLeftValue, canonicalRightValue any) bool {
 	_, _, lk, rk := coerceTypes(canonicalLeftValue, canonicalRightValue)
 	if lk == rk {
 		switch lk {
-		case interfaces.Number:
+		case shared.ValueKindNumber:
 			l := canonicalLeftValue.(float64)
 			r := canonicalRightValue.(float64)
 			if math.IsNaN(l) || math.IsNaN(r) {
 				return false
 			}
 			return l < r
-		case interfaces.String:
+		case shared.ValueKindString:
 			return canonicalLeftValue.(string) < canonicalRightValue.(string)
-		case interfaces.Boolean:
+		case shared.ValueKindBoolean:
 			return !canonicalLeftValue.(bool) && canonicalRightValue.(bool)
 		}
 	}
@@ -280,17 +280,17 @@ func (e *EvaluationResult) ConvertToNumber() float64 {
 
 func (e *EvaluationResult) ConvertToString() string {
 	switch e.kind {
-	case interfaces.Null:
+	case shared.ValueKindNull:
 		return ""
-	case interfaces.Boolean:
+	case shared.ValueKindBoolean:
 		if e.value.(bool) {
-			return constants.True
+			return shared.True
 		}
-		return constants.False
-	case interfaces.Number:
+		return shared.False
+	case shared.ValueKindNumber:
 		d := e.value.(float64)
 		return fmt.Sprintf("%f", d)
-	case interfaces.String:
+	case shared.ValueKindString:
 		return e.value.(string)
 	default:
 		return e.kind.ToString()
@@ -298,17 +298,17 @@ func (e *EvaluationResult) ConvertToString() string {
 }
 
 func (e *EvaluationResult) IsPrimitive() bool {
-	return IsPrimitive(e.kind)
+	return isPrimitive(e.kind)
 }
 
-// CreateIntermediateResult is useful for working with values that are not the direct evaluation result of a parameter.
+// createIntermediateResult is useful for working with values that are not the direct evaluation result of a parameter.
 // This allows ExpressionNodeBs authors to leverage the coercion and comparison functions
 // for any values.
 //
 // Also note, the value will be canonicalized (for example numeric types converted to double) and any
 // matching interfaces applied.
-func CreateIntermediateResult(eCtx interfaces.IEvaluationContext, obj any) *EvaluationResult {
-	val, kind, raw := ConvertToCanonicalValue(obj)
+func createIntermediateResult(eCtx interfaces.IEvaluationContext, obj any) *EvaluationResult {
+	val, kind, raw := convertToCanonicalValue(obj)
 	return NewEvaluationResultSkipTrace(eCtx, 0, val, kind, raw)
 }
 
@@ -317,7 +317,7 @@ func CreateIntermediateResult(eCtx interfaces.IEvaluationContext, obj any) *Eval
 // return
 // corresponding interface
 func (e *EvaluationResult) TryGetCollectionInterface() (ok bool, collection any) {
-	if e.kind == interfaces.Object || e.kind == interfaces.Array {
+	if e.kind == shared.ValueKindObject || e.kind == shared.ValueKindArray {
 		obj := e.value
 		o, isObj := obj.(interfaces.IReadOnlyObj)
 		if isObj {

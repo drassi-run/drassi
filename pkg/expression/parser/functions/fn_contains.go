@@ -11,11 +11,11 @@ type ContainsFn struct {
 	Fn
 }
 
-func (a *ContainsFn) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
-	return v.VisitContainsFn(eCtx, a)
+func (c *ContainsFn) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
+	return v.VisitContainsFn(eCtx, c)
 }
 
-func (a *ContainsFn) Value() any {
+func (c *ContainsFn) Value() any {
 	panic("not implemented")
 }
 
