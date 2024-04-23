@@ -17,7 +17,7 @@ func (n *NoOpFn) Value() any {
 	panic("not implemented")
 }
 
-func (n *NoOpFn) Accept(eCtx expression.IEvaluationContext, v expression.IExpressionNodeVisitor) any {
+func (n *NoOpFn) Accept(eCtx expression.IEvaluationContext, v expression.IExpNodeVisitor) any {
 	return v.VisitNoopFn(eCtx, n)
 }
 

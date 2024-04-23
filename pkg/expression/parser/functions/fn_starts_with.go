@@ -15,7 +15,7 @@ func (s *StartsWithFn) Value() any {
 	panic("not implemented")
 }
 
-func (s *StartsWithFn) Accept(eCtx expression.IEvaluationContext, v expression.IExpressionNodeVisitor) any {
+func (s *StartsWithFn) Accept(eCtx expression.IEvaluationContext, v expression.IExpNodeVisitor) any {
 	return v.VisitStartsWithFn(eCtx, s)
 }
 

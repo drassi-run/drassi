@@ -7,7 +7,7 @@ import (
 	"github.com/dungdm93/drasi/pkg/expression/parser/operators"
 )
 
-func newNodeFromToken(tk *lexicalToken) expression.IExpressionNode {
+func newNodeFromToken(tk *lexicalToken) expression.IExpNode {
 	switch tk.Kind() {
 	case lexicalTokenKindStartIndex, lexicalTokenKindDereference:
 		return new(index)

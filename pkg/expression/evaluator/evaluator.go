@@ -11,25 +11,8 @@ import (
 	"github.com/dungdm93/drasi/pkg/secret_masker"
 )
 
-func evaluateWithContext(eCtx expression.IEvaluationContext, e expression.IExpressionNode) *EvaluationResult {
-	visitor := new(expressionNodeVisitor)
-
-	var level int
-	if e.GetContainer() != nil {
-		level = e.GetContainer().GetLevel() + 1
-	}
-
-	coreResult := e.Accept(eCtx, visitor)
-	_, kind, raw := convertToCanonicalValue(coreResult)
-	result := newEvaluationResultSkipTrace(eCtx, level, coreResult, kind, raw)
-	if e.TraceFullyRealized() {
-		eCtx.SetTraceResult(e, result)
-	}
-	return result
-}
-
-func Evaluate(e expression.IExpressionNode, trace expression.ITraceWriter, masker interfaces.ISecretMasker, state any, opt *EvaluationOption) *EvaluationResult {
-	if e.GetContainer() != nil {
+func Evaluate(node expression.IExpNode, trace expression.ITraceWriter, masker secret_masker.ISecretMasker, state any, opt *EvaluationOption) *EvaluationResult {
+	if node.GetContainer() != nil {
 		panic(errors.New("evaluate can only be called from root node"))
 	}
 	if masker != nil {
@@ -38,25 +21,40 @@ func Evaluate(e expression.IExpressionNode, trace expression.ITraceWriter, maske
 		masker = newNoOpSecretMasker()
 	}
 	eTrace := newEvaluationTraceWriter(trace, masker)
-	eCtx := newEvaluationContext(eTrace, masker, state, opt, e)
-	eCtx.trace.Info(fmt.Sprintf("Evaluating: %s", e.ConvertToExpression()))
-	result := evaluateWithContext(eCtx, e)
-	traceTreeResult(eCtx, e, result.value, result.kind)
+	eCtx := newEvaluationContext(eTrace, masker, state, opt, node)
+	eCtx.traceWriter.Info(fmt.Sprintf("Evaluating: %s", node.ConvertToExpression()))
+	result := evaluateWithContext(eCtx, node)
+	traceTreeResult(eCtx, node, result.value, result.kind)
 	return result
 }
 
-func traceTreeResult(eCtx *evaluationContext, e expression.IExpressionNode, result any, kind expression.ValueKind) {
-	realizedExp := e.ConvertToRealizedExpression(eCtx)
-	traceValue := formatValue(eCtx.masker, result, kind)
+func evaluateWithContext(eCtx expression.IEvaluationContext, node expression.IExpNode) *EvaluationResult {
+	visitor := new(expNodeVisitor)
+	var level int
+	if node.GetContainer() != nil {
+		level = node.GetContainer().GetLevel() + 1
+	}
+	coreResult := node.Accept(eCtx, visitor)
+	_, kind, raw := convertToCanonicalValue(coreResult)
+	result := newEvaluationResultWithTrace(eCtx, level, coreResult, kind, raw)
+	if node.TraceFullyRealized() {
+		eCtx.SetTraceResult(node, result)
+	}
+	return result
+}
+
+func traceTreeResult(eCtx *evaluationContext, node expression.IExpNode, result any, kind expression.ValueKind) {
+	realizedExp := node.ConvertToRealizedExpression(eCtx)
+	traceValue := formatValue(eCtx.secretMasker, result, kind)
 	if !strings.EqualFold(realizedExp, traceValue) {
 		if kind == expression.ValueKindNumber && realizedExp == fmt.Sprintf("'%s'", traceValue) {
 			// Don't bother tracing the realized expression when the result is a number and the
 			// realized expression is a precisely matching string.
 		} else {
-			eCtx.trace.Info(fmt.Sprintf("Expanded: %s", realizedExp))
+			eCtx.traceWriter.Info(fmt.Sprintf("Expanded: %s", realizedExp))
 		}
 	}
-	eCtx.trace.Info(fmt.Sprintf("Result: %s", traceValue))
+	eCtx.traceWriter.Info(fmt.Sprintf("Result: %s", traceValue))
 }
 
 func convertToCanonicalValue(input any) (value any, kind expression.ValueKind, raw any) {

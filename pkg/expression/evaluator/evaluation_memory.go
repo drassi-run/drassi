@@ -9,7 +9,7 @@ import (
 type evaluationMemory struct {
 	depths         []int
 	maxAmount      int
-	node           expression.IExpressionNode
+	node           expression.IExpNode
 	maxActiveDepth int
 	totalAmount    int
 }
@@ -20,7 +20,7 @@ func (e *evaluationMemory) calculateBytes(obj any) int {
 	return 0
 }
 
-func newEvaluationMemory(maxBytes int, node expression.IExpressionNode) *evaluationMemory {
+func newEvaluationMemory(maxBytes int, node expression.IExpNode) *evaluationMemory {
 	return &evaluationMemory{
 		maxAmount: maxBytes,
 		node:      node,

@@ -15,7 +15,7 @@ func (f *FailureFn) Value() any {
 	panic("not implemented")
 }
 
-func (f *FailureFn) Accept(eCtx expression.IEvaluationContext, v expression.IExpressionNodeVisitor) any {
+func (f *FailureFn) Accept(eCtx expression.IEvaluationContext, v expression.IExpNodeVisitor) any {
 	return v.VisitFailureFn(eCtx, f)
 }
 

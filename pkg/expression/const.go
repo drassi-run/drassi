@@ -1,5 +1,3 @@
-// Package shared include shared knowledge between parser and lexer.
-// Separate package to avoid duplicate with Expression Node structs.
 package expression
 
 const (

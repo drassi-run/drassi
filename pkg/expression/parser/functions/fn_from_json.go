@@ -15,7 +15,7 @@ func (f *FromJsonFn) Value() any {
 	panic("not implemented")
 }
 
-func (f *FromJsonFn) Accept(eCtx expression.IEvaluationContext, v expression.IExpressionNodeVisitor) any {
+func (f *FromJsonFn) Accept(eCtx expression.IEvaluationContext, v expression.IExpNodeVisitor) any {
 	return v.VisitFromJsonFn(eCtx, f)
 }
 

@@ -2,15 +2,15 @@ package expression
 
 // TODO: plan to add bi-cond interface
 
-type IExpressionNodeVisitor interface {
-	VisitAlwaysFn(eCtx IEvaluationContext, c IExpressionNode) any
+type IExpNodeVisitor interface {
+	VisitAlwaysFn(eCtx IEvaluationContext, c IExpNode) any
 	VisitAnd(eCtx IEvaluationContext, c IContainer) any
-	VisitCancelledFn(eCtx IEvaluationContext, c IExpressionNode) any
+	VisitCancelledFn(eCtx IEvaluationContext, c IExpNode) any
 	VisitContainsFn(eCtx IEvaluationContext, c IContainer) any
-	VisitContextValueNode(eCtx IEvaluationContext, c IExpressionNode) any
+	VisitContextValueNode(eCtx IEvaluationContext, c IExpNode) any
 	VisitEndsWithFn(eCtx IEvaluationContext, c IContainer) any
 	VisitEqual(eCtx IEvaluationContext, c IContainer) any
-	VisitFailureFn(eCtx IEvaluationContext, c IExpressionNode) any
+	VisitFailureFn(eCtx IEvaluationContext, c IExpNode) any
 	VisitFormatFn(eCtx IEvaluationContext, c IContainer) any
 	VisitFromJsonFn(eCtx IEvaluationContext, c IContainer) any
 	VisitGreaterThan(eCtx IEvaluationContext, c IContainer) any
@@ -19,13 +19,13 @@ type IExpressionNodeVisitor interface {
 	VisitJoinFn(eCtx IEvaluationContext, c IContainer) any
 	VisitLessThan(eCtx IEvaluationContext, c IContainer) any
 	VisitLessThanOrEqual(eCtx IEvaluationContext, c IContainer) any
-	VisitLiteral(eCtx IEvaluationContext, c IExpressionNode) any
-	VisitNoopFn(eCtx IEvaluationContext, c IExpressionNode) any
-	VisitNoopNamedValue(eCtx IEvaluationContext, c IExpressionNode) any
+	VisitLiteral(eCtx IEvaluationContext, c IExpNode) any
+	VisitNoopFn(eCtx IEvaluationContext, c IExpNode) any
+	VisitNoopNamedValue(eCtx IEvaluationContext, c IExpNode) any
 	VisitNot(eCtx IEvaluationContext, c IContainer) any
 	VisitNotEqual(eCtx IEvaluationContext, c IContainer) any
 	VisitOr(eCtx IEvaluationContext, c IContainer) any
 	VisitStartsWithFn(eCtx IEvaluationContext, c IContainer) any
-	VisitSuccessFn(eCtx IEvaluationContext, c IExpressionNode) any
-	VisitWildCard(eCtx IEvaluationContext, c IExpressionNode) any
+	VisitSuccessFn(eCtx IEvaluationContext, c IExpNode) any
+	VisitWildCard(eCtx IEvaluationContext, c IExpNode) any
 }

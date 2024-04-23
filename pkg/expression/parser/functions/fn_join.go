@@ -25,14 +25,14 @@ func (j *JoinFn) TraceFullyRealized() bool {
 	return true
 }
 
-func (j *JoinFn) Accept(eCtx expression.IEvaluationContext, v expression.IExpressionNodeVisitor) any {
+func (j *JoinFn) Accept(eCtx expression.IEvaluationContext, v expression.IExpNodeVisitor) any {
 	return v.VisitJoinFn(eCtx, j)
 }
 
 //
 // func (f *JoinFn) EvaluateCore(eCtx interfaces.IEvaluationContext) any {
 // 	items := evaluator.EvaluateWithContext(eCtx, f.Parameters()[0])
-// 	isCol, col := items.TryGetCollectionInterface()
+// 	isCol, col := items.IsCollection()
 // 	if isCol {
 // 		arr, isArr := col.(interfaces.ReadOnlyArray)
 // 		if isArr && arr.Count() > 0 {

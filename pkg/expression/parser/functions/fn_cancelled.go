@@ -16,7 +16,7 @@ var (
 	ErrorsExecutionContextNotFound = "execution context not found"
 )
 
-func (c *CancelledFn) Accept(eCtx expression.IEvaluationContext, v expression.IExpressionNodeVisitor) any {
+func (c *CancelledFn) Accept(eCtx expression.IEvaluationContext, v expression.IExpNodeVisitor) any {
 	return v.VisitCancelledFn(eCtx, c)
 }
 

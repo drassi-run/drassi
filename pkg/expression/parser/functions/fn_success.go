@@ -15,7 +15,7 @@ func (s *SuccessFn) Value() any {
 	panic("not implemented")
 }
 
-func (s *SuccessFn) Accept(eCtx expression.IEvaluationContext, v expression.IExpressionNodeVisitor) any {
+func (s *SuccessFn) Accept(eCtx expression.IEvaluationContext, v expression.IExpNodeVisitor) any {
 	return v.VisitSuccessFn(eCtx, s)
 }
 func (s *SuccessFn) SetName(name string) {

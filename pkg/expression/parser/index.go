@@ -18,7 +18,7 @@ func (i *index) Value() any {
 	panic("not implemented")
 }
 
-func (i *index) Accept(eCtx expression.IEvaluationContext, v expression.IExpressionNodeVisitor) any {
+func (i *index) Accept(eCtx expression.IEvaluationContext, v expression.IExpNodeVisitor) any {
 	return v.VisitIndex(eCtx, i)
 }
 

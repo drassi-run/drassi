@@ -30,7 +30,7 @@ type (
 		AllowUnknownKeywords bool
 		FnsInfo              map[string]functions.IFnInfo[functions.IFn]
 		NamedValsInfo        map[string]INamedValueInfo[INamedValue]
-		Operands             []expression.IExpressionNode
+		Operands             []expression.IExpNode
 		Operators            []*lexicalToken
 	}
 )
@@ -68,11 +68,11 @@ Create Tree
 */
 
 func CreateTree(expression string, namedValues []INamedValueInfo[INamedValue],
-	functions []functions.IFnInfo[functions.IFn]) (astRoot expression.IExpressionNode) {
+	functions []functions.IFnInfo[functions.IFn]) (astRoot expression.IExpNode) {
 	return createTree(newParseContext(expression, namedValues, functions, false))
 }
 
-func createTree(pCtx *parseContext) expression.IExpressionNode {
+func createTree(pCtx *parseContext) expression.IExpNode {
 	for {
 		token, haveToken := pCtx.Lexer.tryGetNextToken()
 		pCtx.Token = token
@@ -120,7 +120,7 @@ func createTree(pCtx *parseContext) expression.IExpressionNode {
 	if len(pCtx.Operands) > 1 {
 		panic("invalid number of operands")
 	}
-	root := pCtx.Operands[0].(expression.IExpressionNode)
+	root := pCtx.Operands[0].(expression.IExpNode)
 	if err := checkMaxDepth(pCtx, root, 1); err != nil {
 		panic(err)
 	}
@@ -157,7 +157,7 @@ func pushOperand(pCtx *parseContext) {
 	case lexicalTokenKindFunction:
 		fn := pCtx.Token.RawValue()
 		if fnInfo := tryGetFnInfo(pCtx, fn); fnInfo != nil {
-			node := fnInfo.CreateNode().(functions.IFn).(expression.IExpressionNode)
+			node := fnInfo.CreateNode().(functions.IFn).(expression.IExpNode)
 			node.SetName(fn)
 			pCtx.Operands = append(pCtx.Operands, node)
 		} else {
@@ -172,7 +172,7 @@ func pushOperand(pCtx *parseContext) {
 	case lexicalTokenKindNamedValue:
 		name := pCtx.Token.RawValue()
 		if namedValInfo, exist := pCtx.NamedValsInfo[name]; exist {
-			node := namedValInfo.CreateNode().(INamedValue).(expression.IExpressionNode)
+			node := namedValInfo.CreateNode().(INamedValue).(expression.IExpNode)
 			node.SetName(name)
 			pCtx.Operands = append(pCtx.Operands, node)
 		} else {
@@ -243,8 +243,8 @@ func strictPopOnOperator(pCtx *parseContext, expectedKind lexicalTokenKind) (pop
 }
 
 // popOperands remove the number
-func popOperands(pCtx *parseContext, count int) []expression.IExpressionNode {
-	var result []expression.IExpressionNode
+func popOperands(pCtx *parseContext, count int) []expression.IExpNode {
+	var result []expression.IExpNode
 	for i := 0; i < count; i++ {
 		result = append(result, pCtx.Operands[len(pCtx.Operands)-1])
 		pCtx.Operands = pCtx.Operands[:len(pCtx.Operands)-1]
@@ -347,7 +347,7 @@ func fnLimitCheck(f functions.IFn, expected functions.IFnInfo[functions.IFn]) (e
 	return err
 }
 
-func checkMaxDepth(pCtx *parseContext, node expression.IExpressionNode, depth int) (err error) {
+func checkMaxDepth(pCtx *parseContext, node expression.IExpNode, depth int) (err error) {
 	if depth > expression.MaxDepth {
 		return ErrorsMaxDepthExceeded
 	}

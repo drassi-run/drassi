@@ -27,7 +27,7 @@ func newLiteral(val any) *literal {
 	}
 }
 
-func (l *literal) Accept(eCtx expression.IEvaluationContext, v expression.IExpressionNodeVisitor) any {
+func (l *literal) Accept(eCtx expression.IEvaluationContext, v expression.IExpNodeVisitor) any {
 	return v.VisitLiteral(eCtx, l)
 }
 
@@ -68,7 +68,7 @@ func (l *literal) SetName(name string) {
 }
 
 // TODO: merge with evaluator.FormatValue
-func formatValue(masker interfaces.ISecretMasker, value any, kind expression.ValueKind) string {
+func formatValue(masker secret_masker.ISecretMasker, value any, kind expression.ValueKind) string {
 	switch kind {
 	case expression.ValueKindNull:
 		return expression.Null

@@ -12,20 +12,20 @@ type IFn interface {
 // Fn represent keyword available from parseContext eg: github, job, steps, env
 type Fn struct {
 	IFn
-	params []expression.IExpressionNode
+	params []expression.IExpNode
 	base.ExpressionNodeBs
 }
 
 // AddParameter add node as current container's params
-func (f *Fn) AddParameter(node expression.IExpressionNode) {
+func (f *Fn) AddParameter(node expression.IExpNode) {
 	f.params = append(f.params, node)
 	node.SetContainer(f)
 }
 
 // Parameters return values of all parameter of this ContainerBs node.
 // This is read-only, so we will return a slice of value
-func (f *Fn) Parameters() []expression.IExpressionNode {
-	var result []expression.IExpressionNode
+func (f *Fn) Parameters() []expression.IExpNode {
+	var result []expression.IExpNode
 	for _, p := range f.params {
 		result = append(result, p)
 	}

@@ -7,12 +7,12 @@ import (
 
 type evaluationTraceWriter struct {
 	tr expression.ITraceWriter
-	se interfaces.ISecretMasker
+	se secret_masker.ISecretMasker
 }
 
-func newEvaluationTraceWriter(tr expression.ITraceWriter, se interfaces.ISecretMasker) expression.ITraceWriter {
+func newEvaluationTraceWriter(tr expression.ITraceWriter, se secret_masker.ISecretMasker) expression.ITraceWriter {
 	if se == nil {
-		panic("secret masker must be provider")
+		panic("secret secretMasker must be provider")
 	}
 	return &evaluationTraceWriter{
 		tr: tr,

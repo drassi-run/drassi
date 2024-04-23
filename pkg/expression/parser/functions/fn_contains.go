@@ -11,7 +11,7 @@ type ContainsFn struct {
 	Fn
 }
 
-func (c *ContainsFn) Accept(eCtx expression.IEvaluationContext, v expression.IExpressionNodeVisitor) any {
+func (c *ContainsFn) Accept(eCtx expression.IEvaluationContext, v expression.IExpNodeVisitor) any {
 	return v.VisitContainsFn(eCtx, c)
 }
 
@@ -34,7 +34,7 @@ func (c *ContainsFn) TraceFullyRealized() bool {
 // 			return containsIgnoreCase(lStr, rStr)
 // 		}
 // 	}
-// 	isCol, col := l.TryGetCollectionInterface()
+// 	isCol, col := l.IsCollection()
 // 	if isCol {
 // 		if arr, isArr := col.(interfaces.ReadOnlyArray); isArr && arr.Count() > 0 {
 // 			r := evaluator.EvaluateWithContext(eCtx, c.Parameters()[1])

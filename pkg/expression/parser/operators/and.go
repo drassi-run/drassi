@@ -13,7 +13,7 @@ type And struct {
 	base.ExpressionNodeBs
 }
 
-func (a *And) Accept(eCtx expression.IEvaluationContext, v expression.IExpressionNodeVisitor) any {
+func (a *And) Accept(eCtx expression.IEvaluationContext, v expression.IExpNodeVisitor) any {
 	return v.VisitAnd(eCtx, a)
 }
 
@@ -41,18 +41,6 @@ func (a *And) ConvertToRealizedExpression(eCtx expression.IEvaluationContext) st
 	return fmt.Sprintf("(%s)", strings.Join(expressions, " && "))
 }
 
-//
-// func (a *And) EvaluateCore(eCtx interfaces.IEvaluationContext) any {
-// 	result := &evaluator.EvaluationResult{}
-// 	for _, param := range a.Params {
-// 		result = evaluator.EvaluateWithContext(eCtx, param)
-// 		if result.IsFalsy() {
-// 			return result.Value()
-// 		}
-// 	}
-// 	return result.Value()
-// }
-
 func (a *And) TraceFullyRealized() bool {
 	return false
 }
@@ -72,6 +60,7 @@ func (a *And) GetLevel() (level int) {
 func (a *And) GetName() string {
 	return a.Name
 }
+
 func (a *And) SetName(name string) {
 	a.Name = name
 }

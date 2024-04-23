@@ -13,7 +13,7 @@ func (w *WildCard) Value() any {
 	panic("not implemented")
 }
 
-func (w *WildCard) Accept(eCtx expression.IEvaluationContext, v expression.IExpressionNodeVisitor) any {
+func (w *WildCard) Accept(eCtx expression.IEvaluationContext, v expression.IExpNodeVisitor) any {
 	return v.VisitWildCard(eCtx, w)
 }
 
@@ -27,4 +27,12 @@ func (w *WildCard) ConvertToExpression() string {
 
 func (w *WildCard) ConvertToRealizedExpression(eCtx expression.IEvaluationContext) string {
 	return expression.Wildcard
+}
+
+func (w *WildCard) SetContainer(c expression.IContainer) {
+	w.Container = c
+}
+
+func (w *WildCard) GetContainer() expression.IContainer {
+	return w.Container
 }

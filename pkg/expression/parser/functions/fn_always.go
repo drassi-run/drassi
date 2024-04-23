@@ -12,7 +12,7 @@ type AlwaysFn struct {
 	name string
 }
 
-func (a *AlwaysFn) Accept(eCtx expression.IEvaluationContext, v expression.IExpressionNodeVisitor) any {
+func (a *AlwaysFn) Accept(eCtx expression.IEvaluationContext, v expression.IExpNodeVisitor) any {
 	return v.VisitAlwaysFn(eCtx, a)
 }
 

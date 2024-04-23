@@ -16,7 +16,7 @@ func (l *LessThan) Value() any {
 	panic("not implemented")
 }
 
-func (l *LessThan) Accept(eCtx expression.IEvaluationContext, v expression.IExpressionNodeVisitor) any {
+func (l *LessThan) Accept(eCtx expression.IEvaluationContext, v expression.IExpNodeVisitor) any {
 	return v.VisitLessThan(eCtx, l)
 }
 

@@ -22,7 +22,7 @@ func (f *FormatFn) Value() any {
 	panic("not implemented")
 }
 
-func (f *FormatFn) Accept(eCtx expression.IEvaluationContext, v expression.IExpressionNodeVisitor) any {
+func (f *FormatFn) Accept(eCtx expression.IEvaluationContext, v expression.IExpNodeVisitor) any {
 	return v.VisitFormatFn(eCtx, f)
 }
 

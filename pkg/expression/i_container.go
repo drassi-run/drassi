@@ -1,7 +1,7 @@
 package expression
 
 type IContainer interface {
-	IExpressionNode
-	Parameters() []IExpressionNode
-	AddParameter(node IExpressionNode)
+	IExpNode
+	Parameters() []IExpNode
+	AddParameter(node IExpNode)
 }

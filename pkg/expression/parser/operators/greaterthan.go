@@ -16,7 +16,7 @@ func (g *GreaterThan) Value() any {
 	panic("not implemented")
 }
 
-func (g *GreaterThan) Accept(eCtx expression.IEvaluationContext, v expression.IExpressionNodeVisitor) any {
+func (g *GreaterThan) Accept(eCtx expression.IEvaluationContext, v expression.IExpNodeVisitor) any {
 	return v.VisitGreaterThan(eCtx, g)
 }
 

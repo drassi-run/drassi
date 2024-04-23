@@ -16,7 +16,7 @@ func (n *NotEqual) Value() any {
 	panic("not implemented")
 }
 
-func (n *NotEqual) Accept(eCtx expression.IEvaluationContext, v expression.IExpressionNodeVisitor) any {
+func (n *NotEqual) Accept(eCtx expression.IEvaluationContext, v expression.IExpNodeVisitor) any {
 	return v.VisitNotEqual(eCtx, n)
 }
 

@@ -16,7 +16,7 @@ func (o *Or) Value() any {
 	panic("not implemented")
 }
 
-func (o *Or) Accept(eCtx expression.IEvaluationContext, v expression.IExpressionNodeVisitor) any {
+func (o *Or) Accept(eCtx expression.IEvaluationContext, v expression.IExpNodeVisitor) any {
 	return v.VisitOr(eCtx, o)
 }
 

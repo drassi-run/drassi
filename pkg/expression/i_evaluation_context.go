@@ -6,8 +6,8 @@ import (
 
 type IEvaluationContext interface {
 	State() any
-	Masker() interfaces.ISecretMasker
+	Masker() secret_masker.ISecretMasker
 	Trace() ITraceWriter
-	SetTraceResult(node IExpressionNode, result IEvaluationResult)
-	TryGetTraceResult(node IExpressionNode) (exist bool, result string)
+	SetTraceResult(node IExpNode, result IEvaluationResult)
+	TryGetTraceResult(node IExpNode) (exist bool, result string)
 }

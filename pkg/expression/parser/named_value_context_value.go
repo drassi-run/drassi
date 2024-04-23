@@ -10,7 +10,7 @@ type ContextValueNode struct {
 	base.ExpressionNodeBs
 }
 
-func (c *ContextValueNode) Accept(eCtx expression.IEvaluationContext, v expression.IExpressionNodeVisitor) any {
+func (c *ContextValueNode) Accept(eCtx expression.IEvaluationContext, v expression.IExpNodeVisitor) any {
 	return v.VisitContextValueNode(eCtx, c)
 }
 

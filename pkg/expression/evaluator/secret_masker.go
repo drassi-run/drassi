@@ -17,7 +17,7 @@ func (s noOpSecretMasker) AddRegex(pattern string) {
 func (s noOpSecretMasker) AddValue(value string) {
 }
 
-func (s noOpSecretMasker) Clone() interfaces.ISecretMasker {
+func (s noOpSecretMasker) Clone() secret_masker.ISecretMasker {
 	return noOpSecretMasker{originalValueSecrets: s.originalValueSecrets}
 }
 
@@ -25,6 +25,6 @@ func (s noOpSecretMasker) MaskSecrets(input string) string {
 	return input
 }
 
-func newNoOpSecretMasker() interfaces.ISecretMasker {
+func newNoOpSecretMasker() secret_masker.ISecretMasker {
 	return &noOpSecretMasker{}
 }

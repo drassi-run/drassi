@@ -6,7 +6,7 @@ import (
 )
 
 type INamedValue interface {
-	expression.IExpressionNode
+	expression.IExpNode
 }
 
 // NamedValue represent keyword available from parseContext eg: github, job, steps, env

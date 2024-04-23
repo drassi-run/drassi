@@ -16,5 +16,5 @@ type IEvaluationResult interface {
 	ConvertToNumber() float64
 	ConvertToString() string
 	IsPrimitive() bool
-	TryGetCollectionInterface() (ok bool, collection any)
+	IsCollection() (ok bool, collection any)
 }

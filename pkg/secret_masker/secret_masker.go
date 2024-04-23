@@ -1,4 +1,4 @@
-package interfaces
+package secret_masker
 
 // ISecretMasker mask secret when print runner's log in gha console
 // See https://github.com/actions/runner/blob/main/src/Sdk/DTLogging/Logging/ISecretMasker.cs

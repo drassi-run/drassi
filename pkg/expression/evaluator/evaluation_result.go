@@ -59,7 +59,6 @@ func (e *EvaluationResult) traceValue(eCtx expression.IEvaluationContext) {
 	if !e.omitTracing && eCtx.Masker() != nil {
 		e.traceVerbose(eCtx, fmt.Sprintf("=> %s", formatValue(eCtx.Masker(), e.value, e.kind)))
 	}
-
 }
 
 func (e *EvaluationResult) traceVerbose(eCtx expression.IEvaluationContext, msg string) {
@@ -305,8 +304,8 @@ func createIntermediateResult(eCtx expression.IEvaluationContext, obj any) *Eval
 	return newEvaluationResultSkipTrace(eCtx, 0, val, kind, raw)
 }
 
-// TryGetCollectionInterface perform type assert if EvaluationResult's value implement ReadOnlyObj or ReadOnlyArray and return corresponding interface
-func (e *EvaluationResult) TryGetCollectionInterface() (ok bool, collection any) {
+// IsCollection perform type assert if EvaluationResult's value implement ReadOnlyObj or ReadOnlyArray and return corresponding interface
+func (e *EvaluationResult) IsCollection() (ok bool, collection any) {
 	if e.kind == expression.ValueKindObject || e.kind == expression.ValueKindArray {
 		obj := e.value
 		o, isObj := obj.(expression.ReadOnlyObj)

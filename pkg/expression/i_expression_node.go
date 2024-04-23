@@ -1,18 +1,16 @@
 package expression
 
-type IExpressionNode interface {
+type IExpNode interface {
 	ConvertToExpression() string
 	ConvertToRealizedExpression(eCtx IEvaluationContext) string
-
-	// EvaluateCore(eCtx IEvaluationContext) any
-
 	SetContainer(c IContainer)
 	GetContainer() IContainer
-	GetName() string
 	SetName(name string)
+	GetName() string
+	// TraceFullyRealized indicates whether the evaluation result should be stored on the context and used when the realized result is traced.
 	TraceFullyRealized() bool
 	GetLevel() (level int)
-	Accept(eCtx IEvaluationContext, visitor IExpressionNodeVisitor) any
+	Accept(eCtx IEvaluationContext, visitor IExpNodeVisitor) any
 	// Value is only meaningful for Literal node
 	Value() any
 }

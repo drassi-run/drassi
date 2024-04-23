@@ -10,32 +10,20 @@ import (
 type (
 	evaluationContext struct {
 		state        any
-		options      *EvaluationOption
-		trace        expression.ITraceWriter
-		masker       interfaces.ISecretMasker
-		traceResults map[expression.IExpressionNode]string
+		opt          *EvaluationOption
+		traceWriter  expression.ITraceWriter
+		secretMasker secret_masker.ISecretMasker
+		traceResults map[expression.IExpNode]string
 	}
 )
 
 var (
-	ErrorsEmptyTrace        = errors.New("trace must be provided")
-	ErrorsEmptySecretMasker = errors.New("secret masker must be provider")
+	ErrorsEmptyTrace        = errors.New("traceWriter must be provided")
+	ErrorsEmptySecretMasker = errors.New("secret secretMasker must be provider")
 )
 
-func (e *evaluationContext) State() any {
-	return e.state
-}
-
-func (e *evaluationContext) Masker() interfaces.ISecretMasker {
-	return e.masker
-}
-
-func (e *evaluationContext) Trace() expression.ITraceWriter {
-	return e.trace
-}
-
-func newEvaluationContext(trace expression.ITraceWriter, masker interfaces.ISecretMasker, state any, options *EvaluationOption,
-	node expression.IExpressionNode) *evaluationContext {
+func newEvaluationContext(trace expression.ITraceWriter, masker secret_masker.ISecretMasker, state any, opt *EvaluationOption,
+	node expression.IExpNode) *evaluationContext {
 	if trace == nil {
 		panic(ErrorsEmptyTrace)
 	}
@@ -43,24 +31,36 @@ func newEvaluationContext(trace expression.ITraceWriter, masker interfaces.ISecr
 		panic(ErrorsEmptySecretMasker)
 	}
 	e := &evaluationContext{
-		state:  state,
-		trace:  trace,
-		masker: masker,
+		state:        state,
+		traceWriter:  trace,
+		secretMasker: masker,
 	}
-	e.options = options
-	e.traceResults = map[expression.IExpressionNode]string{}
+	e.opt = opt
+	e.traceResults = map[expression.IExpNode]string{}
 	return e
 }
 
-func (e *evaluationContext) SetTraceResult(node expression.IExpressionNode, result expression.IEvaluationResult) {
+func (e *evaluationContext) State() any {
+	return e.state
+}
+
+func (e *evaluationContext) Masker() secret_masker.ISecretMasker {
+	return e.secretMasker
+}
+
+func (e *evaluationContext) Trace() expression.ITraceWriter {
+	return e.traceWriter
+}
+
+func (e *evaluationContext) SetTraceResult(node expression.IExpNode, result expression.IEvaluationResult) {
 	if _, exist := e.traceResults[node]; exist {
 		delete(e.traceResults, node)
 	}
-	value := formatValueFromResult(e.masker, result)
+	value := formatValueFromResult(e.secretMasker, result)
 	e.traceResults[node] = value
 }
 
-func (e *evaluationContext) TryGetTraceResult(node expression.IExpressionNode) (exist bool, result string) {
+func (e *evaluationContext) TryGetTraceResult(node expression.IExpNode) (exist bool, result string) {
 	result, exist = e.traceResults[node]
 	return
 }

@@ -14,7 +14,7 @@ import (
 )
 
 /*
-Example are from https://docs.github.com/en/actions/learn-github-actions/expressions#example-of-literals
+Examples are from https://docs.github.com/en/actions/learn-github-actions/expressions#example-of-literals
 Named values are value that was passed to evaluation context state as a meaningful object.
 Named values contains value that will be taken out when evaluating expression.
 Example of named value: github, job,.... Expression will be something like: ${{ github.actor }}
@@ -250,6 +250,22 @@ func Test_EvaluateNamedValues(t *testing.T) {
 			"evaluate matrix named value", "strategy.matrix", map[string]any{
 				"version": []int{10, 12, 14},
 				"os":      []string{"ubuntu-latest", "windows-latest"},
+			}, func() *runner.TemplateContext {
+				return &runner.TemplateContext{
+					ExpressionValues: map[string]any{
+						"strategy": map[string]any{
+							"matrix": map[string]any{
+								"version": []int{10, 12, 14},
+								"os":      []string{"ubuntu-latest", "windows-latest"},
+							},
+						},
+					},
+				}
+			},
+		},
+		{
+			"evaluate with wildcard", "strategy.*.os", []any{
+				[]string{"ubuntu-latest", "windows-latest"},
 			}, func() *runner.TemplateContext {
 				return &runner.TemplateContext{
 					ExpressionValues: map[string]any{

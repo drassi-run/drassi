@@ -17,14 +17,14 @@ var (
 	ErrorsInvalidFormatArgIndex    = errors.New("invalid format argument index")
 )
 
-type expressionNodeVisitor struct {
+type expNodeVisitor struct {
 }
 
-func (e expressionNodeVisitor) VisitAlwaysFn(eCtx expression.IEvaluationContext, c expression.IExpressionNode) any {
+func (e expNodeVisitor) VisitAlwaysFn(eCtx expression.IEvaluationContext, c expression.IExpNode) any {
 	return true
 }
 
-func (e expressionNodeVisitor) VisitAnd(eCtx expression.IEvaluationContext, c expression.IContainer) any {
+func (e expNodeVisitor) VisitAnd(eCtx expression.IEvaluationContext, c expression.IContainer) any {
 	result := &EvaluationResult{}
 	for _, param := range c.Parameters() {
 		result = evaluateWithContext(eCtx, param)
@@ -35,7 +35,7 @@ func (e expressionNodeVisitor) VisitAnd(eCtx expression.IEvaluationContext, c ex
 	return result.Value()
 }
 
-func (e expressionNodeVisitor) VisitCancelledFn(eCtx expression.IEvaluationContext, c expression.IExpressionNode) any {
+func (e expNodeVisitor) VisitCancelledFn(eCtx expression.IEvaluationContext, c expression.IExpNode) any {
 	tplCtx := eCtx.State().(*runner.TemplateContext)
 	if tplCtx == nil {
 		panic(ErrorsTemplateContextNotFound)
@@ -48,7 +48,7 @@ func (e expressionNodeVisitor) VisitCancelledFn(eCtx expression.IEvaluationConte
 	return execCtx.Job.Status == contexts.ActionResultCancelled
 }
 
-func (e expressionNodeVisitor) VisitContainsFn(eCtx expression.IEvaluationContext, c expression.IContainer) any {
+func (e expNodeVisitor) VisitContainsFn(eCtx expression.IEvaluationContext, c expression.IContainer) any {
 	l := evaluateWithContext(eCtx, c.Parameters()[0])
 	if l.IsPrimitive() {
 		lStr := l.ConvertToString()
@@ -58,7 +58,7 @@ func (e expressionNodeVisitor) VisitContainsFn(eCtx expression.IEvaluationContex
 			return containsIgnoreCase(lStr, rStr)
 		}
 	}
-	isCol, col := l.TryGetCollectionInterface()
+	isCol, col := l.IsCollection()
 	if isCol {
 		if arr, isArr := col.(expression.ReadOnlyArray); isArr && len(arr) > 0 {
 			r := evaluateWithContext(eCtx, c.Parameters()[1])
@@ -73,11 +73,11 @@ func (e expressionNodeVisitor) VisitContainsFn(eCtx expression.IEvaluationContex
 	return false
 }
 
-func (e expressionNodeVisitor) VisitContextValueNode(eCtx expression.IEvaluationContext, c expression.IExpressionNode) any {
+func (e expNodeVisitor) VisitContextValueNode(eCtx expression.IEvaluationContext, c expression.IExpNode) any {
 	return eCtx.State().(*runner.TemplateContext).ExpressionValues[c.GetName()]
 }
 
-func (e expressionNodeVisitor) VisitEndsWithFn(eCtx expression.IEvaluationContext, c expression.IContainer) any {
+func (e expNodeVisitor) VisitEndsWithFn(eCtx expression.IEvaluationContext, c expression.IContainer) any {
 	l := evaluateWithContext(eCtx, c.Parameters()[0])
 	if l.IsPrimitive() {
 		lStr := l.ConvertToString()
@@ -90,7 +90,7 @@ func (e expressionNodeVisitor) VisitEndsWithFn(eCtx expression.IEvaluationContex
 	return false
 }
 
-func (e expressionNodeVisitor) VisitEqual(eCtx expression.IEvaluationContext, c expression.IContainer) any {
+func (e expNodeVisitor) VisitEqual(eCtx expression.IEvaluationContext, c expression.IContainer) any {
 	l := evaluateWithContext(eCtx, c.Parameters()[0])
 	r := evaluateWithContext(eCtx, c.Parameters()[1])
 	return l.AbstractEqual(r)
@@ -98,7 +98,7 @@ func (e expressionNodeVisitor) VisitEqual(eCtx expression.IEvaluationContext, c 
 
 // TODO: composite action
 // See https://github.com/dungdm93/drasi/blob/bfc21ce03ad75998a64d4a4718c7d648fea24f2a/pkg/expression/evaluator/visitor.go#L99
-func (e expressionNodeVisitor) VisitFailureFn(eCtx expression.IEvaluationContext, c expression.IExpressionNode) any {
+func (e expNodeVisitor) VisitFailureFn(eCtx expression.IEvaluationContext, c expression.IExpNode) any {
 	tplCtx := eCtx.State().(*runner.TemplateContext)
 	if tplCtx == nil {
 		panic(ErrorsTemplateContextNotFound)
@@ -108,7 +108,7 @@ func (e expressionNodeVisitor) VisitFailureFn(eCtx expression.IEvaluationContext
 	return execCtx.Job.Status == contexts.ActionResultFailure
 }
 
-func (e expressionNodeVisitor) VisitFormatFn(eCtx expression.IEvaluationContext, c expression.IContainer) any {
+func (e expNodeVisitor) VisitFormatFn(eCtx expression.IEvaluationContext, c expression.IContainer) any {
 	format := evaluateWithContext(eCtx, c.Parameters()[0]).ConvertToString()
 	var idx int
 	result := newFormatResultBuilder(c, eCtx, len(format))
@@ -160,27 +160,27 @@ func (e expressionNodeVisitor) VisitFormatFn(eCtx expression.IEvaluationContext,
 }
 
 // TODO: implement real logic with PipelineContextData
-func (e expressionNodeVisitor) VisitFromJsonFn(eCtx expression.IEvaluationContext, c expression.IContainer) any {
+func (e expNodeVisitor) VisitFromJsonFn(eCtx expression.IEvaluationContext, c expression.IContainer) any {
 	json := evaluateWithContext(eCtx, c.Parameters()[0]).ConvertToString()
 	// return runner.ToPipelineContextData(json)
 	return json
 }
 
-func (e expressionNodeVisitor) VisitGreaterThan(eCtx expression.IEvaluationContext, c expression.IContainer) any {
+func (e expNodeVisitor) VisitGreaterThan(eCtx expression.IEvaluationContext, c expression.IContainer) any {
 	l := evaluateWithContext(eCtx, c.Parameters()[0])
 	r := evaluateWithContext(eCtx, c.Parameters()[1])
 	return l.AbstractGreaterThan(r)
 }
 
-func (e expressionNodeVisitor) VisitGreaterThanOrEqual(eCtx expression.IEvaluationContext, c expression.IContainer) any {
+func (e expNodeVisitor) VisitGreaterThanOrEqual(eCtx expression.IEvaluationContext, c expression.IContainer) any {
 	l := evaluateWithContext(eCtx, c.Parameters()[0])
 	r := evaluateWithContext(eCtx, c.Parameters()[1])
 	return l.AbstractGreaterThan(r)
 }
 
-func (e expressionNodeVisitor) VisitIndex(eCtx expression.IEvaluationContext, c expression.IContainer) any {
+func (e expNodeVisitor) VisitIndex(eCtx expression.IEvaluationContext, c expression.IContainer) any {
 	l := evaluateWithContext(eCtx, c.Parameters()[0])
-	isCol, col := l.TryGetCollectionInterface()
+	isCol, col := l.IsCollection()
 	if !isCol {
 		_, isW := c.Parameters()[1].(*parser.WildCard)
 		if isW {
@@ -188,7 +188,7 @@ func (e expressionNodeVisitor) VisitIndex(eCtx expression.IEvaluationContext, c 
 		}
 		return nil
 	}
-	fa, isFilteredArray := col.(*filteredArray)
+	fa, isFilteredArray := col.(filteredArray)
 	if isFilteredArray {
 		return handleFilteredArray(eCtx, fa, c)
 	}
@@ -203,9 +203,9 @@ func (e expressionNodeVisitor) VisitIndex(eCtx expression.IEvaluationContext, c 
 	return nil
 }
 
-func (e expressionNodeVisitor) VisitJoinFn(eCtx expression.IEvaluationContext, c expression.IContainer) any {
+func (e expNodeVisitor) VisitJoinFn(eCtx expression.IEvaluationContext, c expression.IContainer) any {
 	items := evaluateWithContext(eCtx, c.Parameters()[0])
-	isCol, col := items.TryGetCollectionInterface()
+	isCol, col := items.IsCollection()
 	if isCol {
 		arr, isArr := col.(expression.ReadOnlyArray)
 		if isArr && len(arr) > 0 {
@@ -242,41 +242,41 @@ func (e expressionNodeVisitor) VisitJoinFn(eCtx expression.IEvaluationContext, c
 	return ""
 }
 
-func (e expressionNodeVisitor) VisitLessThan(eCtx expression.IEvaluationContext, c expression.IContainer) any {
+func (e expNodeVisitor) VisitLessThan(eCtx expression.IEvaluationContext, c expression.IContainer) any {
 	left := evaluateWithContext(eCtx, c.Parameters()[0])
 	right := evaluateWithContext(eCtx, c.Parameters()[1])
 	return left.AbstractLessThan(right)
 }
 
-func (e expressionNodeVisitor) VisitLessThanOrEqual(eCtx expression.IEvaluationContext, c expression.IContainer) any {
+func (e expNodeVisitor) VisitLessThanOrEqual(eCtx expression.IEvaluationContext, c expression.IContainer) any {
 	left := evaluateWithContext(eCtx, c.Parameters()[0])
 	right := evaluateWithContext(eCtx, c.Parameters()[1])
 	return left.AbstractLessThanOrEqual(right)
 }
 
-func (e expressionNodeVisitor) VisitLiteral(eCtx expression.IEvaluationContext, c expression.IExpressionNode) any {
+func (e expNodeVisitor) VisitLiteral(eCtx expression.IEvaluationContext, c expression.IExpNode) any {
 	return c.Value()
 }
 
-func (e expressionNodeVisitor) VisitNoopFn(eCtx expression.IEvaluationContext, c expression.IExpressionNode) any {
+func (e expNodeVisitor) VisitNoopFn(eCtx expression.IEvaluationContext, c expression.IExpNode) any {
 	return nil
 }
 
-func (e expressionNodeVisitor) VisitNoopNamedValue(eCtx expression.IEvaluationContext, c expression.IExpressionNode) any {
+func (e expNodeVisitor) VisitNoopNamedValue(eCtx expression.IEvaluationContext, c expression.IExpNode) any {
 	return nil
 }
 
-func (e expressionNodeVisitor) VisitNot(eCtx expression.IEvaluationContext, c expression.IContainer) any {
+func (e expNodeVisitor) VisitNot(eCtx expression.IEvaluationContext, c expression.IContainer) any {
 	return evaluateWithContext(eCtx, c.Parameters()[0]).IsFalsy()
 }
 
-func (e expressionNodeVisitor) VisitNotEqual(eCtx expression.IEvaluationContext, c expression.IContainer) any {
+func (e expNodeVisitor) VisitNotEqual(eCtx expression.IEvaluationContext, c expression.IContainer) any {
 	l := evaluateWithContext(eCtx, c.Parameters()[0])
 	r := evaluateWithContext(eCtx, c.Parameters()[1])
 	return l.AbstractNotEqual(r)
 }
 
-func (e expressionNodeVisitor) VisitOr(eCtx expression.IEvaluationContext, c expression.IContainer) any {
+func (e expNodeVisitor) VisitOr(eCtx expression.IEvaluationContext, c expression.IContainer) any {
 	var result *EvaluationResult
 	for _, p := range c.Parameters() {
 		result = evaluateWithContext(eCtx, p)
@@ -290,7 +290,7 @@ func (e expressionNodeVisitor) VisitOr(eCtx expression.IEvaluationContext, c exp
 	return result.Value()
 }
 
-func (e expressionNodeVisitor) VisitStartsWithFn(eCtx expression.IEvaluationContext, c expression.IContainer) any {
+func (e expNodeVisitor) VisitStartsWithFn(eCtx expression.IEvaluationContext, c expression.IContainer) any {
 	l := evaluateWithContext(eCtx, c.Parameters()[0])
 	if l.IsPrimitive() {
 		lStr := l.ConvertToString()
@@ -305,7 +305,7 @@ func (e expressionNodeVisitor) VisitStartsWithFn(eCtx expression.IEvaluationCont
 
 // TODO: composite action
 // See https://github.com/dungdm93/drasi/blob/bfc21ce03ad75998a64d4a4718c7d648fea24f2a/pkg/expression/evaluator/visitor.go#L320
-func (e expressionNodeVisitor) VisitSuccessFn(eCtx expression.IEvaluationContext, c expression.IExpressionNode) any {
+func (e expNodeVisitor) VisitSuccessFn(eCtx expression.IEvaluationContext, c expression.IExpNode) any {
 	tplCtx := eCtx.State().(*runner.TemplateContext)
 	if tplCtx == nil {
 		panic(ErrorsTemplateContextNotFound)
@@ -314,7 +314,7 @@ func (e expressionNodeVisitor) VisitSuccessFn(eCtx expression.IEvaluationContext
 	return ctx.Job.Status == contexts.ActionResultSuccess
 }
 
-func (e expressionNodeVisitor) VisitWildCard(eCtx expression.IEvaluationContext, c expression.IExpressionNode) any {
+func (e expNodeVisitor) VisitWildCard(eCtx expression.IEvaluationContext, c expression.IExpNode) any {
 	return expression.Wildcard
 }
 

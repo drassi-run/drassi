@@ -9,14 +9,14 @@ import (
 
 type (
 	indexHelper struct {
-		param  expression.IExpressionNode
+		param  expression.IExpNode
 		result *EvaluationResult
 		intIdx *int
 		strIdx *string
 	}
 )
 
-func newIndexHelper(eCtx expression.IEvaluationContext, param expression.IExpressionNode) *indexHelper {
+func newIndexHelper(eCtx expression.IEvaluationContext, param expression.IExpNode) *indexHelper {
 	h := &indexHelper{
 		param:  param,
 		result: evaluateWithContext(eCtx, param),
@@ -77,44 +77,31 @@ func (h *indexHelper) strIndex() string {
 }
 
 type (
-	filteredArray expression.ReadOnlyArray
+	filteredArray = expression.ReadOnlyArray
 )
 
-func newFilteredArray() *filteredArray {
-	a := make([]any, 0)
-	return &filteredArray{a}
+func newFilteredArray() filteredArray {
+	return make([]any, 0)
 }
 
-func (f *filteredArray) Add(v any) {
-	*f = append(*f, v)
-}
-
-func (f *filteredArray) Count() int {
-	return len(*f)
-}
-
-func (f *filteredArray) GetValue(idx int) any {
-	return (*f)[idx]
-}
-
-func handleFilteredArray(eCtx expression.IEvaluationContext, fa *filteredArray, i expression.IContainer) any {
-	result := &filteredArray{}
+func handleFilteredArray(eCtx expression.IEvaluationContext, fa filteredArray, i expression.IContainer) any {
+	result := filteredArray{}
 	idx := newIndexHelper(eCtx, i.Parameters()[1])
-	for _, value := range *fa {
+	for _, value := range fa {
 		item := value
 		itemResult := createIntermediateResult(eCtx, item)
-		ok, nestedCollection := itemResult.TryGetCollectionInterface()
+		ok, nestedCollection := itemResult.IsCollection()
 		if ok {
 			if nestedObj, ok := nestedCollection.(expression.ReadOnlyObj); ok {
 				if idx.isWildcard() {
 					for _, objValue := range nestedObj {
-						result.Add(objValue)
+						result = append(result, objValue)
 					}
 				}
 				if idx.hasStringIndex() {
 					nestedObjVal, exist := nestedObj[idx.strIndex()]
 					if exist {
-						result.Add(nestedObjVal)
+						result = append(result, nestedObjVal)
 					}
 				}
 			}
@@ -122,11 +109,12 @@ func handleFilteredArray(eCtx expression.IEvaluationContext, fa *filteredArray, 
 		if nestedArray, ok := nestedCollection.(expression.ReadOnlyArray); ok {
 			if idx.isWildcard() {
 				for _, value := range nestedArray {
-					result.Add(value)
+					result = append(result, value)
 				}
 			}
 			if idx.hasIntegerIndex() && idx.intIndex() < len(nestedArray) {
-				result.Add(nestedArray[idx.intIndex()])
+				// result.Add(nestedArray[idx.intIndex()])
+				result = append(result, nestedArray[idx.intIndex()])
 			}
 		}
 	}
@@ -138,7 +126,7 @@ func handleObject(eCtx expression.IEvaluationContext, obj expression.ReadOnlyObj
 	if idx.isWildcard() {
 		fa := newFilteredArray()
 		for _, v := range obj {
-			fa.Add(v)
+			fa = append(fa, v)
 		}
 		return fa
 	}
@@ -156,7 +144,7 @@ func handleArray(eCtx expression.IEvaluationContext, arr expression.ReadOnlyArra
 	if idx.isWildcard() {
 		fa := newFilteredArray()
 		for _, value := range arr {
-			fa.Add(value)
+			fa = append(fa, value)
 		}
 		return fa
 	}

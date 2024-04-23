@@ -12,7 +12,7 @@ func (n *noOpNamedValue) Value() any {
 	panic("not implemented")
 }
 
-func (n *noOpNamedValue) Accept(eCtx expression.IEvaluationContext, v expression.IExpressionNodeVisitor) any {
+func (n *noOpNamedValue) Accept(eCtx expression.IEvaluationContext, v expression.IExpNodeVisitor) any {
 	return v.VisitNoopNamedValue(eCtx, n)
 }
 
