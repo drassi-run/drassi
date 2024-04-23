@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	runner "expression_parser/runner"
+	"github.com/dungdm93/drasi/pkg/runner"
 
 	mock "github.com/stretchr/testify/mock"
 )
