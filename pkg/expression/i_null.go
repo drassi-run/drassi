@@ -1,4 +1,4 @@
-package interfaces
+package expression
 
 type INull interface {
 }

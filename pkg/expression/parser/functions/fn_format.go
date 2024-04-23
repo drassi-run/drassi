@@ -7,7 +7,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/dungdm93/drasi/pkg/expression/interfaces"
+	"github.com/dungdm93/drasi/pkg/expression"
 )
 
 var (
@@ -22,7 +22,7 @@ func (f *FormatFn) Value() any {
 	panic("not implemented")
 }
 
-func (f *FormatFn) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
+func (f *FormatFn) Accept(eCtx expression.IEvaluationContext, v expression.IExpressionNodeVisitor) any {
 	return v.VisitFormatFn(eCtx, f)
 }
 
@@ -38,11 +38,11 @@ func (f *FormatFn) GetName() string {
 	return f.Name
 }
 
-func (f *FormatFn) GetContainer() interfaces.IContainer {
+func (f *FormatFn) GetContainer() expression.IContainer {
 	return f.Container
 }
 
-func (f *FormatFn) SetContainer(c interfaces.IContainer) {
+func (f *FormatFn) SetContainer(c expression.IContainer) {
 	f.Container = c
 }
 
@@ -123,7 +123,7 @@ func at(str string, i int) rune {
 
 type formatResultBuilder struct {
 	node     *FormatFn
-	ctx      interfaces.IEvaluationContext
+	ctx      expression.IEvaluationContext
 	segments []string
 	cache    []*argValue
 }
@@ -174,7 +174,7 @@ func (f *FormatFn) ConvertToExpression() string {
 	return fmt.Sprintf("%s(%s)", f.GetName(), strings.Join(params, ", "))
 }
 
-func (f *FormatFn) ConvertToRealizedExpression(eCtx interfaces.IEvaluationContext) string {
+func (f *FormatFn) ConvertToRealizedExpression(eCtx expression.IEvaluationContext) string {
 	exist, result := eCtx.TryGetTraceResult(f)
 	if exist {
 		return result

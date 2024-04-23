@@ -1,4 +1,4 @@
-package interfaces
+package expression
 
 type ITraceWriter interface {
 	Info(msg string)

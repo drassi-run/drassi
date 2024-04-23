@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/dungdm93/drasi/pkg/expression/interfaces"
+	"github.com/dungdm93/drasi/pkg/expression"
 )
 
 type SuccessFn struct {
@@ -15,7 +15,7 @@ func (s *SuccessFn) Value() any {
 	panic("not implemented")
 }
 
-func (s *SuccessFn) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
+func (s *SuccessFn) Accept(eCtx expression.IEvaluationContext, v expression.IExpressionNodeVisitor) any {
 	return v.VisitSuccessFn(eCtx, s)
 }
 func (s *SuccessFn) SetName(name string) {
@@ -26,11 +26,11 @@ func (s *SuccessFn) GetName() string {
 	return s.Name
 }
 
-func (s *SuccessFn) GetContainer() interfaces.IContainer {
+func (s *SuccessFn) GetContainer() expression.IContainer {
 	return s.Container
 }
 
-func (s *SuccessFn) SetContainer(cc interfaces.IContainer) {
+func (s *SuccessFn) SetContainer(cc expression.IContainer) {
 	s.Container = cc
 }
 
@@ -46,7 +46,7 @@ func (s *SuccessFn) ConvertToExpression() string {
 	return fmt.Sprintf("%s(%s)", s.GetName(), strings.Join(params, ", "))
 }
 
-func (s *SuccessFn) ConvertToRealizedExpression(eCtx interfaces.IEvaluationContext) string {
+func (s *SuccessFn) ConvertToRealizedExpression(eCtx expression.IEvaluationContext) string {
 	exist, result := eCtx.TryGetTraceResult(s)
 	if exist {
 		return result

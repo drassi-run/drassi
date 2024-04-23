@@ -7,7 +7,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/dungdm93/drasi/pkg/expression/shared"
+	"github.com/dungdm93/drasi/pkg/expression"
 )
 
 type lexer struct {
@@ -30,7 +30,7 @@ func (l *lexer) tryGetNextToken() (result *lexicalToken, haveToken bool) {
 	// read the first character to determine the type of token.
 	c := string(l.expression[l.index])
 	switch c {
-	case shared.StartGroup:
+	case expression.StartGroup:
 		// function call
 		if l.lastToken != nil && l.lastToken.kind == lexicalTokenKindFunction {
 			result = l.createToken(lexicalTokenKindStartParameters, c, l.index, nil)
@@ -39,10 +39,10 @@ func (l *lexer) tryGetNextToken() (result *lexicalToken, haveToken bool) {
 			result = l.createToken(lexicalTokenKindStartGroup, c, l.index, nil)
 		}
 		l.index++
-	case shared.StartIndex:
+	case expression.StartIndex:
 		result = l.createToken(lexicalTokenKindStartIndex, c, l.index, nil)
 		l.index++
-	case shared.EndGroup:
+	case expression.EndGroup:
 		// function call
 		if len(l.unclosedTokens) > 0 && l.unclosedTokens[len(l.unclosedTokens)-1].kind == lexicalTokenKindStartParameters {
 			result = l.createToken(lexicalTokenKindEndParameters, c, l.index, nil)
@@ -51,13 +51,13 @@ func (l *lexer) tryGetNextToken() (result *lexicalToken, haveToken bool) {
 			result = l.createToken(lexicalTokenKindEndGroup, c, l.index, nil)
 		}
 		l.index++
-	case shared.EndIndex:
+	case expression.EndIndex:
 		result = l.createToken(lexicalTokenKindEndIndex, c, l.index, nil)
 		l.index++
-	case shared.Separator:
+	case expression.Separator:
 		result = l.createToken(lexicalTokenKindSeparator, c, l.index, nil)
 		l.index++
-	case shared.Wildcard:
+	case expression.Wildcard:
 		result = l.createToken(lexicalTokenKindWildcard, c, l.index, nil)
 		l.index++
 	case "'":
@@ -104,22 +104,22 @@ func (l *lexer) readKeywordToken() *lexicalToken {
 			return l.createToken(lexicalTokenKindPropertyName, str, startIndex, nil)
 		}
 		// lexicalTokenKindNull
-		if strings.EqualFold(str, shared.Null) {
+		if strings.EqualFold(str, expression.Null) {
 			return l.createToken(lexicalTokenKindNull, str, startIndex, nil)
 		}
 		// lexicalTokenKindBoolean
-		if strings.EqualFold(str, shared.True) {
+		if strings.EqualFold(str, expression.True) {
 			return l.createToken(lexicalTokenKindBoolean, str, startIndex, true)
 		}
-		if strings.EqualFold(str, shared.False) {
+		if strings.EqualFold(str, expression.False) {
 			return l.createToken(lexicalTokenKindBoolean, str, startIndex, false)
 		}
 		// NaN
-		if strings.EqualFold(str, shared.NaN) {
+		if strings.EqualFold(str, expression.NaN) {
 			return l.createToken(lexicalTokenKindNumber, str, startIndex, math.NaN())
 		}
 		// Infinity
-		if strings.EqualFold(str, shared.Infinity) {
+		if strings.EqualFold(str, expression.Infinity) {
 			return l.createToken(lexicalTokenKindNumber, str, startIndex, math.Inf(1))
 		}
 		// Lookahead
@@ -128,7 +128,7 @@ func (l *lexer) readKeywordToken() *lexicalToken {
 			tmpIndex++
 		}
 		// Fn. Eg: success(), always()
-		if tmpIndex < len(l.expression) && string(l.expression[tmpIndex]) == shared.StartGroup {
+		if tmpIndex < len(l.expression) && string(l.expression[tmpIndex]) == expression.StartGroup {
 			return l.createToken(lexicalTokenKindFunction, str, startIndex, nil)
 		} else {
 			// Named values. Eg github
@@ -197,8 +197,8 @@ func (l *lexer) readOperator() *lexicalToken {
 		l.index++
 		raw := l.expression[start:l.index]
 		switch raw {
-		case shared.NotEqual, shared.GreaterThanOrEqual, shared.LessThanOrEqual, shared.Equal,
-			shared.And, shared.Or:
+		case expression.NotEqual, expression.GreaterThanOrEqual, expression.LessThanOrEqual, expression.Equal,
+			expression.And, expression.Or:
 			return l.createToken(lexicalTokenKindLogicalOperator, raw, start, nil)
 		}
 		l.index--
@@ -207,7 +207,7 @@ func (l *lexer) readOperator() *lexicalToken {
 	// check for one-character operator
 	raw := l.expression[start:l.index]
 	switch raw {
-	case shared.Not, shared.GreaterThan, shared.LessThan:
+	case expression.Not, expression.GreaterThan, expression.LessThan:
 		return l.createToken(lexicalTokenKindLogicalOperator, raw, start, nil)
 	}
 	// unexpected
@@ -243,7 +243,7 @@ func (l *lexer) createToken(kind lexicalTokenKind, rawValue string, startIndex i
 	case lexicalTokenKindWildcard:
 		legal = l.checkLastToken(lexicalTokenKindStartIndex, lexicalTokenKindDereference)
 	case lexicalTokenKindLogicalOperator:
-		if rawValue == shared.Not {
+		if rawValue == expression.Not {
 			legal = l.checkLastToken(lexicalTokenKindNotInitialized, lexicalTokenKindSeparator, lexicalTokenKindStartGroup, lexicalTokenKindStartParameters, lexicalTokenKindStartIndex, lexicalTokenKindLogicalOperator)
 		} else {
 			legal = l.checkLastToken(lexicalTokenKindEndGroup, lexicalTokenKindEndParameters, lexicalTokenKindEndIndex, lexicalTokenKindWildcard, lexicalTokenKindNull, lexicalTokenKindBoolean, lexicalTokenKindNumber, lexicalTokenKindString, lexicalTokenKindPropertyName, lexicalTokenKindNamedValue)
@@ -378,10 +378,10 @@ func parseNumber(str string) (out float64) {
 			}
 		}
 	}
-	if strings.EqualFold(str, shared.Infinity) {
+	if strings.EqualFold(str, expression.Infinity) {
 		return math.Inf(1)
 	}
-	if strings.EqualFold(str, shared.NegativeInfinity) {
+	if strings.EqualFold(str, expression.NegativeInfinity) {
 		return math.Inf(0)
 	}
 	return math.NaN()

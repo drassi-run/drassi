@@ -1,14 +1,14 @@
-package expression
+package test
 
 import (
 	"testing"
 
 	"gotest.tools/v3/assert"
 
+	"github.com/dungdm93/drasi/pkg/expression"
 	"github.com/dungdm93/drasi/pkg/expression/evaluator"
 	"github.com/dungdm93/drasi/pkg/expression/parser"
 	"github.com/dungdm93/drasi/pkg/expression/parser/functions"
-	"github.com/dungdm93/drasi/pkg/expression/shared"
 	"github.com/dungdm93/drasi/pkg/runner"
 	"github.com/dungdm93/drasi/pkg/runner/mocks"
 )
@@ -28,16 +28,16 @@ func Test_EvaluateLiteral(t *testing.T) {
 	type testcase struct {
 		expression        string
 		expectedValue     any
-		expectedValueKind shared.ValueKind
+		expectedValueKind expression.ValueKind
 	}
 	tcs := []testcase{
-		{"false", false, shared.ValueKindBoolean},
-		{"711", float64(711), shared.ValueKindNumber},
-		{"-9.2", -9.2, shared.ValueKindNumber},
-		{"0xff", float64(255), shared.ValueKindNumber},
-		{"-2.99e-2", -0.0299, shared.ValueKindNumber},
-		{"'It''s open source!'", "It's open source!", shared.ValueKindString},
-		{"'Mona the Octocat'", "Mona the Octocat", shared.ValueKindString},
+		{"false", false, expression.ValueKindBoolean},
+		{"711", float64(711), expression.ValueKindNumber},
+		{"-9.2", -9.2, expression.ValueKindNumber},
+		{"0xff", float64(255), expression.ValueKindNumber},
+		{"-2.99e-2", -0.0299, expression.ValueKindNumber},
+		{"'It''s open source!'", "It's open source!", expression.ValueKindString},
+		{"'Mona the Octocat'", "Mona the Octocat", expression.ValueKindString},
 	}
 	var namedValues []parser.INamedValueInfo[parser.INamedValue]
 	var fns []functions.IFnInfo[functions.IFn]
@@ -55,20 +55,20 @@ func Test_EvaluateLogical(t *testing.T) {
 	type testcase struct {
 		expression        string
 		expectedValue     any
-		expectedValueKind shared.ValueKind
+		expectedValueKind expression.ValueKind
 	}
 	tests := []testcase{
-		{"true", true, shared.ValueKindBoolean},
-		{"!true", false, shared.ValueKindBoolean},
-		{"!true && false", false, shared.ValueKindBoolean},
-		{"(1 == 1)", true, shared.ValueKindBoolean},
-		{"(1 == 1) && 2 == 2", true, shared.ValueKindBoolean},
-		{"(1 == 1) && 2 == 2", true, shared.ValueKindBoolean},
-		{"false || true", true, shared.ValueKindBoolean},
-		{"(1 < 2)", true, shared.ValueKindBoolean},
-		{"(1 != 1)", false, shared.ValueKindBoolean},
-		{"(3 <= 3) || (4 > 5)", true, shared.ValueKindBoolean},
-		{"!((3 > 3) && (4 >= 4))", true, shared.ValueKindBoolean},
+		{"true", true, expression.ValueKindBoolean},
+		{"!true", false, expression.ValueKindBoolean},
+		{"!true && false", false, expression.ValueKindBoolean},
+		{"(1 == 1)", true, expression.ValueKindBoolean},
+		{"(1 == 1) && 2 == 2", true, expression.ValueKindBoolean},
+		{"(1 == 1) && 2 == 2", true, expression.ValueKindBoolean},
+		{"false || true", true, expression.ValueKindBoolean},
+		{"(1 < 2)", true, expression.ValueKindBoolean},
+		{"(1 != 1)", false, expression.ValueKindBoolean},
+		{"(3 <= 3) || (4 > 5)", true, expression.ValueKindBoolean},
+		{"!((3 > 3) && (4 >= 4))", true, expression.ValueKindBoolean},
 	}
 	var namedValues []parser.INamedValueInfo[parser.INamedValue]
 	var fns []functions.IFnInfo[functions.IFn]
@@ -86,21 +86,21 @@ func Test_EvaluateSimpleFns(t *testing.T) {
 	type testcase struct {
 		expression        string
 		expectedValue     any
-		expectedValueKind shared.ValueKind
+		expectedValueKind expression.ValueKind
 	}
 	var namedVals []parser.INamedValueInfo[parser.INamedValue]
 	fns := []functions.IFnInfo[functions.IFn]{
 		functions.NewFunctionInfo[functions.AlwaysFn]("always", 0, 2147483647),
 	}
 	tcs := []testcase{
-		{"always()", true, shared.ValueKindBoolean},
-		{"contains('Hello world', 'llo')", true, shared.ValueKindBoolean},
-		{"startsWith('Hello world', 'He')", true, shared.ValueKindBoolean},
-		{"endsWith('Hello world', 'world')", true, shared.ValueKindBoolean},
-		{"format('Hello {0} {1} {2}', 'Mona', 'the', 'Octocat')", "Hello Mona the Octocat", shared.ValueKindString},
-		{"format('{{Hello {0} {1} {2}!}}', 'Mona', 'the', 'Octocat')", "{Hello Mona the Octocat!}", shared.ValueKindString},
+		{"always()", true, expression.ValueKindBoolean},
+		{"contains('Hello world', 'llo')", true, expression.ValueKindBoolean},
+		{"startsWith('Hello world', 'He')", true, expression.ValueKindBoolean},
+		{"endsWith('Hello world', 'world')", true, expression.ValueKindBoolean},
+		{"format('Hello {0} {1} {2}', 'Mona', 'the', 'Octocat')", "Hello Mona the Octocat", expression.ValueKindString},
+		{"format('{{Hello {0} {1} {2}!}}', 'Mona', 'the', 'Octocat')", "{Hello Mona the Octocat!}", expression.ValueKindString},
 		{"fromJson('{\\\"FAVORITE_FRUIT\\\": \\\"APPLE\\\", \\\"FAVORITE_COLOR\\\": \\\"BLUE\\\"}')", "{\\\"FAVORITE_FRUIT\\\": \\\"APPLE\\\", \\\"FAVORITE_COLOR\\\": \\\"BLUE\\\"}",
-			shared.ValueKindString},
+			expression.ValueKindString},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.expression, func(t *testing.T) {
@@ -274,7 +274,7 @@ func Test_EvaluateNamedValues(t *testing.T) {
 			"evaluateWithContext named value", "github.actor", "foo", func() *runner.TemplateContext {
 				return &runner.TemplateContext{
 					ExpressionValues: map[string]any{
-						"github": parser.NewMockGithubContext("foo"),
+						"github": NewMockGithubContext("foo"),
 					},
 				}
 			},

@@ -5,12 +5,12 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/dungdm93/drasi/pkg/expression/interfaces"
+	"github.com/dungdm93/drasi/pkg/expression"
 )
 
 type formatResultBuilder struct {
-	node     interfaces.IContainer
-	ctx      interfaces.IEvaluationContext
+	node     expression.IContainer
+	ctx      expression.IEvaluationContext
 	segments []string
 	cache    []*argValue
 }
@@ -23,7 +23,7 @@ func (a *argValue) StringResult() string {
 	return a.stringResult
 }
 
-func newFormatResultBuilder(node interfaces.IContainer, ctx interfaces.IEvaluationContext, cacheSize int) *formatResultBuilder {
+func newFormatResultBuilder(node expression.IContainer, ctx expression.IEvaluationContext, cacheSize int) *formatResultBuilder {
 	return &formatResultBuilder{node: node, ctx: ctx, segments: []string{}, cache: make([]*argValue, cacheSize)}
 }
 

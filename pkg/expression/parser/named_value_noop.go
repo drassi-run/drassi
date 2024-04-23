@@ -1,7 +1,7 @@
 package parser
 
 import (
-	"github.com/dungdm93/drasi/pkg/expression/interfaces"
+	"github.com/dungdm93/drasi/pkg/expression"
 )
 
 type NoOpNamedValue struct {
@@ -12,7 +12,7 @@ func (n *NoOpNamedValue) Value() any {
 	panic("not implemented")
 }
 
-func (n *NoOpNamedValue) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
+func (n *NoOpNamedValue) Accept(eCtx expression.IEvaluationContext, v expression.IExpressionNodeVisitor) any {
 	return v.VisitNoopNamedValue(eCtx, n)
 }
 
@@ -20,11 +20,11 @@ func (n *NoOpNamedValue) TraceFullyRealized() bool {
 	return true
 }
 
-func (n *NoOpNamedValue) GetContainer() interfaces.IContainer {
+func (n *NoOpNamedValue) GetContainer() expression.IContainer {
 	return n.Container
 }
 
-func (n *NoOpNamedValue) SetContainer(cc interfaces.IContainer) {
+func (n *NoOpNamedValue) SetContainer(cc expression.IContainer) {
 	n.Container = cc
 }
 

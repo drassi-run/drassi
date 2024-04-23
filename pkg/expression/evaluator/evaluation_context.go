@@ -3,16 +3,16 @@ package evaluator
 import (
 	"errors"
 
-	"github.com/dungdm93/drasi/pkg/expression/interfaces"
+	"github.com/dungdm93/drasi/pkg/expression"
 )
 
 type (
 	evaluationContext struct {
 		state        any
 		options      *EvaluationOption
-		trace        interfaces.ITraceWriter
-		masker       interfaces.ISecretMasker
-		traceResults map[interfaces.IExpressionNode]string
+		trace        expression.ITraceWriter
+		masker       expression.ISecretMasker
+		traceResults map[expression.IExpressionNode]string
 	}
 )
 
@@ -25,16 +25,16 @@ func (e *evaluationContext) State() any {
 	return e.state
 }
 
-func (e *evaluationContext) Masker() interfaces.ISecretMasker {
+func (e *evaluationContext) Masker() expression.ISecretMasker {
 	return e.masker
 }
 
-func (e *evaluationContext) Trace() interfaces.ITraceWriter {
+func (e *evaluationContext) Trace() expression.ITraceWriter {
 	return e.trace
 }
 
-func newEvaluationContext(trace interfaces.ITraceWriter, masker interfaces.ISecretMasker, state any, options *EvaluationOption,
-	node interfaces.IExpressionNode) *evaluationContext {
+func newEvaluationContext(trace expression.ITraceWriter, masker expression.ISecretMasker, state any, options *EvaluationOption,
+	node expression.IExpressionNode) *evaluationContext {
 	if trace == nil {
 		panic(ErrorsEmptyTrace)
 	}
@@ -47,11 +47,11 @@ func newEvaluationContext(trace interfaces.ITraceWriter, masker interfaces.ISecr
 		masker: masker,
 	}
 	e.options = options
-	e.traceResults = map[interfaces.IExpressionNode]string{}
+	e.traceResults = map[expression.IExpressionNode]string{}
 	return e
 }
 
-func (e *evaluationContext) SetTraceResult(node interfaces.IExpressionNode, result interfaces.IEvaluationResult) {
+func (e *evaluationContext) SetTraceResult(node expression.IExpressionNode, result expression.IEvaluationResult) {
 	if _, exist := e.traceResults[node]; exist {
 		delete(e.traceResults, node)
 	}
@@ -59,7 +59,7 @@ func (e *evaluationContext) SetTraceResult(node interfaces.IExpressionNode, resu
 	e.traceResults[node] = value
 }
 
-func (e *evaluationContext) TryGetTraceResult(node interfaces.IExpressionNode) (exist bool, result string) {
+func (e *evaluationContext) TryGetTraceResult(node expression.IExpressionNode) (exist bool, result string) {
 	result, exist = e.traceResults[node]
 	return
 }

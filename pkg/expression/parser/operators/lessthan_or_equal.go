@@ -3,7 +3,7 @@ package operators
 import (
 	"fmt"
 
-	"github.com/dungdm93/drasi/pkg/expression/interfaces"
+	"github.com/dungdm93/drasi/pkg/expression"
 	"github.com/dungdm93/drasi/pkg/expression/parser/base"
 )
 
@@ -16,7 +16,7 @@ func (l *LessThanOrEqual) Value() any {
 	panic("not implemented")
 }
 
-func (l *LessThanOrEqual) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
+func (l *LessThanOrEqual) Accept(eCtx expression.IEvaluationContext, v expression.IExpressionNodeVisitor) any {
 	return v.VisitLessThanOrEqual(eCtx, l)
 }
 
@@ -28,7 +28,7 @@ func (l *LessThanOrEqual) ConvertToExpression() string {
 	return fmt.Sprintf("(%s <= %s)", l.Params[0].ConvertToExpression(), l.Params[1].ConvertToExpression())
 }
 
-func (l *LessThanOrEqual) ConvertToRealizedExpression(eCtx interfaces.IEvaluationContext) string {
+func (l *LessThanOrEqual) ConvertToRealizedExpression(eCtx expression.IEvaluationContext) string {
 	exist, result := eCtx.TryGetTraceResult(l)
 	if exist {
 		return result
@@ -36,11 +36,11 @@ func (l *LessThanOrEqual) ConvertToRealizedExpression(eCtx interfaces.IEvaluatio
 	return fmt.Sprintf("(%s <= %s)", l.Params[0].ConvertToRealizedExpression(eCtx), l.Params[1].ConvertToRealizedExpression(eCtx))
 }
 
-func (l *LessThanOrEqual) GetContainer() interfaces.IContainer {
+func (l *LessThanOrEqual) GetContainer() expression.IContainer {
 	return l.Container
 }
 
-func (l *LessThanOrEqual) SetContainer(c interfaces.IContainer) {
+func (l *LessThanOrEqual) SetContainer(c expression.IContainer) {
 	l.Container = c
 }
 

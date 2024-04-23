@@ -1,6 +1,6 @@
 // Package shared include shared knowledge between parser and lexer.
 // Separate package to avoid duplicate with Expression Node structs.
-package shared
+package expression
 
 const (
 	False            = "false"
@@ -12,6 +12,7 @@ const (
 	True             = "true"
 
 	// Punctuation
+
 	StartGroup     = "(" // logical grouping
 	StartIndex     = "["
 	StartParameter = "(" // function call
@@ -23,6 +24,7 @@ const (
 	Wildcard       = "*"
 
 	// Operators
+
 	Not                = "!"
 	NotEqual           = "!="
 	GreaterThan        = ">"

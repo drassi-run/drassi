@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/dungdm93/drasi/pkg/expression/interfaces"
+	"github.com/dungdm93/drasi/pkg/expression"
 )
 
 type FromJsonFn struct {
@@ -15,7 +15,7 @@ func (f *FromJsonFn) Value() any {
 	panic("not implemented")
 }
 
-func (f *FromJsonFn) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
+func (f *FromJsonFn) Accept(eCtx expression.IEvaluationContext, v expression.IExpressionNodeVisitor) any {
 	return v.VisitFromJsonFn(eCtx, f)
 }
 
@@ -31,11 +31,11 @@ func (f *FromJsonFn) GetName() string {
 	return f.Name
 }
 
-func (f *FromJsonFn) GetContainer() interfaces.IContainer {
+func (f *FromJsonFn) GetContainer() expression.IContainer {
 	return f.Container
 }
 
-func (f *FromJsonFn) SetContainer(c interfaces.IContainer) {
+func (f *FromJsonFn) SetContainer(c expression.IContainer) {
 	f.Container = c
 }
 
@@ -47,7 +47,7 @@ func (f *FromJsonFn) ConvertToExpression() string {
 	return fmt.Sprintf("%s(%s)", f.GetName(), strings.Join(params, ", "))
 }
 
-func (f *FromJsonFn) ConvertToRealizedExpression(eCtx interfaces.IEvaluationContext) string {
+func (f *FromJsonFn) ConvertToRealizedExpression(eCtx expression.IEvaluationContext) string {
 	exist, result := eCtx.TryGetTraceResult(f)
 	if exist {
 		return result

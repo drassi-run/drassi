@@ -1,12 +1,12 @@
 package parser
 
 import (
-	"github.com/dungdm93/drasi/pkg/expression/interfaces"
+	"github.com/dungdm93/drasi/pkg/expression"
 	"github.com/dungdm93/drasi/pkg/expression/parser/base"
 )
 
 type INamedValue interface {
-	interfaces.IExpressionNode
+	expression.IExpressionNode
 }
 
 // NamedValue represent keyword available from parseContext eg: github, job, steps, env
@@ -19,7 +19,7 @@ func (n *NamedValue) ConvertToExpression() string {
 	return n.Name
 }
 
-func (n *NamedValue) ConvertToRealizedExpression(eCtx interfaces.IEvaluationContext) string {
+func (n *NamedValue) ConvertToRealizedExpression(eCtx expression.IEvaluationContext) string {
 	exist, result := eCtx.TryGetTraceResult(n)
 	if exist {
 		return result

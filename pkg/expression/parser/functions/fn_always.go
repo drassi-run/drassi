@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/dungdm93/drasi/pkg/expression/interfaces"
+	"github.com/dungdm93/drasi/pkg/expression"
 )
 
 type AlwaysFn struct {
@@ -12,7 +12,7 @@ type AlwaysFn struct {
 	name string
 }
 
-func (a *AlwaysFn) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
+func (a *AlwaysFn) Accept(eCtx expression.IEvaluationContext, v expression.IExpressionNodeVisitor) any {
 	return v.VisitAlwaysFn(eCtx, a)
 }
 
@@ -28,11 +28,11 @@ func (a *AlwaysFn) GetName() string {
 	return a.name
 }
 
-func (a *AlwaysFn) GetContainer() interfaces.IContainer {
+func (a *AlwaysFn) GetContainer() expression.IContainer {
 	return a.Container
 }
 
-func (a *AlwaysFn) SetContainer(c interfaces.IContainer) {
+func (a *AlwaysFn) SetContainer(c expression.IContainer) {
 	a.Container = c
 }
 
@@ -44,7 +44,7 @@ func (a *AlwaysFn) ConvertToExpression() string {
 	return fmt.Sprintf("%s(%s)", a.GetName(), strings.Join(params, ", "))
 }
 
-func (a *AlwaysFn) ConvertToRealizedExpression(eCtx interfaces.IEvaluationContext) string {
+func (a *AlwaysFn) ConvertToRealizedExpression(eCtx expression.IEvaluationContext) string {
 	exist, result := eCtx.TryGetTraceResult(a)
 	if exist {
 		return result

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/dungdm93/drasi/pkg/expression/interfaces"
+	"github.com/dungdm93/drasi/pkg/expression"
 	"github.com/dungdm93/drasi/pkg/expression/parser/base"
 )
 
@@ -17,7 +17,7 @@ func (n *NoOpFn) Value() any {
 	panic("not implemented")
 }
 
-func (n *NoOpFn) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
+func (n *NoOpFn) Accept(eCtx expression.IEvaluationContext, v expression.IExpressionNodeVisitor) any {
 	return v.VisitNoopFn(eCtx, n)
 }
 
@@ -29,11 +29,11 @@ func (n *NoOpFn) TraceFullyRealized() bool {
 	return false
 }
 
-func (n *NoOpFn) GetContainer() interfaces.IContainer {
+func (n *NoOpFn) GetContainer() expression.IContainer {
 	return n.Container
 }
 
-func (n *NoOpFn) SetContainer(c interfaces.IContainer) {
+func (n *NoOpFn) SetContainer(c expression.IContainer) {
 	n.Container = c
 }
 
@@ -56,7 +56,7 @@ func (n *NoOpFn) ConvertToExpression() string {
 	return fmt.Sprintf("%s(%s)", n.GetName(), strings.Join(params, ", "))
 }
 
-func (n *NoOpFn) ConvertToRealizedExpression(eCtx interfaces.IEvaluationContext) string {
+func (n *NoOpFn) ConvertToRealizedExpression(eCtx expression.IEvaluationContext) string {
 	exist, result := eCtx.TryGetTraceResult(n)
 	if exist {
 		return result

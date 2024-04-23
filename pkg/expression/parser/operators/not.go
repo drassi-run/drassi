@@ -3,7 +3,7 @@ package operators
 import (
 	"fmt"
 
-	"github.com/dungdm93/drasi/pkg/expression/interfaces"
+	"github.com/dungdm93/drasi/pkg/expression"
 	"github.com/dungdm93/drasi/pkg/expression/parser/base"
 )
 
@@ -16,7 +16,7 @@ func (n *Not) Value() any {
 	panic("not implemented")
 }
 
-func (n *Not) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
+func (n *Not) Accept(eCtx expression.IEvaluationContext, v expression.IExpressionNodeVisitor) any {
 	return v.VisitNot(eCtx, n)
 }
 
@@ -28,7 +28,7 @@ func (n *Not) ConvertToExpression() string {
 	return fmt.Sprintf("!%s", n.Params[0].ConvertToExpression())
 }
 
-func (n *Not) ConvertToRealizedExpression(eCtx interfaces.IEvaluationContext) string {
+func (n *Not) ConvertToRealizedExpression(eCtx expression.IEvaluationContext) string {
 	exist, result := eCtx.TryGetTraceResult(n)
 	if exist {
 		return result
@@ -36,11 +36,11 @@ func (n *Not) ConvertToRealizedExpression(eCtx interfaces.IEvaluationContext) st
 	return fmt.Sprintf("!%s", n.Params[0].ConvertToRealizedExpression(eCtx))
 }
 
-func (n *Not) GetContainer() interfaces.IContainer {
+func (n *Not) GetContainer() expression.IContainer {
 	return n.Container
 }
 
-func (n *Not) SetContainer(c interfaces.IContainer) {
+func (n *Not) SetContainer(c expression.IContainer) {
 	n.Container = c
 }
 

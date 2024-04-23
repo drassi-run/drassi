@@ -6,15 +6,14 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/dungdm93/drasi/pkg/expression/interfaces"
+	"github.com/dungdm93/drasi/pkg/expression"
 	"github.com/dungdm93/drasi/pkg/expression/parser/base"
-	"github.com/dungdm93/drasi/pkg/expression/shared"
 )
 
 type literal struct {
 	base.ExpressionNodeBs
 	value any
-	kind  shared.ValueKind
+	kind  expression.ValueKind
 	name  string
 }
 
@@ -27,7 +26,7 @@ func newLiteral(val any) *literal {
 	}
 }
 
-func (l *literal) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
+func (l *literal) Accept(eCtx expression.IEvaluationContext, v expression.IExpressionNodeVisitor) any {
 	return v.VisitLiteral(eCtx, l)
 }
 
@@ -43,15 +42,15 @@ func (l *literal) ConvertToExpression() string {
 	return formatValue(nil, l.value, l.kind)
 }
 
-func (l *literal) ConvertToRealizedExpression(eCtx interfaces.IEvaluationContext) string {
+func (l *literal) ConvertToRealizedExpression(eCtx expression.IEvaluationContext) string {
 	return formatValue(nil, l.value, l.kind)
 }
 
-func (l *literal) GetContainer() interfaces.IContainer {
+func (l *literal) GetContainer() expression.IContainer {
 	return l.Container
 }
 
-func (l *literal) SetContainer(c interfaces.IContainer) {
+func (l *literal) SetContainer(c expression.IContainer) {
 	l.Container = c
 }
 
@@ -68,28 +67,28 @@ func (l *literal) SetName(name string) {
 }
 
 // TODO: merge with evaluator.FormatValue
-func formatValue(masker interfaces.ISecretMasker, value any, kind shared.ValueKind) string {
+func formatValue(masker expression.ISecretMasker, value any, kind expression.ValueKind) string {
 	switch kind {
-	case shared.ValueKindNull:
-		return shared.Null
-	case shared.ValueKindBoolean:
+	case expression.ValueKindNull:
+		return expression.Null
+	case expression.ValueKindBoolean:
 		if value.(bool) {
-			return shared.True
+			return expression.True
 		}
-		return shared.False
-	case shared.ValueKindNumber:
+		return expression.False
+	case expression.ValueKindNumber:
 		str := fmt.Sprintf("%f", value.(float64))
 		if masker != nil {
 			return masker.MaskSecrets(str)
 		}
 		return str
-	case shared.ValueKindString:
+	case expression.ValueKindString:
 		str := value.(string)
 		if masker != nil {
 			str = masker.MaskSecrets(str)
 		}
 		return escapeSingleQuotes(str)
-	case shared.ValueKindArray, shared.ValueKindObject:
+	case expression.ValueKindArray, expression.ValueKindObject:
 		return kind.ToString()
 	default:
 		panic(fmt.Errorf("unable to convert to realized expression. Unexpected value kind: %s", kind))
@@ -104,56 +103,56 @@ func escapeSingleQuotes(value string) string {
 }
 
 // TODO: merge with evaluator.ConvertToCanonicalValue
-func convertToCanonicalValue(input any) (value any, kind shared.ValueKind, raw any) {
+func convertToCanonicalValue(input any) (value any, kind expression.ValueKind, raw any) {
 	if input == nil {
-		kind = shared.ValueKindNull
+		kind = expression.ValueKindNull
 		return
 	}
 	if _, castable := input.(bool); castable {
-		kind = shared.ValueKindBoolean
+		kind = expression.ValueKindBoolean
 		value = input
 		return
 	}
 	if _, castable := input.(float64); castable {
 		value = input
-		kind = shared.ValueKindNumber
+		kind = expression.ValueKindNumber
 		return
 	}
 	if _, castable := input.(string); castable {
-		kind = shared.ValueKindString
+		kind = expression.ValueKindString
 		value = input
 		return
 	}
-	if b, castable := input.(interfaces.IBool); castable {
-		kind = shared.ValueKindBoolean
+	if b, castable := input.(expression.IBool); castable {
+		kind = expression.ValueKindBoolean
 		raw = input
 		value = b.GetValue()
 		return
 	}
-	if b, castable := input.(interfaces.INumber); castable {
-		kind = shared.ValueKindNumber
+	if b, castable := input.(expression.INumber); castable {
+		kind = expression.ValueKindNumber
 		raw = input
 		value = b.GetValue()
 		return
 	}
-	if b, castable := input.(interfaces.IString); castable {
-		kind = shared.ValueKindString
+	if b, castable := input.(expression.IString); castable {
+		kind = expression.ValueKindString
 		raw = input
 		value = b.GetValue()
 		return
 	}
-	if _, castable := input.(interfaces.IReadOnlyObj); castable {
-		kind = shared.ValueKindObject
+	if _, castable := input.(expression.IReadOnlyObj); castable {
+		kind = expression.ValueKindObject
 		value = input
 		return
 	}
-	if _, castable := input.(interfaces.IReadOnlyArray); castable {
-		kind = shared.ValueKindArray
+	if _, castable := input.(expression.IReadOnlyArray); castable {
+		kind = expression.ValueKindArray
 		value = input
 		return
 	}
-	if _, castable := input.(interfaces.INull); castable {
-		kind = shared.ValueKindNull
+	if _, castable := input.(expression.INull); castable {
+		kind = expression.ValueKindNull
 		raw = input
 		value = nil
 		return
@@ -183,7 +182,7 @@ func convertToCanonicalValue(input any) (value any, kind shared.ValueKind, raw a
 			isWellKnownNumber = true
 		}
 		if isWellKnownNumber {
-			kind = shared.ValueKindNumber
+			kind = expression.ValueKindNumber
 			value, err := strconv.ParseFloat(input.(string), 64)
 			if err != nil {
 				panic(err)
@@ -191,7 +190,7 @@ func convertToCanonicalValue(input any) (value any, kind shared.ValueKind, raw a
 			return value, kind, nil
 		}
 	}
-	kind = shared.ValueKindObject
+	kind = expression.ValueKindObject
 	value = input
 	return
 }

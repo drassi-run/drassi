@@ -1,19 +1,20 @@
-Supported functions:
-- [x] contains
-- [x] endsWith
-- [x] starsWith
-- [x] join
-- [x] format
-- [x] noop
-- [x] always
+GHA expression parser.
 
-- [x] cancelled
-- [x] success
-
-- [ ] fromJson
-- [ ] toJson
-- [ ] hashFile
-
-Auxiliaries:
-- [ ] Count evaluated memory
-- [ ] Mask secret
+Supported features:
+  Literals:
+      - [x] string, number, boolean
+  
+  Functions:
+    String fmt functions:
+      - [x] contains
+      - [x] endsWith
+      - [x] starsWith
+      - [x] join
+      - [x] format
+    Status check functions:
+      - [x] always
+      - [x] cancelled
+      - [x] success
+      - [ ] fromJson
+      - [ ] toJson
+      - [ ] hashFile

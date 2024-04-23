@@ -1,15 +1,15 @@
 package evaluator
 
 import (
-	"github.com/dungdm93/drasi/pkg/expression/interfaces"
+	"github.com/dungdm93/drasi/pkg/expression"
 )
 
 type evaluationTraceWriter struct {
-	tr interfaces.ITraceWriter
-	se interfaces.ISecretMasker
+	tr expression.ITraceWriter
+	se expression.ISecretMasker
 }
 
-func newEvaluationTraceWriter(tr interfaces.ITraceWriter, se interfaces.ISecretMasker) interfaces.ITraceWriter {
+func newEvaluationTraceWriter(tr expression.ITraceWriter, se expression.ISecretMasker) expression.ITraceWriter {
 	if se == nil {
 		panic("secret masker must be provider")
 	}

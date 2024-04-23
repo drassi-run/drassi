@@ -3,7 +3,7 @@ package operators
 import (
 	"fmt"
 
-	"github.com/dungdm93/drasi/pkg/expression/interfaces"
+	"github.com/dungdm93/drasi/pkg/expression"
 	"github.com/dungdm93/drasi/pkg/expression/parser/base"
 )
 
@@ -16,7 +16,7 @@ func (o *Or) Value() any {
 	panic("not implemented")
 }
 
-func (o *Or) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
+func (o *Or) Accept(eCtx expression.IEvaluationContext, v expression.IExpressionNodeVisitor) any {
 	return v.VisitOr(eCtx, o)
 }
 
@@ -28,7 +28,7 @@ func (o *Or) ConvertToExpression() string {
 	return fmt.Sprintf("%s || %s", o.Params[0].ConvertToExpression(), o.Params[1].ConvertToExpression())
 }
 
-func (o *Or) ConvertToRealizedExpression(eCtx interfaces.IEvaluationContext) string {
+func (o *Or) ConvertToRealizedExpression(eCtx expression.IEvaluationContext) string {
 	exist, result := eCtx.TryGetTraceResult(o)
 	if exist {
 		return result
@@ -36,11 +36,11 @@ func (o *Or) ConvertToRealizedExpression(eCtx interfaces.IEvaluationContext) str
 	return fmt.Sprintf("%s || %s", o.Params[0].ConvertToRealizedExpression(eCtx), o.Params[1].ConvertToRealizedExpression(eCtx))
 }
 
-func (o *Or) GetContainer() interfaces.IContainer {
+func (o *Or) GetContainer() expression.IContainer {
 	return o.Container
 }
 
-func (o *Or) SetContainer(c interfaces.IContainer) {
+func (o *Or) SetContainer(c expression.IContainer) {
 	o.Container = c
 }
 

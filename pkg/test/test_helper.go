@@ -1,7 +1,7 @@
-package parser
+package test
 
 import (
-	"github.com/dungdm93/drasi/pkg/expression/shared"
+	"github.com/dungdm93/drasi/pkg/expression"
 )
 
 type MockGithubContext struct {
@@ -35,6 +35,6 @@ func (g MockGithubContext) GetValue(key string) (exist bool, value any) {
 	return false, nil
 }
 
-func (g MockGithubContext) Enumerator() *shared.Enumerator {
-	return shared.NewEnumerator(g.Actor)
+func (g MockGithubContext) Enumerator() *expression.Enumerator {
+	return expression.NewEnumerator(g.Actor)
 }

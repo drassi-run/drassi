@@ -3,7 +3,7 @@ package operators
 import (
 	"fmt"
 
-	"github.com/dungdm93/drasi/pkg/expression/interfaces"
+	"github.com/dungdm93/drasi/pkg/expression"
 	"github.com/dungdm93/drasi/pkg/expression/parser/base"
 )
 
@@ -16,7 +16,7 @@ func (g *GreaterThan) Value() any {
 	panic("not implemented")
 }
 
-func (g *GreaterThan) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
+func (g *GreaterThan) Accept(eCtx expression.IEvaluationContext, v expression.IExpressionNodeVisitor) any {
 	return v.VisitGreaterThan(eCtx, g)
 }
 
@@ -28,7 +28,7 @@ func (g *GreaterThan) ConvertToExpression() string {
 	return fmt.Sprintf("(%s > %s)", g.Params[0].ConvertToExpression(), g.Params[1].ConvertToExpression())
 }
 
-func (g *GreaterThan) ConvertToRealizedExpression(eCtx interfaces.IEvaluationContext) string {
+func (g *GreaterThan) ConvertToRealizedExpression(eCtx expression.IEvaluationContext) string {
 	exist, result := eCtx.TryGetTraceResult(g)
 	if exist {
 		return result
@@ -36,11 +36,11 @@ func (g *GreaterThan) ConvertToRealizedExpression(eCtx interfaces.IEvaluationCon
 	return fmt.Sprintf("(%s > %s)", g.Params[0].ConvertToRealizedExpression(eCtx), g.Params[1].ConvertToRealizedExpression(eCtx))
 }
 
-func (g *GreaterThan) GetContainer() interfaces.IContainer {
+func (g *GreaterThan) GetContainer() expression.IContainer {
 	return g.Container
 }
 
-func (g *GreaterThan) SetContainer(c interfaces.IContainer) {
+func (g *GreaterThan) SetContainer(c expression.IContainer) {
 	g.Container = c
 }
 

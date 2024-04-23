@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/dungdm93/drasi/pkg/expression/interfaces"
+	"github.com/dungdm93/drasi/pkg/expression"
 )
 
 type FailureFn struct {
@@ -15,7 +15,7 @@ func (f *FailureFn) Value() any {
 	panic("not implemented")
 }
 
-func (f *FailureFn) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
+func (f *FailureFn) Accept(eCtx expression.IEvaluationContext, v expression.IExpressionNodeVisitor) any {
 	return v.VisitFailureFn(eCtx, f)
 }
 
@@ -27,11 +27,11 @@ func (f *FailureFn) GetName() string {
 	return f.Name
 }
 
-func (f *FailureFn) GetContainer() interfaces.IContainer {
+func (f *FailureFn) GetContainer() expression.IContainer {
 	return f.Container
 }
 
-func (f *FailureFn) SetContainer(cc interfaces.IContainer) {
+func (f *FailureFn) SetContainer(cc expression.IContainer) {
 	f.Container = cc
 }
 
@@ -47,7 +47,7 @@ func (f *FailureFn) ConvertToExpression() string {
 	return fmt.Sprintf("%s(%s)", f.GetName(), strings.Join(params, ", "))
 }
 
-func (f *FailureFn) ConvertToRealizedExpression(eCtx interfaces.IEvaluationContext) string {
+func (f *FailureFn) ConvertToRealizedExpression(eCtx expression.IEvaluationContext) string {
 	exist, result := eCtx.TryGetTraceResult(f)
 	if exist {
 		return result

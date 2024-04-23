@@ -1,4 +1,4 @@
-package interfaces
+package expression
 
 // TODO: plan to add bi-cond interface
 

@@ -3,34 +3,33 @@ package parser
 import (
 	"fmt"
 
-	"github.com/dungdm93/drasi/pkg/expression/interfaces"
+	"github.com/dungdm93/drasi/pkg/expression"
 	"github.com/dungdm93/drasi/pkg/expression/parser/operators"
-	"github.com/dungdm93/drasi/pkg/expression/shared"
 )
 
-func newNodeFromToken(tk *lexicalToken) interfaces.IExpressionNode {
+func newNodeFromToken(tk *lexicalToken) expression.IExpressionNode {
 	switch tk.Kind() {
 	case lexicalTokenKindStartIndex, lexicalTokenKindDereference:
 		return new(index)
 	case lexicalTokenKindLogicalOperator:
 		switch tk.RawValue() {
-		case shared.Not:
+		case expression.Not:
 			return new(operators.Not)
-		case shared.NotEqual:
+		case expression.NotEqual:
 			return new(operators.NotEqual)
-		case shared.GreaterThan:
+		case expression.GreaterThan:
 			return new(operators.GreaterThan)
-		case shared.GreaterThanOrEqual:
+		case expression.GreaterThanOrEqual:
 			return new(operators.GreaterThanOrEqual)
-		case shared.LessThan:
+		case expression.LessThan:
 			return new(operators.LessThan)
-		case shared.LessThanOrEqual:
+		case expression.LessThanOrEqual:
 			return new(operators.LessThanOrEqual)
-		case shared.Equal:
+		case expression.Equal:
 			return new(operators.Equal)
-		case shared.And:
+		case expression.And:
 			return new(operators.And)
-		case shared.Or:
+		case expression.Or:
 			return new(operators.Or)
 		default:
 			panic(fmt.Errorf("unexpected logical operator %s when creating node ", tk.RawValue()))

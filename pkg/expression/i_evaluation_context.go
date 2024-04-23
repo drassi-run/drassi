@@ -1,4 +1,4 @@
-package interfaces
+package expression
 
 type IEvaluationContext interface {
 	State() any

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/dungdm93/drasi/pkg/expression/interfaces"
+	"github.com/dungdm93/drasi/pkg/expression"
 	"github.com/dungdm93/drasi/pkg/expression/parser/base"
 )
 
@@ -13,7 +13,7 @@ type And struct {
 	base.ExpressionNodeBs
 }
 
-func (a *And) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
+func (a *And) Accept(eCtx expression.IEvaluationContext, v expression.IExpressionNodeVisitor) any {
 	return v.VisitAnd(eCtx, a)
 }
 
@@ -29,7 +29,7 @@ func (a *And) ConvertToExpression() string {
 	return fmt.Sprintf("(%s)", strings.Join(expressions, " && "))
 }
 
-func (a *And) ConvertToRealizedExpression(eCtx interfaces.IEvaluationContext) string {
+func (a *And) ConvertToRealizedExpression(eCtx expression.IEvaluationContext) string {
 	exist, result := eCtx.TryGetTraceResult(a)
 	if exist {
 		return result
@@ -57,11 +57,11 @@ func (a *And) TraceFullyRealized() bool {
 	return false
 }
 
-func (a *And) GetContainer() interfaces.IContainer {
+func (a *And) GetContainer() expression.IContainer {
 	return a.Container
 }
 
-func (a *And) SetContainer(c interfaces.IContainer) {
+func (a *And) SetContainer(c expression.IContainer) {
 	a.Container = c
 }
 

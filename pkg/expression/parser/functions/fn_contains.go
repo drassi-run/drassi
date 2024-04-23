@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/dungdm93/drasi/pkg/expression/interfaces"
+	"github.com/dungdm93/drasi/pkg/expression"
 )
 
 type ContainsFn struct {
 	Fn
 }
 
-func (c *ContainsFn) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
+func (c *ContainsFn) Accept(eCtx expression.IEvaluationContext, v expression.IExpressionNodeVisitor) any {
 	return v.VisitContainsFn(eCtx, c)
 }
 
@@ -62,7 +62,7 @@ func (c *ContainsFn) ConvertToExpression() string {
 	return fmt.Sprintf("%s(%s)", c.GetName(), strings.Join(params, ", "))
 }
 
-func (c *ContainsFn) ConvertToRealizedExpression(eCtx interfaces.IEvaluationContext) string {
+func (c *ContainsFn) ConvertToRealizedExpression(eCtx expression.IEvaluationContext) string {
 	exist, result := eCtx.TryGetTraceResult(c)
 	if exist {
 		return result
@@ -82,10 +82,10 @@ func (c *ContainsFn) GetName() string {
 	return c.Name
 }
 
-func (c *ContainsFn) GetContainer() interfaces.IContainer {
+func (c *ContainsFn) GetContainer() expression.IContainer {
 	return c.Container
 }
 
-func (c *ContainsFn) SetContainer(cc interfaces.IContainer) {
+func (c *ContainsFn) SetContainer(cc expression.IContainer) {
 	c.Container = cc
 }

@@ -1,8 +1,4 @@
-package interfaces
-
-import (
-	"github.com/dungdm93/drasi/pkg/expression/shared"
-)
+package expression
 
 type IReadOnlyObj interface {
 	Count() int
@@ -10,5 +6,5 @@ type IReadOnlyObj interface {
 	Values() []any
 	ContainsKey(key string) (exist bool)
 	GetValue(key string) (exist bool, value any)
-	Enumerator() *shared.Enumerator
+	Enumerator() *Enumerator
 }

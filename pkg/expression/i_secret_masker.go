@@ -1,4 +1,4 @@
-package interfaces
+package expression
 
 type ISecretMasker interface {
 	AddRegex(pattern string)

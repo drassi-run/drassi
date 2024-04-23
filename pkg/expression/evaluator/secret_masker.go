@@ -1,7 +1,7 @@
 package evaluator
 
 import (
-	"github.com/dungdm93/drasi/pkg/expression/interfaces"
+	"github.com/dungdm93/drasi/pkg/expression"
 )
 
 // TODO next phase
@@ -17,7 +17,7 @@ func (s secretMasker) AddRegex(pattern string) {
 func (s secretMasker) AddValue(value string) {
 }
 
-func (s secretMasker) Clone() interfaces.ISecretMasker {
+func (s secretMasker) Clone() expression.ISecretMasker {
 	return secretMasker{originalValueSecrets: s.originalValueSecrets}
 }
 
@@ -25,6 +25,6 @@ func (s secretMasker) MaskSecrets(input string) string {
 	return input
 }
 
-func newSecretMasker() interfaces.ISecretMasker {
+func newSecretMasker() expression.ISecretMasker {
 	return &secretMasker{}
 }

@@ -1,4 +1,4 @@
-package interfaces
+package expression
 
 type IExpressionNode interface {
 	ConvertToExpression() string

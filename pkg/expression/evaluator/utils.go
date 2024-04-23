@@ -6,32 +6,31 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/dungdm93/drasi/pkg/expression/interfaces"
-	"github.com/dungdm93/drasi/pkg/expression/shared"
+	"github.com/dungdm93/drasi/pkg/expression"
 )
 
-func formatValue(masker interfaces.ISecretMasker, value any, kind shared.ValueKind) string {
+func formatValue(masker expression.ISecretMasker, value any, kind expression.ValueKind) string {
 	switch kind {
-	case shared.ValueKindNull:
-		return shared.Null
-	case shared.ValueKindBoolean:
+	case expression.ValueKindNull:
+		return expression.Null
+	case expression.ValueKindBoolean:
 		if value.(bool) {
-			return shared.True
+			return expression.True
 		}
-		return shared.False
-	case shared.ValueKindNumber:
+		return expression.False
+	case expression.ValueKindNumber:
 		str := fmt.Sprintf("%f", value.(float64))
 		if masker != nil {
 			return masker.MaskSecrets(str)
 		}
 		return str
-	case shared.ValueKindString:
+	case expression.ValueKindString:
 		str := value.(string)
 		if masker != nil {
 			str = masker.MaskSecrets(str)
 		}
 		return escapeSingleQuotes(str)
-	case shared.ValueKindArray, shared.ValueKindObject:
+	case expression.ValueKindArray, expression.ValueKindObject:
 		return kind.ToString()
 	default:
 		panic(fmt.Errorf("unable to convert to realized expression. Unexpected value kind: %s", kind))
@@ -45,13 +44,13 @@ func escapeSingleQuotes(value string) string {
 	return strings.ReplaceAll(value, "'", "''")
 }
 
-func formatValueFromResult(masker interfaces.ISecretMasker, result interfaces.IEvaluationResult) string {
+func formatValueFromResult(masker expression.ISecretMasker, result expression.IEvaluationResult) string {
 	return formatValue(masker, result.Value(), result.GetKind())
 }
 
-func isPrimitive(kind shared.ValueKind) bool {
+func isPrimitive(kind expression.ValueKind) bool {
 	switch kind {
-	case shared.ValueKindNull, shared.ValueKindBoolean, shared.ValueKindNumber, shared.ValueKindString:
+	case expression.ValueKindNull, expression.ValueKindBoolean, expression.ValueKindNumber, expression.ValueKindString:
 		return true
 	default:
 		return false
@@ -80,10 +79,10 @@ func parseNumber(str string) (out float64) {
 			}
 		}
 	}
-	if strings.EqualFold(str, shared.Infinity) {
+	if strings.EqualFold(str, expression.Infinity) {
 		return math.Inf(1)
 	}
-	if strings.EqualFold(str, shared.NegativeInfinity) {
+	if strings.EqualFold(str, expression.NegativeInfinity) {
 		return math.Inf(0)
 	}
 	return math.NaN()

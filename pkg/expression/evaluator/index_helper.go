@@ -3,21 +3,20 @@ package evaluator
 import (
 	"math"
 
-	"github.com/dungdm93/drasi/pkg/expression/interfaces"
+	"github.com/dungdm93/drasi/pkg/expression"
 	"github.com/dungdm93/drasi/pkg/expression/parser"
-	"github.com/dungdm93/drasi/pkg/expression/shared"
 )
 
 type (
 	indexHelper struct {
-		param  interfaces.IExpressionNode
+		param  expression.IExpressionNode
 		result *EvaluationResult
 		intIdx *int
 		strIdx *string
 	}
 )
 
-func newIndexHelper(eCtx interfaces.IEvaluationContext, param interfaces.IExpressionNode) *indexHelper {
+func newIndexHelper(eCtx expression.IEvaluationContext, param expression.IExpressionNode) *indexHelper {
 	h := &indexHelper{
 		param:  param,
 		result: evaluateWithContext(eCtx, param),
@@ -99,11 +98,11 @@ func (f *filteredArray) GetValue(idx int) any {
 	return f.a[idx]
 }
 
-func (f *filteredArray) Enumerator() *shared.Enumerator {
-	return shared.NewEnumerator(f.a)
+func (f *filteredArray) Enumerator() *expression.Enumerator {
+	return expression.NewEnumerator(f.a)
 }
 
-func handleFilteredArray(eCtx interfaces.IEvaluationContext, fa *filteredArray, i interfaces.IContainer) any {
+func handleFilteredArray(eCtx expression.IEvaluationContext, fa *filteredArray, i expression.IContainer) any {
 	result := &filteredArray{}
 	idx := newIndexHelper(eCtx, i.Parameters()[1])
 	ef := fa.Enumerator()
@@ -112,7 +111,7 @@ func handleFilteredArray(eCtx interfaces.IEvaluationContext, fa *filteredArray, 
 		itemResult := createIntermediateResult(eCtx, item)
 		ok, nestedCollection := itemResult.TryGetCollectionInterface()
 		if ok {
-			if nestedObj, ok := nestedCollection.(interfaces.IReadOnlyObj); ok {
+			if nestedObj, ok := nestedCollection.(expression.IReadOnlyObj); ok {
 				if idx.isWildcard() {
 					of := nestedObj.Enumerator()
 					for of.Next() {
@@ -127,7 +126,7 @@ func handleFilteredArray(eCtx interfaces.IEvaluationContext, fa *filteredArray, 
 				}
 			}
 		}
-		if nestedArray, ok := nestedCollection.(interfaces.IReadOnlyArray); ok {
+		if nestedArray, ok := nestedCollection.(expression.IReadOnlyArray); ok {
 			if idx.isWildcard() {
 				af := nestedArray.Enumerator()
 				for af.Next() {
@@ -143,7 +142,7 @@ func handleFilteredArray(eCtx interfaces.IEvaluationContext, fa *filteredArray, 
 	return result
 }
 
-func handleObject(eCtx interfaces.IEvaluationContext, obj interfaces.IReadOnlyObj, i interfaces.IContainer) any {
+func handleObject(eCtx expression.IEvaluationContext, obj expression.IReadOnlyObj, i expression.IContainer) any {
 	idx := newIndexHelper(eCtx, i.Parameters()[1])
 	if idx.isWildcard() {
 		fa := newFilteredArray()
@@ -161,7 +160,7 @@ func handleObject(eCtx interfaces.IEvaluationContext, obj interfaces.IReadOnlyOb
 	return nil
 }
 
-func handleArray(eCtx interfaces.IEvaluationContext, arr interfaces.IReadOnlyArray, i interfaces.IContainer) any {
+func handleArray(eCtx expression.IEvaluationContext, arr expression.IReadOnlyArray, i expression.IContainer) any {
 	idx := newIndexHelper(eCtx, i.Parameters()[1])
 	if idx.isWildcard() {
 		fa := newFilteredArray()

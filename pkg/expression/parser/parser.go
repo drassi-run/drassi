@@ -5,10 +5,9 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/dungdm93/drasi/pkg/expression/interfaces"
+	"github.com/dungdm93/drasi/pkg/expression"
 	"github.com/dungdm93/drasi/pkg/expression/parser/functions"
 	"github.com/dungdm93/drasi/pkg/expression/parser/operators"
-	"github.com/dungdm93/drasi/pkg/expression/shared"
 )
 
 const (
@@ -31,7 +30,7 @@ type (
 		AllowUnknownKeywords bool
 		FnsInfo              map[string]functions.IFnInfo[functions.IFn]
 		NamedValsInfo        map[string]INamedValueInfo[INamedValue]
-		Operands             []interfaces.IExpressionNode
+		Operands             []expression.IExpressionNode
 		Operators            []*lexicalToken
 	}
 )
@@ -69,11 +68,11 @@ Create Tree
 */
 
 func CreateTree(expression string, namedValues []INamedValueInfo[INamedValue],
-	functions []functions.IFnInfo[functions.IFn]) (astRoot interfaces.IExpressionNode) {
+	functions []functions.IFnInfo[functions.IFn]) (astRoot expression.IExpressionNode) {
 	return createTree(newParseContext(expression, namedValues, functions, false))
 }
 
-func createTree(pCtx *parseContext) interfaces.IExpressionNode {
+func createTree(pCtx *parseContext) expression.IExpressionNode {
 	for {
 		token, haveToken := pCtx.Lexer.tryGetNextToken()
 		pCtx.Token = token
@@ -121,7 +120,7 @@ func createTree(pCtx *parseContext) interfaces.IExpressionNode {
 	if len(pCtx.Operands) > 1 {
 		panic("invalid number of operands")
 	}
-	root := pCtx.Operands[0].(interfaces.IExpressionNode)
+	root := pCtx.Operands[0].(expression.IExpressionNode)
 	if err := checkMaxDepth(pCtx, root, 1); err != nil {
 		panic(err)
 	}
@@ -158,7 +157,7 @@ func pushOperand(pCtx *parseContext) {
 	case lexicalTokenKindFunction:
 		fn := pCtx.Token.RawValue()
 		if fnInfo := tryGetFnInfo(pCtx, fn); fnInfo != nil {
-			node := fnInfo.CreateNode().(functions.IFn).(interfaces.IExpressionNode)
+			node := fnInfo.CreateNode().(functions.IFn).(expression.IExpressionNode)
 			node.SetName(fn)
 			pCtx.Operands = append(pCtx.Operands, node)
 		} else {
@@ -173,7 +172,7 @@ func pushOperand(pCtx *parseContext) {
 	case lexicalTokenKindNamedValue:
 		name := pCtx.Token.RawValue()
 		if namedValInfo, exist := pCtx.NamedValsInfo[name]; exist {
-			node := namedValInfo.CreateNode().(INamedValue).(interfaces.IExpressionNode)
+			node := namedValInfo.CreateNode().(INamedValue).(expression.IExpressionNode)
 			node.SetName(name)
 			pCtx.Operands = append(pCtx.Operands, node)
 		} else {
@@ -207,7 +206,7 @@ func flushTopOperator(pCtx *parseContext) {
 	tk := pCtx.Operators[len(pCtx.Operators)-1]
 	pCtx.Operators = pCtx.Operators[:len(pCtx.Operators)-1]
 
-	node := newNodeFromToken(tk).(interfaces.IContainer)
+	node := newNodeFromToken(tk).(expression.IContainer)
 	operands := popOperands(pCtx, tk.OperandCount())
 	for _, o := range operands {
 		if _, isAnd := node.(*operators.And); isAnd {
@@ -244,8 +243,8 @@ func strictPopOnOperator(pCtx *parseContext, expectedKind lexicalTokenKind) (pop
 }
 
 // popOperands remove the number
-func popOperands(pCtx *parseContext, count int) []interfaces.IExpressionNode {
-	var result []interfaces.IExpressionNode
+func popOperands(pCtx *parseContext, count int) []expression.IExpressionNode {
+	var result []expression.IExpressionNode
 	for i := 0; i < count; i++ {
 		result = append(result, pCtx.Operands[len(pCtx.Operands)-1])
 		pCtx.Operands = pCtx.Operands[:len(pCtx.Operands)-1]
@@ -265,7 +264,7 @@ func flushTopEndIndex(pCtx *parseContext) {
 	strictPopOnOperator(pCtx, lexicalTokenKindEndIndex)
 	// Pop start index
 	tk := strictPopOnOperator(pCtx, lexicalTokenKindStartIndex)
-	node := newNodeFromToken(tk).(interfaces.IContainer)
+	node := newNodeFromToken(tk).(expression.IContainer)
 
 	ops := popOperands(pCtx, tk.OperandCount())
 	for _, o := range ops {
@@ -348,11 +347,11 @@ func fnLimitCheck(f functions.IFn, expected functions.IFnInfo[functions.IFn]) (e
 	return err
 }
 
-func checkMaxDepth(pCtx *parseContext, node interfaces.IExpressionNode, depth int) (err error) {
-	if depth > shared.MaxDepth {
+func checkMaxDepth(pCtx *parseContext, node expression.IExpressionNode, depth int) (err error) {
+	if depth > expression.MaxDepth {
 		return ErrorsMaxDepthExceeded
 	}
-	if container, isContainer := node.(interfaces.IContainer); isContainer {
+	if container, isContainer := node.(expression.IContainer); isContainer {
 		for _, param := range container.Parameters() {
 			_ = checkMaxDepth(pCtx, param, depth+1)
 		}

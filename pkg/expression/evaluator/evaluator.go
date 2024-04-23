@@ -7,11 +7,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/dungdm93/drasi/pkg/expression/interfaces"
-	"github.com/dungdm93/drasi/pkg/expression/shared"
+	"github.com/dungdm93/drasi/pkg/expression"
 )
 
-func evaluateWithContext(eCtx interfaces.IEvaluationContext, e interfaces.IExpressionNode) *EvaluationResult {
+func evaluateWithContext(eCtx expression.IEvaluationContext, e expression.IExpressionNode) *EvaluationResult {
 	visitor := new(expressionNodeVisitor)
 
 	var level int
@@ -29,7 +28,7 @@ func evaluateWithContext(eCtx interfaces.IEvaluationContext, e interfaces.IExpre
 	return result
 }
 
-func Evaluate(e interfaces.IExpressionNode, trace interfaces.ITraceWriter, masker interfaces.ISecretMasker, state any, opt *EvaluationOption) *EvaluationResult {
+func Evaluate(e expression.IExpressionNode, trace expression.ITraceWriter, masker expression.ISecretMasker, state any, opt *EvaluationOption) *EvaluationResult {
 	if e.GetContainer() != nil {
 		panic(errors.New("evaluate can only be called from root node"))
 	}
@@ -46,11 +45,11 @@ func Evaluate(e interfaces.IExpressionNode, trace interfaces.ITraceWriter, maske
 	return result
 }
 
-func traceTreeResult(eCtx *evaluationContext, e interfaces.IExpressionNode, result any, kind shared.ValueKind) {
+func traceTreeResult(eCtx *evaluationContext, e expression.IExpressionNode, result any, kind expression.ValueKind) {
 	realizedExp := e.ConvertToRealizedExpression(eCtx)
 	traceValue := formatValue(eCtx.masker, result, kind)
 	if !strings.EqualFold(realizedExp, traceValue) {
-		if kind == shared.ValueKindNumber && realizedExp == fmt.Sprintf("'%s'", traceValue) {
+		if kind == expression.ValueKindNumber && realizedExp == fmt.Sprintf("'%s'", traceValue) {
 			// Don't bother tracing the realized expression when the result is a number and the
 			// realized expression is a precisely matching string.
 		} else {
@@ -60,56 +59,56 @@ func traceTreeResult(eCtx *evaluationContext, e interfaces.IExpressionNode, resu
 	eCtx.trace.Info(fmt.Sprintf("Result: %s", traceValue))
 }
 
-func convertToCanonicalValue(input any) (value any, kind shared.ValueKind, raw any) {
+func convertToCanonicalValue(input any) (value any, kind expression.ValueKind, raw any) {
 	if input == nil {
-		kind = shared.ValueKindNull
+		kind = expression.ValueKindNull
 		return
 	}
 	if _, castable := input.(bool); castable {
-		kind = shared.ValueKindBoolean
+		kind = expression.ValueKindBoolean
 		value = input
 		return
 	}
 	if _, castable := input.(float64); castable {
 		value = input
-		kind = shared.ValueKindNumber
+		kind = expression.ValueKindNumber
 		return
 	}
 	if _, castable := input.(string); castable {
-		kind = shared.ValueKindString
+		kind = expression.ValueKindString
 		value = input
 		return
 	}
-	if b, castable := input.(interfaces.IBool); castable {
-		kind = shared.ValueKindBoolean
+	if b, castable := input.(expression.IBool); castable {
+		kind = expression.ValueKindBoolean
 		raw = input
 		value = b.GetValue()
 		return
 	}
-	if b, castable := input.(interfaces.INumber); castable {
-		kind = shared.ValueKindNumber
+	if b, castable := input.(expression.INumber); castable {
+		kind = expression.ValueKindNumber
 		raw = input
 		value = b.GetValue()
 		return
 	}
-	if b, castable := input.(interfaces.IString); castable {
-		kind = shared.ValueKindString
+	if b, castable := input.(expression.IString); castable {
+		kind = expression.ValueKindString
 		raw = input
 		value = b.GetValue()
 		return
 	}
-	if _, castable := input.(interfaces.IReadOnlyObj); castable {
-		kind = shared.ValueKindObject
+	if _, castable := input.(expression.IReadOnlyObj); castable {
+		kind = expression.ValueKindObject
 		value = input
 		return
 	}
-	if _, castable := input.(interfaces.IReadOnlyArray); castable {
-		kind = shared.ValueKindArray
+	if _, castable := input.(expression.IReadOnlyArray); castable {
+		kind = expression.ValueKindArray
 		value = input
 		return
 	}
-	if _, castable := input.(interfaces.INull); castable {
-		kind = shared.ValueKindNull
+	if _, castable := input.(expression.INull); castable {
+		kind = expression.ValueKindNull
 		raw = input
 		value = nil
 		return
@@ -139,7 +138,7 @@ func convertToCanonicalValue(input any) (value any, kind shared.ValueKind, raw a
 			isWellKnownNumber = true
 		}
 		if isWellKnownNumber {
-			kind = shared.ValueKindNumber
+			kind = expression.ValueKindNumber
 			value, err := strconv.ParseFloat(input.(string), 64)
 			if err != nil {
 				panic(err)
@@ -147,7 +146,7 @@ func convertToCanonicalValue(input any) (value any, kind shared.ValueKind, raw a
 			return value, kind, nil
 		}
 	}
-	kind = shared.ValueKindObject
+	kind = expression.ValueKindObject
 	value = input
 	return
 }

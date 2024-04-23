@@ -1,7 +1,7 @@
 package parser
 
 import (
-	"github.com/dungdm93/drasi/pkg/expression/shared"
+	"github.com/dungdm93/drasi/pkg/expression"
 )
 
 // lexicalToken is only usable when created with lexer
@@ -36,7 +36,7 @@ func (t *lexicalToken) Associativity() associativity {
 	if t.kind == lexicalTokenKindStartGroup {
 		return associativityNone
 	}
-	if t.kind == lexicalTokenKindLogicalOperator && t.rawValue == shared.Not {
+	if t.kind == lexicalTokenKindLogicalOperator && t.rawValue == expression.Not {
 		return associativityRTL
 	}
 	if t.IsOperator() {
@@ -64,15 +64,15 @@ func (t *lexicalToken) Precedence() int {
 		return 19
 	case lexicalTokenKindLogicalOperator:
 		switch t.rawValue {
-		case shared.Not:
+		case expression.Not:
 			return 16
-		case shared.GreaterThan, shared.GreaterThanOrEqual, shared.LessThan, shared.LessThanOrEqual:
+		case expression.GreaterThan, expression.GreaterThanOrEqual, expression.LessThan, expression.LessThanOrEqual:
 			return 11
-		case shared.NotEqual, shared.Equal:
+		case expression.NotEqual, expression.Equal:
 			return 10
-		case shared.And:
+		case expression.And:
 			return 6
-		case shared.Or:
+		case expression.Or:
 			return 5
 		}
 		break
@@ -88,9 +88,9 @@ func (t *lexicalToken) OperandCount() int {
 		return 2
 	case lexicalTokenKindLogicalOperator:
 		switch t.rawValue {
-		case shared.Not:
+		case expression.Not:
 			return 1
-		case shared.GreaterThan, shared.GreaterThanOrEqual, shared.LessThan, shared.LessThanOrEqual, shared.Equal, shared.NotEqual, shared.And, shared.Or:
+		case expression.GreaterThan, expression.GreaterThanOrEqual, expression.LessThan, expression.LessThanOrEqual, expression.Equal, expression.NotEqual, expression.And, expression.Or:
 			return 2
 		}
 	}

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/dungdm93/drasi/pkg/expression/interfaces"
+	"github.com/dungdm93/drasi/pkg/expression"
 )
 
 type CancelledFn struct {
@@ -16,7 +16,7 @@ var (
 	ErrorsExecutionContextNotFound = "execution context not found"
 )
 
-func (c *CancelledFn) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
+func (c *CancelledFn) Accept(eCtx expression.IEvaluationContext, v expression.IExpressionNodeVisitor) any {
 	return v.VisitCancelledFn(eCtx, c)
 }
 
@@ -32,7 +32,7 @@ func (c *CancelledFn) ConvertToExpression() string {
 	return fmt.Sprintf("%s(%s)", c.GetName(), strings.Join(params, ", "))
 }
 
-func (c *CancelledFn) ConvertToRealizedExpression(eCtx interfaces.IEvaluationContext) string {
+func (c *CancelledFn) ConvertToRealizedExpression(eCtx expression.IEvaluationContext) string {
 	exist, result := eCtx.TryGetTraceResult(c)
 	if exist {
 		return result
@@ -52,11 +52,11 @@ func (c *CancelledFn) GetName() string {
 	return c.Name
 }
 
-func (c *CancelledFn) GetContainer() interfaces.IContainer {
+func (c *CancelledFn) GetContainer() expression.IContainer {
 	return c.Container
 }
 
-func (c *CancelledFn) SetContainer(cc interfaces.IContainer) {
+func (c *CancelledFn) SetContainer(cc expression.IContainer) {
 	c.Container = cc
 }
 

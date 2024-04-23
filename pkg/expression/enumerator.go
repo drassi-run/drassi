@@ -1,4 +1,4 @@
-package shared
+package expression
 
 // Enumerator represents a type that can iterate over a collection of values.
 type Enumerator struct {

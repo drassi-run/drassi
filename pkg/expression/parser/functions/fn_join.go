@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/dungdm93/drasi/pkg/expression/interfaces"
+	"github.com/dungdm93/drasi/pkg/expression"
 )
 
 type JoinFn struct {
@@ -25,7 +25,7 @@ func (j *JoinFn) TraceFullyRealized() bool {
 	return true
 }
 
-func (j *JoinFn) Accept(eCtx interfaces.IEvaluationContext, v interfaces.IExpressionNodeVisitor) any {
+func (j *JoinFn) Accept(eCtx expression.IEvaluationContext, v expression.IExpressionNodeVisitor) any {
 	return v.VisitJoinFn(eCtx, j)
 }
 
@@ -78,11 +78,11 @@ func (j *JoinFn) GetName() string {
 	return j.Name
 }
 
-func (j *JoinFn) GetContainer() interfaces.IContainer {
+func (j *JoinFn) GetContainer() expression.IContainer {
 	return j.Container
 }
 
-func (j *JoinFn) SetContainer(c interfaces.IContainer) {
+func (j *JoinFn) SetContainer(c expression.IContainer) {
 	j.Container = c
 }
 
@@ -94,7 +94,7 @@ func (j *JoinFn) ConvertToExpression() string {
 	return fmt.Sprintf("%s(%s)", j.GetName(), strings.Join(params, ", "))
 }
 
-func (j *JoinFn) ConvertToRealizedExpression(eCtx interfaces.IEvaluationContext) string {
+func (j *JoinFn) ConvertToRealizedExpression(eCtx expression.IEvaluationContext) string {
 	exist, result := eCtx.TryGetTraceResult(j)
 	if exist {
 		return result

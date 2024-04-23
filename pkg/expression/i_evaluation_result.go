@@ -1,13 +1,9 @@
-package interfaces
-
-import (
-	"github.com/dungdm93/drasi/pkg/expression/shared"
-)
+package expression
 
 type IEvaluationResult interface {
 	Raw() any
 	Value() any
-	GetKind() shared.ValueKind
+	GetKind() ValueKind
 	Level() int
 	IsFalsy() bool
 	IsTruthy() bool
