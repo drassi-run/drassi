@@ -17,15 +17,15 @@ type EvaluationResult struct {
 	omitTracing bool
 }
 
-func NewEvaluationResultWithTrace(eCtx expression.IEvaluationContext, level int, val any, kind expression.ValueKind, raw any) *EvaluationResult {
-	return NewEvaluationResult(eCtx, level, val, kind, raw, false)
+func newEvaluationResultWithTrace(eCtx expression.IEvaluationContext, level int, val any, kind expression.ValueKind, raw any) *EvaluationResult {
+	return newEvaluationResult(eCtx, level, val, kind, raw, false)
 }
 
-func NewEvaluationResultSkipTrace(eCtx expression.IEvaluationContext, level int, val any, kind expression.ValueKind, raw any) *EvaluationResult {
-	return NewEvaluationResult(eCtx, level, val, kind, raw, true)
+func newEvaluationResultSkipTrace(eCtx expression.IEvaluationContext, level int, val any, kind expression.ValueKind, raw any) *EvaluationResult {
+	return newEvaluationResult(eCtx, level, val, kind, raw, true)
 }
 
-func NewEvaluationResult(eCtx expression.IEvaluationContext, level int, val any, kind expression.ValueKind, raw any, omitTracing bool) *EvaluationResult {
+func newEvaluationResult(eCtx expression.IEvaluationContext, level int, val any, kind expression.ValueKind, raw any, omitTracing bool) *EvaluationResult {
 	e := &EvaluationResult{
 		kind:        kind,
 		raw:         raw,
@@ -302,7 +302,7 @@ func (e *EvaluationResult) IsPrimitive() bool {
 // matching interfaces applied.
 func createIntermediateResult(eCtx expression.IEvaluationContext, obj any) *EvaluationResult {
 	val, kind, raw := convertToCanonicalValue(obj)
-	return NewEvaluationResultSkipTrace(eCtx, 0, val, kind, raw)
+	return newEvaluationResultSkipTrace(eCtx, 0, val, kind, raw)
 }
 
 // TryGetCollectionInterface perform type assert if EvaluationResult's value implement IReadOnlyObj or IReadOnlyArray and return corresponding interface

@@ -4,34 +4,34 @@ import (
 	"github.com/dungdm93/drasi/pkg/expression"
 )
 
-type NoOpNamedValue struct {
+type noOpNamedValue struct {
 	NamedValue
 }
 
-func (n *NoOpNamedValue) Value() any {
+func (n *noOpNamedValue) Value() any {
 	panic("not implemented")
 }
 
-func (n *NoOpNamedValue) Accept(eCtx expression.IEvaluationContext, v expression.IExpressionNodeVisitor) any {
+func (n *noOpNamedValue) Accept(eCtx expression.IEvaluationContext, v expression.IExpressionNodeVisitor) any {
 	return v.VisitNoopNamedValue(eCtx, n)
 }
 
-func (n *NoOpNamedValue) TraceFullyRealized() bool {
+func (n *noOpNamedValue) TraceFullyRealized() bool {
 	return true
 }
 
-func (n *NoOpNamedValue) GetContainer() expression.IContainer {
+func (n *noOpNamedValue) GetContainer() expression.IContainer {
 	return n.Container
 }
 
-func (n *NoOpNamedValue) SetContainer(cc expression.IContainer) {
+func (n *noOpNamedValue) SetContainer(cc expression.IContainer) {
 	n.Container = cc
 }
 
-func (n *NoOpNamedValue) SetName(name string) {
+func (n *noOpNamedValue) SetName(name string) {
 	n.ExpressionNodeBs.Name = name
 }
 
-func (n *NoOpNamedValue) GetName() string {
+func (n *noOpNamedValue) GetName() string {
 	return n.Name
 }

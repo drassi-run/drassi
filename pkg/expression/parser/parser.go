@@ -177,7 +177,7 @@ func pushOperand(pCtx *parseContext) {
 			pCtx.Operands = append(pCtx.Operands, node)
 		} else {
 			if pCtx.AllowUnknownKeywords {
-				node := new(NoOpNamedValue)
+				node := new(noOpNamedValue)
 				node.SetName(name)
 				pCtx.Operands = append(pCtx.Operands, node)
 			} else {
