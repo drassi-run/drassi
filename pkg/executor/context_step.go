@@ -199,6 +199,7 @@ func updateRunContext[R any](
 	if err != nil {
 		return err
 	}
+	defer r.Close()
 	data, err := parser(r)
 	if err != nil {
 		return err
