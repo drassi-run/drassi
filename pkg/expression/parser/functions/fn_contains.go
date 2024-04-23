@@ -36,7 +36,7 @@ func (c *ContainsFn) TraceFullyRealized() bool {
 // 	}
 // 	isCol, col := l.TryGetCollectionInterface()
 // 	if isCol {
-// 		if arr, isArr := col.(interfaces.IReadOnlyArray); isArr && arr.Count() > 0 {
+// 		if arr, isArr := col.(interfaces.ReadOnlyArray); isArr && arr.Count() > 0 {
 // 			r := evaluator.EvaluateWithContext(eCtx, c.Parameters()[1])
 // 			e := arr.Enumerator()
 // 			for e.Next() {

@@ -1,4 +1,4 @@
-package test
+package expression_test
 
 import (
 	"testing"
@@ -230,15 +230,35 @@ func Test_EvaluateNamedValues(t *testing.T) {
 	}
 	namedVals := []parser.INamedValueInfo[parser.INamedValue]{
 		parser.NewNamedValueInfo[parser.ContextValueNode]("github"),
+		parser.NewNamedValueInfo[parser.ContextValueNode]("strategy"),
 	}
 	var fns []functions.IFnInfo[functions.IFn]
 	// testcases
 	tcs := []testCase{
 		{
-			"evaluateWithContext named value", "github.actor", "foo", func() *runner.TemplateContext {
+			"evaluate simple named value", "github.actor", "foo", func() *runner.TemplateContext {
 				return &runner.TemplateContext{
 					ExpressionValues: map[string]any{
-						"github": NewMockGithubContext("foo"),
+						"github": map[string]any{
+							"actor": "foo",
+						},
+					},
+				}
+			},
+		},
+		{
+			"evaluate matrix named value", "strategy.matrix", map[string]any{
+				"version": []int{10, 12, 14},
+				"os":      []string{"ubuntu-latest", "windows-latest"},
+			}, func() *runner.TemplateContext {
+				return &runner.TemplateContext{
+					ExpressionValues: map[string]any{
+						"strategy": map[string]any{
+							"matrix": map[string]any{
+								"version": []int{10, 12, 14},
+								"os":      []string{"ubuntu-latest", "windows-latest"},
+							},
+						},
 					},
 				}
 			},
@@ -249,7 +269,7 @@ func Test_EvaluateNamedValues(t *testing.T) {
 			templateCtx := tc.setUpTemplateCtx()
 			root := parser.CreateTree(tc.expression, namedVals, fns)
 			result := evaluator.Evaluate(root, nil, nil, templateCtx, new(evaluator.EvaluationOption))
-			assert.Equal(t, tc.expectedValue, result.Value())
+			assert.DeepEqual(t, tc.expectedValue, result.Value())
 		})
 	}
 }

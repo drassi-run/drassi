@@ -59,6 +59,6 @@ type IncusTemplateSpec struct {
 	Stateful bool `json:"stateful,omitempty" yaml:"stateful,omitempty"`
 
 	// Instance description
-	// Example: My test instance
+	// Example: My expression_test instance
 	Description string `json:"description,omitempty" yaml:"description,omitempty"`
 }

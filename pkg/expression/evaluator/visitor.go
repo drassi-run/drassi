@@ -60,11 +60,10 @@ func (e expressionNodeVisitor) VisitContainsFn(eCtx expression.IEvaluationContex
 	}
 	isCol, col := l.TryGetCollectionInterface()
 	if isCol {
-		if arr, isArr := col.(expression.IReadOnlyArray); isArr && arr.Count() > 0 {
+		if arr, isArr := col.(expression.ReadOnlyArray); isArr && len(arr) > 0 {
 			r := evaluateWithContext(eCtx, c.Parameters()[1])
-			e := arr.Enumerator()
-			for e.Next() {
-				i := createIntermediateResult(eCtx, e.Value())
+			for _, value := range arr {
+				i := createIntermediateResult(eCtx, value)
 				if r.AbstractEqual(i) {
 					return true
 				}
@@ -193,11 +192,11 @@ func (e expressionNodeVisitor) VisitIndex(eCtx expression.IEvaluationContext, c 
 	if isFilteredArray {
 		return handleFilteredArray(eCtx, fa, c)
 	}
-	obj, isObj := col.(expression.IReadOnlyObj)
+	obj, isObj := col.(expression.ReadOnlyObj)
 	if isObj {
 		return handleObject(eCtx, obj, c)
 	}
-	arr, isArr := col.(expression.IReadOnlyArray)
+	arr, isArr := col.(expression.ReadOnlyArray)
 	if isArr {
 		return handleArray(eCtx, arr, c)
 	}
@@ -208,17 +207,17 @@ func (e expressionNodeVisitor) VisitJoinFn(eCtx expression.IEvaluationContext, c
 	items := evaluateWithContext(eCtx, c.Parameters()[0])
 	isCol, col := items.TryGetCollectionInterface()
 	if isCol {
-		arr, isArr := col.(expression.IReadOnlyArray)
-		if isArr && arr.Count() > 0 {
+		arr, isArr := col.(expression.ReadOnlyArray)
+		if isArr && len(arr) > 0 {
 			var result strings.Builder
-			item := arr.GetValue(0)
+			item := arr[0]
 			itemResult := createIntermediateResult(eCtx, item)
 			itemStr := itemResult.ConvertToString()
 			_, err := result.WriteString(itemStr)
 			if err != nil {
 				return ""
 			}
-			if arr.Count() > 1 {
+			if len(arr) > 1 {
 				separator := ","
 				if len(c.Parameters()) > 1 {
 					separatorResult := evaluateWithContext(eCtx, c.Parameters()[1])
@@ -226,10 +225,9 @@ func (e expressionNodeVisitor) VisitJoinFn(eCtx expression.IEvaluationContext, c
 						separator = separatorResult.ConvertToString()
 					}
 				}
-				e := arr.Enumerator()
-				for e.Next() {
+				for _, value := range arr {
 					result.WriteString(separator)
-					nextItem := e.Value()
+					nextItem := value
 					nextItemResult := createIntermediateResult(eCtx, nextItem)
 					nextItemStr := nextItemResult.ConvertToString()
 					result.WriteString(nextItemStr)

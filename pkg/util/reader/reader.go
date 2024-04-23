@@ -10,9 +10,10 @@ import (
 	"strings"
 
 	"github.com/docker/docker/pkg/archive"
-	"github.com/dungdm93/drasi/pkg/util"
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
+
+	"github.com/dungdm93/drasi/pkg/util"
 )
 
 // FileEntry is a file to copy to a container

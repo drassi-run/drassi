@@ -124,41 +124,41 @@ func convertToCanonicalValue(input any) (value any, kind expression.ValueKind, r
 		value = input
 		return
 	}
-	if b, castable := input.(expression.IBool); castable {
-		kind = expression.ValueKindBoolean
-		raw = input
-		value = b.GetValue()
-		return
-	}
-	if b, castable := input.(expression.INumber); castable {
-		kind = expression.ValueKindNumber
-		raw = input
-		value = b.GetValue()
-		return
-	}
-	if b, castable := input.(expression.IString); castable {
-		kind = expression.ValueKindString
-		raw = input
-		value = b.GetValue()
-		return
-	}
-	if _, castable := input.(expression.IReadOnlyObj); castable {
+	// if b, castable := input.(expression.IBool); castable {
+	// 	kind = expression.ValueKindBoolean
+	// 	raw = input
+	// 	value = b.GetValue()
+	// 	return
+	// }
+	// if b, castable := input.(expression.INumber); castable {
+	// 	kind = expression.ValueKindNumber
+	// 	raw = input
+	// 	value = b.GetValue()
+	// 	return
+	// }
+	// if b, castable := input.(expression.IString); castable {
+	// 	kind = expression.ValueKindString
+	// 	raw = input
+	// 	value = b.GetValue()
+	// 	return
+	// }
+	if _, castable := input.(expression.ReadOnlyObj); castable {
 		kind = expression.ValueKindObject
 		value = input
 		return
 	}
-	if _, castable := input.(expression.IReadOnlyArray); castable {
+	if _, castable := input.(expression.ReadOnlyArray); castable {
 		kind = expression.ValueKindArray
 		value = input
 		return
 	}
-	if _, castable := input.(expression.INull); castable {
-		kind = expression.ValueKindNull
-		raw = input
-		value = nil
-		return
-	}
-	if !(reflect.TypeOf(input).Kind() == reflect.Struct) {
+	// if _, castable := input.(expression.INull); castable {
+	// 	kind = expression.ValueKindNull
+	// 	raw = input
+	// 	value = nil
+	// 	return
+	// }
+	if reflect.TypeOf(input).Kind() != reflect.Struct {
 		_, isInt := input.(int)
 		_, isInt8 := input.(int8)
 		_, isInt16 := input.(int16)

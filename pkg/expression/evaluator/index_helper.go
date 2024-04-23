@@ -77,82 +77,73 @@ func (h *indexHelper) strIndex() string {
 }
 
 type (
-	filteredArray struct {
-		a []any
-	}
+	filteredArray expression.ReadOnlyArray
 )
 
 func newFilteredArray() *filteredArray {
-	return &filteredArray{a: make([]any, 0)}
+	a := make([]any, 0)
+	return &filteredArray{a}
 }
 
 func (f *filteredArray) Add(v any) {
-	f.a = append(f.a, v)
+	*f = append(*f, v)
 }
 
 func (f *filteredArray) Count() int {
-	return len(f.a)
+	return len(*f)
 }
 
 func (f *filteredArray) GetValue(idx int) any {
-	return f.a[idx]
-}
-
-func (f *filteredArray) Enumerator() *expression.Enumerator {
-	return expression.NewEnumerator(f.a)
+	return (*f)[idx]
 }
 
 func handleFilteredArray(eCtx expression.IEvaluationContext, fa *filteredArray, i expression.IContainer) any {
 	result := &filteredArray{}
 	idx := newIndexHelper(eCtx, i.Parameters()[1])
-	ef := fa.Enumerator()
-	for ef.Next() {
-		item := ef.Value()
+	for _, value := range *fa {
+		item := value
 		itemResult := createIntermediateResult(eCtx, item)
 		ok, nestedCollection := itemResult.TryGetCollectionInterface()
 		if ok {
-			if nestedObj, ok := nestedCollection.(expression.IReadOnlyObj); ok {
+			if nestedObj, ok := nestedCollection.(expression.ReadOnlyObj); ok {
 				if idx.isWildcard() {
-					of := nestedObj.Enumerator()
-					for of.Next() {
-						result.Add(of.Value())
+					for _, objValue := range nestedObj {
+						result.Add(objValue)
 					}
 				}
 				if idx.hasStringIndex() {
-					exist, nestedObjVal := nestedObj.GetValue(idx.strIndex())
+					nestedObjVal, exist := nestedObj[idx.strIndex()]
 					if exist {
 						result.Add(nestedObjVal)
 					}
 				}
 			}
 		}
-		if nestedArray, ok := nestedCollection.(expression.IReadOnlyArray); ok {
+		if nestedArray, ok := nestedCollection.(expression.ReadOnlyArray); ok {
 			if idx.isWildcard() {
-				af := nestedArray.Enumerator()
-				for af.Next() {
-					result.Add(af.Value())
+				for _, value := range nestedArray {
+					result.Add(value)
 				}
 			}
-			if idx.hasIntegerIndex() && idx.intIndex() < nestedArray.Count() {
-				result.Add(nestedArray.GetValue(idx.intIndex()))
+			if idx.hasIntegerIndex() && idx.intIndex() < len(nestedArray) {
+				result.Add(nestedArray[idx.intIndex()])
 			}
 		}
-
 	}
 	return result
 }
 
-func handleObject(eCtx expression.IEvaluationContext, obj expression.IReadOnlyObj, i expression.IContainer) any {
+func handleObject(eCtx expression.IEvaluationContext, obj expression.ReadOnlyObj, i expression.IContainer) any {
 	idx := newIndexHelper(eCtx, i.Parameters()[1])
 	if idx.isWildcard() {
 		fa := newFilteredArray()
-		for _, v := range obj.Values() {
+		for _, v := range obj {
 			fa.Add(v)
 		}
 		return fa
 	}
 	if idx.hasStringIndex() {
-		exist, result := obj.GetValue(idx.strIndex())
+		result, exist := obj[idx.strIndex()]
 		if exist {
 			return result
 		}
@@ -160,18 +151,17 @@ func handleObject(eCtx expression.IEvaluationContext, obj expression.IReadOnlyOb
 	return nil
 }
 
-func handleArray(eCtx expression.IEvaluationContext, arr expression.IReadOnlyArray, i expression.IContainer) any {
+func handleArray(eCtx expression.IEvaluationContext, arr expression.ReadOnlyArray, i expression.IContainer) any {
 	idx := newIndexHelper(eCtx, i.Parameters()[1])
 	if idx.isWildcard() {
 		fa := newFilteredArray()
-		e := arr.Enumerator()
-		for e.Next() {
-			fa.Add(e.Value())
+		for _, value := range arr {
+			fa.Add(value)
 		}
 		return fa
 	}
-	if idx.hasIntegerIndex() && idx.intIndex() < arr.Count() {
-		return arr.GetValue(idx.intIndex())
+	if idx.hasIntegerIndex() && idx.intIndex() < len(arr) {
+		return arr[idx.intIndex()]
 	}
 	return nil
 }

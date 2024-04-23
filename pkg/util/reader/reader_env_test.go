@@ -1,12 +1,18 @@
 package utilreader
 
 import (
-	"gotest.tools/v3/assert"
 	"strings"
 	"testing"
+
+	"gotest.tools/v3/assert"
 )
 
 func TestParseEnvFile(t *testing.T) {
+
+	t.Run("empty", func(tt *testing.T) {
+		testParseEnvFile(tt, "", map[string]string{})
+	})
+
 	t.Run("simple", func(tt *testing.T) {
 		data := "NODE_OPTIONS=asdf"
 		env := map[string]string{

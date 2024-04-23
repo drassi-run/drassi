@@ -199,10 +199,10 @@ func getKind(canonicalValue any) expression.ValueKind {
 	if _, isStr := canonicalValue.(string); isStr {
 		return expression.ValueKindString
 	}
-	if _, isObj := canonicalValue.(expression.IReadOnlyObj); isObj {
+	if _, isObj := canonicalValue.(expression.ReadOnlyObj); isObj {
 		return expression.ValueKindObject
 	}
-	if _, isArr := canonicalValue.(expression.IReadOnlyArray); isArr {
+	if _, isArr := canonicalValue.(expression.ReadOnlyArray); isArr {
 		return expression.ValueKindArray
 	}
 	return expression.ValueKindObject
@@ -305,15 +305,15 @@ func createIntermediateResult(eCtx expression.IEvaluationContext, obj any) *Eval
 	return newEvaluationResultSkipTrace(eCtx, 0, val, kind, raw)
 }
 
-// TryGetCollectionInterface perform type assert if EvaluationResult's value implement IReadOnlyObj or IReadOnlyArray and return corresponding interface
+// TryGetCollectionInterface perform type assert if EvaluationResult's value implement ReadOnlyObj or ReadOnlyArray and return corresponding interface
 func (e *EvaluationResult) TryGetCollectionInterface() (ok bool, collection any) {
 	if e.kind == expression.ValueKindObject || e.kind == expression.ValueKindArray {
 		obj := e.value
-		o, isObj := obj.(expression.IReadOnlyObj)
+		o, isObj := obj.(expression.ReadOnlyObj)
 		if isObj {
 			return true, o
 		}
-		a, isArr := obj.(expression.IReadOnlyArray)
+		a, isArr := obj.(expression.ReadOnlyArray)
 		if isArr {
 			return true, a
 		}

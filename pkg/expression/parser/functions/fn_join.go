@@ -34,7 +34,7 @@ func (j *JoinFn) Accept(eCtx expression.IEvaluationContext, v expression.IExpres
 // 	items := evaluator.EvaluateWithContext(eCtx, f.Parameters()[0])
 // 	isCol, col := items.TryGetCollectionInterface()
 // 	if isCol {
-// 		arr, isArr := col.(interfaces.IReadOnlyArray)
+// 		arr, isArr := col.(interfaces.ReadOnlyArray)
 // 		if isArr && arr.Count() > 0 {
 // 			var result strings.Builder
 // 			item := arr.GetValue(0)
