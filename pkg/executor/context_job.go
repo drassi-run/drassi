@@ -43,19 +43,13 @@ func (c *JobRunContext) RunJob(ctx context.Context) error {
 		return err
 	}
 
-	if err := c.runStage(ctx, StagePre, func(runner StepRunner) *Task {
-		return runner.PreTask()
-	}); err != nil {
+	if err := c.runStage(ctx, StagePre, StepRunner.PreTask); err != nil {
 		return err
 	}
-	if err := c.runStage(ctx, StageMain, func(runner StepRunner) *Task {
-		return runner.MainTask()
-	}); err != nil {
+	if err := c.runStage(ctx, StageMain, StepRunner.MainTask); err != nil {
 		return err
 	}
-	if err := c.runStage(ctx, StagePost, func(runner StepRunner) *Task {
-		return runner.PostTask()
-	}); err != nil {
+	if err := c.runStage(ctx, StagePost, StepRunner.PostTask); err != nil {
 		return err
 	}
 	return nil
