@@ -12,9 +12,10 @@ Supported features:
       - [x] join
       - [x] format
     Status check functions:
+    
       - [x] always
-      - [x] cancelled
-      - [x] success
+      - [x] cancelled (currently only support job.status' for pre, post and job-getLevel steps)
+      - [x] success (currently only support job.status' for pre, post and job-getLevel steps)
       - [ ] fromJson
       - [ ] toJson
       - [ ] hashFile

@@ -11,7 +11,6 @@ import (
 	"github.com/dungdm93/drasi/pkg/expression/parser/functions"
 	"github.com/dungdm93/drasi/pkg/model/contexts"
 	"github.com/dungdm93/drasi/pkg/runner"
-	"github.com/dungdm93/drasi/pkg/runner/mocks"
 )
 
 /*
@@ -118,7 +117,7 @@ func Test_EvaluateStatusCheckFns(t *testing.T) {
 		name             string
 		expression       string
 		expectedValue    any
-		setUpTemplateCtx func() *contexts.Context
+		setUpTemplateCtx func() *runner.TemplateContext
 	}
 	var namedVals []parser.INamedValueInfo[parser.INamedValue]
 	fns := []functions.IFnInfo[functions.IFn]{
@@ -136,121 +135,86 @@ func Test_EvaluateStatusCheckFns(t *testing.T) {
 		}},
 		// cancelled()
 		{
-			"invoke cancelled() evaluated to true", "cancelled()", true, func() *contexts.Context {
-				return &contexts.Context{Job: contexts.Job{
-					Status: contexts.JobStatusCancelled,
-				}}
+			"invoke cancelled() evaluated to true", "cancelled()", true, func() *runner.TemplateContext {
+				return &runner.TemplateContext{
+					State: map[string]any{
+						"IExecutionContext": &contexts.Context{
+							Job: contexts.Job{
+								Status: contexts.ActionResultCancelled,
+							},
+						},
+					},
+				}
 			},
 		},
 		{
-			"invoke cancelled() evaluated to false", "cancelled()", false, func() *contexts.Context {
-				return &contexts.Context{Job: contexts.Job{
-					Status: contexts.JobStatusSuccess,
-				}}
+			"invoke cancelled() evaluated to false", "cancelled()", false, func() *runner.TemplateContext {
+				return &runner.TemplateContext{
+					State: map[string]any{
+						"IExecutionContext": &contexts.Context{
+							Job: contexts.Job{
+								Status: contexts.ActionResultSuccess,
+							},
+						},
+					},
+				}
 			},
 		},
 		// success()
 		{
-			"invoke success() evaluated to true - composite MAIN step", "success()", true,
+			"invoke success() evaluated to true - pre, post and job-level steps", "success()", true,
 			func() *runner.TemplateContext {
-				execCtx := new(mocks.IExecutionContext)
-				execCtx.On("IsEmbedded").Return(true).Once()
-				execCtx.On("Stage").Return(runner.ActionRunStageMain).Once()
-				execCtx.On("GetGitHubContext", "action_status").Return(runner.ActionResultSuccess.String())
 				return &runner.TemplateContext{State: map[string]any{
-					"IExecutionContext": execCtx,
-				}}
-			},
-		},
-		{
-			"invoke success() evaluated to false - composite MAIN step", "success()", false,
-			func() *runner.TemplateContext {
-				execCtx := new(mocks.IExecutionContext)
-				execCtx.On("IsEmbedded").Return(true).Once()
-				execCtx.On("Stage").Return(runner.ActionRunStageMain).Once()
-				execCtx.On("GetGitHubContext", "action_status").Return(runner.ActionResultCancelled.String())
-				return &runner.TemplateContext{State: map[string]any{
-					"IExecutionContext": execCtx,
-				}}
-			},
-		},
-		{
-			"invoke success() evaluated to true - pre, post and job-level steps", "success()", true, func() *runner.TemplateContext {
-				execCtx := new(mocks.IExecutionContext)
-				execCtx.On("IsEmbedded").Return(false).Once()
-				execCtx.On("Stage").Return(runner.ActionRunStageMain).Once()
-				execCtx.On("JobContext").Return(&runner.JobContext{Status: runner.ActionResultSuccess}).Once()
-				return &runner.TemplateContext{State: map[string]any{
-					"IExecutionContext": execCtx,
+					"IExecutionContext": &contexts.Context{
+						Job: contexts.Job{
+							Status: contexts.ActionResultSuccess,
+						},
+					},
 				}}
 			},
 		},
 		{
 			"invoke success() evaluated to false - pre, post and job-level steps", "success()", false,
 			func() *runner.TemplateContext {
-				execCtx := new(mocks.IExecutionContext)
-				execCtx.On("IsEmbedded").Return(true).Once()
-				execCtx.On("Stage").Return(runner.ActionRunStageMain).Once()
-				execCtx.On("GetGitHubContext", "action_status").Return(runner.ActionResultFailure.String())
 				return &runner.TemplateContext{State: map[string]any{
-					"IExecutionContext": execCtx,
+					"IExecutionContext": &contexts.Context{
+						Job: contexts.Job{
+							Status: contexts.ActionResultCancelled,
+						},
+					},
 				}}
 			},
 		},
-		// failure()
-		{
-			"invoke failure() evaluated to true - composite MAIN step", "failure()", true,
-			func() *runner.TemplateContext {
-				execCtx := new(mocks.IExecutionContext)
-				execCtx.On("IsEmbedded").Return(true).Once()
-				execCtx.On("Stage").Return(runner.ActionRunStageMain).Once()
-				execCtx.On("GetGitHubContext", "action_status").Return(runner.ActionResultFailure.String())
-				return &runner.TemplateContext{State: map[string]any{
-					"IExecutionContext": execCtx,
-				}}
-			},
-		},
-		{
-			"invoke failure() evaluated to false - composite MAIN step", "failure()", false,
-			func() *runner.TemplateContext {
-				execCtx := new(mocks.IExecutionContext)
-				execCtx.On("IsEmbedded").Return(true).Once()
-				execCtx.On("Stage").Return(runner.ActionRunStageMain).Once()
-				execCtx.On("GetGitHubContext", "action_status").Return(runner.ActionResultSuccess.String())
-				return &runner.TemplateContext{State: map[string]any{
-					"IExecutionContext": execCtx,
-				}}
-			},
-		},
+		// failure
 		{
 			"invoke failure() evaluated to true - pre, post and job-level steps", "failure()", true, func() *runner.TemplateContext {
-				execCtx := new(mocks.IExecutionContext)
-				execCtx.On("IsEmbedded").Return(false).Once()
-				execCtx.On("Stage").Return(runner.ActionRunStageMain).Once()
-				execCtx.On("JobContext").Return(&runner.JobContext{Status: runner.ActionResultFailure}).Once()
 				return &runner.TemplateContext{State: map[string]any{
-					"IExecutionContext": execCtx,
+					"IExecutionContext": &contexts.Context{
+						Job: contexts.Job{
+							Status: contexts.ActionResultFailure,
+						},
+					},
 				}}
 			},
 		},
 		{
 			"invoke failure() evaluated to false - pre, post and job-level steps", "failure()", false,
 			func() *runner.TemplateContext {
-				execCtx := new(mocks.IExecutionContext)
-				execCtx.On("IsEmbedded").Return(true).Once()
-				execCtx.On("Stage").Return(runner.ActionRunStageMain).Once()
-				execCtx.On("GetGitHubContext", "action_status").Return(runner.ActionResultSuccess.String())
 				return &runner.TemplateContext{State: map[string]any{
-					"IExecutionContext": execCtx,
+					"IExecutionContext": &contexts.Context{
+						Job: contexts.Job{
+							Status: contexts.ActionResultSuccess,
+						},
+					},
 				}}
 			},
 		},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := tc.setUpTemplateCtx()
+			tplCtx := tc.setUpTemplateCtx()
 			root := parser.CreateTree(tc.expression, namedVals, fns)
-			result := evaluator.Evaluate(root, nil, nil, mock, new(evaluator.EvaluationOption))
+			result := evaluator.Evaluate(root, nil, nil, tplCtx, new(evaluator.EvaluationOption))
 			assert.Equal(t, tc.expectedValue, result.Value())
 		})
 	}

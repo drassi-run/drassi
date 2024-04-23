@@ -36,11 +36,16 @@ func (e expressionNodeVisitor) VisitAnd(eCtx expression.IEvaluationContext, c ex
 }
 
 func (e expressionNodeVisitor) VisitCancelledFn(eCtx expression.IEvaluationContext, c expression.IExpressionNode) any {
-	tplCtx := eCtx.State().(*contexts.Context)
+	tplCtx := eCtx.State().(*runner.TemplateContext)
 	if tplCtx == nil {
 		panic(ErrorsTemplateContextNotFound)
 	}
-	return tplCtx.Job.Status == contexts.JobStatusCancelled
+	// TODO: refactor me
+	execCtx := tplCtx.State["IExecutionContext"].(*contexts.Context)
+	if execCtx == nil {
+		panic(ErrorsExecutionContextNotFound)
+	}
+	return execCtx.Job.Status == contexts.ActionResultCancelled
 }
 
 func (e expressionNodeVisitor) VisitContainsFn(eCtx expression.IEvaluationContext, c expression.IContainer) any {
@@ -92,29 +97,16 @@ func (e expressionNodeVisitor) VisitEqual(eCtx expression.IEvaluationContext, c 
 	return l.AbstractEqual(r)
 }
 
+// TODO: composite action
+// See https://github.com/dungdm93/drasi/blob/bfc21ce03ad75998a64d4a4718c7d648fea24f2a/pkg/expression/evaluator/visitor.go#L99
 func (e expressionNodeVisitor) VisitFailureFn(eCtx expression.IEvaluationContext, c expression.IExpressionNode) any {
 	tplCtx := eCtx.State().(*runner.TemplateContext)
 	if tplCtx == nil {
 		panic(ErrorsTemplateContextNotFound)
 	}
 	// TODO: refactor me
-	execCtx := tplCtx.State["IExecutionContext"].(runner.IExecutionContext)
-	if execCtx == nil {
-		panic(ErrorsExecutionContextNotFound)
-	}
-	// Decide based on 'action_status' for composite MAIN steps and 'job.status' for pre, post and job-getLevel steps
-	isComposite := execCtx.IsEmbedded() && execCtx.Stage() == runner.ActionRunStageMain
-	if isComposite {
-		// TODO: refactor me
-		// If status is not parseable, evaluate actionStatus to ActionResultSuccess
-		if actionStatus := execCtx.GetGitHubContext("action_status"); actionStatus != "" {
-			if ok := runner.TryParseActionResult(actionStatus); ok {
-				return actionStatus == fmt.Sprintf("%s", runner.ActionResultFailure)
-			}
-			return false
-		}
-	}
-	return execCtx.JobContext().Status == runner.ActionResultFailure
+	execCtx := tplCtx.State["IExecutionContext"].(*contexts.Context)
+	return execCtx.Job.Status == contexts.ActionResultFailure
 }
 
 func (e expressionNodeVisitor) VisitFormatFn(eCtx expression.IEvaluationContext, c expression.IContainer) any {
@@ -313,29 +305,15 @@ func (e expressionNodeVisitor) VisitStartsWithFn(eCtx expression.IEvaluationCont
 	return false
 }
 
+// TODO: composite action
+// See https://github.com/dungdm93/drasi/blob/bfc21ce03ad75998a64d4a4718c7d648fea24f2a/pkg/expression/evaluator/visitor.go#L320
 func (e expressionNodeVisitor) VisitSuccessFn(eCtx expression.IEvaluationContext, c expression.IExpressionNode) any {
 	tplCtx := eCtx.State().(*runner.TemplateContext)
 	if tplCtx == nil {
 		panic(ErrorsTemplateContextNotFound)
 	}
-	// TODO: refactor me
-	execCtx := tplCtx.State["IExecutionContext"].(runner.IExecutionContext)
-	if execCtx == nil {
-		panic(ErrorsExecutionContextNotFound)
-	}
-	// Decide based on 'action_status' for composite MAIN steps and 'job.status' for pre, post and job-getLevel steps
-	isComposite := execCtx.IsEmbedded() && execCtx.Stage() == runner.ActionRunStageMain
-	if isComposite {
-		// TODO: refactor me
-		// If status is not parsable, evaluate actionStatus to ActionResultSuccess
-		if actionStatus := execCtx.GetGitHubContext("action_status"); actionStatus != "" {
-			if ok := runner.TryParseActionResult(actionStatus); ok {
-				return actionStatus == fmt.Sprintf("%s", runner.ActionResultSuccess)
-			}
-			return true
-		}
-	}
-	return execCtx.JobContext().Status == runner.ActionResultSuccess
+	ctx := tplCtx.State["IExecutionContext"].(*contexts.Context)
+	return ctx.Job.Status == contexts.ActionResultSuccess
 }
 
 func (e expressionNodeVisitor) VisitWildCard(eCtx expression.IEvaluationContext, c expression.IExpressionNode) any {
