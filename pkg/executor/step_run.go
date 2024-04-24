@@ -2,10 +2,10 @@ package executor
 
 import (
 	"context"
-	"fmt"
-	"github.com/dungdm93/drasi/pkg/model/workflows"
+	"path/filepath"
 	"strings"
 
+	"github.com/dungdm93/drasi/pkg/model/workflows"
 	utilreader "github.com/dungdm93/drasi/pkg/util/reader"
 )
 
@@ -44,20 +44,20 @@ func (e *runStepRunner) executeMain(ctx context.Context, rCtx *StepRunContext) e
 	}
 	script = shell.FixupScript(script)
 
-	cmd, scriptName, err := e.getCommand(shell, rCtx)
+	cmd, scriptPath, err := e.getCommand(shell, rCtx)
 	if err != nil {
 		return err
 	}
 
 	reader, err := utilreader.FromFileEntries(ctx, &utilreader.FileEntry{
-		Name:    scriptName,
+		Name:    "",
 		Content: script,
 	})
 	if err != nil {
 		return err
 	}
 
-	if err = rCtx.Sandbox().CopyIn(ctx, reader, scriptName); err != nil {
+	if err = rCtx.Sandbox().CopyIn(ctx, reader, scriptPath); err != nil {
 		return err
 	}
 	return rCtx.Sandbox().Execute(ctx, cmd, nil, workdir)
@@ -86,7 +86,7 @@ func (e *runStepRunner) getWorkingDir(ctx context.Context, rCtx *StepRunContext)
 }
 
 func (e *runStepRunner) getCommand(shell Shell, rCtx *StepRunContext) ([]string, string, error) {
-	scriptName := getScriptName(rCtx, shell, e.step.Id)
+	scriptPath := e.getScriptPath(rCtx, shell, e.step.Id)
 	cmds, err := shell.Command()
 	if err != nil {
 		return nil, "", err
@@ -94,16 +94,15 @@ func (e *runStepRunner) getCommand(shell Shell, rCtx *StepRunContext) ([]string,
 
 	c := make([]string, len(cmds))
 	for i, cmd := range cmds {
-		c[i] = strings.Replace(cmd, `{0}`, scriptName, 1)
+		c[i] = strings.Replace(cmd, `{0}`, scriptPath, 1)
 	}
-	return c, scriptName, nil
+	return c, scriptPath, nil
 }
 
-func getScriptName(rCtx *StepRunContext, shell Shell, name string) string {
+func (e *runStepRunner) getScriptPath(rCtx *StepRunContext, shell Shell, name string) string {
 	scriptName := name
 	//for stepInfo := &rc.StepInfo; stepInfo.Parent != nil; stepInfo = stepInfo.Parent {
 	//	scriptName = fmt.Sprintf("%s-composite-%s", stepInfo.Parent.StepId, scriptName)
 	//}
-	scriptName += shell.Extension()
-	return fmt.Sprintf("workflow/%s", scriptName)
+	return filepath.Join(rCtx.Sandbox().GetTempDir(), "scripts", scriptName+shell.Extension())
 }

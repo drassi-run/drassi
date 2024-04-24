@@ -19,9 +19,10 @@ type incusSandbox struct {
 	containerNetwork    string
 	containerVolumes    map[string]string
 
-	workPath     string
-	workflowPath string
-	actionsPath  string
+	workspaceDir string
+	actionsDir   string
+	toolsDir     string
+	tempDir      string
 }
 
 var _ sandboxer.Sandbox = (*incusSandbox)(nil)
@@ -98,14 +99,15 @@ func (s *incusSandbox) BuildImage(ctx context.Context, image string, dockerfile 
 	panic("implement me")
 }
 
-func (s *incusSandbox) GetWorkPath() string {
-	return s.workPath
+func (s *incusSandbox) GetWorkspaceDir() string {
+	return s.workspaceDir
 }
-
-func (s *incusSandbox) GetWorkflowPath() string {
-	return s.workflowPath
+func (s *incusSandbox) GetActionsDir() string {
+	return s.actionsDir
 }
-
-func (s *incusSandbox) GetActionsPath() string {
-	return s.actionsPath
+func (s *incusSandbox) GetToolsDir() string {
+	return s.toolsDir
+}
+func (s *incusSandbox) GetTempDir() string {
+	return s.tempDir
 }

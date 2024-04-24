@@ -141,23 +141,24 @@ func (c *StepRunContext) initializeRunStep(ctx context.Context) error {
 	if r, err := utilreader.FromFileEntries(ctx, files...); err != nil {
 		return err
 	} else {
-		return c.Sandbox().CopyIn(ctx, r, c.Sandbox().GetWorkflowPath())
+		fileCommandsDir := filepath.Join(c.Sandbox().GetTempDir(), "file_commands")
+		return c.Sandbox().CopyIn(ctx, r, fileCommandsDir)
 	}
 }
 
 func (c *StepRunContext) finalizeRunStep(ctx context.Context) error {
-	workflowPath := c.Sandbox().GetWorkflowPath()
+	fileCommandsDir := filepath.Join(c.Sandbox().GetTempDir(), "file_commands")
 
-	if err := updateRunContext(ctx, c, filepath.Join(workflowPath, "GITHUB_OUTPUT"), utilreader.ParseEnvVars, c.setOutput); err != nil {
+	if err := updateRunContext(ctx, c, filepath.Join(fileCommandsDir, "GITHUB_OUTPUT"), utilreader.ParseEnvVars, c.setOutput); err != nil {
 		return err
 	}
-	if err := updateRunContext(ctx, c, filepath.Join(workflowPath, "GITHUB_STATE"), utilreader.ParseEnvVars, c.saveState); err != nil {
+	if err := updateRunContext(ctx, c, filepath.Join(fileCommandsDir, "GITHUB_STATE"), utilreader.ParseEnvVars, c.saveState); err != nil {
 		return err
 	}
-	if err := updateRunContext(ctx, c, filepath.Join(workflowPath, "GITHUB_PATH"), utilreader.ReadLine, c.job.addPath); err != nil {
+	if err := updateRunContext(ctx, c, filepath.Join(fileCommandsDir, "GITHUB_PATH"), utilreader.ReadLine, c.job.addPath); err != nil {
 		return err
 	}
-	if err := updateRunContext(ctx, c, filepath.Join(workflowPath, "GITHUB_ENV"), utilreader.ParseEnvVars, c.job.setEnv); err != nil {
+	if err := updateRunContext(ctx, c, filepath.Join(fileCommandsDir, "GITHUB_ENV"), utilreader.ParseEnvVars, c.job.setEnv); err != nil {
 		return err
 	}
 	// TODO update GITHUB_STEP_SUMMARY

@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"maps"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -57,15 +58,31 @@ func (i *incus) LaunchSandbox(ctx context.Context, request sandboxer.LaunchSandb
 		return res, err
 	}
 
-	res.Sandbox = &incusSandbox{
+	sandbox := &incusSandbox{
 		sandboxId: name,
 		sandboxer: i,
 	}
+
+	if err := i.setupWellKnownDirectories(sandbox); err != nil {
+		return res, err
+	}
+
+	res.Sandbox = sandbox
 	return res, nil
 }
 
 func (i *incus) createInstance(ctx context.Context, name string, request sandboxer.LaunchSandboxRequest) error {
 	template := i.config.Spec.Template
+
+	config := maps.Clone(template.Config)
+	if config == nil {
+		config = make(map[string]string)
+	}
+	for k, v := range request.JobEnv {
+		k = fmt.Sprintf("environment.%s", k)
+		config[k] = v
+	}
+
 	req := incusapi.InstancesPost{
 		Name:         name,
 		Start:        true,
@@ -74,7 +91,7 @@ func (i *incus) createInstance(ctx context.Context, name string, request sandbox
 		InstanceType: template.InstanceSize,
 		InstancePut: incusapi.InstancePut{
 			Architecture: template.Architecture,
-			Config:       template.Config,
+			Config:       config,
 			Devices:      template.Devices,
 			Ephemeral:    template.Ephemeral,
 			Profiles:     template.Profiles,
@@ -88,6 +105,48 @@ func (i *incus) createInstance(ctx context.Context, name string, request sandbox
 	} else if err = op.WaitContext(ctx); err != nil {
 		return err
 	}
+	return nil
+}
+
+func (i *incus) setupWellKnownDirectories(sandbox *incusSandbox) error {
+	args := incusclient.InstanceFileArgs{
+		Type: "directory",
+	}
+
+	rootDir := "/opt/drasi"
+	if err := i.client.CreateInstanceFile(sandbox.sandboxId, rootDir, args); err != nil {
+		return err
+	}
+
+	sandbox.workspaceDir = filepath.Join(rootDir, "workspace")
+	if err := i.client.CreateInstanceFile(sandbox.sandboxId, sandbox.workspaceDir, args); err != nil {
+		return err
+	}
+
+	sandbox.actionsDir = filepath.Join(rootDir, "actions")
+	if err := i.client.CreateInstanceFile(sandbox.sandboxId, sandbox.actionsDir, args); err != nil {
+		return err
+	}
+
+	sandbox.toolsDir = filepath.Join(rootDir, "tools")
+	if err := i.client.CreateInstanceFile(sandbox.sandboxId, sandbox.toolsDir, args); err != nil {
+		return err
+	}
+
+	sandbox.tempDir = filepath.Join(rootDir, "tmp")
+	if err := i.client.CreateInstanceFile(sandbox.sandboxId, sandbox.tempDir, args); err != nil {
+		return err
+	}
+	if err := i.client.CreateInstanceFile(sandbox.sandboxId, filepath.Join(sandbox.tempDir, "file_commands"), args); err != nil {
+		return err
+	}
+	if err := i.client.CreateInstanceFile(sandbox.sandboxId, filepath.Join(sandbox.tempDir, "workflow"), args); err != nil {
+		return err
+	}
+	if err := i.client.CreateInstanceFile(sandbox.sandboxId, filepath.Join(sandbox.tempDir, "scripts"), args); err != nil {
+		return err
+	}
+
 	return nil
 }
 

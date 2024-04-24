@@ -16,9 +16,17 @@ type Sandbox interface {
 	PullImage(ctx context.Context, image string) error
 	BuildImage(ctx context.Context, image string, dockerfile string, contextPath string) error
 
-	GetWorkPath() string
-	GetWorkflowPath() string
-	GetActionsPath() string
+	// The full path the repository is cloned to, and where the job runs from
+	GetWorkspaceDir() string
+
+	// The full path to the directory where actions are downloaded into
+	GetActionsDir() string
+
+	// The full path to the directory containing preinstalled tools for GitHub-hosted runners
+	GetToolsDir() string
+
+	// The full path to the directory where file commands, workflow/event.json and run scripts are located
+	GetTempDir() string
 }
 
 type Sandboxer interface {

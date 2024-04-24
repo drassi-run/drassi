@@ -64,11 +64,11 @@ func (e *JobRunner) Initialize(ctx context.Context) (err error) {
 		JobContainer:      jobContainer,
 		ServiceContainers: serviceContainers,
 	}
-	res, err := e.sandboxer.LaunchSandbox(ctx, req)
-	if err != nil {
+	if res, err := e.sandboxer.LaunchSandbox(ctx, req); err != nil {
 		return err
+	} else {
+		e.rCtx.sandbox = res.Sandbox
 	}
-	e.rCtx.sandbox = res.Sandbox
 	return nil
 }
 
