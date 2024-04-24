@@ -114,7 +114,7 @@ type NormalJob struct {
 	// If you do not set a container, all steps will run directly on the host specified by runs-on unless a step
 	// refers to an action configured to run in a container.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idcontainer
-	Container Container `json:"container,omitempty" yaml:"container,omitempty" mapstructure:"container,omitempty"`
+	Container *Container `json:"container,omitempty" yaml:"container,omitempty" mapstructure:"container,omitempty"`
 
 	// Additional containers to host services for a job in a workflow. These are useful for creating databases or cache services like redis.
 	// The runner on the virtual machine will automatically create a network and manage the life cycle of the service containers.
@@ -124,7 +124,7 @@ type NormalJob struct {
 	// The hostname is automatically mapped to the service name.
 	// When a step does not use a container action, you must access the service using localhost and bind the ports.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idservices
-	Services map[string]Container `json:"services,omitempty" yaml:"services,omitempty" mapstructure:"services,omitempty"`
+	Services map[string]*Container `json:"services,omitempty" yaml:"services,omitempty" mapstructure:"services,omitempty"`
 }
 
 // Each job must have an id to associate with the job.

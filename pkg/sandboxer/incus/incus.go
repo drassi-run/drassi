@@ -6,13 +6,14 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"maps"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/docker/docker/pkg/archive"
 	"github.com/dungdm93/drasi/pkg/sandboxer"
+	utilreader "github.com/dungdm93/drasi/pkg/util/reader"
 	"github.com/gorilla/websocket"
 	incusclient "github.com/lxc/incus/client"
 	incusapi "github.com/lxc/incus/shared/api"
@@ -57,12 +58,35 @@ func (i *incus) LaunchSandbox(ctx context.Context, request sandboxer.LaunchSandb
 		return res, err
 	}
 
-	res.SandboxId = name
+	sandbox := &incusSandbox{
+		sandboxId: name,
+		sandboxer: i,
+	}
+
+	if err := i.setupWellKnownDirectories(sandbox); err != nil {
+		return res, err
+	}
+
+	res.Sandbox = sandbox
 	return res, nil
 }
 
 func (i *incus) createInstance(ctx context.Context, name string, request sandboxer.LaunchSandboxRequest) error {
 	template := i.config.Spec.Template
+
+	config := maps.Clone(template.Config)
+	if config == nil {
+		config = make(map[string]string)
+	}
+	for k, v := range request.JobEnv {
+		k = fmt.Sprintf("environment.%s", k)
+		config[k] = v
+	}
+	for k, v := range i.getPredefinedEnv() {
+		k = fmt.Sprintf("environment.%s", k)
+		config[k] = v
+	}
+
 	req := incusapi.InstancesPost{
 		Name:         name,
 		Start:        true,
@@ -71,7 +95,7 @@ func (i *incus) createInstance(ctx context.Context, name string, request sandbox
 		InstanceType: template.InstanceSize,
 		InstancePut: incusapi.InstancePut{
 			Architecture: template.Architecture,
-			Config:       template.Config,
+			Config:       config,
 			Devices:      template.Devices,
 			Ephemeral:    template.Ephemeral,
 			Profiles:     template.Profiles,
@@ -88,10 +112,67 @@ func (i *incus) createInstance(ctx context.Context, name string, request sandbox
 	return nil
 }
 
+func (i *incus) setupWellKnownDirectories(sandbox *incusSandbox) error {
+	args := incusclient.InstanceFileArgs{
+		Type: "directory",
+	}
+
+	rootDir := "/opt/drasi"
+	if err := i.client.CreateInstanceFile(sandbox.sandboxId, rootDir, args); err != nil {
+		return err
+	}
+
+	sandbox.workspaceDir = filepath.Join(rootDir, "workspace")
+	if err := i.client.CreateInstanceFile(sandbox.sandboxId, sandbox.workspaceDir, args); err != nil {
+		return err
+	}
+
+	sandbox.actionsDir = filepath.Join(rootDir, "actions")
+	if err := i.client.CreateInstanceFile(sandbox.sandboxId, sandbox.actionsDir, args); err != nil {
+		return err
+	}
+
+	sandbox.toolsDir = filepath.Join(rootDir, "tools")
+	if err := i.client.CreateInstanceFile(sandbox.sandboxId, sandbox.toolsDir, args); err != nil {
+		return err
+	}
+
+	sandbox.tempDir = filepath.Join(rootDir, "tmp")
+	if err := i.client.CreateInstanceFile(sandbox.sandboxId, sandbox.tempDir, args); err != nil {
+		return err
+	}
+	if err := i.client.CreateInstanceFile(sandbox.sandboxId, filepath.Join(sandbox.tempDir, "file_commands"), args); err != nil {
+		return err
+	}
+	if err := i.client.CreateInstanceFile(sandbox.sandboxId, filepath.Join(sandbox.tempDir, "workflow"), args); err != nil {
+		return err
+	}
+	if err := i.client.CreateInstanceFile(sandbox.sandboxId, filepath.Join(sandbox.tempDir, "scripts"), args); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (i *incus) getPredefinedEnv() map[string]string {
+	env := map[string]string{
+		"GITHUB_STEP_SUMMARY": "/opt/drasi/tmp/file_commands/GITHUB_STEP_SUMMARY",
+		"GITHUB_OUTPUT":       "/opt/drasi/tmp/file_commands/GITHUB_OUTPUT",
+		"GITHUB_STATE":        "/opt/drasi/tmp/file_commands/GITHUB_STATE",
+		"GITHUB_PATH":         "/opt/drasi/tmp/file_commands/GITHUB_PATH",
+		"GITHUB_ENV":          "/opt/drasi/tmp/file_commands/GITHUB_ENV",
+	}
+	return env
+}
+
 func (i *incus) TerminateSandbox(ctx context.Context, request sandboxer.TerminateSandboxRequest) (sandboxer.TerminateSandboxResponse, error) {
 	res := sandboxer.TerminateSandboxResponse{}
+	sandbox, ok := request.Sandbox.(*incusSandbox)
+	if !ok {
+		return res, fmt.Errorf("unsupport sandbox type %T", request.Sandbox)
+	}
 
-	name := request.SandboxId
+	name := sandbox.sandboxId
 	ct, _, err := i.client.GetInstance(name)
 	if err != nil {
 		return res, err
@@ -186,14 +267,13 @@ func (i *incus) CopyToSandbox(ctx context.Context, request sandboxer.CopyToSandb
 	res := sandboxer.CopyToSandboxResponse{}
 
 	handler := newUntarHandler(i.client, request.SandboxId, request.DestinationPath)
-	err := untar(request.Content, handler)
+	err := utilreader.Untar(request.Content, handler)
 	return res, err
 }
 
-type tarHandler = func(string, io.Reader, *incusclient.InstanceFileResponse) error
-type untarHandler = func(*tar.Header, io.Reader) error
+type fileHandler = func(string, io.Reader, *incusclient.InstanceFileResponse) error
 
-func (i *incus) walk(inst, root, name string, h tarHandler) error {
+func (i *incus) walk(inst, root, name string, h fileHandler) error {
 	path := filepath.Join(root, name)
 	buf, resp, err := i.client.GetInstanceFile(inst, path)
 	if err != nil {
@@ -218,32 +298,7 @@ func (i *incus) walk(inst, root, name string, h tarHandler) error {
 	return nil
 }
 
-func untar(r io.Reader, h untarHandler) error {
-	xr, err := archive.DecompressStream(r)
-	if err != nil {
-		return err
-	}
-	defer xr.Close()
-	tr := tar.NewReader(xr)
-
-	for {
-		hdr, err := tr.Next()
-		if err != nil {
-			if err == io.EOF {
-				break // end of tar archive
-			}
-			return err
-		}
-
-		if err := h(hdr, tr); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func newTarHandler(tw *tar.Writer) tarHandler {
+func newTarHandler(tw *tar.Writer) fileHandler {
 	h := func(name string, r io.Reader, resp *incusclient.InstanceFileResponse) error {
 		var buf *bytes.Buffer
 		hdr := &tar.Header{
@@ -291,7 +346,7 @@ func newTarHandler(tw *tar.Writer) tarHandler {
 	return h
 }
 
-func newUntarHandler(client incusclient.InstanceServer, inst, root string) untarHandler {
+func newUntarHandler(client incusclient.InstanceServer, inst, root string) utilreader.UntarHandler {
 	h := func(hdr *tar.Header, r io.Reader) error {
 		path := filepath.Join(root, hdr.Name)
 		args := incusclient.InstanceFileArgs{

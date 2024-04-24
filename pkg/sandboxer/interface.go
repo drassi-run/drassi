@@ -3,7 +3,31 @@ package sandboxer
 import (
 	"context"
 	"io"
+
+	"github.com/dungdm93/drasi/pkg/container"
 )
+
+type Sandbox interface {
+	Execute(ctx context.Context, cmd []string, env map[string]string, workdir string) error
+	CopyIn(ctx context.Context, reader io.Reader, dst string) error
+	CopyOut(ctx context.Context, src string) (io.ReadCloser, error)
+
+	RunContainer(ctx context.Context, image string, entrypoint []string, cmd []string, env map[string]string, workdir string) error
+	PullImage(ctx context.Context, image string) error
+	BuildImage(ctx context.Context, image string, dockerfile string, contextPath string) error
+
+	// The full path the repository is cloned to, and where the job runs from
+	GetWorkspaceDir() string
+
+	// The full path to the directory where actions are downloaded into
+	GetActionsDir() string
+
+	// The full path to the directory containing preinstalled tools for GitHub-hosted runners
+	GetToolsDir() string
+
+	// The full path to the directory where file commands, workflow/event.json and run scripts are located
+	GetTempDir() string
+}
 
 type Sandboxer interface {
 	Close() error
@@ -18,15 +42,19 @@ type Sandboxer interface {
 }
 
 type LaunchSandboxRequest struct {
+	JobId             string
+	JobEnv            map[string]string
+	JobContainer      *container.ContainerConfig
+	ServiceContainers map[string]*container.ContainerConfig
 }
 
 type LaunchSandboxResponse struct {
-	SandboxId string
+	Sandbox Sandbox
 }
 
 type TerminateSandboxRequest struct {
-	SandboxId string
-	Timeout   *int
+	Sandbox Sandbox
+	Timeout *int
 }
 
 type TerminateSandboxResponse struct {
