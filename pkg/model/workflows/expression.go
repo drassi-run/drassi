@@ -2,12 +2,17 @@ package workflows
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/dungdm93/drasi/pkg/expr/ast"
+	"github.com/dungdm93/drasi/pkg/expr/evaluator"
+	"github.com/dungdm93/drasi/pkg/model/contexts"
 )
 
 type Evaluable[R any] interface {
-	Evaluate(context.Context) (R, error)
+	Evaluate(ctx context.Context) (R, error)
 }
 
 type identity[R any] struct {
@@ -18,7 +23,7 @@ func (i *identity[R]) Evaluate(context.Context) (R, error) {
 	return i.value, nil
 }
 
-// A little helper to create new identity easier
+// NewIdent is a little helper to create new identity easier
 func NewIdent[R any](value R) Evaluable[R] {
 	return &identity[R]{value: value}
 }
@@ -29,16 +34,25 @@ type expression[R any] struct {
 	conv converter[R]
 }
 
-func (e *expression[R]) Evaluate(ctx context.Context) (R, error) {
-	val := e.expr // TODO
-	return e.conv(val)
+func (e *expression[R]) Evaluate(ctx context.Context) (res R, err error) {
+	ghaCtx := contexts.FromGoContext(ctx)
+	ast := ast.CreateTreeWithDefaults(e.expr)
+	r, err := evaluator.Evaluate(ast, nil, &contexts.Expr{State: &ghaCtx}, &evaluator.Option{})
+	if err != nil {
+		return
+	}
+	val, ok := r.Value().(R)
+	if !ok {
+		return res, fmt.Errorf("evaluated expression result is not %T", res)
+	}
+	return val, nil
 }
 
 func (e *expression[bool]) Meet(ctx context.Context) (bool, error) {
 	return e.Evaluate(ctx)
 }
 
-// A little helper to create new expression easier
+// NewExpr is a little helper to create new expression easier
 func NewExpr[R any](expr string, conv converter[R]) Evaluable[R] {
 	return &expression[R]{
 		expr: expr,

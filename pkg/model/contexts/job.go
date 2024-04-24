@@ -26,9 +26,9 @@ type JobReusableWorkflow struct {
 // https://docs.github.com/en/actions/learn-github-actions/contexts#steps-context
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/StepsContext.cs
 type Step struct {
-	Outputs    map[string]string `json:"outputs" yaml:"outputs"`
-	Conclusion ActionResult      `json:"conclusion" yaml:"conclusion"`
-	Outcome    ActionResult      `json:"outcome" yaml:"outcome"`
+	Outputs    map[string]string `json:"outputs" yaml:"outputs" mapstructure:"outputs"`
+	Conclusion ActionResult      `json:"conclusion" yaml:"conclusion" mapstructure:"conclusion"`
+	Outcome    ActionResult      `json:"outcome" yaml:"outcome" mapstructure:"outcome"`
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Common/ActionResult.cs

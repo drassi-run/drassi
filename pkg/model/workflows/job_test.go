@@ -2,10 +2,12 @@ package workflows
 
 import (
 	"fmt"
-	"github.com/dungdm93/drasi/pkg/model"
+	"testing"
+
 	"github.com/mitchellh/copystructure"
 	"gotest.tools/v3/assert"
-	"testing"
+
+	"github.com/dungdm93/drasi/pkg/model"
 )
 
 func clone[T any](i T) T {

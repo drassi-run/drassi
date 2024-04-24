@@ -1,10 +1,14 @@
 package workflows
 
 import (
-	"github.com/dungdm93/drasi/pkg/model"
+	"context"
+	"testing"
+
 	"github.com/google/go-cmp/cmp"
 	"gotest.tools/v3/assert"
-	"testing"
+
+	"github.com/dungdm93/drasi/pkg/model"
+	"github.com/dungdm93/drasi/pkg/model/contexts"
 )
 
 func commonComparerForEvaluable(opts ...cmp.Option) []cmp.Option {
@@ -101,17 +105,17 @@ func testDecodeEvaluableHook[R any](tt *testing.T, value R, con converter[R]) {
 	// List
 	assert.DeepEqual(tt, obj.ListOfExpr, []Evaluable[R]{i, e}, opts...)
 
-	//// Map
+	// // Map
 	assert.DeepEqual(tt, obj.MapOfExpr, map[string]Evaluable[R]{"first": i, "second": e}, opts...)
 
-	//// Struct
+	// // Struct
 	assert.DeepEqual(tt, obj.StructOfExpr.DirectValue, i, opts...)
 	assert.DeepEqual(tt, obj.StructOfExpr.Expr, e, opts...)
 
 	// List
 	assert.DeepEqual(tt, obj.StructOfExpr.ListOfExpr, []Evaluable[R]{i, e}, opts...)
 
-	//// Map
+	// // Map
 	assert.DeepEqual(tt, obj.StructOfExpr.MapOfExpr, map[string]Evaluable[R]{"first": i, "second": e}, opts...)
 }
 
@@ -158,4 +162,45 @@ func testDecodeConditional(tt *testing.T, val string, con Conditional) {
 	}
 	assert.NilError(tt, err)
 	assert.DeepEqual(tt, actual, expected, opt)
+}
+
+func TestEvaluateExpr(t *testing.T) {
+	t.Run("literal", func(tt *testing.T) {
+		testEvaluateExpr[bool](tt, "true", true, toBool, contexts.Context{})
+		testEvaluateExpr[float64](tt, "123456", 123456, toFloat, contexts.Context{})
+		testEvaluateExpr[float64](tt, "123456.789", 123456.789, toFloat, contexts.Context{})
+		testEvaluateExpr[string](tt, "'hello world'", "hello world", toString, contexts.Context{})
+	})
+	t.Run("logical", func(tt *testing.T) {
+		testEvaluateExpr[bool](tt, "true", true, toBool, contexts.Context{})
+		testEvaluateExpr[bool](tt, "!true && false", false, toBool, contexts.Context{})
+		testEvaluateExpr[bool](tt, "1 == 1", true, toBool, contexts.Context{})
+		testEvaluateExpr[bool](tt, "(1 == 1) && 2 == 2", true, toBool, contexts.Context{})
+		testEvaluateExpr[bool](tt, "false || true", true, toBool, contexts.Context{})
+		testEvaluateExpr[bool](tt, "1 < 2", true, toBool, contexts.Context{})
+		testEvaluateExpr[bool](tt, "1 != 1", false, toBool, contexts.Context{})
+		testEvaluateExpr[bool](tt, "(3 <= 3) || (4 > 5)", true, toBool, contexts.Context{})
+		testEvaluateExpr[bool](tt, "!((3 > 3) && (4 >= 4))", true, toBool, contexts.Context{})
+	})
+	t.Run("string fmt", func(tt *testing.T) {
+		testEvaluateExpr[bool](tt, "contains('Hello world', 'llo')", true, toBool, contexts.Context{})
+		testEvaluateExpr[bool](tt, "startsWith('Hello world', 'He')", true, toBool, contexts.Context{})
+		testEvaluateExpr[bool](tt, "endsWith('Hello world', 'world')", true, toBool, contexts.Context{})
+		testEvaluateExpr[string](tt, "format('Hello {0} {1} {2}', 'Mona', 'the', 'Octocat')", "Hello Mona the Octocat", toString, contexts.Context{})
+		testEvaluateExpr[string](tt, "format('{{Hello {0} {1} {2}!}}', 'Mona', 'the', 'Octocat')", "{Hello Mona the Octocat!}", toString, contexts.Context{})
+		testEvaluateExpr[string](tt, "format('Result: {0}', 1 > 2 && 3 > 4)", "Result: false", toString, contexts.Context{})
+		testEvaluateExpr[string](tt, "format('Result: {0}', 1 > 2 || 3 < 4)", "Result: true", toString, contexts.Context{})
+	})
+	t.Run("access context data", func(tt *testing.T) {
+		testEvaluateExpr[string](tt, "github.actor", "foo", toString, contexts.Context{Github: contexts.Github{Actor: "foo"}})
+		testEvaluateExpr[string](tt, "format('github.actor: {0}', github.actor)", "github.actor: foo", toString, contexts.Context{Github: contexts.Github{Actor: "foo"}})
+	})
+}
+
+func testEvaluateExpr[R any](tt *testing.T, expr string, expected R, con converter[R], ctx contexts.Context) {
+	e := NewExpr(expr, con)
+	res, err := e.Evaluate(contexts.GoContext(context.Background(), ctx))
+	assert.NilError(tt, err)
+	opts := comparerForEvaluable[R]()
+	assert.DeepEqual(tt, res, expected, opts...)
 }

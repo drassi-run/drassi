@@ -101,8 +101,8 @@ func (e *runStepExecutor) getCommand(shell Shell, rCtx *StepRunContext) ([]strin
 
 func (e *runStepExecutor) getScriptPath(rCtx *StepRunContext, shell Shell, name string) string {
 	scriptName := name
-	//for stepInfo := &rc.StepInfo; stepInfo.Parent != nil; stepInfo = stepInfo.Parent {
+	// for stepInfo := &rc.StepInfo; stepInfo.Parent != nil; stepInfo = stepInfo.Parent {
 	//	scriptName = fmt.Sprintf("%s-composite-%s", stepInfo.Parent.StepId, scriptName)
-	//}
+	// }
 	return filepath.Join(rCtx.Sandbox().GetTempDir(), "scripts", scriptName+shell.Extension())
 }

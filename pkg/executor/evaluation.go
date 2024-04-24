@@ -6,7 +6,7 @@ import (
 	"github.com/dungdm93/drasi/pkg/model/workflows"
 )
 
-//// JobRunContext evaluations ////
+// // JobRunContext evaluations ////
 
 func (c *JobRunContext) evaluateName(ctx context.Context, name workflows.Evaluable[string]) (string, error) {
 	if name == nil {
@@ -161,7 +161,7 @@ func (c *JobRunContext) evaluateJobSecrets(ctx context.Context, secrets *workflo
 	return m, nil
 }
 
-//// JobRunContext.Container evaluations ////
+// // JobRunContext.Container evaluations ////
 
 func (c *JobRunContext) evaluateContainerCredentials(ctx context.Context, cred workflows.Evaluable[string]) (string, error) {
 	if cred == nil {
@@ -185,7 +185,7 @@ func (c *JobRunContext) evaluateContainerEnv(ctx context.Context, env workflows.
 	return m, nil
 }
 
-//// StepRunContext evaluations ////
+// // StepRunContext evaluations ////
 
 func (c *StepRunContext) evaluateName(ctx context.Context, name workflows.Evaluable[string]) (string, error) {
 	return name.Evaluate(ctx)
