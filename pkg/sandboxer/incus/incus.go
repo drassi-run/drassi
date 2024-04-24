@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"maps"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -72,6 +73,20 @@ func (i *incus) LaunchSandbox(ctx context.Context, request sandboxer.LaunchSandb
 
 func (i *incus) createInstance(ctx context.Context, name string, request sandboxer.LaunchSandboxRequest) error {
 	template := i.config.Spec.Template
+
+	config := maps.Clone(template.Config)
+	if config == nil {
+		config = make(map[string]string)
+	}
+	for k, v := range request.JobEnv {
+		k = fmt.Sprintf("environment.%s", k)
+		config[k] = v
+	}
+	for k, v := range i.getPredefinedEnv() {
+		k = fmt.Sprintf("environment.%s", k)
+		config[k] = v
+	}
+
 	req := incusapi.InstancesPost{
 		Name:         name,
 		Start:        true,
@@ -80,7 +95,7 @@ func (i *incus) createInstance(ctx context.Context, name string, request sandbox
 		InstanceType: template.InstanceSize,
 		InstancePut: incusapi.InstancePut{
 			Architecture: template.Architecture,
-			Config:       template.Config,
+			Config:       config,
 			Devices:      template.Devices,
 			Ephemeral:    template.Ephemeral,
 			Profiles:     template.Profiles,
@@ -137,6 +152,17 @@ func (i *incus) setupWellKnownDirectories(sandbox *incusSandbox) error {
 	}
 
 	return nil
+}
+
+func (i *incus) getPredefinedEnv() map[string]string {
+	env := map[string]string{
+		"GITHUB_STEP_SUMMARY": "/opt/drasi/tmp/file_commands/GITHUB_STEP_SUMMARY",
+		"GITHUB_OUTPUT":       "/opt/drasi/tmp/file_commands/GITHUB_OUTPUT",
+		"GITHUB_STATE":        "/opt/drasi/tmp/file_commands/GITHUB_STATE",
+		"GITHUB_PATH":         "/opt/drasi/tmp/file_commands/GITHUB_PATH",
+		"GITHUB_ENV":          "/opt/drasi/tmp/file_commands/GITHUB_ENV",
+	}
+	return env
 }
 
 func (i *incus) TerminateSandbox(ctx context.Context, request sandboxer.TerminateSandboxRequest) (sandboxer.TerminateSandboxResponse, error) {

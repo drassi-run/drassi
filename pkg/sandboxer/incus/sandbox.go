@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"path/filepath"
+	"strings"
 
 	"github.com/dungdm93/drasi/pkg/container"
 	"github.com/dungdm93/drasi/pkg/sandboxer"
@@ -29,6 +31,11 @@ var _ sandboxer.Sandbox = (*incusSandbox)(nil)
 
 func (s *incusSandbox) Execute(ctx context.Context, cmd []string, env map[string]string, workdir string) error {
 	if s.jobContainerId == "" {
+		if workdir == "" || strings.HasPrefix(workdir, "./") {
+			workdir = filepath.Join(s.GetWorkspaceDir(), workdir)
+		} else if !strings.HasPrefix(workdir, "/") {
+			return fmt.Errorf("unexpected workdir %s", workdir)
+		}
 		req := sandboxer.ExecuteSandboxRequest{
 			SandboxId: s.sandboxId,
 			Cmd:       cmd,
