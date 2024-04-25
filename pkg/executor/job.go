@@ -23,22 +23,20 @@ type Task struct {
 }
 
 type JobRunner struct {
-	job       *workflows.NormalJob
-	jobId     string
-	sandboxer sandboxer.Sandboxer
+	job   *workflows.NormalJob
+	jobId string
 
 	rCtx *JobRunContext
 }
 
-func NewJobRunner(job *workflows.NormalJob, jobId string, sandboxer sandboxer.Sandboxer) *JobRunner {
+func NewJobRunner(job *workflows.NormalJob, jobId string) *JobRunner {
 	return &JobRunner{
-		job:       job,
-		jobId:     jobId,
-		sandboxer: sandboxer,
+		job:   job,
+		jobId: jobId,
 	}
 }
 
-func (e *JobRunner) Initialize(ctx context.Context) (err error) {
+func (e *JobRunner) Initialize(ctx context.Context, runtime sandboxer.SandboxRuntime) (err error) {
 	e.rCtx = &JobRunContext{
 		job: e.job,
 	}
@@ -64,7 +62,7 @@ func (e *JobRunner) Initialize(ctx context.Context) (err error) {
 		JobContainer:      jobContainer,
 		ServiceContainers: serviceContainers,
 	}
-	if res, err := e.sandboxer.LaunchSandbox(ctx, req); err != nil {
+	if res, err := runtime.LaunchSandbox(ctx, req); err != nil {
 		return err
 	} else {
 		e.rCtx.sandbox = res.Sandbox
@@ -76,11 +74,11 @@ func (e *JobRunner) Run(ctx context.Context) error {
 	return e.rCtx.RunJob(ctx)
 }
 
-func (e *JobRunner) Finalize(ctx context.Context) error {
+func (e *JobRunner) Finalize(ctx context.Context, runtime sandboxer.SandboxRuntime) error {
 	req := sandboxer.TerminateSandboxRequest{
 		Sandbox: e.rCtx.sandbox,
 	}
-	_, err := e.sandboxer.TerminateSandbox(ctx, req)
+	_, err := runtime.TerminateSandbox(ctx, req)
 	return err
 }
 

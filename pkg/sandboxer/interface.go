@@ -29,7 +29,7 @@ type Sandbox interface {
 	GetTempDir() string
 }
 
-type Sandboxer interface {
+type SandboxRuntime interface {
 	Close() error
 	Connect(context.Context) error
 

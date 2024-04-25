@@ -19,20 +19,20 @@ import (
 	incusapi "github.com/lxc/incus/shared/api"
 )
 
-type incus struct {
+type incusSandboxRuntime struct {
 	config *Incus
 	client incusclient.InstanceServer
 }
 
-func NewIncusSandboxer(config *Incus) sandboxer.Sandboxer {
-	i := &incus{
+func NewSandboxRuntime(config *Incus) sandboxer.SandboxRuntime {
+	i := &incusSandboxRuntime{
 		config: config,
 	}
 	return i
 }
 
 // see: cliconfig.GetInstanceServer
-func (i *incus) Connect(ctx context.Context) error {
+func (i *incusSandboxRuntime) Connect(ctx context.Context) error {
 	u, err := url.Parse(i.config.Spec.Endpoint)
 	if err != nil {
 		return err
@@ -44,12 +44,12 @@ func (i *incus) Connect(ctx context.Context) error {
 	return err
 }
 
-func (i *incus) Close() error {
+func (i *incusSandboxRuntime) Close() error {
 	i.client.Disconnect()
 	return nil
 }
 
-func (i *incus) LaunchSandbox(ctx context.Context, request sandboxer.LaunchSandboxRequest) (sandboxer.LaunchSandboxResponse, error) {
+func (i *incusSandboxRuntime) LaunchSandbox(ctx context.Context, request sandboxer.LaunchSandboxRequest) (sandboxer.LaunchSandboxResponse, error) {
 	name := "foobar"
 	res := sandboxer.LaunchSandboxResponse{}
 
@@ -59,8 +59,8 @@ func (i *incus) LaunchSandbox(ctx context.Context, request sandboxer.LaunchSandb
 	}
 
 	sandbox := &incusSandbox{
-		sandboxId: name,
-		sandboxer: i,
+		sandboxId:      name,
+		sandboxRuntime: i,
 	}
 
 	if err := i.setupWellKnownDirectories(sandbox); err != nil {
@@ -71,7 +71,7 @@ func (i *incus) LaunchSandbox(ctx context.Context, request sandboxer.LaunchSandb
 	return res, nil
 }
 
-func (i *incus) createInstance(ctx context.Context, name string, request sandboxer.LaunchSandboxRequest) error {
+func (i *incusSandboxRuntime) createInstance(ctx context.Context, name string, request sandboxer.LaunchSandboxRequest) error {
 	template := i.config.Spec.Template
 
 	config := maps.Clone(template.Config)
@@ -112,7 +112,7 @@ func (i *incus) createInstance(ctx context.Context, name string, request sandbox
 	return nil
 }
 
-func (i *incus) setupWellKnownDirectories(sandbox *incusSandbox) error {
+func (i *incusSandboxRuntime) setupWellKnownDirectories(sandbox *incusSandbox) error {
 	args := incusclient.InstanceFileArgs{
 		Type: "directory",
 	}
@@ -154,7 +154,7 @@ func (i *incus) setupWellKnownDirectories(sandbox *incusSandbox) error {
 	return nil
 }
 
-func (i *incus) getPredefinedEnv() map[string]string {
+func (i *incusSandboxRuntime) getPredefinedEnv() map[string]string {
 	env := map[string]string{
 		"GITHUB_STEP_SUMMARY": "/opt/drasi/tmp/file_commands/GITHUB_STEP_SUMMARY",
 		"GITHUB_OUTPUT":       "/opt/drasi/tmp/file_commands/GITHUB_OUTPUT",
@@ -165,7 +165,7 @@ func (i *incus) getPredefinedEnv() map[string]string {
 	return env
 }
 
-func (i *incus) TerminateSandbox(ctx context.Context, request sandboxer.TerminateSandboxRequest) (sandboxer.TerminateSandboxResponse, error) {
+func (i *incusSandboxRuntime) TerminateSandbox(ctx context.Context, request sandboxer.TerminateSandboxRequest) (sandboxer.TerminateSandboxResponse, error) {
 	res := sandboxer.TerminateSandboxResponse{}
 	sandbox, ok := request.Sandbox.(*incusSandbox)
 	if !ok {
@@ -205,7 +205,7 @@ func (i *incus) TerminateSandbox(ctx context.Context, request sandboxer.Terminat
 	return res, nil
 }
 
-func (i *incus) ExecuteSandbox(ctx context.Context, request sandboxer.ExecuteSandboxRequest) (sandboxer.ExecuteSandboxResponse, error) {
+func (i *incusSandboxRuntime) ExecuteSandbox(ctx context.Context, request sandboxer.ExecuteSandboxRequest) (sandboxer.ExecuteSandboxResponse, error) {
 	res := sandboxer.ExecuteSandboxResponse{}
 
 	// Prepare the command
@@ -248,7 +248,7 @@ func (i *incus) ExecuteSandbox(ctx context.Context, request sandboxer.ExecuteSan
 	}
 }
 
-func (i *incus) CopyFromSandbox(ctx context.Context, request sandboxer.CopyFromSandboxRequest) (sandboxer.CopyFromSandboxResponse, error) {
+func (i *incusSandboxRuntime) CopyFromSandbox(ctx context.Context, request sandboxer.CopyFromSandboxRequest) (sandboxer.CopyFromSandboxResponse, error) {
 	res := sandboxer.CopyFromSandboxResponse{}
 	buf := new(bytes.Buffer)
 	tw := tar.NewWriter(buf)
@@ -263,7 +263,7 @@ func (i *incus) CopyFromSandbox(ctx context.Context, request sandboxer.CopyFromS
 	return res, nil
 }
 
-func (i *incus) CopyToSandbox(ctx context.Context, request sandboxer.CopyToSandboxRequest) (sandboxer.CopyToSandboxResponse, error) {
+func (i *incusSandboxRuntime) CopyToSandbox(ctx context.Context, request sandboxer.CopyToSandboxRequest) (sandboxer.CopyToSandboxResponse, error) {
 	res := sandboxer.CopyToSandboxResponse{}
 
 	handler := newUntarHandler(i.client, request.SandboxId, request.DestinationPath)
@@ -273,7 +273,7 @@ func (i *incus) CopyToSandbox(ctx context.Context, request sandboxer.CopyToSandb
 
 type fileHandler = func(string, io.Reader, *incusclient.InstanceFileResponse) error
 
-func (i *incus) walk(inst, root, name string, h fileHandler) error {
+func (i *incusSandboxRuntime) walk(inst, root, name string, h fileHandler) error {
 	path := filepath.Join(root, name)
 	buf, resp, err := i.client.GetInstanceFile(inst, path)
 	if err != nil {

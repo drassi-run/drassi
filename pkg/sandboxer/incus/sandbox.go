@@ -12,8 +12,8 @@ import (
 )
 
 type incusSandbox struct {
-	sandboxer sandboxer.Sandboxer
-	sandboxId string
+	sandboxRuntime sandboxer.SandboxRuntime
+	sandboxId      string
 
 	containerRuntime    container.ContainerRuntime
 	jobContainerId      string
@@ -42,7 +42,7 @@ func (s *incusSandbox) Execute(ctx context.Context, cmd []string, env map[string
 			Env:       env,
 			Workdir:   workdir,
 		}
-		res, err := s.sandboxer.ExecuteSandbox(ctx, req)
+		res, err := s.sandboxRuntime.ExecuteSandbox(ctx, req)
 		if err != nil {
 			return err
 		}
@@ -63,7 +63,7 @@ func (s *incusSandbox) CopyIn(ctx context.Context, reader io.Reader, dst string)
 			DestinationPath: dst,
 			Content:         reader,
 		}
-		_, err := s.sandboxer.CopyToSandbox(ctx, req)
+		_, err := s.sandboxRuntime.CopyToSandbox(ctx, req)
 		if err != nil {
 			return err
 		}
@@ -80,7 +80,7 @@ func (s *incusSandbox) CopyOut(ctx context.Context, src string) (io.ReadCloser, 
 			SandboxId:  s.sandboxId,
 			SourcePath: src,
 		}
-		res, err := s.sandboxer.CopyFromSandbox(ctx, req)
+		res, err := s.sandboxRuntime.CopyFromSandbox(ctx, req)
 		if err != nil {
 			return nil, err
 		}
