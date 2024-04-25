@@ -10,34 +10,34 @@ import (
 // + Using a public action: `uses: actions/aws@v2.0.1`
 // + Using a public action in a subdirectory: `uses: actions/aws/ec2@main`
 // + Using a local action: `uses: ./.github/actions/hello-world-action`
-type usesActionStepRunner struct {
+type usesActionStepExecutor struct {
 	step   *workflows.UsesStep
 	repo   *repository
 	rev    string
-	action ActionRunner
+	action ActionExecutor
 }
 
-func (e *usesActionStepRunner) Initialize(ctx context.Context, rCtx *StepRunContext) error {
+func (e *usesActionStepExecutor) Initialize(ctx context.Context, rCtx *StepRunContext) error {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (e *usesActionStepRunner) PreTask() *Task {
+func (e *usesActionStepExecutor) PreTask() *Task {
 	t := e.action.PreTask()
 	return fixupTask(t, e.step)
 }
 
-func (e *usesActionStepRunner) MainTask() *Task {
+func (e *usesActionStepExecutor) MainTask() *Task {
 	t := e.action.MainTask()
 	return fixupTask(t, e.step)
 }
 
-func (e *usesActionStepRunner) PostTask() *Task {
+func (e *usesActionStepExecutor) PostTask() *Task {
 	t := e.action.PostTask()
 	return fixupTask(t, e.step)
 }
 
-func (e *usesActionStepRunner) Step() workflows.Step {
+func (e *usesActionStepExecutor) Step() workflows.Step {
 	return e.step
 }
 

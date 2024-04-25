@@ -27,7 +27,7 @@ type JobRunContext struct {
 	paths []string
 
 	stepContexts map[string]*StepRunContext
-	runners      []StepRunner
+	executors    []StepExecutor
 }
 
 func (c *JobRunContext) Sandbox() sandboxer.Sandbox {
@@ -35,33 +35,33 @@ func (c *JobRunContext) Sandbox() sandboxer.Sandbox {
 }
 
 func (c *JobRunContext) RunJob(ctx context.Context) error {
-	if err := c.makeRunners(); err != nil {
+	if err := c.makeExecutors(); err != nil {
 		return err
 	}
 
-	if err := c.initializeRunners(ctx); err != nil {
+	if err := c.initializeExecutors(ctx); err != nil {
 		return err
 	}
 
-	if err := c.runStage(ctx, StagePre, StepRunner.PreTask); err != nil {
+	if err := c.runStage(ctx, StagePre, StepExecutor.PreTask); err != nil {
 		return err
 	}
-	if err := c.runStage(ctx, StageMain, StepRunner.MainTask); err != nil {
+	if err := c.runStage(ctx, StageMain, StepExecutor.MainTask); err != nil {
 		return err
 	}
-	if err := c.runStage(ctx, StagePost, StepRunner.PostTask); err != nil {
+	if err := c.runStage(ctx, StagePost, StepExecutor.PostTask); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (c *JobRunContext) makeRunners() error {
+func (c *JobRunContext) makeExecutors() error {
 	c.stepContexts = make(map[string]*StepRunContext, len(c.job.Steps))
-	c.runners = make([]StepRunner, len(c.job.Steps))
+	c.executors = make([]StepExecutor, len(c.job.Steps))
 	var err error
 	for i, step := range c.job.Steps {
 		c.stepContexts[step.Base().Id] = NewStepRunContext(c, step)
-		c.runners[i], err = NewStepRunner(step)
+		c.executors[i], err = NewStepExecutor(step)
 		if err != nil {
 			return err
 		}
@@ -69,22 +69,22 @@ func (c *JobRunContext) makeRunners() error {
 	return nil
 }
 
-func (c *JobRunContext) initializeRunners(ctx context.Context) error {
+func (c *JobRunContext) initializeExecutors(ctx context.Context) error {
 	g, ctx := errgroup.WithContext(ctx)
 	for i, step := range c.job.Steps {
-		runner := c.runners[i]
+		executor := c.executors[i]
 		rCtx := c.stepContexts[step.Base().Id]
 		g.Go(func() error {
-			return runner.Initialize(ctx, rCtx)
+			return executor.Initialize(ctx, rCtx)
 		})
 	}
 	return g.Wait()
 }
 
-func (c *JobRunContext) runStage(ctx context.Context, stage Stage, fn func(runner StepRunner) *Task) error {
+func (c *JobRunContext) runStage(ctx context.Context, stage Stage, fn func(executor StepExecutor) *Task) error {
 	var tasks []*Task
-	for _, runner := range c.runners {
-		if t := fn(runner); t != nil {
+	for _, executor := range c.executors {
+		if t := fn(executor); t != nil {
 			tasks = append(tasks, t)
 		}
 	}

@@ -9,19 +9,19 @@ import (
 	utilreader "github.com/dungdm93/drasi/pkg/util/reader"
 )
 
-type runStepRunner struct {
+type runStepExecutor struct {
 	step *workflows.RunStep
 }
 
-func (e *runStepRunner) Initialize(_ context.Context, _ *StepRunContext) error {
+func (e *runStepExecutor) Initialize(_ context.Context, _ *StepRunContext) error {
 	return nil
 }
 
-func (e *runStepRunner) PreTask() *Task {
+func (e *runStepExecutor) PreTask() *Task {
 	return nil
 }
 
-func (e *runStepRunner) MainTask() *Task {
+func (e *runStepExecutor) MainTask() *Task {
 	return &Task{
 		StepID:    e.step.Id,
 		Stage:     StageMain,
@@ -30,7 +30,7 @@ func (e *runStepRunner) MainTask() *Task {
 	}
 }
 
-func (e *runStepRunner) executeMain(ctx context.Context, rCtx *StepRunContext) error {
+func (e *runStepExecutor) executeMain(ctx context.Context, rCtx *StepRunContext) error {
 	shell := Shell(e.getShell(rCtx))
 
 	workdir, err := e.getWorkingDir(ctx, rCtx)
@@ -63,29 +63,29 @@ func (e *runStepRunner) executeMain(ctx context.Context, rCtx *StepRunContext) e
 	return rCtx.Sandbox().Execute(ctx, cmd, nil, workdir)
 }
 
-func (e *runStepRunner) PostTask() *Task {
+func (e *runStepExecutor) PostTask() *Task {
 	return nil
 }
 
-func (e *runStepRunner) Step() workflows.Step {
+func (e *runStepExecutor) Step() workflows.Step {
 	return e.step
 }
 
-func (e *runStepRunner) getShell(rCtx *StepRunContext) string {
+func (e *runStepExecutor) getShell(rCtx *StepRunContext) string {
 	if e.step.Shell != "" {
 		return e.step.Shell
 	}
 	return rCtx.job.defaultRun.shell
 }
 
-func (e *runStepRunner) getWorkingDir(ctx context.Context, rCtx *StepRunContext) (string, error) {
+func (e *runStepExecutor) getWorkingDir(ctx context.Context, rCtx *StepRunContext) (string, error) {
 	if e.step.WorkingDir != nil {
 		return rCtx.evaluateWorkingDir(ctx, e.step.WorkingDir)
 	}
 	return rCtx.job.defaultRun.workDir, nil
 }
 
-func (e *runStepRunner) getCommand(shell Shell, rCtx *StepRunContext) ([]string, string, error) {
+func (e *runStepExecutor) getCommand(shell Shell, rCtx *StepRunContext) ([]string, string, error) {
 	scriptPath := e.getScriptPath(rCtx, shell, e.step.Id)
 	cmds, err := shell.Command()
 	if err != nil {
@@ -99,7 +99,7 @@ func (e *runStepRunner) getCommand(shell Shell, rCtx *StepRunContext) ([]string,
 	return c, scriptPath, nil
 }
 
-func (e *runStepRunner) getScriptPath(rCtx *StepRunContext, shell Shell, name string) string {
+func (e *runStepExecutor) getScriptPath(rCtx *StepRunContext, shell Shell, name string) string {
 	scriptName := name
 	//for stepInfo := &rc.StepInfo; stepInfo.Parent != nil; stepInfo = stepInfo.Parent {
 	//	scriptName = fmt.Sprintf("%s-composite-%s", stepInfo.Parent.StepId, scriptName)

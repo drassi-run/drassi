@@ -6,7 +6,7 @@ import (
 	"github.com/dungdm93/drasi/pkg/model/actions"
 )
 
-type ActionRunner interface {
+type ActionExecutor interface {
 	Initialize(ctx context.Context, rCtx *StepRunContext) error
 	PreTask() *Task
 	MainTask() *Task
@@ -14,9 +14,9 @@ type ActionRunner interface {
 	Action() actions.Runs
 }
 
-// ensure ActionRunner implementations
+// ensure ActionExecutor implementations
 var (
-	_ ActionRunner = (*javaScriptActionRunner)(nil)
-	_ ActionRunner = (*dockerActionRunner)(nil)
-	_ ActionRunner = (*compositeActionRunner)(nil)
+	_ ActionExecutor = (*javaScriptActionExecutor)(nil)
+	_ ActionExecutor = (*dockerActionExecutor)(nil)
+	_ ActionExecutor = (*compositeActionExecutor)(nil)
 )

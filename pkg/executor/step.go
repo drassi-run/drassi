@@ -8,7 +8,7 @@ import (
 	"github.com/dungdm93/drasi/pkg/model/workflows"
 )
 
-type StepRunner interface {
+type StepExecutor interface {
 	Initialize(ctx context.Context, rCtx *StepRunContext) error
 	PreTask() *Task
 	MainTask() *Task
@@ -16,37 +16,37 @@ type StepRunner interface {
 	Step() workflows.Step
 }
 
-// ensure StepRunner implementations
+// ensure StepExecutor implementations
 var (
-	_ StepRunner = (*runStepRunner)(nil)
-	_ StepRunner = (*usesDockerStepRunner)(nil)
-	_ StepRunner = (*usesActionStepRunner)(nil)
+	_ StepExecutor = (*runStepExecutor)(nil)
+	_ StepExecutor = (*usesDockerStepExecutor)(nil)
+	_ StepExecutor = (*usesActionStepExecutor)(nil)
 )
 
-func NewStepRunner(step workflows.Step) (StepRunner, error) {
+func NewStepExecutor(step workflows.Step) (StepExecutor, error) {
 	switch s := step.(type) {
 	case *workflows.RunStep:
-		r := &runStepRunner{
+		r := &runStepExecutor{
 			step: s,
 		}
 		return r, nil
 	case *workflows.UsesStep:
 		if image, ok := strings.CutPrefix(s.Uses, "docker://"); ok {
-			r := &usesDockerStepRunner{
+			e := &usesDockerStepExecutor{
 				step:  s,
 				image: image,
 			}
-			return r, nil
+			return e, nil
 		} else {
 			repo, err := parseRepository(s.Uses)
 			if err != nil {
 				return nil, err
 			}
-			r := &usesActionStepRunner{
+			e := &usesActionStepExecutor{
 				step: s,
 				repo: repo,
 			}
-			return r, nil
+			return e, nil
 		}
 	default:
 		return nil, fmt.Errorf("unknown step type: %T", step)

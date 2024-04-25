@@ -22,21 +22,21 @@ type Task struct {
 	Run       func(context.Context, *StepRunContext) error
 }
 
-type JobRunner struct {
+type JobExecutor struct {
 	job   *workflows.NormalJob
 	jobId string
 
 	rCtx *JobRunContext
 }
 
-func NewJobRunner(job *workflows.NormalJob, jobId string) *JobRunner {
-	return &JobRunner{
+func NewJobExecutor(job *workflows.NormalJob, jobId string) *JobExecutor {
+	return &JobExecutor{
 		job:   job,
 		jobId: jobId,
 	}
 }
 
-func (e *JobRunner) Initialize(ctx context.Context, runtime sandboxer.SandboxRuntime) (err error) {
+func (e *JobExecutor) Initialize(ctx context.Context, runtime sandboxer.SandboxRuntime) (err error) {
 	e.rCtx = &JobRunContext{
 		job: e.job,
 	}
@@ -70,11 +70,11 @@ func (e *JobRunner) Initialize(ctx context.Context, runtime sandboxer.SandboxRun
 	return nil
 }
 
-func (e *JobRunner) Run(ctx context.Context) error {
+func (e *JobExecutor) Run(ctx context.Context) error {
 	return e.rCtx.RunJob(ctx)
 }
 
-func (e *JobRunner) Finalize(ctx context.Context, runtime sandboxer.SandboxRuntime) error {
+func (e *JobExecutor) Finalize(ctx context.Context, runtime sandboxer.SandboxRuntime) error {
 	req := sandboxer.TerminateSandboxRequest{
 		Sandbox: e.rCtx.sandbox,
 	}
