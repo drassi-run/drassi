@@ -12,10 +12,10 @@ import (
 
 type traceWriter struct {
 	tr interfaces.TraceWriter
-	sm secret_masker.SecretMasker
+	sm secret_masker.Interface
 }
 
-func newEvaluationTraceWriter(m secret_masker.SecretMasker) interfaces.TraceWriter {
+func newEvaluationTraceWriter(m secret_masker.Interface) interfaces.TraceWriter {
 	if m == nil {
 		panic("secret masker must be provided")
 	}

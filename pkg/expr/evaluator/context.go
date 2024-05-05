@@ -11,13 +11,13 @@ type (
 		state        any
 		opt          *Option
 		traceWriter  interfaces.TraceWriter
-		secretMasker secret_masker.SecretMasker
+		secretMasker secret_masker.Interface
 		traceResults map[interfaces.Node]string
 		visitor      interfaces.Visitor
 	}
 )
 
-func newContext(t interfaces.TraceWriter, sm secret_masker.SecretMasker, s any, o *Option, v interfaces.Visitor) *context {
+func newContext(t interfaces.TraceWriter, sm secret_masker.Interface, s any, o *Option, v interfaces.Visitor) *context {
 	if t == nil {
 		panic(ErrorEmptyTrace)
 	}
@@ -38,7 +38,7 @@ func (c *context) State() any {
 	return c.state
 }
 
-func (c *context) Masker() secret_masker.SecretMasker {
+func (c *context) Masker() secret_masker.Interface {
 	return c.secretMasker
 }
 

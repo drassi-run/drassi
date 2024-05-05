@@ -7,7 +7,7 @@ import (
 
 type Context interface {
 	State() any
-	Masker() secret_masker.SecretMasker
+	Masker() secret_masker.Interface
 	Trace() TraceWriter
 	SetTraceResult(node Node, result expr.Result)
 	TryGetTraceResult(node Node) (exist bool, result string)

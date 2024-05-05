@@ -11,7 +11,7 @@ import (
 )
 
 // MustEvaluate from ast root and panic if there is an error
-func MustEvaluate(root interfaces.Node, masker secret_masker.SecretMasker, state any,
+func MustEvaluate(root interfaces.Node, masker secret_masker.Interface, state any,
 	opt *Option) expr.Result {
 	if root.GetCtn() != nil {
 		panic(ErrorNonRootEvaluate)
@@ -30,7 +30,7 @@ func MustEvaluate(root interfaces.Node, masker secret_masker.SecretMasker, state
 }
 
 // Evaluate from ast root and return an error if any
-func Evaluate(root interfaces.Node, masker secret_masker.SecretMasker, state any,
+func Evaluate(root interfaces.Node, masker secret_masker.Interface, state any,
 	opt *Option) (r expr.Result, err error) {
 	defer func() {
 		if v := recover(); v != nil {

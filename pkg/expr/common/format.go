@@ -42,7 +42,7 @@ func ParseNumber(str string) (out float64) {
 	return math.NaN()
 }
 
-func FormatValue(masker secret_masker.SecretMasker, value any, kind expr.ResultKind) string {
+func FormatValue(masker secret_masker.Interface, value any, kind expr.ResultKind) string {
 	switch kind {
 	case expr.Null:
 		return Null

@@ -6,7 +6,7 @@ import (
 	"github.com/dungdm93/drasi/pkg/secret_masker"
 )
 
-func formatValueFromResult(masker secret_masker.SecretMasker, result expr.Result) string {
+func formatValueFromResult(masker secret_masker.Interface, result expr.Result) string {
 	return common.FormatValue(masker, result.Value(), result.Kind())
 }
 

@@ -1,10 +1,11 @@
 package secret_masker
 
-// SecretMasker mask secret when print runner's log in gha console
+// SecretMasker mask value that match the secret regex
 // See https://github.com/actions/runner/blob/main/src/Sdk/DTLogging/Logging/ISecretMasker.cs
-type SecretMasker interface {
+
+type Interface interface {
 	AddRegex(pattern string)
 	AddValue(value string)
-	Clone() SecretMasker
+	Clone() Interface
 	MaskSecrets(input string) string
 }

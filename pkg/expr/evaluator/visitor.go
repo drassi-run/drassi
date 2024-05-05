@@ -72,7 +72,6 @@ func (e evaluationVisitor) VisitContextValueNode(eCtx interfaces.Context, c inte
 	if err := mapstructure.Decode(*(eCtx.State().(*contexts.Expr).State), &target); err != nil {
 		panic(err)
 	}
-	fmt.Printf("target: %+v\n", target)
 	return target[c.GetName()]
 }
 
