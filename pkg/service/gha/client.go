@@ -13,10 +13,10 @@ import (
 )
 
 const (
-	groupEndpoint        = "_apis/distributedtask/pools"
-	runnerEndpoint       = groupEndpoint + "/%d/agents"
-	scaleSetEndpoint     = "_apis/runtime/runnerscalesets"
-	apiVersionQueryParam = "api-version=6.0-preview.2"
+	groupEndpoint   = "_apis/distributedtask/pools"
+	runnerEndpoint  = groupEndpoint + "/%d/agents"
+	sessionEndpoint = groupEndpoint + "/%d/sessions"
+	apiVersion      = "6.0-preview.2"
 )
 
 type ghaResponse[T any] struct {
@@ -74,7 +74,7 @@ func (c *Client) NewActionsServiceRequest(ctx context.Context, method, path stri
 		q.Add(k, v)
 	}
 	if q.Get("api-version") == "" {
-		q.Set("api-version", "6.0-preview")
+		q.Set("api-version", apiVersion)
 	}
 	u.RawQuery = q.Encode()
 
@@ -169,4 +169,33 @@ func (c *Client) AddRunner(ctx context.Context, groupId int32, runner *Runner) (
 		return nil, err
 	}
 	return r, nil
+}
+
+func (c *Client) CreateSession(ctx context.Context, groupId int32, session *RunnerSession) (*RunnerSession, error) {
+	// Construct request
+	buf := new(bytes.Buffer)
+	if err := json.NewEncoder(buf).Encode(session); err != nil {
+		return nil, err
+	}
+
+	endpoint := fmt.Sprintf(sessionEndpoint, groupId)
+	req, err := c.NewActionsServiceRequest(ctx, http.MethodPost, endpoint, nil, buf)
+	if err != nil {
+		return nil, err
+	}
+
+	// Make a request
+	res, err := c.send(req)
+	if err != nil {
+		return nil, err
+	} else {
+		defer res.Body.Close()
+	}
+
+	// Extract the response body
+	s := new(RunnerSession)
+	if err = json.NewDecoder(res.Body).Decode(s); err != nil {
+		return nil, err
+	}
+	return s, nil
 }
