@@ -13,6 +13,7 @@ func NewGHARunnerCommand() *cobra.Command {
 
 	cmd.AddCommand(
 		NewRegisterCommand(),
+		NewLaunchCommand(),
 	)
 
 	return cmd
