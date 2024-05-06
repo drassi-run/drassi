@@ -130,3 +130,18 @@ func (pk *RunnerPublicKey) ToRsaPublicKey() (*rsa.PublicKey, error) {
 	}
 	return &pubkey, nil
 }
+
+type Message struct {
+	// The message identifier
+	Id string `json:"messageId,omitempty"`
+
+	// The message type, describing the data contract found in Body
+	Type string `json:"messageType,omitempty"`
+
+	// The initialization vector used to encrypt this message
+	IV []byte `json:"IV,omitempty"`
+
+	// The body of the message. If the IV property is provided the body will need to be
+	// decrypted using the Session.EncryptionKey value in addition to the IV.
+	Body string `json:"body,omitempty"`
+}
