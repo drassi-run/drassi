@@ -1,4 +1,4 @@
-package configure
+package gha
 
 import (
 	"crypto/rsa"
@@ -14,25 +14,25 @@ const RunnerGroupTypeAutomation RunnerGroupType = "Automation"
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTWebApi/WebApi/TaskAgentPoolReference.cs#L23
 type RunnerGroupReference struct {
-	ID         int32           `json:"id"`
-	Name       string          `json:"name"`
-	Scope      string          `json:"scope"` // UUID
-	PoolType   RunnerGroupType `json:"poolType"`
-	Size       int32           `json:"size"`
-	IsHosted   bool            `json:"isHosted"`
-	IsInternal bool            `json:"isInternal"`
-	IsLegacy   *bool           `json:"isLegacy"`
+	ID         int32           `json:"id,omitempty"`
+	Name       string          `json:"name,omitempty"`
+	Scope      string          `json:"scope,omitempty"` // UUID
+	PoolType   RunnerGroupType `json:"poolType,omitempty"`
+	Size       int32           `json:"size,omitempty"`
+	IsHosted   bool            `json:"isHosted,omitempty"`
+	IsInternal bool            `json:"isInternal,omitempty"`
+	IsLegacy   *bool           `json:"isLegacy,omitempty"`
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTWebApi/WebApi/TaskAgentPool.cs
 type RunnerGroup struct {
 	RunnerGroupReference `json:",inline"`
 
-	CreatedOn     time.Time `json:"createdOn"`
-	AutoProvision *bool     `json:"autoProvision"`
-	AutoSize      *bool     `json:"autoSize"`
-	TargetSize    *int32    `json:"targetSize"`
-	AgentCloudId  *int32    `json:"agentCloudId"`
+	CreatedOn     time.Time `json:"createdOn,omitempty"`
+	AutoProvision *bool     `json:"autoProvision,omitempty"`
+	AutoSize      *bool     `json:"autoSize,omitempty"`
+	TargetSize    *int32    `json:"targetSize,omitempty"`
+	AgentCloudId  *int32    `json:"agentCloudId,omitempty"`
 }
 
 type RunnerStatus string
