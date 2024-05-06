@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/huh"
+	"github.com/dungdm93/drasi/pkg/service/gha"
 	utilhttp "github.com/dungdm93/drasi/pkg/util/http"
 	"github.com/spf13/cobra"
 )
@@ -95,7 +96,12 @@ func runRegister(ctx context.Context, opts *registerOptions) error {
 		return err
 	}
 
-	group, err := selectRunnerGroup(ctx, auth, opts)
+	client, err := gha.NewClient(auth.TenantUrl, auth.Token)
+	if err != nil {
+		return err
+	}
+
+	group, err := selectRunnerGroup(ctx, client, opts)
 	if err != nil {
 		return err
 	}
@@ -116,11 +122,9 @@ func runRegister(ctx context.Context, opts *registerOptions) error {
 		}
 	}
 
-	runners, err := getRunners(ctx, opts.name, auth)
-	if err != nil {
+	if runners, err := client.ListRunners(ctx, 0, opts.name); err != nil {
 		return err
-	}
-	if len(runners) > 0 {
+	} else if len(runners) > 0 {
 		// TODO replace runner
 		return fmt.Errorf("a runner exists with the same name %s", opts.name)
 	}
@@ -133,23 +137,23 @@ func runRegister(ctx context.Context, opts *registerOptions) error {
 		return err
 	}
 
-	runner := &Runner{
-		RunnerReference: RunnerReference{
+	runner := &gha.Runner{
+		RunnerReference: gha.RunnerReference{
 			Name:    opts.name,
 			Version: "1.2.3",
 		},
 		MaxParallelism: 10,
-		Labels: []RunnerLabel{
-			{Name: "self-hosted", Type: RunnerLabelTypeSystem},
-			{Name: "Linux", Type: RunnerLabelTypeSystem},
-			{Name: "X64", Type: RunnerLabelTypeSystem},
+		Labels: []gha.RunnerLabel{
+			{Name: "self-hosted", Type: gha.RunnerLabelTypeSystem},
+			{Name: "Linux", Type: gha.RunnerLabelTypeSystem},
+			{Name: "X64", Type: gha.RunnerLabelTypeSystem},
 		},
-		Authorization: RunnerAuthorization{
-			PublicKey: NewRunnerPublicKey(&key.PublicKey),
+		Authorization: gha.RunnerAuthorization{
+			PublicKey: gha.NewRunnerPublicKey(&key.PublicKey),
 		},
 	}
 
-	runner, err = addRunner(ctx, group.ID, runner, auth)
+	runner, err = client.AddRunner(ctx, group.ID, runner)
 	if err != nil {
 		return err
 	}
@@ -234,39 +238,8 @@ func retrieveAuthResult(ctx context.Context, opts *registerOptions) (*GitHubAuth
 	return &result, nil
 }
 
-func getRunnerGroups(ctx context.Context, result *GitHubAuthResult) ([]RunnerGroup, error) {
-	// Construct request
-	endpoint, err := url.JoinPath(result.TenantUrl, "/_apis/distributedtask/pools?poolType=Automation")
-	if err != nil {
-		return nil, err
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", result.Token))
-
-	// Make a request
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer res.Body.Close()
-	if !utilhttp.IsSuccess(res.StatusCode) {
-		return nil, fmt.Errorf("http response code %d", res.StatusCode)
-	}
-
-	// Extract the response body
-	var groups GHAResponse[RunnerGroup]
-	if err := json.NewDecoder(res.Body).Decode(&groups); err != nil {
-		return nil, err
-	}
-	return groups.Value, nil
-}
-
-func selectRunnerGroup(ctx context.Context, result *GitHubAuthResult, opts *registerOptions) (*RunnerGroup, error) {
-	groups, err := getRunnerGroups(ctx, result)
+func selectRunnerGroup(ctx context.Context, client *gha.Client, opts *registerOptions) (*gha.RunnerGroup, error) {
+	groups, err := client.ListGroupRunners(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -282,15 +255,15 @@ func selectRunnerGroup(ctx context.Context, result *GitHubAuthResult, opts *regi
 		}
 		return nil, fmt.Errorf("could not find any self-hosted runner group named %s", opts.group)
 	} else {
-		var selectOptions []huh.Option[RunnerGroup]
+		var selectOptions []huh.Option[gha.RunnerGroup]
 		for _, g := range groups {
 			if g.IsHosted {
 				continue
 			}
 			selectOptions = append(selectOptions, huh.NewOption(g.Name, g))
 		}
-		var group RunnerGroup
-		err = huh.NewSelect[RunnerGroup]().
+		var group gha.RunnerGroup
+		err = huh.NewSelect[gha.RunnerGroup]().
 			Title("Select the runner group to add this runner to?").
 			Options(selectOptions...).
 			Value(&group).
@@ -300,79 +273,6 @@ func selectRunnerGroup(ctx context.Context, result *GitHubAuthResult, opts *regi
 		}
 		return &group, nil
 	}
-}
-
-func getRunners(ctx context.Context, name string, result *GitHubAuthResult) ([]RunnerReference, error) {
-	// Construct request
-	endpoint, err := url.Parse(result.TenantUrl)
-	if err != nil {
-		return nil, err
-	}
-	endpoint = endpoint.JoinPath("/_apis/distributedtask/pools/0/agents") // pools = 0 mean search in all agentPools
-	q := endpoint.Query()
-	q.Add("agentName", name)
-	q.Add("includeCapabilities", "False")
-	endpoint.RawQuery = q.Encode()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", result.Token))
-	req.Header.Set("Accept", "application/json")
-
-	// Make a request
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer res.Body.Close()
-	if !utilhttp.IsSuccess(res.StatusCode) {
-		return nil, fmt.Errorf("http response code %d", res.StatusCode)
-	}
-
-	// Extract the response body
-	var runners GHAResponse[RunnerReference]
-	if err := json.NewDecoder(res.Body).Decode(&runners); err != nil {
-		return nil, err
-	}
-	return runners.Value, nil
-}
-
-func addRunner(ctx context.Context, groupId int32, runner *Runner, auth *GitHubAuthResult) (*Runner, error) {
-	// Construct request
-	var data []byte
-	data, err := json.Marshal(runner)
-	if err != nil {
-		return nil, err
-	}
-	endpoint, err := url.JoinPath(auth.TenantUrl, fmt.Sprintf("/_apis/distributedtask/pools/%d/agents", groupId))
-	if err != nil {
-		return nil, err
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewBuffer(data))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", auth.Token))
-	req.Header.Set("Content-Type", "application/json; charset=utf-8; api-version=6.0-preview.2")
-	req.Header.Set("Accept", "application/json; api-version=6.0-preview.2")
-
-	// Make a request
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer res.Body.Close()
-	if !utilhttp.IsSuccess(res.StatusCode) {
-		return nil, fmt.Errorf("http response code %d", res.StatusCode)
-	}
-
-	// Extract the response body
-	var result Runner
-	if err := json.NewDecoder(res.Body).Decode(&result); err != nil {
-		return nil, err
-	}
-	return &result, nil
 }
 
 func save(file string, object any) error {
