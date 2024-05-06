@@ -1,7 +1,6 @@
-package root
+package command
 
 import (
-	"github.com/dungdm93/drasi/cmd/gha-runner/configure"
 	"github.com/spf13/cobra"
 )
 
@@ -12,13 +11,9 @@ func NewGHARunnerCommand() *cobra.Command {
 		Args:  cobra.NoArgs,
 	}
 
-	AddCommands(cmd)
+	cmd.AddCommand(
+		NewRegisterCommand(),
+	)
 
 	return cmd
-}
-
-func AddCommands(cmd *cobra.Command) {
-	cmd.AddCommand(
-		configure.NewConfigureCommand(),
-	)
 }

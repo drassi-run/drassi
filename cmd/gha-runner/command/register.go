@@ -1,4 +1,4 @@
-package configure
+package command
 
 import (
 	"bytes"
@@ -27,16 +27,11 @@ type registerOptions struct {
 	name  string
 }
 
-type GitHubAuthResult struct {
+type actionsAuth struct {
 	TenantUrl   string `json:"url"`
 	TokenSchema string `json:"token_schema"`
 	Token       string `json:"token"`
 	UseV2Flow   bool   `json:"use_v2_flow"`
-}
-
-type GHAResponse[T any] struct {
-	Count int32 `json:"count"`
-	Value []T   `json:"value"`
 }
 
 func NewRegisterCommand() *cobra.Command {
@@ -92,7 +87,7 @@ func runRegister(ctx context.Context, opts *registerOptions) error {
 	if err != nil {
 		return err
 	}
-	if err = save(".credentials", auth); err != nil {
+	if err = saveJson(".credentials", auth); err != nil {
 		return err
 	}
 
@@ -157,7 +152,7 @@ func runRegister(ctx context.Context, opts *registerOptions) error {
 	if err != nil {
 		return err
 	}
-	if err = save(".runner", runner); err != nil {
+	if err = saveJson(".runner", runner); err != nil {
 		return err
 	}
 
@@ -195,7 +190,7 @@ func getApiUrl(u *url.URL) string {
 	}
 }
 
-func retrieveAuthResult(ctx context.Context, opts *registerOptions) (*GitHubAuthResult, error) {
+func retrieveAuthResult(ctx context.Context, opts *registerOptions) (*actionsAuth, error) {
 	u, err := url.Parse(opts.url)
 	if err != nil {
 		return nil, err
@@ -231,11 +226,11 @@ func retrieveAuthResult(ctx context.Context, opts *registerOptions) (*GitHubAuth
 	}
 
 	// Extract the response body
-	var result GitHubAuthResult
-	if err := json.NewDecoder(res.Body).Decode(&result); err != nil {
+	var auth actionsAuth
+	if err = json.NewDecoder(res.Body).Decode(&auth); err != nil {
 		return nil, err
 	}
-	return &result, nil
+	return &auth, nil
 }
 
 func selectRunnerGroup(ctx context.Context, client *gha.Client, opts *registerOptions) (*gha.RunnerGroup, error) {
@@ -275,7 +270,7 @@ func selectRunnerGroup(ctx context.Context, client *gha.Client, opts *registerOp
 	}
 }
 
-func save(file string, object any) error {
+func saveJson(file string, object any) error {
 	if f, err := os.OpenFile(file, os.O_CREATE|os.O_WRONLY, os.ModePerm); err != nil {
 		return err
 	} else {

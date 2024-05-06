@@ -1,12 +1,13 @@
 package main
 
 import (
-	"github.com/dungdm93/drasi/cmd/gha-runner/root"
 	"os"
+
+	"github.com/dungdm93/drasi/cmd/gha-runner/command"
 )
 
 func main() {
-	cmd := root.NewGHARunnerCommand()
+	cmd := command.NewGHARunnerCommand()
 	err := cmd.Execute()
 	if err != nil {
 		os.Exit(1)
