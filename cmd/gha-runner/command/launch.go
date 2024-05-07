@@ -46,7 +46,7 @@ func runLaunch(ctx context.Context, r *launchOptions) error {
 	if sessionName, err = os.Hostname(); err != nil {
 		sessionName = "RUNNER"
 	}
-	session := &gha.RunnerSession{
+	session := &gha.Session{
 		OwnerName: sessionName,
 		Runner:    &runner.RunnerReference,
 	}

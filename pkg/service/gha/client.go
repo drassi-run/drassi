@@ -90,7 +90,7 @@ func (c *Client) NewActionsServiceRequest(ctx context.Context, method, path stri
 	return req, nil
 }
 
-func (c *Client) ListGroupRunners(ctx context.Context) ([]RunnerGroup, error) {
+func (c *Client) ListGroups(ctx context.Context) ([]Group, error) {
 	// Construct request
 	req, err := c.NewActionsServiceRequest(ctx, http.MethodGet, groupEndpoint, nil, nil)
 	if err != nil {
@@ -106,7 +106,7 @@ func (c *Client) ListGroupRunners(ctx context.Context) ([]RunnerGroup, error) {
 	}
 
 	// Extract the response body
-	var groups ghaResponse[RunnerGroup]
+	var groups ghaResponse[Group]
 	if err = json.NewDecoder(res.Body).Decode(&groups); err != nil {
 		return nil, err
 	}
@@ -171,7 +171,7 @@ func (c *Client) AddRunner(ctx context.Context, groupId int32, runner *Runner) (
 	return r, nil
 }
 
-func (c *Client) CreateSession(ctx context.Context, groupId int32, session *RunnerSession) (*RunnerSession, error) {
+func (c *Client) CreateSession(ctx context.Context, groupId int32, session *Session) (*Session, error) {
 	// Construct request
 	buf := new(bytes.Buffer)
 	if err := json.NewEncoder(buf).Encode(session); err != nil {
@@ -193,7 +193,7 @@ func (c *Client) CreateSession(ctx context.Context, groupId int32, session *Runn
 	}
 
 	// Extract the response body
-	s := new(RunnerSession)
+	s := new(Session)
 	if err = json.NewDecoder(res.Body).Decode(s); err != nil {
 		return nil, err
 	}

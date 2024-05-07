@@ -138,13 +138,13 @@ func runRegister(ctx context.Context, opts *registerOptions) error {
 			Version: "1.2.3",
 		},
 		MaxParallelism: 10,
-		Labels: []gha.RunnerLabel{
-			{Name: "self-hosted", Type: gha.RunnerLabelTypeSystem},
-			{Name: "Linux", Type: gha.RunnerLabelTypeSystem},
-			{Name: "X64", Type: gha.RunnerLabelTypeSystem},
+		Labels: []gha.Label{
+			{Name: "self-hosted", Type: gha.LabelTypeSystem},
+			{Name: "Linux", Type: gha.LabelTypeSystem},
+			{Name: "X64", Type: gha.LabelTypeSystem},
 		},
-		Authorization: gha.RunnerAuthorization{
-			PublicKey: gha.NewRunnerPublicKey(&key.PublicKey),
+		Authorization: gha.Authorization{
+			PublicKey: gha.NewPublicKey(&key.PublicKey),
 		},
 	}
 
@@ -233,8 +233,8 @@ func retrieveAuthResult(ctx context.Context, opts *registerOptions) (*actionsAut
 	return &auth, nil
 }
 
-func selectRunnerGroup(ctx context.Context, client *gha.Client, opts *registerOptions) (*gha.RunnerGroup, error) {
-	groups, err := client.ListGroupRunners(ctx)
+func selectRunnerGroup(ctx context.Context, client *gha.Client, opts *registerOptions) (*gha.Group, error) {
+	groups, err := client.ListGroups(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -250,15 +250,15 @@ func selectRunnerGroup(ctx context.Context, client *gha.Client, opts *registerOp
 		}
 		return nil, fmt.Errorf("could not find any self-hosted runner group named %s", opts.group)
 	} else {
-		var selectOptions []huh.Option[gha.RunnerGroup]
+		var selectOptions []huh.Option[gha.Group]
 		for _, g := range groups {
 			if g.IsHosted {
 				continue
 			}
 			selectOptions = append(selectOptions, huh.NewOption(g.Name, g))
 		}
-		var group gha.RunnerGroup
-		err = huh.NewSelect[gha.RunnerGroup]().
+		var group gha.Group
+		err = huh.NewSelect[gha.Group]().
 			Title("Select the runner group to add this runner to?").
 			Options(selectOptions...).
 			Value(&group).

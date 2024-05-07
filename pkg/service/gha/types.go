@@ -8,25 +8,25 @@ import (
 	"time"
 )
 
-type RunnerGroupType string
+type GroupType string
 
-const RunnerGroupTypeAutomation RunnerGroupType = "Automation"
+const GroupTypeAutomation GroupType = "Automation"
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTWebApi/WebApi/TaskAgentPoolReference.cs#L23
-type RunnerGroupReference struct {
-	ID         int32           `json:"id,omitempty"`
-	Name       string          `json:"name,omitempty"`
-	Scope      string          `json:"scope,omitempty"` // UUID
-	PoolType   RunnerGroupType `json:"poolType,omitempty"`
-	Size       int32           `json:"size,omitempty"`
-	IsHosted   bool            `json:"isHosted,omitempty"`
-	IsInternal bool            `json:"isInternal,omitempty"`
-	IsLegacy   *bool           `json:"isLegacy,omitempty"`
+type GroupReference struct {
+	ID         int32     `json:"id,omitempty"`
+	Name       string    `json:"name,omitempty"`
+	Scope      string    `json:"scope,omitempty"` // UUID
+	GroupType  GroupType `json:"poolType,omitempty"`
+	Size       int32     `json:"size,omitempty"`
+	IsHosted   bool      `json:"isHosted,omitempty"`
+	IsInternal bool      `json:"isInternal,omitempty"`
+	IsLegacy   *bool     `json:"isLegacy,omitempty"`
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTWebApi/WebApi/TaskAgentPool.cs
-type RunnerGroup struct {
-	RunnerGroupReference `json:",inline"`
+type Group struct {
+	GroupReference `json:",inline"`
 
 	CreatedOn     time.Time `json:"createdOn,omitempty"`
 	AutoProvision *bool     `json:"autoProvision,omitempty"`
@@ -38,9 +38,9 @@ type RunnerGroup struct {
 type RunnerStatus string
 
 const (
-	RunnerStatusOffline RunnerStatus = "Offline"
-	RunnerStatusOnline  RunnerStatus = "Online"
-	RunnerStatusBusy    RunnerStatus = "Busy"
+	RunnerStatusOffline RunnerStatus = "offline"
+	RunnerStatusOnline  RunnerStatus = "online"
+	RunnerStatusBusy    RunnerStatus = "busy"
 )
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTWebApi/WebApi/TaskAgentReference.cs#L17
@@ -71,43 +71,43 @@ type Runner struct {
 	// The last request which was completed by this runner
 	// LastCompletedRequest RunnerJobRequest
 
-	Labels        []RunnerLabel       `json:"labels,omitempty"`
-	Authorization RunnerAuthorization `json:"authorization,omitempty"`
+	Labels        []Label       `json:"labels,omitempty"`
+	Authorization Authorization `json:"authorization,omitempty"`
 }
 
-type RunnerLabel struct {
-	Id   int             `json:"id,omitempty"`
-	Name string          `json:"name,omitempty"`
-	Type RunnerLabelType `json:"type,omitempty"`
+type Label struct {
+	Id   int       `json:"id,omitempty"`
+	Name string    `json:"name,omitempty"`
+	Type LabelType `json:"type,omitempty"`
 }
 
-type RunnerLabelType string
+type LabelType string
 
 const (
-	RunnerLabelTypeSystem RunnerLabelType = "system"
-	RunnerLabelTypeUser   RunnerLabelType = "user"
+	LabelTypeSystem LabelType = "system"
+	LabelTypeUser   LabelType = "user"
 )
 
-type RunnerAuthorization struct {
-	AuthorizationUrl string           `json:"authorizationUrl,omitempty"`
-	ClientId         string           `json:"clientId,omitempty"`
-	PublicKey        *RunnerPublicKey `json:"publicKey,omitempty"`
+type Authorization struct {
+	AuthorizationUrl string     `json:"authorizationUrl,omitempty"`
+	ClientId         string     `json:"clientId,omitempty"`
+	PublicKey        *PublicKey `json:"publicKey,omitempty"`
 }
 
-type RunnerPublicKey struct {
+type PublicKey struct {
 	Exponent []byte `json:"exponent,omitempty"`
 	Modulus  []byte `json:"modulus,omitempty"`
 }
 
-func NewRunnerPublicKey(pubkey *rsa.PublicKey) *RunnerPublicKey {
+func NewPublicKey(pubkey *rsa.PublicKey) *PublicKey {
 	bigE := big.NewInt(int64(pubkey.E))
-	return &RunnerPublicKey{
+	return &PublicKey{
 		Exponent: bigE.Bytes(),
 		Modulus:  pubkey.N.Bytes(),
 	}
 }
 
-func (pk *RunnerPublicKey) ToRsaPublicKey() (*rsa.PublicKey, error) {
+func (pk *PublicKey) ToRsaPublicKey() (*rsa.PublicKey, error) {
 	mod := new(big.Int).SetBytes(pk.Modulus)
 	exp := new(big.Int).SetBytes(pk.Exponent)
 
@@ -132,12 +132,12 @@ func (pk *RunnerPublicKey) ToRsaPublicKey() (*rsa.PublicKey, error) {
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTWebApi/WebApi/TaskAgentSession.cs
-type RunnerSession struct {
+type Session struct {
 	// The unique identifier for this session
 	Id string `json:"sessionId,omitempty"` // UUID
 
 	// The key used to encrypt message traffic for this session
-	EncryptionKey *RunnerSessionKey `json:"encryptionKey,omitempty"`
+	EncryptionKey *SessionKey `json:"encryptionKey,omitempty"`
 
 	// The owner name of this session. Generally this will be the machine of origination
 	OwnerName string `json:"ownerName,omitempty"`
@@ -150,7 +150,7 @@ type RunnerSession struct {
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTWebApi/WebApi/TaskAgentSessionKey.cs
-type RunnerSessionKey struct {
+type SessionKey struct {
 	// The value indicating whether the key value is encrypted. If this value is true, the Value property
 	// should be decrypted using the RSA key exchanged with the server during registration.
 	Encrypted bool `json:"encrypted,omitempty"`
@@ -159,9 +159,10 @@ type RunnerSessionKey struct {
 	Value []byte `json:"value,omitempty"`
 }
 
+// https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTWebApi/WebApi/TaskAgentMessage.cs
 type Message struct {
 	// The message identifier
-	Id string `json:"messageId,omitempty"`
+	Id int64 `json:"messageId,omitempty"`
 
 	// The message type, describing the data contract found in Body
 	Type string `json:"messageType,omitempty"`
