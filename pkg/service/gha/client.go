@@ -13,10 +13,11 @@ import (
 )
 
 const (
-	groupEndpoint   = "_apis/distributedtask/pools"
-	runnerEndpoint  = groupEndpoint + "/%d/agents"
-	sessionEndpoint = groupEndpoint + "/%d/sessions"
-	apiVersion      = "6.0-preview.2"
+	groupEndpoint    = "_apis/distributedtask/pools"
+	runnerEndpoint   = groupEndpoint + "/%d/agents"
+	sessionEndpoint  = groupEndpoint + "/%d/sessions"
+	messagesEndpoint = groupEndpoint + "/%d/messages"
+	apiVersion       = "6.0-preview"
 )
 
 type ghaResponse[T any] struct {
@@ -198,4 +199,61 @@ func (c *Client) CreateSession(ctx context.Context, groupId int32, session *Sess
 		return nil, err
 	}
 	return s, nil
+}
+
+type GetMessageOptions struct {
+	SessionId     string
+	Status        RunnerStatus
+	RunnerVersion string
+	OS            string
+	Architecture  string
+	DisableUpdate bool
+}
+
+func (o *GetMessageOptions) ToQueryMap() map[string]string {
+	query := make(map[string]string)
+	if o.SessionId != "" {
+		query["sessionId"] = o.SessionId
+	}
+	if o.Status != "" {
+		query["status"] = string(o.Status)
+	}
+	if o.RunnerVersion != "" {
+		query["runnerVersion"] = o.RunnerVersion
+	}
+	if o.OS != "" {
+		query["os"] = o.OS
+	}
+	if o.Architecture != "" {
+		query["architecture"] = o.Architecture
+	}
+	if o.DisableUpdate {
+		query["disableUpdate"] = "true"
+	}
+	return query
+}
+
+func (c *Client) GetMessage(ctx context.Context, groupId int32, opts GetMessageOptions) (*Message, error) {
+	// Construct request
+	query := opts.ToQueryMap()
+	endpoint := fmt.Sprintf(messagesEndpoint, groupId)
+	req, err := c.NewActionsServiceRequest(ctx, http.MethodGet, endpoint, query, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Make a request
+	res, err := c.send(req)
+	if err != nil {
+		return nil, err
+	} else {
+		defer res.Body.Close()
+	}
+
+	// Extract the response body
+	message := new(Message)
+	if err = json.NewDecoder(res.Body).Decode(message); err != nil {
+		return nil, err
+	}
+	return message, nil
 }
