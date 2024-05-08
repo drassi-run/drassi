@@ -140,7 +140,7 @@ func runRegister(ctx context.Context, opts *registerOptions) error {
 	runner := &gha.Runner{
 		RunnerReference: gha.RunnerReference{
 			Name:    opts.name,
-			Version: "1.2.3",
+			Version: "2.316.0",
 		},
 		MaxParallelism: 10,
 		Labels: []gha.Label{

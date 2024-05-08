@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 	"time"
@@ -20,6 +21,16 @@ import (
 type launchOptions struct {
 }
 
+type launchCommand struct {
+	opts *launchOptions
+
+	runner  *gha.Runner
+	client  *gha.Client
+	session *gha.Session
+	key     *rsa.PrivateKey
+	eKey    []byte
+}
+
 func NewLaunchCommand() *cobra.Command {
 	var opts launchOptions
 
@@ -28,38 +39,43 @@ func NewLaunchCommand() *cobra.Command {
 		Short: "Start GHA runner to receive request from server",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runLaunch(cmd.Context(), &opts)
+			ctx := cmd.Context()
+			command := launchCommand{opts: &opts}
+
+			if err := command.init(ctx); err != nil {
+				return err
+			}
+			return command.run(ctx)
 		},
 	}
 
 	return cmd
 }
 
-func runLaunch(ctx context.Context, r *launchOptions) error {
+func (c *launchCommand) init(ctx context.Context) (err error) {
 	authn := new(actionsAuth)
-	if err := loadJson(".credentials", authn); err != nil {
+	if err = loadJson(".credentials", authn); err != nil {
 		return err
 	}
-	key, err := loadRSA("rsa")
-	if err != nil {
+	if c.key, err = loadRSA("rsa"); err != nil {
 		return err
 	}
-	runner := new(gha.Runner)
-	if err := loadJson(".runner", runner); err != nil {
-		return err
-	}
-	authz := runner.Authorization
 
+	c.runner = new(gha.Runner)
+	if err = loadJson(".runner", c.runner); err != nil {
+		return err
+	}
+
+	authz := c.runner.Authorization
 	config := clientcredentials.Config{
 		ClientID:         authz.ClientId,
 		TokenURL:         authz.AuthorizationUrl,
 		AuthMethod:       clientcredentials.AuthMethodPrivateKeyJwt,
 		JWTExpires:       5 * time.Minute,
-		PrivateKey:       key,
+		PrivateKey:       c.key,
 		OnTokenRetrieved: fixupToken,
 	}
-	client, err := gha.NewClient(ctx, authn.TenantUrl, config.TokenSource(ctx))
-	if err != nil {
+	if c.client, err = gha.NewClient(ctx, authn.TenantUrl, config.TokenSource(ctx)); err != nil {
 		return err
 	}
 
@@ -69,12 +85,122 @@ func runLaunch(ctx context.Context, r *launchOptions) error {
 	}
 	session := &gha.Session{
 		OwnerName: sessionName,
-		Runner:    &runner.RunnerReference,
+		Runner:    &c.runner.RunnerReference,
 	}
-	if session, err = client.CreateSession(ctx, 1, session); err != nil {
+	if c.session, err = c.client.CreateSession(ctx, 1, session); err != nil {
+		return err
+	}
+	if c.eKey, err = c.session.GetEncryptionKey(c.key); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *launchCommand) run(ctx context.Context) error {
+	opts := gha.GetMessageOptions{
+		SessionId:     c.session.Id,
+		RunnerVersion: "2.316.0",
+		OS:            "Linux",
+		Architecture:  "X64",
+		DisableUpdate: true,
+	}
+	for {
+		msg, err := c.client.GetMessage(ctx, 1, opts)
+		if err != nil {
+			return err
+		}
+		err = c.handleMessage(msg)
+		if err != nil {
+			return err
+		}
+	}
+}
+
+func (c *launchCommand) handleMessage(msg *gha.Message) error {
+	if msg == nil || msg.Type == "" {
+		return nil
+	}
+	body, err := msg.DecryptBody(c.eKey)
+	if err != nil {
 		return err
 	}
 
+	switch msg.Type {
+	case gha.MessageTypeAgentRefresh:
+		message := new(gha.AgentRefreshMessage)
+		if err := json.Unmarshal(body, message); err != nil {
+			return err
+		}
+		return c.refreshAgent(message)
+	case gha.MessageTypeRunnerRefresh:
+		message := new(gha.RunnerRefreshMessage)
+		if err := json.Unmarshal(body, message); err != nil {
+			return err
+		}
+		return c.refreshRunner(message)
+	case gha.MessageTypeRunnerShutdown:
+		message := new(gha.RunnerShutdownMessage)
+		if err := json.Unmarshal(body, message); err != nil {
+			return err
+		}
+		return c.shutdownRunner(message)
+	case gha.MessageTypeJobCancelMessage:
+		message := new(gha.JobCancelMessage)
+		if err := json.Unmarshal(body, message); err != nil {
+			return err
+		}
+		return c.cancelJob(message)
+	case gha.MessageTypeRunnerJobRequest:
+		message := new(gha.RunnerJobRequestMessage)
+		if err := json.Unmarshal(body, message); err != nil {
+			return err
+		}
+		return c.requestRunnerJob(message)
+	case gha.MessageTypePipelineAgentJobRequest:
+		message := new(gha.PipelineAgentJobRequestMessage)
+		if err := json.Unmarshal(body, message); err != nil {
+			return err
+		}
+		return c.requestPipelineAgentJob(message)
+	case gha.MessageTypeForceTokenRefresh:
+		return c.forceRefreshToken()
+	default:
+		return fmt.Errorf("unsupported message type: %s", msg.Type)
+	}
+}
+
+func (c *launchCommand) refreshAgent(message *gha.AgentRefreshMessage) error {
+	log.Printf("%#v", message)
+	return nil
+}
+
+func (c *launchCommand) refreshRunner(message *gha.RunnerRefreshMessage) error {
+	log.Printf("%#v", message)
+	return nil
+}
+
+func (c *launchCommand) shutdownRunner(message *gha.RunnerShutdownMessage) error {
+	log.Printf("%#v", message)
+	return nil
+}
+
+func (c *launchCommand) cancelJob(message *gha.JobCancelMessage) error {
+	log.Printf("%#v", message)
+	return nil
+}
+
+func (c *launchCommand) requestRunnerJob(message *gha.RunnerJobRequestMessage) error {
+	log.Printf("%#v", message)
+	return nil
+}
+
+func (c *launchCommand) requestPipelineAgentJob(message *gha.PipelineAgentJobRequestMessage) error {
+	log.Printf("%#v", message)
+	return nil
+}
+
+func (c *launchCommand) forceRefreshToken() error {
+	log.Printf("force refresh token")
 	return nil
 }
 

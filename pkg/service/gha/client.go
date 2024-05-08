@@ -107,8 +107,8 @@ func (c *Client) ListGroups(ctx context.Context) ([]Group, error) {
 	}
 
 	// Extract the response body
-	var groups ghaResponse[Group]
-	if err = json.NewDecoder(res.Body).Decode(&groups); err != nil {
+	groups := new(ghaResponse[Group])
+	if err = json.NewDecoder(res.Body).Decode(groups); err != nil {
 		return nil, err
 	}
 	return groups.Value, nil
@@ -136,8 +136,8 @@ func (c *Client) ListRunners(ctx context.Context, groupId int32, name string) ([
 	}
 
 	// Extract the response body
-	var runners ghaResponse[RunnerReference]
-	if err = json.NewDecoder(res.Body).Decode(&runners); err != nil {
+	runners := new(ghaResponse[RunnerReference])
+	if err = json.NewDecoder(res.Body).Decode(runners); err != nil {
 		return nil, err
 	}
 	return runners.Value, nil
