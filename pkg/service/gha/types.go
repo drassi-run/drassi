@@ -1,8 +1,11 @@
 package gha
 
 import (
+	"crypto"
+	"crypto/rand"
 	"crypto/rsa"
 	"fmt"
+	"hash"
 	"math"
 	"math/big"
 	"time"
@@ -147,6 +150,23 @@ type Session struct {
 
 	// whether to use FIPS compliant encryption scheme for job message key
 	UseFipsEncryption bool `json:"useFipsEncryption,omitempty"`
+}
+
+func (s *Session) GetEncryptionKey(key *rsa.PrivateKey) ([]byte, error) {
+	if s.EncryptionKey == nil || len(s.EncryptionKey.Value) == 0 {
+		return nil, nil
+	}
+	if s.EncryptionKey.Encrypted {
+		var hasher hash.Hash
+		if s.UseFipsEncryption {
+			hasher = crypto.SHA256.New()
+		} else {
+			hasher = crypto.SHA1.New()
+		}
+
+		return rsa.DecryptOAEP(hasher, rand.Reader, key, s.EncryptionKey.Value, nil)
+	}
+	return s.EncryptionKey.Value, nil
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTWebApi/WebApi/TaskAgentSessionKey.cs
