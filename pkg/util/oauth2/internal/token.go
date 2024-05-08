@@ -3,6 +3,7 @@
 // license that can be found in the LICENSE file.
 
 // Cloned from golang.org/x/oauth2/internal (v0.20.0)
+// with some cleanup (see commit log)
 package internal
 
 import (
@@ -11,7 +12,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math"
 	"mime"
 	"net/http"
@@ -21,6 +21,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"golang.org/x/oauth2"
 )
 
 // Token represents the credentials used to authorize
@@ -254,18 +256,18 @@ func RetrieveToken(ctx context.Context, clientID, clientSecret, tokenURL string,
 }
 
 func doTokenRoundTrip(ctx context.Context, req *http.Request) (*Token, error) {
-	r, err := ContextClient(ctx).Do(req.WithContext(ctx))
+	r, err := http.DefaultClient.Do(req.WithContext(ctx))
 	if err != nil {
 		return nil, err
 	}
-	body, err := ioutil.ReadAll(io.LimitReader(r.Body, 1<<20))
+	body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
 	r.Body.Close()
 	if err != nil {
 		return nil, fmt.Errorf("oauth2: cannot fetch token: %v", err)
 	}
 
 	failureStatus := r.StatusCode < 200 || r.StatusCode > 299
-	retrieveError := &RetrieveError{
+	retrieveError := &oauth2.RetrieveError{
 		Response: r,
 		Body:     body,
 		// attempt to populate error detail below
@@ -327,27 +329,4 @@ func doTokenRoundTrip(ctx context.Context, req *http.Request) (*Token, error) {
 		return nil, errors.New("oauth2: server response missing access_token")
 	}
 	return token, nil
-}
-
-// mirrors oauth2.RetrieveError
-type RetrieveError struct {
-	Response         *http.Response
-	Body             []byte
-	ErrorCode        string
-	ErrorDescription string
-	ErrorURI         string
-}
-
-func (r *RetrieveError) Error() string {
-	if r.ErrorCode != "" {
-		s := fmt.Sprintf("oauth2: %q", r.ErrorCode)
-		if r.ErrorDescription != "" {
-			s += fmt.Sprintf(" %q", r.ErrorDescription)
-		}
-		if r.ErrorURI != "" {
-			s += fmt.Sprintf(" %q", r.ErrorURI)
-		}
-		return s
-	}
-	return fmt.Sprintf("oauth2: cannot fetch token: %v\nResponse: %s", r.Response.Status, r.Body)
 }
