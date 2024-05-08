@@ -2,8 +2,11 @@ package gha
 
 import (
 	"crypto"
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/rand"
 	"crypto/rsa"
+	"encoding/base64"
 	"fmt"
 	"hash"
 	"math"
@@ -193,4 +196,33 @@ type Message struct {
 	// The body of the message. If the IV property is provided the body will need to be
 	// decrypted using the Session.EncryptionKey value in addition to the IV.
 	Body string `json:"body,omitempty"`
+}
+
+func (m *Message) DecryptBody(key []byte) ([]byte, error) {
+	if len(m.IV) == 0 || len(key) == 0 {
+		return []byte(m.Body), nil
+	}
+
+	cipherText, err := base64.StdEncoding.DecodeString(m.Body)
+	if err != nil {
+		return nil, err
+	}
+	plainText := make([]byte, len(cipherText))
+
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+	mode := cipher.NewCBCDecrypter(block, m.IV)
+	mode.CryptBlocks(plainText, cipherText)
+
+	plainText = unpad(plainText)
+	return plainText, nil
+}
+
+// unpad removes PKCS7 padding from the data
+func unpad(data []byte) []byte {
+	length := len(data)
+	unpadding := int(data[length-1])
+	return data[:(length - unpadding)]
 }
