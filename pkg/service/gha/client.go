@@ -10,6 +10,7 @@ import (
 	"net/url"
 
 	utilhttp "github.com/dungdm93/drasi/pkg/util/http"
+	"golang.org/x/oauth2"
 )
 
 const (
@@ -33,16 +34,16 @@ type Client struct {
 	UserAgent UserAgentInfo
 }
 
-func NewClient(serverUrl string, token string) (*Client, error) {
+func NewClient(ctx context.Context, serverUrl string, tokenSource oauth2.TokenSource) (*Client, error) {
 	u, err := url.Parse(serverUrl)
 	if err != nil {
 		return nil, err
 	}
 
+	hc := oauth2.NewClient(ctx, tokenSource)
 	c := Client{
-		h:         &http.Client{},
+		h:         hc,
 		serverUrl: u,
-		token:     token,
 		UserAgent: UserAgentInfo{
 			Version:   "1.2.3",
 			CommitSHA: "abc123",
@@ -85,7 +86,6 @@ func (c *Client) NewActionsServiceRequest(ctx context.Context, method, path stri
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.token))
 	req.Header.Set("User-Agent", c.UserAgent.String())
 
 	return req, nil

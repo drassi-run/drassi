@@ -18,6 +18,7 @@ import (
 	"github.com/dungdm93/drasi/pkg/service/gha"
 	utilhttp "github.com/dungdm93/drasi/pkg/util/http"
 	"github.com/spf13/cobra"
+	"golang.org/x/oauth2"
 )
 
 type registerOptions struct {
@@ -91,7 +92,11 @@ func runRegister(ctx context.Context, opts *registerOptions) error {
 		return err
 	}
 
-	client, err := gha.NewClient(auth.TenantUrl, auth.Token)
+	tokenSource := oauth2.StaticTokenSource(&oauth2.Token{
+		AccessToken: auth.Token,
+		TokenType:   "Bearer",
+	})
+	client, err := gha.NewClient(ctx, auth.TenantUrl, tokenSource)
 	if err != nil {
 		return err
 	}
