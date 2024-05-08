@@ -12,19 +12,31 @@
 //
 // See https://tools.ietf.org/html/rfc6749#section-4.4
 // See https://tools.ietf.org/html/rfc7523
-// Cloned from https://github.com/golang/oauth2/pull/450
-package clientcredentials // import "golang.org/x/oauth2/clientcredentials"
+//
+// Cloned from https://github.com/golang/oauth2/pull/450 with some refactor
+package clientcredentials
 
 import (
 	"context"
+	"crypto/rsa"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
+	"github.com/dungdm93/drasi/pkg/util/oauth2/internal"
 	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/internal"
+)
+
+type AuthMethod int
+
+const (
+	AuthMethodAutoDetect        AuthMethod = 0
+	AuthMethodClientSecretBasic AuthMethod = 1
+	AuthMethodClientSecretPost  AuthMethod = 2
+	AuthMethodClientSecretJwt   AuthMethod = 3
+	AuthMethodPrivateKeyJwt     AuthMethod = 4
 )
 
 // Config describes a 2-legged OAuth2 flow, with both the
@@ -46,11 +58,10 @@ type Config struct {
 	// EndpointParams specifies additional parameters for requests to the token endpoint.
 	EndpointParams url.Values
 
-	// AuthStyle optionally specifies how the endpoint wants the
-	// client ID & client secret sent. The zero value means to
-	// auto-detect.
+	// AuthMethod optionally specifies how the client authenticate to the TokenURL.
+	// The zero value means to auto-detect.
 	// See https://openid.net/specs/openid-connect-core-1_0.html#ClientAuthentication.
-	AuthStyle oauth2.AuthStyle
+	AuthMethod AuthMethod
 
 	// authStyleCache caches which auth style to use when Endpoint.AuthStyle is
 	// the zero value (AuthStyleAutoDetect).
@@ -59,18 +70,11 @@ type Config struct {
 	// JWTExpires optionally specifies how long the jwt token is valid for.
 	JWTExpires time.Duration
 
-	// PrivateKey contains the contents of an RSA private key or the
-	// contents of a PEM file that contains a private key. The provided
-	// private key is used to sign JWT payloads.
-	// PEM containers with a passphrase are not supported.
-	// Use the following command to convert a PKCS 12 file into a PEM.
-	//
-	//    $ openssl pkcs12 -in key.p12 -out key.pem -nodes
-	//
-	PrivateKey []byte
+	// PrivateKey is RSA private key used to sign JWT assertion.
+	// It's required when AuthMethod = AuthMethodPrivateKeyJwt
+	PrivateKey *rsa.PrivateKey
 
-	// KeyID contains an optional hint indicating which key is being
-	// used.
+	// KeyID contains an optional hint indicating which key is being used.
 	KeyID string
 }
 
@@ -116,14 +120,6 @@ func (c *tokenSource) Token() (*oauth2.Token, error) {
 	v := url.Values{
 		"grant_type": {"client_credentials"},
 	}
-	if c.conf.AuthStyle == oauth2.AuthStylePrivateKeyJWT {
-		var err error
-		v, err = c.jwtAssertionValues()
-		if err != nil {
-			return nil, err
-		}
-
-	}
 	if len(c.conf.Scopes) > 0 {
 		v.Set("scope", strings.Join(c.conf.Scopes, " "))
 	}
@@ -136,11 +132,30 @@ func (c *tokenSource) Token() (*oauth2.Token, error) {
 		v[k] = p
 	}
 
-	tk, err := internal.RetrieveToken(c.ctx, c.conf.ClientID, c.conf.ClientSecret, c.conf.TokenURL, v, internal.AuthStyle(c.conf.AuthStyle), c.conf.authStyleCache.Get())
-	if err != nil {
-		if rErr, ok := err.(*internal.RetrieveError); ok {
-			return nil, (*oauth2.RetrieveError)(rErr)
+	var authStyle internal.AuthStyle
+
+	switch c.conf.AuthMethod {
+	case AuthMethodAutoDetect:
+		authStyle = internal.AuthStyleUnknown
+	case AuthMethodClientSecretBasic:
+		authStyle = internal.AuthStyleInHeader
+	case AuthMethodClientSecretPost:
+		authStyle = internal.AuthStyleInParams
+	case AuthMethodClientSecretJwt:
+		return nil, fmt.Errorf("client_secret_jwt AuthMethod is not supported yet")
+	case AuthMethodPrivateKeyJwt:
+		authStyle = internal.AuthStyleInParams
+		v.Set("client_assertion_type", clientAssertionType)
+
+		if assertion, err := c.jwtAssertion(); err != nil {
+			return nil, err
+		} else {
+			v.Set("client_assertion", assertion)
 		}
+	}
+
+	tk, err := internal.RetrieveToken(c.ctx, c.conf.ClientID, c.conf.ClientSecret, c.conf.TokenURL, v, authStyle, c.conf.authStyleCache.Get())
+	if err != nil {
 		return nil, err
 	}
 	t := &oauth2.Token{

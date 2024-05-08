@@ -2,73 +2,52 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Cloned from https://github.com/golang/oauth2/pull/450
+// Cloned from https://github.com/golang/oauth2/pull/450 with some refactor
 package clientcredentials
 
 import (
-	"crypto/rand"
-	"math/big"
-	"net/url"
+	"math/rand"
 	"time"
 
-	"golang.org/x/oauth2/internal"
 	"golang.org/x/oauth2/jws"
 )
 
 const (
 	clientAssertionType = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
+	letters             = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
 )
 
-var (
-	defaultHeader = &jws.Header{Algorithm: "RS256", Typ: "JWT"}
-)
-
-func randJWTID(n int) (string, error) {
-	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
-	ret := make([]byte, n)
-	for i := 0; i < n; i++ {
-		num, err := rand.Int(rand.Reader, big.NewInt(int64(len(letters))))
-		if err != nil {
-			return "", err
-		}
-		ret = append(ret, letters[num.Int64()])
+func randJWTID(n int) string {
+	b := make([]byte, n)
+	l := int64(len(letters))
+	for i := range b {
+		b[i] = letters[rand.Int63n(l)]
 	}
-
-	return string(ret), nil
+	return string(b)
 }
 
-func (c *tokenSource) jwtAssertionValues() (url.Values, error) {
-	v := url.Values{
-		"grant_type": {"client_credentials"},
-	}
-	pk, err := internal.ParseKey(c.conf.PrivateKey)
-	if err != nil {
-		return nil, err
-	}
+func (c *tokenSource) jwtAssertion() (string, error) {
+	now := time.Now()
 	claimSet := &jws.ClaimSet{
 		Iss: c.conf.ClientID,
 		Sub: c.conf.ClientID,
 		Aud: c.conf.TokenURL,
-	}
 
-	claimSet.Jti, err = randJWTID(36)
-	if err != nil {
-		return nil, err
+		PrivateClaims: map[string]any{
+			"jti": randJWTID(36),
+			"nbf": now.Unix(),
+		},
 	}
 	if t := c.conf.JWTExpires; t > 0 {
-		claimSet.Exp = time.Now().Add(t).Unix()
+		claimSet.Exp = now.Add(t).Unix()
 	} else {
-		claimSet.Exp = time.Now().Add(time.Hour).Unix()
+		claimSet.Exp = now.Add(time.Hour).Unix()
 	}
 
-	h := *defaultHeader
-	h.KeyID = c.conf.KeyID
-	payload, err := jws.Encode(&h, claimSet, pk)
-	if err != nil {
-		return nil, err
+	h := &jws.Header{
+		Algorithm: "RS256",
+		Typ:       "JWT",
+		KeyID:     c.conf.KeyID,
 	}
-	v.Set("client_assertion", payload)
-	v.Set("client_assertion_type", clientAssertionType)
-
-	return v, nil
+	return jws.Encode(h, claimSet, c.conf.PrivateKey)
 }
