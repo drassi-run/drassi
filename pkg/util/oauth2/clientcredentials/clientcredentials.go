@@ -76,6 +76,8 @@ type Config struct {
 
 	// KeyID contains an optional hint indicating which key is being used.
 	KeyID string
+
+	OnTokenRetrieved func(*oauth2.Token) error
 }
 
 // Token uses client credentials to retrieve a token.
@@ -154,15 +156,15 @@ func (c *tokenSource) Token() (*oauth2.Token, error) {
 		}
 	}
 
-	tk, err := internal.RetrieveToken(c.ctx, c.conf.ClientID, c.conf.ClientSecret, c.conf.TokenURL, v, authStyle, c.conf.authStyleCache.Get())
+	token, err := internal.RetrieveToken(c.ctx, c.conf.ClientID, c.conf.ClientSecret, c.conf.TokenURL, v, authStyle, c.conf.authStyleCache.Get())
 	if err != nil {
 		return nil, err
 	}
-	t := &oauth2.Token{
-		AccessToken:  tk.AccessToken,
-		TokenType:    tk.TokenType,
-		RefreshToken: tk.RefreshToken,
-		Expiry:       tk.Expiry,
+
+	if c.conf.OnTokenRetrieved != nil {
+		if err := c.conf.OnTokenRetrieved(token); err != nil {
+			return nil, err
+		}
 	}
-	return t.WithExtra(tk.Raw), nil
+	return token, nil
 }

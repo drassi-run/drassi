@@ -4,15 +4,17 @@ import (
 	"context"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
-	"encoding/json"
 	"github.com/dungdm93/drasi/pkg/service/gha"
 	"github.com/dungdm93/drasi/pkg/util/oauth2/clientcredentials"
 	"github.com/spf13/cobra"
+	"golang.org/x/oauth2"
 )
 
 type launchOptions struct {
@@ -49,11 +51,12 @@ func runLaunch(ctx context.Context, r *launchOptions) error {
 	authz := runner.Authorization
 
 	config := clientcredentials.Config{
-		ClientID:   authz.ClientId,
-		TokenURL:   authz.AuthorizationUrl,
-		AuthMethod: clientcredentials.AuthMethodPrivateKeyJwt,
-		JWTExpires: 5 * time.Minute,
-		PrivateKey: key,
+		ClientID:         authz.ClientId,
+		TokenURL:         authz.AuthorizationUrl,
+		AuthMethod:       clientcredentials.AuthMethodPrivateKeyJwt,
+		JWTExpires:       5 * time.Minute,
+		PrivateKey:       key,
+		OnTokenRetrieved: fixupToken,
 	}
 	client, err := gha.NewClient(ctx, authn.TenantUrl, config.TokenSource(ctx))
 	if err != nil {
@@ -72,6 +75,13 @@ func runLaunch(ctx context.Context, r *launchOptions) error {
 		return err
 	}
 
+	return nil
+}
+
+func fixupToken(token *oauth2.Token) error {
+	if token != nil && strings.EqualFold(token.TokenType, "jwt") {
+		token.TokenType = "Bearer"
+	}
 	return nil
 }
 
