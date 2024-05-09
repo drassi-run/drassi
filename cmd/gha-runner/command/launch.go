@@ -9,7 +9,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/dungdm93/drasi/pkg/service/gha"
@@ -39,10 +41,16 @@ func NewLaunchCommand() *cobra.Command {
 		Short: "Start GHA runner to receive request from server",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
 			command := launchCommand{opts: &opts}
 
-			if err := command.init(ctx); err != nil {
+			ctx, stop := signal.NotifyContext(cmd.Context(), syscall.SIGINT, syscall.SIGTERM)
+			defer stop()
+			go func() {
+				<-ctx.Done()
+				command.finalize(ctx)
+			}()
+
+			if err := command.initialize(ctx); err != nil {
 				return err
 			}
 			return command.run(ctx)
@@ -52,7 +60,7 @@ func NewLaunchCommand() *cobra.Command {
 	return cmd
 }
 
-func (c *launchCommand) init(ctx context.Context) (err error) {
+func (c *launchCommand) initialize(ctx context.Context) (err error) {
 	authn := new(actionsAuth)
 	if err = loadJson(".credentials", authn); err != nil {
 		return err
@@ -96,10 +104,25 @@ func (c *launchCommand) init(ctx context.Context) (err error) {
 	return nil
 }
 
+func (c *launchCommand) finalize(ctx context.Context) {
+	if c.client != nil {
+		return
+	}
+
+	if c.session != nil {
+		if err := c.client.DeleteSession(ctx, 1, c.session.Id); err != nil {
+			log.Printf("failed to delete session: %v", err)
+		}
+		c.session = nil
+	}
+
+	c.client = nil
+}
+
 func (c *launchCommand) run(ctx context.Context) error {
 	opts := gha.GetMessageOptions{
 		SessionId:     c.session.Id,
-		RunnerVersion: "2.316.0",
+		RunnerVersion: "2.316.1",
 		OS:            "Linux",
 		Architecture:  "X64",
 		DisableUpdate: true,

@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"path"
 
 	utilhttp "github.com/dungdm93/drasi/pkg/util/http"
 	"golang.org/x/oauth2"
@@ -199,6 +200,21 @@ func (c *Client) CreateSession(ctx context.Context, groupId int32, session *Sess
 		return nil, err
 	}
 	return s, nil
+}
+
+func (c *Client) DeleteSession(ctx context.Context, groupId int32, sessionId string) error {
+	endpoint := path.Join(fmt.Sprintf(sessionEndpoint, groupId), sessionId)
+	req, err := c.NewActionsServiceRequest(ctx, http.MethodDelete, endpoint, nil, nil)
+	if err != nil {
+		return err
+	}
+
+	res, err := c.send(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	return nil
 }
 
 type GetMessageOptions struct {
