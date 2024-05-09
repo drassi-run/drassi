@@ -14,11 +14,15 @@ const (
 	MessageTypeForceTokenRefresh       = "ForceTokenRefresh"
 )
 
+type Duration struct {
+	time.Duration
+}
+
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTWebApi/WebApi/AgentRefreshMessage.cs
 type AgentRefreshMessage struct {
-	AgentId       int32         `json:"agentId,omitempty"`
-	Timeout       time.Duration `json:"timeout,omitempty"`
-	TargetVersion string        `json:"targetVersion,omitempty"`
+	AgentId       int32    `json:"agentId,omitempty"`
+	Timeout       Duration `json:"timeout,omitempty"`
+	TargetVersion string   `json:"targetVersion,omitempty"`
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTWebApi/WebApi/RunnerRefreshMessage.cs
@@ -36,8 +40,8 @@ type RunnerShutdownMessage struct {
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTWebApi/WebApi/JobCancelMessage.cs
 type JobCancelMessage struct {
-	JobId   string        `json:"jobId,omitempty"`
-	Timeout time.Duration `json:"timeout,omitempty"`
+	JobId   string   `json:"jobId,omitempty"`
+	Timeout Duration `json:"timeout,omitempty"`
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Listener/RunnerJobRequestRef.cs
