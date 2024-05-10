@@ -58,24 +58,24 @@ type RunnerJobRequestMessage struct {
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTPipelines/Pipelines/AgentJobRequestMessage.cs
 type PipelineAgentJobRequestMessage struct {
 	MessageType          string                   `json:"messageType,omitempty"`
+	RequestId            int64                    `json:"requestId,omitempty"`
 	Plan                 PlanReference            `json:"plan,omitempty"`
 	Timeline             TimelineReference        `json:"timeline,omitempty"`
 	JobId                string                   `json:"jobId,omitempty"`
 	JobName              string                   `json:"jobName,omitempty"`
 	JobDisplayName       string                   `json:"jobDisplayName,omitempty"`
-	JobContainer         TemplateToken            `json:"jobContainer,omitempty"`
-	JobServiceContainers TemplateToken            `json:"jobServiceContainers,omitempty"`
-	JobOutputs           TemplateToken            `json:"jobOutputs,omitempty"`
-	RequestId            int64                    `json:"requestId,omitempty"`
+	JobContainer         *TemplateToken           `json:"jobContainer,omitempty"`
+	JobServiceContainers *TemplateToken           `json:"jobServiceContainers,omitempty"`
+	JobOutputs           *TemplateToken           `json:"jobOutputs,omitempty"`
 	LockedUntil          Time                     `json:"lockedUntil,omitempty"`
-	Resources            JobResources             `json:"resources,omitempty"`
+	Resources            *JobResources            `json:"resources,omitempty"`
 	ContextData          map[string]any           `json:"contextData,omitempty"`
-	Workspace            WorkspaceOptions         `json:"workspace,omitempty"`
+	Workspace            *WorkspaceOptions        `json:"workspace,omitempty"`
 	MaskHints            []MaskHint               `json:"mask,omitempty"`
 	EnvironmentVariables []TemplateToken          `json:"environmentVariables,omitempty"`
 	Defaults             []TemplateToken          `json:"defaults,omitempty"`
-	Environment          EnvironmentReference     `json:"actionsEnvironment,omitempty"`
-	Snapshot             TemplateToken            `json:"snapshot,omitempty"`
+	Environment          *EnvironmentReference    `json:"actionsEnvironment,omitempty"`
+	Snapshot             *TemplateToken           `json:"snapshot,omitempty"`
 	Variables            map[string]VariableValue `json:"variables,omitempty"`
 	Steps                []JobStep                `json:"steps,omitempty"`
 	FileTable            []string                 `json:"fileTable,omitempty"`
@@ -126,14 +126,14 @@ type JobResources struct {
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTWebApi/WebApi/ServiceEndpointLegacy/ServiceEndpoint.cs
 type ServiceEndpoint struct {
-	Id              string                `json:"id,omitempty"`
+	Id              string                `json:"id,omitempty"` // UUID
 	Name            string                `json:"name,omitempty"`
 	Type            string                `json:"type,omitempty"`
 	Owner           string                `json:"owner,omitempty"`
-	Url             string                `json:"url,omitempty"`
+	Url             string                `json:"url,omitempty"` // URI
 	Description     string                `json:"description,omitempty"`
 	Authorization   EndpointAuthorization `json:"authorization,omitempty"`
-	GroupScopeId    string                `json:"groupScopeId,omitempty"`
+	GroupScopeId    string                `json:"groupScopeId,omitempty"` // UUID
 	Data            map[string]string     `json:"data,omitempty"`
 	IsShared        bool                  `json:"isShared,omitempty"`
 	IsReady         bool                  `json:"isReady,omitempty"`
