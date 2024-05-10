@@ -18,6 +18,10 @@ type Duration struct {
 	time.Duration
 }
 
+type Time struct {
+	time.Time
+}
+
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTWebApi/WebApi/AgentRefreshMessage.cs
 type AgentRefreshMessage struct {
 	AgentId       int32    `json:"agentId,omitempty"`
@@ -63,7 +67,7 @@ type PipelineAgentJobRequestMessage struct {
 	JobServiceContainers TemplateToken            `json:"jobServiceContainers,omitempty"`
 	JobOutputs           TemplateToken            `json:"jobOutputs,omitempty"`
 	RequestId            int64                    `json:"requestId,omitempty"`
-	LockedUntil          time.Time                `json:"lockedUntil,omitempty"`
+	LockedUntil          Time                     `json:"lockedUntil,omitempty"`
 	Resources            JobResources             `json:"resources,omitempty"`
 	ContextData          map[string]any           `json:"contextData,omitempty"`
 	Workspace            WorkspaceOptions         `json:"workspace,omitempty"`
