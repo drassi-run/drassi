@@ -69,7 +69,7 @@ type PipelineAgentJobRequestMessage struct {
 	JobOutputs           *TemplateToken           `json:"jobOutputs,omitempty"`
 	LockedUntil          Time                     `json:"lockedUntil,omitempty"`
 	Resources            *JobResources            `json:"resources,omitempty"`
-	ContextData          map[string]any           `json:"contextData,omitempty"`
+	ContextData          ContextData              `json:"contextData,omitempty"`
 	Workspace            *WorkspaceOptions        `json:"workspace,omitempty"`
 	MaskHints            []MaskHint               `json:"mask,omitempty"`
 	EnvironmentVariables []TemplateToken          `json:"environmentVariables,omitempty"`
@@ -216,6 +216,8 @@ type VariableValue struct {
 	Value    string `json:"value,omitempty"`
 	IsSecret bool   `json:"isSecret,omitempty"`
 }
+
+type ContextData map[string]any
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTPipelines/Pipelines/JobStep.cs
 type JobStep struct {
