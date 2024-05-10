@@ -1,6 +1,7 @@
 package gha
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/aes"
 	"crypto/cipher"
@@ -217,6 +218,7 @@ func (m *Message) DecryptBody(key []byte) ([]byte, error) {
 	mode.CryptBlocks(plainText, cipherText)
 
 	plainText = unpad(plainText)
+	plainText = removeBOM(plainText)
 	return plainText, nil
 }
 
@@ -225,4 +227,14 @@ func unpad(data []byte) []byte {
 	length := len(data)
 	unpadding := int(data[length-1])
 	return data[:(length - unpadding)]
+}
+
+var utf8BOM = []byte{'\xef', '\xbb', '\xbf'}
+
+// remove BOM if present
+func removeBOM(data []byte) []byte {
+	if bytes.HasPrefix(data, utf8BOM) {
+		return data[len(utf8BOM):]
+	}
+	return data
 }
