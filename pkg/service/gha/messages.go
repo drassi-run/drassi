@@ -111,10 +111,37 @@ type TimelineReference struct {
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTObjectTemplating/ObjectTemplating/Tokens/TemplateToken.cs
 type TemplateToken struct {
-	File   int32 `json:"file,omitempty"`
-	Line   int32 `json:"line,omitempty"`
-	Column int32 `json:"column,omitempty"`
-	Type   int32 `json:"type,omitempty"`
+	Type   TokenType `json:"type,omitempty"`
+	File   int32     `json:"file,omitempty"`
+	Line   int32     `json:"line,omitempty"`
+	Column int32     `json:"column,omitempty"`
+
+	String    string                          `json:"lit,omitempty"`       // StringToken (type=0)
+	Number    float64                         `json:"num,omitempty"`       // NumberToken (type=6)
+	Boolean   bool                            `json:"bool,omitempty"`      // BooleanToken (type=5)
+	Directive string                          `json:"directive,omitempty"` // InsertExpressionToken (type=4)
+	Expr      string                          `json:"expr,omitempty"`      // BasicExpressionToken (type=3)
+	Seq       []TemplateToken                 `json:"seq,omitempty"`       // SequenceToken (type=1)
+	Map       []KVPair[string, TemplateToken] `json:"map,omitempty"`       // MappingToken (type=2)
+}
+
+// https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTObjectTemplating/ObjectTemplating/Tokens/TokenType.cs
+type TokenType int32
+
+const (
+	TokenTypeString           TokenType = 0
+	TokenTypeSequence         TokenType = 1
+	TokenTypeMapping          TokenType = 2
+	TokenTypeBasicExpression  TokenType = 3
+	TokenTypeInsertExpression TokenType = 4
+	TokenTypeNumber           TokenType = 5
+	TokenTypeBoolean          TokenType = 6
+	TokenTypeNull             TokenType = 7
+)
+
+type KVPair[K, V any] struct {
+	Key   K `json:"key,omitempty"`
+	Value V `json:"value,omitempty"`
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTPipelines/Pipelines/JobResources.cs
@@ -221,4 +248,44 @@ type ContextData map[string]any
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTPipelines/Pipelines/JobStep.cs
 type JobStep struct {
+	// Step
+	Id          string `json:"id,omitempty"`
+	Type        string `json:"type,omitempty"`
+	Name        string `json:"name,omitempty"`
+	DisplayName string `json:"displayName,omitempty"`
+	Enabled     bool   `json:"enabled,omitempty"`
+
+	// JobStep
+	Condition        string         `json:"condition,omitempty"`
+	ContinueOnError  *TemplateToken `json:"continueOnError,omitempty"`
+	TimeoutInMinutes *TemplateToken `json:"timeoutInMinutes,omitempty"`
+
+	// ActionStep
+	Reference        StepReference  `json:"reference,omitempty"`
+	ContextName      string         `json:"contextName,omitempty"`
+	DisplayNameToken *TemplateToken `json:"displayNameToken,omitempty"`
+	Environment      *TemplateToken `json:"environment,omitempty"`
+	Inputs           *TemplateToken `json:"inputs,omitempty"`
 }
+
+// https://github.com/actions/runner/blob/main/src/Sdk/DTPipelines/Pipelines/ActionStepDefinitionReference.cs
+type StepReference struct {
+	Type SourceType `json:"type,omitempty"`
+
+	//ContainerRegistryReference
+	Image string `json:"image,omitempty"`
+
+	// RepositoryPathReference
+	Name           string `json:"name,omitempty"`
+	Ref            string `json:"ref,omitempty"`
+	Path           string `json:"path,omitempty"`
+	RepositoryType string `json:"repositoryType,omitempty"`
+}
+
+type SourceType string
+
+const (
+	SourceTypeRepository        SourceType = "repository"
+	SourceTypeContainerRegistry SourceType = "containerRegistry"
+	SourceTypeScript            SourceType = "script"
+)

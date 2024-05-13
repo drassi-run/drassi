@@ -50,7 +50,7 @@ func TestDecodeContextData(t *testing.T) {
 		"some string",
 	}
 	dict := map[string]any{
-		"t": 2,
+		"t": float64(2),
 		"d": []map[string]any{
 			{"k": "bool1", "v": true},
 			{"k": "bool2", "v": false},
@@ -72,7 +72,7 @@ func TestDecodeContextData(t *testing.T) {
 	})
 	t.Run("array/object", func(tt *testing.T) {
 		input := map[string]any{
-			"t": 1,
+			"t": float64(1),
 			"a": array,
 		}
 		testDecodeContextDataObject(tt, input, array)
@@ -84,7 +84,7 @@ func TestDecodeContextData(t *testing.T) {
 	})
 	t.Run("array/object_with_dict", func(tt *testing.T) {
 		input := map[string]any{
-			"t": 1,
+			"t": float64(1),
 			"a": append(array, dict),
 		}
 		expected := append(array, dictexpected)
@@ -95,7 +95,7 @@ func TestDecodeContextData(t *testing.T) {
 	})
 	t.Run("dict/complex", func(tt *testing.T) {
 		input := map[string]any{
-			"t": 2,
+			"t": float64(2),
 			"d": append(
 				dict["d"].([]map[string]any),
 				map[string]any{

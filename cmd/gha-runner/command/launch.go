@@ -110,6 +110,7 @@ func (c *launchCommand) finalize(ctx context.Context) {
 	}
 
 	if c.session != nil {
+		log.Printf("delete session %s", c.session.Id)
 		if err := c.client.DeleteSession(ctx, 1, c.session.Id); err != nil {
 			log.Printf("failed to delete session: %v", err)
 		}

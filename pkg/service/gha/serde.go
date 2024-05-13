@@ -169,10 +169,11 @@ func DecodeContextData(name string, d any) (any, error) {
 }
 
 func decodeGenericContextData(name string, o map[string]any) (any, error) {
-	typ, ok := o["t"].(int)
+	t, ok := o["t"].(float64)
 	if !ok {
-		return nil, fmt.Errorf("ContextData %s required field 't' of int", name)
+		return nil, fmt.Errorf("ContextData %s required field 't'", name)
 	}
+	typ := int(t)
 
 	// https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTPipelines/Pipelines/ContextData/PipelineContextData.cs
 	// https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTPipelines/Pipelines/ContextData/PipelineContextDataType.cs
