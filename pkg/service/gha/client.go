@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"strconv"
 
 	utilhttp "github.com/dungdm93/drasi/pkg/util/http"
 	"golang.org/x/oauth2"
@@ -272,4 +273,23 @@ func (c *Client) GetMessage(ctx context.Context, groupId int32, opts GetMessageO
 		return nil, err
 	}
 	return message, nil
+}
+
+func (c *Client) DeleteMessage(ctx context.Context, groupId int32, messageId int64, sessionId string) error {
+	query := map[string]string{}
+	if sessionId != "" {
+		query["sessionId"] = sessionId
+	}
+	endpoint := path.Join(fmt.Sprintf(messagesEndpoint, groupId), strconv.FormatInt(messageId, 10))
+	req, err := c.NewActionsServiceRequest(ctx, http.MethodDelete, endpoint, query, nil)
+	if err != nil {
+		return err
+	}
+
+	res, err := c.send(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	return nil
 }
