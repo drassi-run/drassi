@@ -117,7 +117,7 @@ func (i *incusSandboxRuntime) setupWellKnownDirectories(sandbox *incusSandbox) e
 		Type: "directory",
 	}
 
-	rootDir := "/opt/drasi"
+	rootDir := "/opt/drassi"
 	if err := i.client.CreateInstanceFile(sandbox.sandboxId, rootDir, args); err != nil {
 		return err
 	}
@@ -156,11 +156,11 @@ func (i *incusSandboxRuntime) setupWellKnownDirectories(sandbox *incusSandbox) e
 
 func (i *incusSandboxRuntime) getPredefinedEnv() map[string]string {
 	env := map[string]string{
-		"GITHUB_STEP_SUMMARY": "/opt/drasi/tmp/file_commands/GITHUB_STEP_SUMMARY",
-		"GITHUB_OUTPUT":       "/opt/drasi/tmp/file_commands/GITHUB_OUTPUT",
-		"GITHUB_STATE":        "/opt/drasi/tmp/file_commands/GITHUB_STATE",
-		"GITHUB_PATH":         "/opt/drasi/tmp/file_commands/GITHUB_PATH",
-		"GITHUB_ENV":          "/opt/drasi/tmp/file_commands/GITHUB_ENV",
+		"GITHUB_STEP_SUMMARY": "/opt/drassi/tmp/file_commands/GITHUB_STEP_SUMMARY",
+		"GITHUB_OUTPUT":       "/opt/drassi/tmp/file_commands/GITHUB_OUTPUT",
+		"GITHUB_STATE":        "/opt/drassi/tmp/file_commands/GITHUB_STATE",
+		"GITHUB_PATH":         "/opt/drassi/tmp/file_commands/GITHUB_PATH",
+		"GITHUB_ENV":          "/opt/drassi/tmp/file_commands/GITHUB_ENV",
 	}
 	return env
 }
