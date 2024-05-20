@@ -3,6 +3,7 @@ package parser
 import (
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/dungdm93/drassi/core/pkg/expr/ast"
 	"github.com/dungdm93/drassi/core/pkg/expr/ast/ast_ifaces"
@@ -330,8 +331,8 @@ func flushTopEndParameters(pCtx *parseContext) {
 }
 
 func tryGetFnInfo(pCtx *parseContext, name string) (result functions.IFnInfo[ast_ifaces.Fn]) {
-	eFn, existEfn := ast.NewFnStore().WellKnownFns[name]
-	cFn, existCfn := pCtx.fnsInfo[name]
+	eFn, existEfn := ast.NewFnStore().WellKnownFns[strings.ToLower(name)]
+	cFn, existCfn := pCtx.fnsInfo[strings.ToLower(name)]
 	if existEfn && eFn.GetName() != "" {
 		result = eFn
 	}
