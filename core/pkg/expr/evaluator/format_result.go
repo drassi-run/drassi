@@ -67,6 +67,37 @@ func readArgIdx(str string, start int) (ok bool, argIndex int) {
 	return true, argIndex
 }
 
+func readFormatSpecifiers(str string, start int) (ok bool, result string, rBrace int) {
+	c := at(str, start)
+	if c == '}' {
+		return true, result, start
+	}
+	if c != ':' {
+		return false, result, rBrace
+	}
+	var specifiers strings.Builder
+	idx := start + 1
+	for {
+		if idx >= len(str) {
+			return false, result, rBrace
+		}
+		c = rune(str[idx])
+		// Not right-brace
+		if c != '}' {
+			specifiers.WriteRune(c)
+			idx++
+			continue
+		}
+		// Escaped right-brace
+		if at(str, idx+1) == '}' {
+			specifiers.WriteRune('}')
+			idx = idx + 2
+			continue
+		}
+		return true, specifiers.String(), idx
+	}
+}
+
 func at(str string, i int) rune {
 	s := []rune(str)
 	if i < 0 || i >= len(str) {

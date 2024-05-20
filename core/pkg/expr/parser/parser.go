@@ -32,6 +32,10 @@ type (
 	}
 )
 
+var (
+	ErrorUnrecognizedNamedValue = fmt.Errorf("unrecognized named value")
+)
+
 func newParseContext(expr string, namedVals []ast.INamedValueInfo[ast.INamedValue], fns []functions.IFnInfo[ast_ifaces.Fn], allowUnknownKeyWords bool) *parseContext {
 	result := parseContext{
 		allowUnknownKeywords: allowUnknownKeyWords,
@@ -191,7 +195,7 @@ func pushOperand(pCtx *parseContext) {
 				node.SetName(name)
 				pCtx.operands = append(pCtx.operands, node)
 			} else {
-				panic(fmt.Errorf("unrecognized named value"))
+				panic(ErrorUnrecognizedNamedValue)
 			}
 		}
 

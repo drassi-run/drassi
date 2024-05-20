@@ -11,12 +11,11 @@ import (
 
 /*
 ToNode converts the Token into an AST node. Different kinds of tokens result in different types of nodes:
-
-operators like startIndex, dereference, logicalOperator are converted to corresponding operator nodes like Index, NotEqual, GreaterThan, etc.
-Literal values (null, boolean, number, str) are converted to Lit nodes containing their value.
-Property names are turned into Lit nodes containing the property name as a string.
-A wildcard Token is converted to a WildCard node.
-The function panics if it encounters an unexpected logical operator or Token kind.
+- operators like startIndex, dereference, logicalOperator are converted to corresponding operator nodes like Index, NotEqual, GreaterThan, etc.
+- literal values (null, boolean, number, str) are converted to Lit nodes containing their value.
+- property names are turned into Lit nodes containing the property name as a string.
+- wildcard Token is converted to a WildCard node.
+Panics if it encounters an unexpected logical operator or Token kind.
 */
 func ToNode(t *token.Token) ast_ifaces.ExprNode {
 	switch t.K {

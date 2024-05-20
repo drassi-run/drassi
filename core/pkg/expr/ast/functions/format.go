@@ -2,9 +2,7 @@ package functions
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
-	"unicode"
 
 	"github.com/dungdm93/drassi/core/pkg/expr/ast/ast_ifaces"
 )
@@ -39,44 +37,6 @@ func (f *Format) GetCtn() ast_ifaces.Container {
 
 func (f *Format) SetCtn(c ast_ifaces.Container) {
 	f.Ctn = c
-}
-
-func readArgIdx(str string, start int) (ok bool, argIndex int) {
-	var length int
-	if unicode.IsDigit(at(str, start+length)) {
-		length++
-	}
-	if length < 1 {
-		return false, -1
-	}
-	argIndex, err := strconv.Atoi(str[start : start+length])
-	if err != nil {
-		return false, -1
-	}
-	return true, argIndex
-}
-
-func at(str string, i int) rune {
-	s := []rune(str)
-	if i < 0 || i >= len(str) {
-		return rune(0)
-	}
-	return s[i]
-}
-
-type formatResultBuilder struct {
-	node     *Format
-	ctx      ast_ifaces.Context
-	segments []string
-	cache    []*argValue
-}
-
-type argValue struct {
-	stringResult string
-}
-
-func (a *argValue) StringResult() string {
-	return a.stringResult
 }
 
 func (f *Format) Expr() string {

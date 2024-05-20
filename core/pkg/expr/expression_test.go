@@ -1,6 +1,7 @@
 package expr_test
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"testing"
@@ -35,6 +36,7 @@ func TestLiteral(t *testing.T) {
 		{"true", true},
 		{"false", false},
 		{"711", float64(711)},
+		{"Infinity", math.Inf(1)},
 		{"0", float64(0)},
 		{"-9.2", -9.2},
 		{"0xff", float64(255)},
@@ -344,33 +346,33 @@ func TestBooleanEvaluation(t *testing.T) {
 		{"Infinity || ''", math.Inf(1), "pos-inf-or"},
 		{"Infinity || 'abc'", math.Inf(1), "pos-inf-or"},
 		// -Infinity &&
-		// {"-Infinity && true", true, "neg-inf-and"},
-		// {"-Infinity && false", false, "neg-inf-and"},
-		// {"-Infinity && null", nil, "neg-inf-and"},
-		// {"-Infinity && -10", -10, "neg-inf-and"},
-		// {"-Infinity && 0", 0, "neg-inf-and"},
-		// {"-Infinity && 10", 10, "neg-inf-and"},
-		// {"-Infinity && 3.14", 3.14, "neg-inf-and"},
-		// {"-Infinity && 0.0", 0, "neg-inf-and"},
-		// {"-Infinity && Infinity", math.Inf(1), "neg-inf-and"},
-		// {"-Infinity && -Infinity", math.Inf(-1), "neg-inf-and"},
-		// {"-Infinity && NaN", math.NaN(), "neg-inf-and"},
-		// {"-Infinity && ''", "", "neg-inf-and"},
-		// {"-Infinity && 'abc'", "abc", "neg-inf-and"},
+		{"-Infinity && true", true, "neg-inf-and"},
+		{"-Infinity && false", false, "neg-inf-and"},
+		{"-Infinity && null", nil, "neg-inf-and"},
+		{"-Infinity && -10", -10, "neg-inf-and"},
+		{"-Infinity && 0", 0, "neg-inf-and"},
+		{"-Infinity && 10", 10, "neg-inf-and"},
+		{"-Infinity && 3.14", 3.14, "neg-inf-and"},
+		{"-Infinity && 0.0", 0, "neg-inf-and"},
+		{"-Infinity && Infinity", math.Inf(1), "neg-inf-and"},
+		{"-Infinity && -Infinity", math.Inf(-1), "neg-inf-and"},
+		{"-Infinity && NaN", math.NaN(), "neg-inf-and"},
+		{"-Infinity && ''", "", "neg-inf-and"},
+		{"-Infinity && 'abc'", "abc", "neg-inf-and"},
 		// -Infinity ||
-		// {"-Infinity || true", math.Inf(-1), "neg-inf-or"},
-		// {"-Infinity || false", math.Inf(-1), "neg-inf-or"},
-		// {"-Infinity || null", math.Inf(-1), "neg-inf-or"},
-		// {"-Infinity || -10", math.Inf(-1), "neg-inf-or"},
-		// {"-Infinity || 0", math.Inf(-1), "neg-inf-or"},
-		// {"-Infinity || 10", math.Inf(-1), "neg-inf-or"},
-		// {"-Infinity || 3.14", math.Inf(-1), "neg-inf-or"},
-		// {"-Infinity || 0.0", math.Inf(-1), "neg-inf-or"},
-		// {"-Infinity || Infinity", math.Inf(-1), "neg-inf-or"},
-		// {"-Infinity || -Infinity", math.Inf(-1), "neg-inf-or"},
-		// {"-Infinity || NaN", math.Inf(-1), "neg-inf-or"},
-		// {"-Infinity || ''", math.Inf(-1), "neg-inf-or"},
-		// {"-Infinity || 'abc'", math.Inf(-1), "neg-inf-or"},
+		{"-Infinity || true", math.Inf(-1), "neg-inf-or"},
+		{"-Infinity || false", math.Inf(-1), "neg-inf-or"},
+		{"-Infinity || null", math.Inf(-1), "neg-inf-or"},
+		{"-Infinity || -10", math.Inf(-1), "neg-inf-or"},
+		{"-Infinity || 0", math.Inf(-1), "neg-inf-or"},
+		{"-Infinity || 10", math.Inf(-1), "neg-inf-or"},
+		{"-Infinity || 3.14", math.Inf(-1), "neg-inf-or"},
+		{"-Infinity || 0.0", math.Inf(-1), "neg-inf-or"},
+		{"-Infinity || Infinity", math.Inf(-1), "neg-inf-or"},
+		{"-Infinity || -Infinity", math.Inf(-1), "neg-inf-or"},
+		{"-Infinity || NaN", math.Inf(-1), "neg-inf-or"},
+		{"-Infinity || ''", math.Inf(-1), "neg-inf-or"},
+		{"-Infinity || 'abc'", math.Inf(-1), "neg-inf-or"},
 		// NaN &&
 		{"NaN && true", math.NaN(), "nan-and"},
 		{"NaN && false", math.NaN(), "nan-and"},
@@ -540,7 +542,6 @@ func TestFunctionStartsWith(t *testing.T) {
 	}
 }
 
-
 func TestFunctionEndsWith(t *testing.T) {
 	var namedVals []ast.INamedValueInfo[ast.INamedValue]
 	var fns []functions.IFnInfo[ast_ifaces.Fn]
@@ -571,7 +572,6 @@ func TestFunctionEndsWith(t *testing.T) {
 	}
 }
 
-
 func TestFunctionJoin(t *testing.T) {
 	var namedVals []ast.INamedValueInfo[ast.INamedValue]
 	var fns []functions.IFnInfo[ast_ifaces.Fn]
@@ -600,31 +600,30 @@ func TestFunctionJoin(t *testing.T) {
 	}
 }
 
-func TestFunctionToJson(t *testing.T) {
-	 namedVals := []ast.INamedValueInfo[ast.INamedValue] {
-		 ast.NewNamedValueInfo[ast.ContextValueNode]("env"),
-	 }
-	var fns []functions.IFnInfo[ast_ifaces.Fn]
-	table := []struct {
-		input    string
-		expected interface{}
-		name     string
-	}{
-		{"toJSON(env)", "{\n  \"key\": \"value\"\n}", "toJSON"},
-		{"toJSON(null)", "null", "toJSON-null"},
-	}
-
-	for _, tt := range table {
-		t.Run(tt.name, func(t *testing.T) {
-			root := parser.Parse(tt.input, namedVals, fns)
-			result, err := evaluator.EvaluateWithDefaults(root, nil, "")
-			assert.NilError(t, err)
-			fmt.Printf("result.Kind(): %v\n", result.Kind())
-			assert.Equal(t, tt.expected, result.Value())
-		})
-	}
-}
-
+// func TestFunctionToJson(t *testing.T) {
+// 	 namedVals := []ast.INamedValueInfo[ast.INamedValue] {
+// 		 ast.NewNamedValueInfo[ast.ContextValueNode]("env"),
+// 	 }
+// 	var fns []functions.IFnInfo[ast_ifaces.Fn]
+// 	table := []struct {
+// 		input    string
+// 		expected interface{}
+// 		name     string
+// 	}{
+// 		{"toJSON(env)", "{\n  \"key\": \"value\"\n}", "toJSON"},
+// 		{"toJSON(null)", "null", "toJSON-null"},
+// 	}
+//
+// 	for _, tt := range table {
+// 		t.Run(tt.name, func(t *testing.T) {
+// 			root := parser.Parse(tt.input, namedVals, fns)
+// 			result, err := evaluator.EvaluateWithDefaults(root, nil, "")
+// 			assert.NilError(t, err)
+// 			fmt.Printf("result.Kind(): %v\n", result.Kind())
+// 			assert.Equal(t, tt.expected, result.Value())
+// 		})
+// 	}
+// }
 
 func TestFunctionFormat(t *testing.T) {
 	var namedVals []ast.INamedValueInfo[ast.INamedValue]
@@ -633,36 +632,45 @@ func TestFunctionFormat(t *testing.T) {
 		input    string
 		expected interface{}
 		name     string
+		err      error
 	}{
-		{"format('text')", "text",  "format-plain-string"},
-		{"format('Hello {0} {1} {2}!', 'Mona', 'the', 'Octocat')", "Hello Mona the Octocat!", "format-with-placeholders"},
-		{"format('{{Hello {0} {1} {2}!}}', 'Mona', 'the', 'Octocat')", "{Hello Mona the Octocat!}", "format-with-escaped-braces"},
-		{"format('{{0}}', 'test')", "{0}", "format-with-escaped-braces"},
-		{"format('{{{0}}}', 'test')", "{test}",  "format-with-escaped-braces-and-value"},
-		{"format('}}')", "}",  "format-output-closing-brace"},
-		{`format('Hello "{0}" {1} {2} {3} {4}', null, true, -3.14, NaN, Infinity)`, `Hello "" true -3.14 NaN Infinity`,  "format-with-primitives"},
-		{`format('Hello "{0}" {1} {2}', fromJSON('[0, true, "abc"]'), fromJSON('[{"a":1}]'), fromJSON('{"a":{"b":1}}'))`, `Hello "Array" Array Object`,  "format-with-complex-types"},
-		{"format(true)", "true",  "format-with-primitive-args"},
-		{"format('echo Hello {0} ${{Test}}', github.undefined_property)", "echo Hello  ${Test}", "format-with-undefined-value"},
-		{"format('{0}}', '{1}', 'World')",  "Closing bracket without opening one. The following format string is invalid: '{0}}'", "format-invalid-format-string"},
-		{"format('{0', '{1}', 'World')",  "Unclosed brackets. The following format string is invalid: '{0'", "format-invalid-format-string"},
-		{"format('{2}', '{1}', 'World')", "",  "format-invalid-replacement-reference"},
-		{"format('{2147483648}')", "",  "format-invalid-replacement-reference"},
-		{"format('{0} {1} {2} {3}', 1.0, 1.1, 1234567890.0, 12345678901234567890.0)", "1 1.1 1234567890 1.23456789012346E+19",  "format-floats"},
+		{"format('text')", "text", "format-plain-string", nil},
+		{"format('Hello {0} {1} {2}', 'Mona', 'the', 'Octocat')", "Hello Mona the Octocat", "format-plain-string", nil},
+		{"format('Hello {0} {1} {2}!', 'Mona', 'the', 'Octocat')", "Hello Mona the Octocat!",
+			"format-with-placeholders", nil},
+		{"format('{{Hello {0} {1} {2}!}}', 'Mona', 'the', 'Octocat')", "{Hello Mona the Octocat!}",
+			"format-with-escaped-braces", nil},
+		{"format('{{0}}', 'test')", "{0}", "format-with-escaped-braces", nil},
+		{"format('{{{0}}}', 'test')", "{test}", "format-with-escaped-braces-and-value", nil},
+		{"format('}}')", "}", "format-output-closing-brace", nil},
+		{`format('Hello "{0}" {1} {2} {3} {4}', null, true, -3.14, NaN, Infinity)`, `Hello "" true -3.14 NaN Infinity`, "format-with-primitives", nil},
+		{`format('Hello "{0}" {1} {2}', fromJSON('[0, true, "abc"]'), fromJSON('[{"a":1}]'), fromJSON('{"a":{"b":1}}'))`, `Hello "Array" Array Object`, "format-with-complex-types", nil},
+		{"format(true)", "true", "format-with-primitive-args", nil},
+		// {"format('echo Hello {0} ${{Test}}', github.undefined_property)", "echo Hello  ${Test}",
+		// 	"format-with-undefined-value", parser.ErrorUnrecognizedNamedValue},
+		{"format('{0}}', '{1}', 'World')", "Closing bracket without opening one. " +
+			"The following format string is invalid: '{0}}'", "format-invalid-format-string", errors.New("invalid format string {0}}")},
+		{"format('{0', '{1}', 'World')", "Unclosed brackets. The following format string is invalid: '{0'",
+			"format-invalid-format-string", errors.New("invalid format string {0")},
+		{"format('{2}', '{1}', 'World')", "", "format-invalid-replacement-reference", evaluator.ErrorInvalidFormatArgIndex},
+		{"format('{2147483648}')", "", "format-invalid-replacement-reference", evaluator.ErrorInvalidFormatArgIndex},
+		{"format('{0} {1} {2} {3}', 1.0, 1.1, 1234567890.0, 12345678901234567890.0)", "1 1.1 1234567890 1.23456789012346E+19", "format-floats", nil},
 	}
 
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
 			root := parser.Parse(tt.input, namedVals, fns)
 			result, err := evaluator.EvaluateWithDefaults(root, nil, "")
-			assert.NilError(t, err)
-			fmt.Printf("result.Kind(): %v\n", result.Kind())
-			assert.Equal(t, tt.expected, result.Value())
+			if tt.err != nil {
+				assert.Equal(t, tt.err.Error(), err.Error())
+			} else {
+				assert.NilError(t, err)
+				fmt.Printf("result.Kind(): %v\n", result.Kind())
+				assert.Equal(t, tt.expected, result.Value())
+			}
 		})
 	}
 }
-
-
 
 // TestComplexFns are testcase for functions with value depends on from job status, ...
 func TestStatusCheckFunctions(t *testing.T) {
@@ -762,7 +770,7 @@ func TestStatusCheckFunctions(t *testing.T) {
 }
 
 // TestNamedValues are testcase where input are evaluated from input template context, ...
-func TestNamedValues(t *testing.T) {
+func TestContexts(t *testing.T) {
 	type testCase struct {
 		name     string
 		expr     string

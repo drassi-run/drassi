@@ -121,41 +121,40 @@ func (v visitorImpl) VisitFormatFn(eCtx ast_ifaces.Context, c ast_ifaces.Contain
 	var idx int
 	result := newFormatResultBuilder(c, eCtx, len(format))
 	for idx < len(format) {
-		// Find first occurrence of opening brace and closing brace in sub-sequence from idx:len(format)-1
-		lBraceIdx := strings.Index(format[idx:], "{") + idx
-		rBraceIdx := strings.Index(format[idx:], "}") + idx
+		// Find first occurrence of opening brace and closing brace in subsequence from idx:len(format)-1
+		lBrace := strings.Index(format[idx:], "{") + idx
+		rBrace := strings.Index(format[idx:], "}") + idx
 		// Left brace found
-		if lBraceIdx >= idx && (rBraceIdx < idx || rBraceIdx > lBraceIdx) {
+		if lBrace >= idx && (rBrace < idx || rBrace > lBrace) {
 			// escaped left brace
-			if at(format, lBraceIdx+1) == '{' {
-				result.appendStatic(format[idx : lBraceIdx-idx+1])
-				idx = lBraceIdx + 2
+			if at(format, lBrace+1) == '{' {
+				result.appendStatic(format[idx : lBrace-idx+1])
+				idx = lBrace + 2
 				continue
 			}
 			// Left brace, number, right brace
-			if rBraceIdx > lBraceIdx+1 {
-				if ok, argIdx := readArgIdx(format, lBraceIdx+1); ok {
-					// Check parameter count
-					if argIdx > len(c.Parameters())-2 {
-						panic(ErrorInvalidFormatArgIndex)
-					}
-					// Append the portion before the left brace
-					result.appendStatic(format[idx:lBraceIdx])
-					// Append the arg
-					result.appendArgument(argIdx)
-					idx = rBraceIdx + 1
-				} else {
-					panic(fmt.Errorf("invalid format string %s", format))
-				}
+			ok1 := rBrace > lBrace+1
+			ok2, argIdx := readArgIdx(format, lBrace+1)
+			if !ok1 || !ok2 {
+				panic(fmt.Errorf("invalid format string %s", format))
 			}
+			// Check parameter count
+			if argIdx > len(c.Parameters())-2 {
+				panic(ErrorInvalidFormatArgIndex)
+			}
+			// Append the portion before the left brace
+			result.appendStatic(format[idx:lBrace])
+			// Append the arg
+			result.appendArgument(argIdx)
+			idx = rBrace + 1
 			continue
 		}
 		// Only right brace found
-		if rBraceIdx >= idx {
+		if rBrace >= idx {
 			// escaped right brace
-			if at(format, rBraceIdx+1) == '}' {
-				result.appendStatic(format[idx : rBraceIdx+1])
-				idx = rBraceIdx + 2
+			if at(format, rBrace+1) == '}' {
+				result.appendStatic(format[idx : rBrace+1])
+				idx = rBrace + 2
 			} else {
 				panic(fmt.Errorf("invalid format string %s", format))
 			}
@@ -163,6 +162,7 @@ func (v visitorImpl) VisitFormatFn(eCtx ast_ifaces.Context, c ast_ifaces.Contain
 		}
 		// Last segment
 		result.appendStatic(format[idx:])
+		break
 	}
 	return result.String()
 }
