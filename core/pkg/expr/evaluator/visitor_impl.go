@@ -189,7 +189,7 @@ func (v visitorImpl) VisitGreaterThan(eCtx ast_ifaces.Context, c ast_ifaces.Cont
 func (v visitorImpl) VisitGreaterThanOrEqual(eCtx ast_ifaces.Context, c ast_ifaces.Container) any {
 	l := evaluate(eCtx, c.Parameters()[0])
 	r := evaluate(eCtx, c.Parameters()[1])
-	return l.greaterThan(r)
+	return l.greaterThanOrEqual(r)
 }
 
 func (v visitorImpl) VisitIndex(eCtx ast_ifaces.Context, c ast_ifaces.Container) any {

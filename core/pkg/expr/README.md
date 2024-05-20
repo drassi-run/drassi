@@ -20,6 +20,6 @@
 - [x] `always`
 - [x] `cancelled` (currently only supports `job.status` for pre, post and job-level steps)
 - [x] `success` (currently only supports `job.status` for pre, post and job-level steps)
-- [ ] `fromJson`
+- [ ] `fromJSON`
 - [ ] `toJson`
 - [ ] `hashFiles`
