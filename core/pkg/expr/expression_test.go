@@ -356,6 +356,80 @@ func TestBooleanEvaluation(t *testing.T) {
 		{"Infinity || NaN", math.Inf(1)},
 		{"Infinity || ''", math.Inf(1)},
 		{"Infinity || 'abc'", math.Inf(1)},
+		{"NaN && true", math.NaN()},
+		{"NaN && false", math.NaN()},
+		{"NaN && null", math.NaN()},
+		{"NaN && -10", math.NaN()},
+		{"NaN && 0", math.NaN()},
+		{"NaN && 10", math.NaN()},
+		{"NaN && 3.14", math.NaN()},
+		{"NaN && 0.0", math.NaN()},
+		{"NaN && Infinity", math.NaN()},
+		{"NaN && NaN", math.NaN()},
+		{"NaN && ''", math.NaN()},
+		{"NaN && 'abc'", math.NaN()},
+		{"NaN || true", true},
+		{"NaN || false", false},
+		{"NaN || null", nil},
+		{"NaN || -10", -10},
+		{"NaN || 0", 0},
+		{"NaN || 10", 10},
+		{"NaN || 3.14", 3.14},
+		{"NaN || 0.0", 0},
+		{"NaN || Infinity", math.Inf(1)},
+		{"NaN || NaN", math.NaN()},
+		{"NaN || ''", ""},
+		{"NaN || 'abc'", "abc"},
+		{"'' && true", ""},
+		{"'' && false", ""},
+		{"'' && null", ""},
+		{"'' && -10", ""},
+		{"'' && 0", ""},
+		{"'' && 10", ""},
+		{"'' && 3.14", ""},
+		{"'' && 0.0", ""},
+		{"'' && Infinity", ""},
+		{"'' && NaN", ""},
+		{"'' && ''", ""},
+		{"'' && 'abc'", ""},
+		{"'' || true", true},
+		{"'' || false", false},
+		{"'' || null", nil},
+		{"'' || -10", -10},
+		{"'' || 0", 0},
+		{"'' || 10", 10},
+		{"'' || 3.14", 3.14},
+		{"'' || 0.0", 0},
+		{"'' || Infinity", math.Inf(1)},
+		{"'' || NaN", math.NaN()},
+		{"'' || ''", ""},
+		{"'' || 'abc'", "abc"},
+		{"'abc' && true", true},
+		{"'abc' && false", false},
+		{"'abc' && null", nil},
+		{"'abc' && -10", -10},
+		{"'abc' && 0", 0},
+		{"'abc' && 10", 10},
+		{"'abc' && 3.14", 3.14},
+		{"'abc' && 0.0", 0},
+		{"'abc' && Infinity", math.Inf(1)},
+		{"'abc' && NaN", math.NaN()},
+		{"'abc' && ''", ""},
+		{"'abc' && 'abc'", "abc"},
+		{"'abc' || true", "abc"},
+		{"'abc' || false", "abc"},
+		{"'abc' || null", "abc"},
+		{"'abc' || -10", "abc"},
+		{"'abc' || 0", "abc"},
+		{"'abc' || 10", "abc"},
+		{"'abc' || 3.14", "abc"},
+		{"'abc' || 0.0", "abc"},
+		{"'abc' || Infinity", "abc"},
+		{"'abc' || NaN", "abc"},
+		{"'abc' || ''", "abc"},
+		{"'abc' || 'abc'", "abc"},
+		{"0.0 && true", 0},
+		{"-1.5 && true", true},
 	}
 	var namedValues []ast.INamedValueInfo[ast.INamedValue]
 	var fns []functions.IFnInfo[ast_ifaces.Fn]
@@ -368,6 +442,45 @@ func TestBooleanEvaluation(t *testing.T) {
 		})
 	}
 }
+
+func TestFunctionContains(t *testing.T) {
+	var namedVals []ast.INamedValueInfo[ast.INamedValue]
+	var fns []functions.IFnInfo[ast_ifaces.Fn]
+	table := []struct {
+		input    string
+		expected interface{}
+		name     string
+	}{
+		{"contains('search', 'item') }}", false, "contains-str-str"},
+		{`cOnTaInS('Hello', 'll') }}`, true, "contains-str-casing"},
+		{`contains('HELLO', 'll') }}`, true, "contains-str-casing"},
+		{`contains('3.141592', 3.14) }}`, true, "contains-str-number"},
+		{`contains(3.141592, '3.14') }}`, true, "contains-number-str"},
+		{`contains(3.141592, 3.14) }}`, true, "contains-number-number"},
+		{`contains(true, 'u') }}`, true, "contains-bool-str"},
+		{`contains(null, '') }}`, true, "contains-null-str"},
+		{`contains(fromJSON('["first","second"]'), 'first') }}`, true, "contains-item"},
+		{`contains(fromJSON('[null,"second"]'), '') }}`, true, "contains-item-null-empty-str"},
+		{`contains(fromJSON('["","second"]'), null) }}`, true, "contains-item-empty-str-null"},
+		{`contains(fromJSON('[true,"second"]'), 'true') }}`, false, "contains-item-bool-arr"},
+		{`contains(fromJSON('["true","second"]'), true) }}`, false, "contains-item-str-bool"},
+		{`contains(fromJSON('[3.14,"second"]'), '3.14') }}`, true, "contains-item-number-str"},
+		{`contains(fromJSON('[3.14,"second"]'), 3.14) }}`, true, "contains-item-number-number"},
+		{`contains(fromJSON('["","second"]'), fromJSON('[]')) }}`, false, "contains-item-str-arr"},
+		{`contains(fromJSON('["","second"]'), fromJSON('{}')) }}`, false, "contains-item-str-obj"},
+	}
+
+	for _, tt := range table {
+		t.Run(tt.name, func(t *testing.T) {
+			root := parser.Parse(tt.input, namedVals, fns)
+			result, err := evaluator.EvaluateWithDefaults(root, nil, "")
+			assert.NilError(t, err)
+			fmt.Printf("result.Kind(): %v\n", result.Kind())
+			assert.Equal(t, tc.expected, result.Value())
+		})
+	}
+}
+
 
 func TestSimpleFns(t *testing.T) {
 	type testcase struct {
