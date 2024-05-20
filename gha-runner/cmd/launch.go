@@ -1,4 +1,4 @@
-package command
+package cmd
 
 import (
 	"context"
@@ -14,8 +14,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/dungdm93/drasi/pkg/service/gha"
-	"github.com/dungdm93/drasi/pkg/util/oauth2/clientcredentials"
+	"github.com/dungdm93/drassi/core/pkg/util/oauth2/clientcredentials"
+	"github.com/dungdm93/drassi/gha-runner/pkg/gha"
 	"github.com/spf13/cobra"
 	"golang.org/x/oauth2"
 )

@@ -1,4 +1,4 @@
-package command
+package cmd
 
 import (
 	"bytes"
@@ -15,8 +15,8 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/huh"
-	"github.com/dungdm93/drasi/pkg/service/gha"
-	utilhttp "github.com/dungdm93/drasi/pkg/util/http"
+	"github.com/dungdm93/drassi/core/pkg/util/http"
+	"github.com/dungdm93/drassi/gha-runner/pkg/gha"
 	"github.com/spf13/cobra"
 	"golang.org/x/oauth2"
 )

@@ -11,7 +11,7 @@ import (
 	"path"
 	"strconv"
 
-	utilhttp "github.com/dungdm93/drasi/pkg/util/http"
+	"github.com/dungdm93/drassi/core/pkg/util/http"
 	"golang.org/x/oauth2"
 )
 
