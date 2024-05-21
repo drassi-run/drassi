@@ -1,76 +1,80 @@
 package workflows
 
 import (
-	"github.com/dungdm93/drassi/core/pkg/model"
 	"reflect"
+	"strings"
+
+	"github.com/dungdm93/drassi/core/pkg/model"
 )
 
-var (
-	typeDecoder          = reflect.TypeFor[model.Decoder]()
-	typeEvaluableBool    = reflect.TypeFor[Evaluable[bool]]()
-	typeEvaluableInteger = reflect.TypeFor[Evaluable[int64]]()
-	typeEvaluableFloat   = reflect.TypeFor[Evaluable[float64]]()
-	typeEvaluableString  = reflect.TypeFor[Evaluable[string]]()
-	typeConditional      = reflect.TypeFor[Conditional]()
-)
+func (e *Evaluable[R]) DecodeMapstructure(a any) (any, error) {
+	return map[string]any{"token": a}, nil
+}
 
-func DecodeEvaluableHook(fromType reflect.Type, toType reflect.Type, data any) (any, error) {
-	if toType.Implements(typeDecoder) {
-		// let's toType decode its self
-		return data, nil
+var typeToken = reflect.TypeFor[Token]()
+
+func DecodeTokenHook(from reflect.Value, to reflect.Value) (any, error) {
+	if !to.Type().Implements(typeToken) || to.Interface() != nil {
+		return valueOf(from), nil
 	}
 
-	if toType.Implements(typeEvaluableBool) {
-		if fromType.Kind() == reflect.Bool {
-			b := data.(bool)
-			return NewIdent(b), nil
+	var (
+		token Token = nil
+		data  any   = nil
+	)
+	switch from.Kind() {
+	case reflect.Bool:
+		token = NewLiteralToken(from.Bool())
+	case reflect.String:
+		s := from.String()
+		if strings.Contains(s, OpenExpression) {
+			token = NewExpressionToken(s)
+		} else {
+			token = NewLiteralToken(s)
 		}
-		if fromType.Kind() == reflect.String {
-			s := data.(string)
-			return NewEvaluable(s, toBool)
-		}
-	} else if toType.Implements(typeEvaluableInteger) {
-		if fromType.Kind() >= reflect.Int && fromType.Kind() <= reflect.Uint64 {
-			i := data.(int64)
-			return NewIdent(i), nil
-		}
-		if fromType.Kind() == reflect.String {
-			s := data.(string)
-			return NewEvaluable(s, toInteger)
-		}
-	} else if toType.Implements(typeEvaluableFloat) {
-		if fromType.Kind() == reflect.Float32 || fromType.Kind() == reflect.Float64 {
-			f := data.(float64)
-			return NewIdent(f), nil
-		}
-		if fromType.Kind() == reflect.String {
-			s := data.(string)
-			return NewEvaluable(s, toFloat)
-		}
-	} else if toType.Implements(typeEvaluableString) {
-		if fromType.Kind() == reflect.String {
-			s := data.(string)
-			return NewEvaluable(s, toString)
+	case reflect.Slice, reflect.Array:
+		token = NewSequenceToken(nil)
+		data = from.Interface()
+	case reflect.Map:
+		token = NewMappingToken(nil)
+		data = from.Interface()
+	default:
+		if from.CanInt() {
+			token = NewLiteralToken(from.Int())
+		} else if from.CanUint() {
+			token = NewLiteralToken(from.Uint())
+		} else if from.CanFloat() {
+			token = NewLiteralToken(from.Float())
+		} else {
+			data = valueOf(from)
 		}
 	}
-
+	if token != nil {
+		to.Set(reflect.ValueOf(token))
+	}
 	return data, nil
 }
 
-func DecodeConditionalHook(fromType reflect.Type, toType reflect.Type, data any) (any, error) {
-	if toType.Implements(typeDecoder) {
-		// let's toType decode its self
-		return data, nil
-	}
-	if !toType.Implements(typeConditional) || fromType.Kind() != reflect.String {
-		return data, nil
+func (m *mappingToken) DecodeMapstructure(input any) (any, error) {
+	inputVal := reflect.ValueOf(input)
+	if inputVal.Kind() != reflect.Map {
+		return input, nil
 	}
 
-	s := data.(string)
-	return NewConditional(s), nil
+	a := make([]KVPair[any, any], 0, inputVal.Len())
+	mapIter := inputVal.MapRange()
+	for mapIter.Next() {
+		key := mapIter.Key()
+		val := mapIter.Value()
+		pair := KVPair[any, any]{
+			Key:   key.Interface(),
+			Value: val.Interface(),
+		}
+		a = append(a, pair)
+	}
+	return a, nil
 }
 
 func init() {
-	model.RegisterDecodeHook(DecodeEvaluableHook)
-	model.RegisterDecodeHook(DecodeConditionalHook)
+	model.RegisterDecodeHook(DecodeTokenHook)
 }
