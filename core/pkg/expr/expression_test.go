@@ -491,7 +491,11 @@ func TestBooleanEvaluation(t *testing.T) {
 			root := parser.Parse(tt.input, namedValues, fns)
 			result, err := evaluator.EvaluateWithDefaults(root, nil, "")
 			assert.NilError(t, err)
-			assert.Equal(t, tt.expected, result.Value())
+			if expected, ok := tt.expected.(float64); ok && math.IsNaN(expected) {
+				assert.Equal(t,true, math.IsNaN(result.Value().(float64)))
+			} else {
+				assert.Equal(t, tt.expected, result.Value())
+			}
 		})
 	}
 }
