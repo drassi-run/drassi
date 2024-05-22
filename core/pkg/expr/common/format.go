@@ -10,6 +10,18 @@ import (
 	"github.com/dungdm93/drassi/core/pkg/secret_masker"
 )
 
+// ParseInt use strconv.ParseInt, allowing conversion from different bases (e.g., binary, octal, hexadecimal) and specifying the bit size (e.g., 0, 8, 16, 32, 64).
+func ParseInt(str string) (out int, err error) {
+	if len(str) == 0 || len(strings.TrimSpace(str)) == 0 {
+		return 0, nil
+	}
+	i, err := strconv.ParseInt(str, 0, 32)
+	if err == nil {
+		return int(i), nil
+	}
+	return out, err
+}
+
 func ParseFloat(str string) (out float64) {
 	if len(str) == 0 || len(strings.TrimSpace(str)) == 0 {
 		return 0

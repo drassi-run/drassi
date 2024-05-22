@@ -67,8 +67,16 @@ func (e *result) isFalsy() bool {
 	case expr.Boolean:
 		return !e.value.(bool)
 	case expr.Number:
-		numb := e.value.(float64)
-		return numb == 0 || math.IsNaN(numb)
+		switch e.value.(type) {
+		case float64:
+			numb := e.value.(float64)
+			return numb == 0 || math.IsNaN(numb)
+		case int:
+			numb := e.value.(int)
+			return numb == 0
+		default:
+			panic("isFalsy should not reach here")
+		}
 	case expr.String:
 		str := e.value.(string)
 		return strings.EqualFold(str, "")
@@ -93,13 +101,21 @@ func equal(canonicalLeftValue, canonicalRightValue any) bool {
 			// Null, Null
 			return true
 		case expr.Number:
-			// Number, Number
-			l := canonicalLeftValue.(float64)
-			r := canonicalRightValue.(float64)
-			if math.IsNaN(l) || math.IsNaN(r) {
-				return false
+			switch canonicalLeftValue.(type) {
+			case float64:
+				// Number, Number
+				l := canonicalLeftValue.(float64)
+				r := canonicalRightValue.(float64)
+				if math.IsNaN(l) || math.IsNaN(r) {
+					return false
+				}
+				return l == r
+			case int:
+				// Number, Number
+				l := canonicalLeftValue.(int)
+				r := canonicalRightValue.(int)
+				return l == r
 			}
-			return l == r
 		case expr.String:
 			// String, String
 			lStr := canonicalLeftValue.(string)
@@ -136,30 +152,59 @@ func coerceTypes(canonicalLeftValue, canonicalRightValue any) (leftValue, rightV
 	}
 	// Number, String
 	if lk == expr.Number && rk == expr.String {
-		canonicalRightValue = convertToNumber(canonicalRightValue)
-		rk = expr.Number
-		return canonicalLeftValue, canonicalRightValue, lk, rk
+		// coerce based on type of left operand
+		switch canonicalLeftValue.(type) {
+		case int:
+			canonicalRightValue = toInt(canonicalRightValue)
+			rk = expr.Number
+			return canonicalLeftValue, canonicalRightValue, lk, rk
+		case float64:
+			canonicalRightValue = toFloat(canonicalRightValue)
+			rk = expr.Number
+			return canonicalLeftValue, canonicalRightValue, lk, rk
+		}
 	}
 	// String, Number
 	if lk == expr.String && rk == expr.Number {
-		canonicalLeftValue = convertToNumber(canonicalLeftValue)
-		lk = expr.Number
-		return canonicalLeftValue, canonicalRightValue, lk, rk
+		// coerce based on type of right operand
+		switch canonicalRightValue.(type) {
+		case int:
+			canonicalLeftValue = toInt(canonicalLeftValue)
+			lk = expr.Number
+			return canonicalLeftValue, canonicalRightValue, lk, rk
+		case float64:
+			canonicalLeftValue = toFloat(canonicalLeftValue)
+			lk = expr.Number
+			return canonicalLeftValue, canonicalRightValue, lk, rk
+		}
 	}
 	// Boolean|Null, Any
 	if lk == expr.Boolean || lk == expr.Null {
-		canonicalLeftValue = convertToNumber(canonicalLeftValue)
-		return coerceTypes(canonicalLeftValue, canonicalRightValue)
+		// coerce based on type of right operand
+		switch canonicalRightValue.(type) {
+		case int:
+			canonicalLeftValue = toInt(canonicalLeftValue)
+			return coerceTypes(canonicalLeftValue, canonicalRightValue)
+		case float64:
+			canonicalLeftValue = toFloat(canonicalLeftValue)
+			return coerceTypes(canonicalLeftValue, canonicalRightValue)
+		}
 	}
 	// Any, Boolean|Null
 	if rk == expr.Boolean || rk == expr.Null {
-		canonicalRightValue = convertToNumber(canonicalRightValue)
-		return coerceTypes(canonicalLeftValue, canonicalRightValue)
+		switch canonicalLeftValue.(type) {
+		case int:
+			canonicalRightValue = toInt(canonicalRightValue)
+			return coerceTypes(canonicalLeftValue, canonicalRightValue)
+		case float64:
+			canonicalRightValue = toFloat(canonicalRightValue)
+			return coerceTypes(canonicalLeftValue, canonicalRightValue)
+		}
 	}
 	return canonicalLeftValue, canonicalRightValue, lk, rk
 }
 
-func convertToNumber(canonicalValue any) float64 {
+func toFloat(canonicalValue any) float64 {
 	kind := getKind(canonicalValue)
 	switch kind {
 	case expr.Null:
@@ -177,26 +222,62 @@ func convertToNumber(canonicalValue any) float64 {
 	return math.NaN()
 }
 
+
+func toInt(canonicalValue any) int {
+	kind := getKind(canonicalValue)
+	switch kind {
+	case expr.Null:
+		return 0
+	case expr.Boolean:
+		if canonicalValue.(bool) {
+			return 1
+		}
+		return 0
+	case expr.Number:
+		return canonicalValue.(int)
+	case expr.String:
+		i, err := common.ParseInt(canonicalValue.(string))
+		if err == nil {
+				return i
+		}
+	}
+	panic("toInt should not reach here")
+}
+
 func getKind(canonicalValue any) expr.ResultKind {
-	if canonicalValue == nil {
+	switch canonicalValue.(type) {
+	case nil:
 		return expr.Null
-	}
-	if _, isBool := canonicalValue.(bool); isBool {
+	case bool:
 		return expr.Boolean
-	}
-	if _, isFloat64 := canonicalValue.(float64); isFloat64 {
+	case float64, int:
 		return expr.Number
-	}
-	if _, isStr := canonicalValue.(string); isStr {
+	case string:
 		return expr.String
-	}
-	if _, isObj := canonicalValue.(common.Obj); isObj {
+	case common.Array:
+		return expr.Array
+	default:
 		return expr.Object
 	}
-	if _, isArr := canonicalValue.(common.Array); isArr {
-		return expr.Array
-	}
-	return expr.Object
+	// if canonicalValue == nil {
+	// 	return expr.Null
+	// }
+	// if _, isBool := canonicalValue.(bool); isBool {
+	// 	return expr.Boolean
+	// }
+	// if _, isFloat64 := canonicalValue.(float64); isFloat64 {
+	// 	return expr.Number
+	// }
+	// if _, isStr := canonicalValue.(string); isStr {
+	// 	return expr.String
+	// }
+	// if _, isObj := canonicalValue.(common.Obj); isObj {
+	// 	return expr.Object
+	// }
+	// if _, isArr := canonicalValue.(common.Array); isArr {
+	// 	return expr.Array
+	// }
+	// return expr.Object
 }
 
 func (e *result) greaterThan(right expr.Result) bool {
@@ -259,7 +340,7 @@ func (e *result) notEqual(right expr.Result) bool {
 }
 
 func (e *result) number() float64 {
-	return convertToNumber(e.value)
+	return toFloat(e.value)
 }
 
 func (e *result) string() string {

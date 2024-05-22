@@ -77,6 +77,8 @@ func TestLiteral(t *testing.T) {
 		t.Run(tc.input, func(t *testing.T) {
 			root := parser.Parse(tc.input, namedValues, fns)
 			result, err := evaluator.EvaluateWithDefaults(root, nil, "")
+			fmt.Printf("expected: %s\n", tc.expected)
+			fmt.Printf("result.Value(): %s\n", result.Value())
 			assert.NilError(t, err)
 			assert.Equal(t, tc.expected, result.Value())
 		})

@@ -78,6 +78,11 @@ func TestTryGetNextToken(t *testing.T) {
 			expected: []token.Kind{token.Str},
 		},
 		{
+			name:"string with non-ascii chars",
+			expr: "'こんにちは＼(^o^)／世界😊'",
+			expected: []token.Kind{token.Str},
+		},
+		{
 			name:     "Compare",
 			expr:     "( 2 > 3 )",
 			expected: []token.Kind{token.StartGroup, token.Number, token.LogicalOperator, token.Number, token.EndGroup},
