@@ -11,13 +11,14 @@ var typeJob = reflect.TypeFor[Job]()
 
 func DecodeJobHook(from reflect.Value, to reflect.Value) (any, error) {
 	if !to.Type().Implements(typeJob) {
-		return from.Interface(), nil
+		return valueOf(from), nil
 	}
 	t := to.Interface()
 
-	m, ok := from.Interface().(map[string]any)
+	raw := valueOf(from)
+	m, ok := raw.(map[string]any)
 	if !ok || m == nil {
-		return from.Interface(), nil
+		return raw, nil
 	}
 
 	_, containsRunsOn := m["runs-on"]
@@ -40,7 +41,7 @@ func DecodeJobHook(from reflect.Value, to reflect.Value) (any, error) {
 			return nil, fmt.Errorf("map contains `uses` CAN'T be decode to %T", t)
 		}
 	}
-	return from.Interface(), nil
+	return m, nil
 }
 
 func init() {
@@ -61,63 +62,65 @@ func (s *JobSecrets) DecodeMapstructure(input any) (any, error) {
 		return nil, nil
 	}
 	if m, ok := input.(map[string]string); ok {
-		for k, v := range m {
-			if secret, err := NewEvaluable(v, toString); err != nil {
-				return nil, err
-			} else {
-				if s.Secrets == nil {
-					s.Secrets = make(map[string]Evaluable[string])
-				}
-				s.Secrets[k] = secret
-			}
-		}
+		s.Secrets = m
 		return nil, nil
+	}
+	if m, ok := input.(map[string]any); ok {
+		if secrets, err := castMap[string, string](m); err != nil {
+			return nil, err
+		} else {
+			s.Secrets = secrets
+			return nil, nil
+		}
 	}
 	// process JobSecrets normal way
 	return input, nil
 }
 
 func (e *Environment) DecodeMapstructure(input any) (any, error) {
-	if s, ok := input.(string); ok {
-		if name, err := NewEvaluable(s, toString); err != nil {
-			return nil, err
-		} else {
-			e.Name = name
-			return nil, nil
-		}
+	if name, ok := input.(string); ok {
+		e.Name = name
+		return nil, nil
 	}
 	// process Environment normal way
 	return input, nil
 }
 
-func (r *RunsOn) DecodeMapstructure(input any) (any, error) {
-	var labels []string
-	switch i := input.(type) {
+func (r *RunsOn) setLabels(input any, rec bool) (any, error) {
+	switch inp := input.(type) {
 	case string:
-		labels = []string{i}
-		input = nil
+		r.Labels = []string{inp}
+		return nil, nil
 	case []string:
-		labels = i
-		input = nil
-	case map[string]any:
-		if lb, ok := i["labels"]; ok {
-			switch l := lb.(type) {
-			case string:
-				labels = []string{l}
-			case []string:
-				labels = l
-			default:
-				return input, nil
-			}
-			delete(i, "labels")
-		}
-	}
-	for _, l := range labels {
-		if label, err := NewEvaluable(l, toString); err != nil {
+		r.Labels = inp
+		return nil, nil
+	case []any:
+		if labels, err := castArray[string](inp); err != nil {
 			return nil, err
 		} else {
-			r.Labels = append(r.Labels, label)
+			r.Labels = labels
+			return nil, nil
 		}
+	case map[string]any:
+		if rec {
+			if labels, ok := inp["labels"]; ok {
+				remain, err := r.setLabels(labels, false)
+				if err != nil {
+					return nil, err
+				}
+				if remain == nil { // Labels is set
+					delete(inp, "labels")
+				} else {
+					inp["labels"] = remain
+				}
+			}
+		}
+		return input, nil
+	default:
+		return input, nil
 	}
-	return input, nil
+}
+
+func (r *RunsOn) DecodeMapstructure(input any) (any, error) {
+	return r.setLabels(input, true)
 }
