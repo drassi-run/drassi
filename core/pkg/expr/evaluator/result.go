@@ -102,6 +102,7 @@ func equal(canonicalLeftValue, canonicalRightValue any) bool {
 			return true
 		case expr.Number:
 			switch canonicalLeftValue.(type) {
+			// canonicalLeftValue & canonicalRightValue should be of same kind and type
 			case float64:
 				// Number, Number
 				l := canonicalLeftValue.(float64)
@@ -146,9 +147,37 @@ func equal(canonicalLeftValue, canonicalRightValue any) bool {
 func coerceTypes(canonicalLeftValue, canonicalRightValue any) (leftValue, rightValue any, lk, rk expr.ResultKind) {
 	lk = getKind(canonicalLeftValue)
 	rk = getKind(canonicalRightValue)
-	if lk == rk {
-		// Same kind
-		return canonicalLeftValue, canonicalRightValue, lk, rk
+	if lk == rk  {
+		// Same kind different type
+		if lk == expr.Number && reflect.TypeOf(canonicalLeftValue).Name() != reflect.TypeOf(canonicalRightValue).Name() {
+			lf, lFloatAble := canonicalLeftValue.(float64)
+			if lFloatAble {
+				// left float, right int
+				// round left
+				intLeft := int(lf)
+				// rounded left == left
+				if float64(intLeft) == canonicalLeftValue.(float64) {
+					return intLeft, canonicalRightValue, lk, rk
+				} else {
+					return lf, float64(canonicalRightValue.(int)), lk, rk
+				}
+			}
+			rf, rFloatAble := canonicalRightValue.(float64)
+			if rFloatAble {
+				// left int, right float
+				// round right
+				intRight := int(rf)
+				// rounded right == right
+				if float64(intRight) == canonicalRightValue.(float64) {
+					return canonicalLeftValue, intRight, lk, rk
+				} else {
+					return float64(canonicalLeftValue.(int)), rf, lk, rk
+				}
+			}
+		} else {
+			// Same kind same type
+			return canonicalLeftValue, canonicalRightValue, lk, rk
+		}
 	}
 	// Number, String
 	if lk == expr.Number && rk == expr.String {
