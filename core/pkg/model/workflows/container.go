@@ -7,7 +7,7 @@ type Container struct {
 	//
 	// Context available: `github`, `needs`, `strategy`, `matrix`, `vars`, `inputs`
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
-	Image Evaluable[string] `json:"image,omitempty" yaml:"image,omitempty" mapstructure:"image,omitempty" validate:"required"`
+	Image string `json:"image,omitempty" yaml:"image,omitempty" mapstructure:"image,omitempty" validate:"required"`
 
 	// If the image's container registry requires authentication to pull the image,
 	// you can use credentials to set a map of the username and password.
@@ -39,6 +39,6 @@ type Container struct {
 // Context available: `github`, `needs`, `strategy`, `matrix`, `env`, `vars`, `secrets`, `inputs`
 // https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
 type ContainerCredentials struct {
-	Username Evaluable[string] `json:"username,omitempty" yaml:"username,omitempty" mapstructure:"username,omitempty"`
-	Password Evaluable[string] `json:"password,omitempty" yaml:"password,omitempty" mapstructure:"password,omitempty"`
+	Username string `json:"username,omitempty" yaml:"username,omitempty" mapstructure:"username,omitempty"`
+	Password string `json:"password,omitempty" yaml:"password,omitempty" mapstructure:"password,omitempty"`
 }
