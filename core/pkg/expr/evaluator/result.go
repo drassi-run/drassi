@@ -397,8 +397,16 @@ func (e *result) string() string {
 		}
 		return common.False
 	case expr.Number:
-		d := e.value.(float64)
-		return fmt.Sprintf("%g", d)
+		switch e.value.(type) {
+		case float64:
+			f := e.value.(float64)
+			return fmt.Sprintf("%g", f)
+		case int:
+			i := e.value.(int)
+			return fmt.Sprintf("%d",i )
+		default:
+			panic("result.string() should not reach here")
+		}
 	case expr.String:
 		return e.value.(string)
 	default:
