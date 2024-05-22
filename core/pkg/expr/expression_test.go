@@ -40,6 +40,13 @@ func TestLiteral(t *testing.T) {
 		{"null", nil},
 		{"false", false},
 		{"711", 711},
+		// integer larger than int32 will be evaluated to float64. This is consistent with original gha behavior
+		// max int64
+		{"9223372036854775807", 9.223372036854776e+18},
+		{"-9223372036854775807", -9.223372036854776e+18},
+		// max int32
+		{"2147483647", 2147483647},
+		{"-2147483647", -2147483647},
 		{"-10", -10},
 		{"Infinity", math.Inf(1)},
 		{"0", 0},
