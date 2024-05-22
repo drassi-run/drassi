@@ -180,6 +180,15 @@ func (v visitorImpl) VisitFromJsonFn(eCtx ast_ifaces.Context, c ast_ifaces.Conta
 	return data
 }
 
+ func (v visitorImpl) VisitToJsonFn(eCtx ast_ifaces.Context, c ast_ifaces.Container) any {
+	 val := evaluate(eCtx, c.Parameters()[0])
+	 json, err := json.MarshalIndent(val.value, "", "  ")
+	 if err != nil {
+		 panic(fmt.Errorf("Cannot convert value to JSON. Cause: %v", err))
+	 }
+	 return string(json)
+}
+
 func (v visitorImpl) VisitGreaterThan(eCtx ast_ifaces.Context, c ast_ifaces.Container) any {
 	l := evaluate(eCtx, c.Parameters()[0])
 	r := evaluate(eCtx, c.Parameters()[1])

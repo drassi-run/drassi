@@ -11,6 +11,7 @@ type Visitor interface {
 	VisitFailureFn(eCtx Context, c ExprNode) any
 	VisitFormatFn(eCtx Context, c Container) any
 	VisitFromJsonFn(eCtx Context, c Container) any
+	VisitToJsonFn(eCtx Context, c Container) any
 	VisitGreaterThan(eCtx Context, c Container) any
 	VisitGreaterThanOrEqual(eCtx Context, c Container) any
 	VisitIndex(eCtx Context, c Container) any

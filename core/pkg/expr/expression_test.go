@@ -632,30 +632,32 @@ func TestFunctionJoin(t *testing.T) {
 	}
 }
 
-// func TestFunctionToJson(t *testing.T) {
-// 	 namedVals := []ast.INamedValueInfo[ast.INamedValue] {
-// 		 ast.NewNamedValueInfo[ast.ContextValueNode]("env"),
-// 	 }
-// 	var fns []functions.IFnInfo[ast_ifaces.Fn]
-// 	table := []struct {
-// 		input    string
-// 		expected interface{}
-// 		name     string
-// 	}{
-// 		{"toJSON(env)", "{\n  \"key\": \"value\"\n}", "toJSON"},
-// 		{"toJSON(null)", "null", "toJSON-null"},
-// 	}
-//
-// 	for _, tt := range table {
-// 		t.Run(tt.name, func(t *testing.T) {
-// 			root := parser.Parse(tt.input, namedVals, fns)
-// 			result, err := evaluator.EvaluateWithDefaults(root, nil, "")
-// 			assert.NilError(t, err)
-// 			fmt.Printf("result.Kind(): %v\n", result.Kind())
-// 			assert.Equal(t, tt.expected, result.Value())
-// 		})
-// 	}
-// }
+func TestFunctionToJson(t *testing.T) {
+	 namedVals := []ast.INamedValueInfo[ast.INamedValue] {
+		 ast.NewNamedValueInfo[ast.ContextValueNode]("env"),
+	 }
+	var fns []functions.IFnInfo[ast_ifaces.Fn]
+	table := []struct {
+		input    string
+		expected interface{}
+		name     string
+	}{
+		{"toJSON(env)", "{\n  \"key\": \"value\"\n}", "toJSON"},
+		{"toJSON(null)", "null", "toJSON-null"},
+	}
+	ctx := &contexts.Expr{State: &contexts.Context{Env: map[string]string{
+		"key": "value",
+	}}}
+	for _, tt := range table {
+		t.Run(tt.name, func(t *testing.T) {
+			root := parser.Parse(tt.input, namedVals, fns)
+			result, err := evaluator.EvaluateWithDefaults(root, ctx, "")
+			assert.NilError(t, err)
+			fmt.Printf("result.Kind(): %v\n", result.Kind())
+			assert.Equal(t, tt.expected, result.Value())
+		})
+	}
+}
 
 func TestFunctionFormat(t *testing.T) {
 	var namedVals []ast.INamedValueInfo[ast.INamedValue]
