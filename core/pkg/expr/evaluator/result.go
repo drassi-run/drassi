@@ -224,6 +224,10 @@ func coerceTypes(canonicalLeftValue, canonicalRightValue any) (leftValue, rightV
 		case float64:
 			canonicalLeftValue = toFloat(canonicalLeftValue)
 			return coerceTypes(canonicalLeftValue, canonicalRightValue)
+		case string:
+			if canonicalRightValue.(string) == "" {
+				return coerceTypes(canonicalLeftValue, nil)
+			}
 		}
 	}
 	// Any, Boolean|Null
@@ -235,6 +239,10 @@ func coerceTypes(canonicalLeftValue, canonicalRightValue any) (leftValue, rightV
 		case float64:
 			canonicalRightValue = toFloat(canonicalRightValue)
 			return coerceTypes(canonicalLeftValue, canonicalRightValue)
+		case string:
+			if canonicalLeftValue.(string) == "" {
+				return coerceTypes(nil, canonicalRightValue)
+			}
 		}
 	}
 	return canonicalLeftValue, canonicalRightValue, lk, rk

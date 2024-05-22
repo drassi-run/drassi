@@ -173,10 +173,12 @@ func (v visitorImpl) VisitFromJsonFn(eCtx ast_ifaces.Context, c ast_ifaces.Conta
 		panic(fmt.Errorf("Cannot parse non-string type %v as JSON", val.kind))
 	}
 	var data any
+	fmt.Printf("before unmarshal %s\n", val.string())
 	err := json.Unmarshal([]byte(val.string()), &data)
 	if err != nil {
 		panic(fmt.Errorf("Invalid json, err: %+v", err))
 	}
+	fmt.Printf("after unmarshal %v \n", data)
 	return data
 }
 

@@ -523,8 +523,9 @@ func TestFunctionContains(t *testing.T) {
 		{`contains(true, 'u')`, true, "contains-bool-str"},
 		{`contains(null, '')`, true, "contains-null-str"},
 		{`contains(fromJSON('["first","second"]'), 'first')`, true, "contains-item"},
+		{`contains('123', '')`, true, "contains-item"},
 		{`contains(fromJSON('[null,"second"]'), '')`, true, "contains-item-null-empty-str"},
-		{`contains(fromJSON('["","second"]'), null)`, true, "contains-item-empty-str-null"},
+		{`contains(fromJSON('["first","","third"]'), null)`, true, "contains-item-empty-str-null"},
 		{`contains(fromJSON('[true,"second"]'), 'true')`, false, "contains-item-bool-arr"},
 		{`contains(fromJSON('["true","second"]'), true)`, false, "contains-item-str-bool"},
 		{`contains(fromJSON('[3.14,"second"]'), '3.14')`, true, "contains-item-number-str"},
@@ -538,7 +539,6 @@ func TestFunctionContains(t *testing.T) {
 			root := parser.Parse(tt.input, namedVals, fns)
 			result, err := evaluator.EvaluateWithDefaults(root, nil, "")
 			assert.NilError(t, err)
-			fmt.Printf("result.Kind(): %v\n", result.Kind())
 			assert.Equal(t, tt.expected, result.Value())
 		})
 	}
