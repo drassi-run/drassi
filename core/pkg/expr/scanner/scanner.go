@@ -3,6 +3,7 @@ package scanner
 import (
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 	"unicode"
 
@@ -157,7 +158,13 @@ func (s *Scanner) readNumber() *token.Token {
 		}
 	}
 	str := s.expr[pos:s.pos]
-	d := common.ParseNumber(str)
+	// try to parse to int first
+	i, err := strconv.ParseInt(str, 0, 32)
+	if err == nil {
+		return s.newToken(token.Number, str, pos, int(i))
+	}
+	// if failed, parse float
+	d := common.ParseFloat(str)
 	if math.IsNaN(d) {
 		return s.newToken(token.Unexpected, str, pos, nil)
 	}

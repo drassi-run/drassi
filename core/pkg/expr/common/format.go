@@ -3,7 +3,6 @@ package common
 import (
 	"fmt"
 	"math"
-	"reflect"
 	"strconv"
 	"strings"
 
@@ -11,7 +10,7 @@ import (
 	"github.com/dungdm93/drassi/core/pkg/secret_masker"
 )
 
-func ParseNumber(str string) (out float64) {
+func ParseFloat(str string) (out float64) {
 	if len(str) == 0 || len(strings.TrimSpace(str)) == 0 {
 		return 0
 	}
@@ -52,11 +51,21 @@ func FormatValue(masker secret_masker.Interface, value any, kind expr.ResultKind
 		}
 		return False
 	case expr.Number:
-		str := fmt.Sprintf("%f", value.(float64))
-		if masker != nil {
-			return masker.MaskSecrets(str)
+		switch value.(type) {
+		case float64:
+			str := fmt.Sprintf("%f", value.(float64))
+			if masker != nil {
+				return masker.MaskSecrets(str)
+			}
+			return str
+		case int:
+			str := fmt.Sprintf("%d", value.(int))
+			if masker != nil {
+				return masker.MaskSecrets(str)
+			}
+			return str
+		default: panic("FormatValue should not reach here")
 		}
-		return str
 	case expr.String:
 		str := value.(string)
 		if masker != nil {
@@ -88,17 +97,20 @@ func ToCanonicalValue(input any) (value any, kind expr.ResultKind) {
 		return
 	case float64:
 		// input is already float64
-		value = input
 		kind = expr.Number
+		value = input
 		return
 	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32:
 		// others well-known number
-		var floatType = reflect.TypeOf(float64(0))
+		// var floatType = reflect.TypeOf(float64(0))
+		// kind = expr.Number
+		// v := reflect.ValueOf(input)
+		// v = reflect.Indirect(v)
+		// fv := v.Convert(floatType)
+		// return fv.Float(), kind
 		kind = expr.Number
-		v := reflect.ValueOf(input)
-		v = reflect.Indirect(v)
-		fv := v.Convert(floatType)
-		return fv.Float(), kind
+		value = input
+		return
 	case string:
 		kind = expr.String
 		value = input

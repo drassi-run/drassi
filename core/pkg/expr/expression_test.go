@@ -17,7 +17,10 @@ import (
 )
 
 /*
-Examples are from https://docs.github.com/en/actions/learn-github-actions/expressions#example-of-literals
+Examples are from:
+- https://docs.github.com/en/actions/learn-github-actions/expressions#example-of-literals
+- https://github.com/nektos/act/blob/6ce45e3f246f12d6617691de9a2423920d5fdbe6/pkg/exprparser/interpreter_test.go
+- https://github.com/nektos/act/blob/ace4cd47c7f099864866b1f60e064fecde7f36ea/pkg/exprparser/functions_test.go
 Named values are value that was passed to evaluation context state as a meaningful object.
 Named values contains value that will be taken out when evaluating input.
 Example of named value: github, job,.... input will be something like: ${{ github.actor
@@ -34,26 +37,37 @@ func TestLiteral(t *testing.T) {
 	}
 	tcs := []testcase{
 		{"true", true},
+		{"null", nil},
 		{"false", false},
-		{"711", float64(711)},
+		{"711", 711},
+		{"-10", -10},
 		{"Infinity", math.Inf(1)},
-		{"0", float64(0)},
+		{"0", 0},
 		{"-9.2", -9.2},
-		{"0xff", float64(255)},
-		{"0xaa", float64(170)},
+		{"0xff", 255},
+		{"0x1f", 0x1f},
+		{"-0xaf", -0xaf},
+		{"0x0", 0x0},
+		{"0xaa", 170},
 		{"-2.99e-2", -0.0299},
-		{"1e3", float64(1000)},
+		{"1e3", 1e3},
+		{"12e3", 12e3},
 		{"'It''s open source!'", "It's open source!"},
 		{"'Mona the Octocat'", "Mona the Octocat"},
 		{"true", true},
 		{"false", false},
 		{"null", nil},
 		{"-9.7", -9.7},
-		// TODO: int type should be respected
+		{"0.567", 0.567},
+		{"-1234.567", -1234.567},
 		{"123", 123},
-		// TODO: int type should be respected
 		{"0xff", 255},
 		{"-2.99e-2", -2.99e-2},
+		{"1.2e3", 1.2e3},
+		{"-0.123e-12", -0.123e-12},
+		{"0e3", 0e3},
+		{"''", ""},
+		{"'こんにちは＼(^o^)／世界😊'", "こんにちは＼(^o^)／世界😊"},
 		{"'foo'", "foo"},
 		{"'it''s foo'", "it's foo"},
 	}
@@ -69,7 +83,6 @@ func TestLiteral(t *testing.T) {
 	}
 }
 
-// See https://github.com/nektos/act/blob/6ce45e3f246f12d6617691de9a2423920d5fdbe6/pkg/exprparser/interpreter_test.go#L114
 func TestCompare(t *testing.T) {
 	table := []struct {
 		input    string

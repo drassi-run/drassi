@@ -25,6 +25,8 @@ const (
 	Null
 	Boolean
 	Number
+	Float
+	Int
 	Str
 	PropertyName
 	Function

@@ -172,7 +172,7 @@ func convertToNumber(canonicalValue any) float64 {
 	case expr.Number:
 		return canonicalValue.(float64)
 	case expr.String:
-		return common.ParseNumber(canonicalValue.(string))
+		return common.ParseFloat(canonicalValue.(string))
 	}
 	return math.NaN()
 }

@@ -9,7 +9,7 @@ import (
 	"github.com/dungdm93/drassi/core/pkg/expr"
 )
 
-// TestParseNumber tests various scenarios for the ParseNumber function
+// TestParseNumber tests various scenarios for the ParseFloat function
 func Test_ParseNumber(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -30,14 +30,14 @@ func Test_ParseNumber(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := ParseNumber(tt.input)
+			got := ParseFloat(tt.input)
 			if tt.isNaN {
 				if !math.IsNaN(got) {
-					t.Errorf("ParseNumber(%q) = %v, want NaN", tt.input, got)
+					t.Errorf("ParseFloat(%q) = %v, want NaN", tt.input, got)
 				}
 			} else {
 				if got != tt.expected {
-					t.Errorf("ParseNumber(%q) = %v, want %v", tt.input, got, tt.expected)
+					t.Errorf("ParseFloat(%q) = %v, want %v", tt.input, got, tt.expected)
 				}
 			}
 		})

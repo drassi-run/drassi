@@ -19,7 +19,7 @@ func Evaluate(root ast_ifaces.ExprNode, masker secret_masker.Interface, state an
 	opt *Option) (r expr.Result, err error) {
 	defer func() {
 		if v := recover(); v != nil {
-			r, err = nil, fmt.Errorf("%v", v)
+			r, err = nil, fmt.Errorf("%+v", v)
 		}
 	}()
 	if root.GetCtn() != nil {
