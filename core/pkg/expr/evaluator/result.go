@@ -40,6 +40,13 @@ func newEvaluationResult(eCtx ast_ifaces.Context, level int, val any, kind expr.
 }
 
 func (e *result) Value() any {
+	if e.kind == expr.Number && reflect.TypeOf(e.value).Name() == reflect.TypeFor[float64]().Name() {
+		f := e.value.(float64)
+		floored := int(f)
+		if float64(floored) == f {
+			return floored
+		}
+	}
 	return e.value
 }
 
@@ -153,9 +160,9 @@ func coerceTypes(canonicalLeftValue, canonicalRightValue any) (leftValue, rightV
 			lf, lFloatAble := canonicalLeftValue.(float64)
 			if lFloatAble {
 				// left float, right int
-				// round left
+				// floor left
 				intLeft := int(lf)
-				// rounded left == left
+				// floored left == left
 				if float64(intLeft) == canonicalLeftValue.(float64) {
 					return intLeft, canonicalRightValue, lk, rk
 				} else {
@@ -165,9 +172,9 @@ func coerceTypes(canonicalLeftValue, canonicalRightValue any) (leftValue, rightV
 			rf, rFloatAble := canonicalRightValue.(float64)
 			if rFloatAble {
 				// left int, right float
-				// round right
+				// floor right
 				intRight := int(rf)
-				// rounded right == right
+				// floored right == right
 				if float64(intRight) == canonicalRightValue.(float64) {
 					return canonicalLeftValue, intRight, lk, rk
 				} else {
@@ -383,7 +390,7 @@ func (e *result) string() string {
 		return common.False
 	case expr.Number:
 		d := e.value.(float64)
-		return fmt.Sprintf("%f", d)
+		return fmt.Sprintf("%g", d)
 	case expr.String:
 		return e.value.(string)
 	default:

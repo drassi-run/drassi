@@ -23,10 +23,6 @@ func (c *Contains) TraceFullyRealized() bool {
 	return false
 }
 
-func containsIgnoreCase(s string, sub string) bool {
-	return strings.Contains(strings.ToLower(s), strings.ToLower(sub))
-}
-
 func (c *Contains) Expr() string {
 	params := make([]string, len(c.Parameters()))
 	for i, param := range c.Parameters() {
