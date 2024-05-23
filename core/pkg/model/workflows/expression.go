@@ -12,15 +12,30 @@ const (
 	CloseExpression = "}}"
 )
 
-type ContextProvider interface {
-	Context(name string) context.Context
+type EvaluatorProvider interface {
+	ContextData(name string) context.Context
+	Functions(name string) []string
+	DefaultValue(name string) any
 }
 
 type Evaluable[R any] struct {
 	Token Token `json:"token" yaml:"token" mapstructure:"token"`
 }
 
-func (e *Evaluable[R]) Evaluate(name string, provider ContextProvider) (R, error) {
+func (e *Evaluable[R]) Evaluate(name string, provider EvaluatorProvider) (R, error) {
+	if e.Token == nil {
+		v := provider.DefaultValue(name)
+		if v == nil {
+			return *new(R), nil
+		}
+
+		if r, ok := v.(R); ok {
+			return r, nil
+		}
+
+		return *new(R), fmt.Errorf("invalid default value for %s", name)
+	}
+
 	val, err := e.Token.Appraise(name, provider)
 	if err != nil {
 		return *new(R), err
@@ -40,14 +55,14 @@ func (e *Evaluable[R]) Evaluate(name string, provider ContextProvider) (R, error
 }
 
 type Token interface {
-	Appraise(name string, provider ContextProvider) (any, error)
+	Appraise(name string, provider EvaluatorProvider) (any, error)
 }
 
 type literalToken struct {
 	value any
 }
 
-func (l *literalToken) Appraise(string, ContextProvider) (any, error) {
+func (l *literalToken) Appraise(string, EvaluatorProvider) (any, error) {
 	return l.value, nil
 }
 
@@ -57,8 +72,8 @@ func NewLiteralToken(value any) Token {
 
 type expressionToken string
 
-func (e *expressionToken) Appraise(name string, provider ContextProvider) (any, error) {
-	ctx := provider.Context(name)
+func (e *expressionToken) Appraise(name string, provider EvaluatorProvider) (any, error) {
+	ctx := provider.ContextData(name)
 	return ctx.Value(e), nil // TODO real expression evaluation
 }
 
@@ -69,7 +84,7 @@ func NewExpressionToken(expr string) Token {
 
 type sequenceToken []Token
 
-func (s *sequenceToken) Appraise(name string, provider ContextProvider) (any, error) {
+func (s *sequenceToken) Appraise(name string, provider EvaluatorProvider) (any, error) {
 	seq := []Token(*s)
 	r := make([]any, len(seq))
 
@@ -95,7 +110,7 @@ type KVPair[K, V any] struct {
 
 type mappingToken []KVPair[Token, Token]
 
-func (m *mappingToken) Appraise(name string, provider ContextProvider) (any, error) {
+func (m *mappingToken) Appraise(name string, provider EvaluatorProvider) (any, error) {
 	pairs := []KVPair[Token, Token](*m)
 	r := make(map[string]any, len(pairs))
 

@@ -7,13 +7,13 @@ import (
 // Conditional is Evaluable[bool] type used by `if`, `pre-if` and `post-if`.
 // The `${{ }}` expression syntax is optional and can be omitted. GitHub Actions always evaluates it as an expression.
 type Conditional interface {
-	Meet(name string, provider ContextProvider) (bool, error)
+	Meet(name string, provider EvaluatorProvider) (bool, error)
 }
 
 type cond string
 
-func (c *cond) Meet(name string, provider ContextProvider) (bool, error) {
-	ctx := provider.Context(name)
+func (c *cond) Meet(name string, provider EvaluatorProvider) (bool, error) {
+	ctx := provider.ContextData(name)
 	if b, ok := ctx.Value(c).(bool); ok { // TODO real expression evaluation
 		return b, nil
 	} else {
@@ -33,7 +33,7 @@ type biCond struct {
 
 type orCond biCond
 
-func (c *orCond) Meet(name string, provider ContextProvider) (bool, error) {
+func (c *orCond) Meet(name string, provider EvaluatorProvider) (bool, error) {
 	l, err := c.left.Meet(name, provider)
 	if err != nil || !l {
 		return l, err
@@ -53,7 +53,7 @@ func NewConditionalOr(l, r Conditional) Conditional {
 
 type andCond biCond
 
-func (c *andCond) Meet(name string, provider ContextProvider) (bool, error) {
+func (c *andCond) Meet(name string, provider EvaluatorProvider) (bool, error) {
 	l, err := c.left.Meet(name, provider)
 	if err != nil || l {
 		return l, err
@@ -75,7 +75,7 @@ type notCond struct {
 	original Conditional
 }
 
-func (c *notCond) Meet(name string, provider ContextProvider) (bool, error) {
+func (c *notCond) Meet(name string, provider EvaluatorProvider) (bool, error) {
 	o, err := c.original.Meet(name, provider)
 	if err != nil {
 		return o, err
