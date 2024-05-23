@@ -13,7 +13,7 @@ type Github struct {
 	ApiUrl            string       `json:"api_url" yaml:"api_url" mapstructure:"api_url"`
 	BaseRef           string       `json:"base_ref" yaml:"base_ref" mapstructure:"base_ref"`
 	Env               string       `json:"env" yaml:"env" mapstructure:"env"`
-	Event             any          `json:"event" yaml:"event" mapstructure:"event"`
+	Event             any          `json:"event" yaml:"event" mapstructure:"event"` // TODO data type
 	EventName         string       `json:"event_name" yaml:"event_name" mapstructure:"event_name"`
 	EventPath         string       `json:"event_path" yaml:"event_path" mapstructure:"event_path"`
 	GraphqlUrl        string       `json:"graphql_url" yaml:"graphql_url" mapstructure:"graphql_url"`
@@ -28,7 +28,7 @@ type Github struct {
 	RepositoryId      string       `json:"repository_id" yaml:"repository_id" mapstructure:"repository_id"`
 	RepositoryOwner   string       `json:"repository_owner" yaml:"repository_owner" mapstructure:"repository_owner"`
 	RepositoryOwnerId string       `json:"repository_owner_id" yaml:"repository_owner_id" mapstructure:"repository_owner_id"`
-	RepositoryUrl     string       `json:"repositoryUrl" yaml:"repositoryUrl" mapstructure:"repositoryUrl"`
+	RepositoryUrl     string       `json:"repositoryUrl" yaml:"repositoryUrl" mapstructure:"repositoryUrl"` // naming convention???
 	RetentionDays     string       `json:"retention_days" yaml:"retention_days" mapstructure:"retention_days"`
 	RunId             string       `json:"run_id" yaml:"run_id" mapstructure:"run_id"`
 	RunNumber         string       `json:"run_number" yaml:"run_number" mapstructure:"run_number"`
