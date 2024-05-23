@@ -67,7 +67,7 @@ func FormatValue(masker secret_masker.Interface, value any, kind expr.ResultKind
 		switch value.(type) {
 		case float64:
 			// without trailing zeros
-			str := fmt.Sprintf("%.15g", value.(float64))
+			str := fmt.Sprintf("%g", value.(float64))
 			if masker != nil {
 				return masker.MaskSecrets(str)
 			}

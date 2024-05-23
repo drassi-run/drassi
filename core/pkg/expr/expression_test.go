@@ -48,10 +48,12 @@ func TestLiteral(t *testing.T) {
 		// max int32
 		{"2147483647", 2147483647},
 		{"2147483647.0", 2147483647},
-		// this should fail since original behavior of gha will parse this as 1.23456789012346E+19 while go strconv.
-		// ParseFloat will parse it as 1.2345678901234567e+1 without an option to customize number of digits
+		// this should fail since original behavior of gha will parse this as 1.23456789012346E+19 (
+		// 14 digits after decimal) while go strconv.
+		// ParseFloat will parse it as 1.2345678901234567e+1 (
+		// 16 digit after decimal) without an option to customize number of digits
 		// displayed on exponential
-		{"12345678901234567890.0", 1.23456789012346E+19},
+		{"12345678901234567890.0", 1.2345678901234567e+19},
 		{"-2147483647", -2147483647},
 		{"-10", -10},
 		{"Infinity", math.Inf(1)},
@@ -693,7 +695,7 @@ func TestFunctionFormat(t *testing.T) {
 			"format-invalid-format-string", errors.New("invalid format string {0")},
 		{"format('{2}', '{1}', 'World')", "", "format-invalid-replacement-reference", evaluator.ErrorInvalidFormatArgIndex},
 		{"format('{2147483648}')", "", "format-invalid-replacement-reference", evaluator.ErrorInvalidFormatArgIndex},
-		{"format('{0} {1} {2} {3}', 1.0, 1.1, 1234567890.0, 12345678901234567890.0)", "1 1.1 1234567890 1.23456789012346E+19", "format-floats", nil},
+		{"format('{0} {1} {2} {3}', 1.0, 1.1, 1234567890.0, 12345678901234567890.0)", "1 1.1 1234567890 1.2345678901234567e+19", "format-floats", nil},
 	}
 
 	for _, tt := range table {
