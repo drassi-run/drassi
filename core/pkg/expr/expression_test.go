@@ -48,6 +48,9 @@ func TestLiteral(t *testing.T) {
 		// max int32
 		{"2147483647", 2147483647},
 		{"2147483647.0", 2147483647},
+		// this should fail since original behavior of gha will parse this as 1.23456789012346E+19 while go strconv.
+		// ParseFloat will parse it as 1.2345678901234567e+1 without an option to customize number of digits
+		// displayed on exponential
 		{"12345678901234567890.0", 1.23456789012346E+19},
 		{"-2147483647", -2147483647},
 		{"-10", -10},
