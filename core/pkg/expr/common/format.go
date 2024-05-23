@@ -113,6 +113,12 @@ func ToCanonicalValue(input any) (value any, kind expr.ResultKind) {
 	case float64:
 		// input is already float64
 		kind = expr.Number
+		f := input.(float64)
+		floored := int(f)
+		if float64(floored) == input && floored <= MaxInt32 && floored >= MinInt32 {
+			value = floored
+			return
+		}
 		value = input
 		return
 	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32:
