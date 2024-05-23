@@ -3,159 +3,96 @@ package workflows
 import (
 	"github.com/dungdm93/drassi/core/pkg/model"
 	"github.com/google/go-cmp/cmp"
+	"github.com/mitchellh/copystructure"
+	"golang.org/x/exp/maps"
 	"gotest.tools/v3/assert"
+	"slices"
 	"testing"
 )
 
-func commonComparerForEvaluable(opts ...cmp.Option) []cmp.Option {
-	var o []cmp.Option
-	o = append(o, comparerForEvaluable[bool](opts...)...)
-	o = append(o, comparerForEvaluable[int64](opts...)...)
-	o = append(o, comparerForEvaluable[float64](opts...)...)
-	o = append(o, comparerForEvaluable[string](opts...)...)
-	return o
-}
-
-func comparerForEvaluable[R any](opts ...cmp.Option) []cmp.Option {
-	return []cmp.Option{
-		comparerForIdentity[R](opts...),
-		comparerForExpression[R](opts...),
+func clone[T any](i T) T {
+	if o, err := copystructure.Copy(i); err != nil {
+		return i
+	} else {
+		return o.(T)
 	}
 }
 
-func comparerForIdentity[R any](opts ...cmp.Option) cmp.Option {
-	return cmp.Comparer(func(x, y identity[R]) bool {
+func mapValues[E any](m map[string]E) []E {
+	keys := maps.Keys(m)
+	slices.Sort(keys)
+
+	l := make([]E, len(keys))
+	for i, k := range keys {
+		l[i] = m[k]
+	}
+	return l
+}
+
+func mapKVPairs[R comparable, K comparable, V any](m map[R]V, keyConv func(R) K) []KVPair[K, V] {
+	r := make([]KVPair[K, V], 0)
+	for k, v := range m {
+		key := keyConv(k)
+		r = append(r, KVPair[K, V]{Key: key, Value: v})
+	}
+	return r
+}
+
+func comparerForLiteralToken(opts ...cmp.Option) cmp.Option {
+	return cmp.Comparer(func(x, y literalToken) bool {
 		return cmp.Equal(x.value, y.value, opts...)
 	})
 }
 
-func comparerForExpression[R any](opts ...cmp.Option) cmp.Option {
-	return cmp.Comparer(func(x, y expression[R]) bool {
-		return cmp.Equal(x.expr, y.expr, opts...)
-	})
-}
-
-type evaluableTestStruct[E any] struct {
-	DirectValue  E            `mapstructure:"direct,omitempty"`
-	Expr         E            `mapstructure:"expr,omitempty"`
-	ListOfExpr   []E          `mapstructure:"list_of_expr,omitempty"`
-	MapOfExpr    map[string]E `mapstructure:"map_of_expr,omitempty"`
-	StructOfExpr struct {
-		DirectValue E            `mapstructure:"direct,omitempty"`
-		Expr        E            `mapstructure:"expr,omitempty"`
-		ListOfExpr  []E          `mapstructure:"list_of_expr,omitempty"`
-		MapOfExpr   map[string]E `mapstructure:"map_of_expr,omitempty"`
-	} `mapstructure:"struct_of_expr,omitempty"`
-}
-
-func TestDecodeEvaluableHook(t *testing.T) {
-	t.Run("bool", func(tt *testing.T) {
-		testDecodeEvaluableHook[bool](tt, true, toBool)
-	})
-
-	t.Run("int64", func(tt *testing.T) {
-		testDecodeEvaluableHook[int64](tt, 123456, toInteger)
-	})
-
-	t.Run("float64", func(tt *testing.T) {
-		testDecodeEvaluableHook[float64](tt, 123456.789, toFloat)
-	})
-
-	t.Run("string", func(tt *testing.T) {
-		testDecodeEvaluableHook[string](tt, "hello world", toString)
-	})
-}
-
-func testDecodeEvaluableHook[R any](tt *testing.T, value R, con converter[R]) {
-	var expr = "${{ expr }}"
-	var list = []any{value, "${{ expr }}"}
-	var dict = map[string]any{
-		"first":  value,
-		"second": "${{ expr }}",
+func TestDecodeEvaluable(t *testing.T) {
+	type testEvaluable struct {
+		LitBool   Evaluable[bool]           `mapstructure:"litBool"`
+		LitInt    Evaluable[int64]          `mapstructure:"litInt"`
+		LitFloat  Evaluable[float64]        `mapstructure:"litFloat"`
+		LitString Evaluable[string]         `mapstructure:"litString"`
+		Expr      Evaluable[string]         `mapstructure:"expr"`
+		Seq       Evaluable[[]any]          `mapstructure:"seq"`
+		Dict      Evaluable[map[string]any] `mapstructure:"dict"`
 	}
-	var strct = map[string]any{
-		"direct":       value,
-		"expr":         expr,
-		"list_of_expr": list,
-		"map_of_expr":  dict,
+
+	scala := map[string]any{
+		"litBool":   true,
+		"litInt":    int64(123),
+		"litFloat":  float64(1.23),
+		"litString": "hello world",
+		"expr":      "${{ foo.bar }}",
 	}
-	var data = map[string]any{
-		"direct":         value,
-		"expr":           expr,
-		"list_of_expr":   list,
-		"map_of_expr":    dict,
-		"struct_of_expr": strct,
+	input := clone(scala)
+	input["seq"] = mapValues(scala)
+	input["dict"] = clone(scala)
+
+	scalaExpected := map[string]Token{
+		"litBool":   NewLiteralToken(true),
+		"litInt":    NewLiteralToken(int64(123)),
+		"litFloat":  NewLiteralToken(float64(1.23)),
+		"litString": NewLiteralToken("hello world"),
+		"expr":      NewExpressionToken("${{ foo.bar }}"),
 	}
-	obj := evaluableTestStruct[Evaluable[R]]{}
-	err := model.Decode(data, &obj)
-
-	assert.NilError(tt, err)
-
-	opts := comparerForEvaluable[R]()
-	i := NewIdent(value)
-	e := NewExpr(expr, con)
-
-	assert.DeepEqual(tt, obj.DirectValue, i, opts...)
-	assert.DeepEqual(tt, obj.Expr, e, opts...)
-
-	// List
-	assert.DeepEqual(tt, obj.ListOfExpr, []Evaluable[R]{i, e}, opts...)
-
-	//// Map
-	assert.DeepEqual(tt, obj.MapOfExpr, map[string]Evaluable[R]{"first": i, "second": e}, opts...)
-
-	//// Struct
-	assert.DeepEqual(tt, obj.StructOfExpr.DirectValue, i, opts...)
-	assert.DeepEqual(tt, obj.StructOfExpr.Expr, e, opts...)
-
-	// List
-	assert.DeepEqual(tt, obj.StructOfExpr.ListOfExpr, []Evaluable[R]{i, e}, opts...)
-
-	//// Map
-	assert.DeepEqual(tt, obj.StructOfExpr.MapOfExpr, map[string]Evaluable[R]{"first": i, "second": e}, opts...)
-}
-
-type conditionalTestStruct struct {
-	Conditional          Conditional             `mapstructure:"conditional"`
-	ConditionalPtr       *Conditional            `mapstructure:"conditionalPtr"`
-	ListOfConditional    []Conditional           `mapstructure:"listOfConditional"`
-	MapOfConditional     map[string]Conditional  `mapstructure:"mapOfConditional"`
-	ListOfConditionalPtr []*Conditional          `mapstructure:"listOfConditionalPtr"`
-	MapOfConditionalPtr  map[string]*Conditional `mapstructure:"mapOfConditionalPtr"`
-}
-
-func TestDecodeConditional(t *testing.T) {
-	val := "foobar"
-	con := NewConditional("foobar")
-	testDecodeConditional(t, val, con)
-}
-
-func testDecodeConditional(tt *testing.T, val string, con Conditional) {
-	data := map[string]any{
-		"conditional":       clone(val),
-		"conditionalPtr":    clone(val),
-		"listOfConditional": []any{clone(val)},
-		"mapOfConditional": map[string]any{
-			"key": clone(val),
+	expected := &testEvaluable{
+		LitBool:   Evaluable[bool]{Token: NewLiteralToken(true)},
+		LitInt:    Evaluable[int64]{Token: NewLiteralToken(int64(123))},
+		LitFloat:  Evaluable[float64]{Token: NewLiteralToken(float64(1.23))},
+		LitString: Evaluable[string]{Token: NewLiteralToken("hello world")},
+		Expr:      Evaluable[string]{Token: NewExpressionToken("${{ foo.bar }}")},
+		Seq: Evaluable[[]any]{
+			Token: NewSequenceToken(mapValues(scalaExpected)),
 		},
-		"listOfConditionalPtr": []string{clone(val)},
-		"mapOfConditionalPtr": map[string]any{
-			"key": clone(val),
+		Dict: Evaluable[map[string]any]{
+			Token: NewMappingToken(mapKVPairs(scalaExpected, func(s string) Token {
+				return NewLiteralToken(s)
+			})),
 		},
 	}
 
-	actual := conditionalTestStruct{}
-	err := model.Decode(data, &actual)
+	actual := new(testEvaluable)
+	err := model.Decode(input, actual)
+	assert.NilError(t, err)
 
-	opt := comparerForExpression[bool]()
-	expected := conditionalTestStruct{
-		Conditional:          con,
-		ConditionalPtr:       &con,
-		ListOfConditional:    []Conditional{con},
-		ListOfConditionalPtr: []*Conditional{&con},
-		MapOfConditional:     map[string]Conditional{"key": con},
-		MapOfConditionalPtr:  map[string]*Conditional{"key": &con},
-	}
-	assert.NilError(tt, err)
-	assert.DeepEqual(tt, actual, expected, opt)
+	opts := comparerForLiteralToken()
+	assert.DeepEqual(t, expected.Seq, actual.Seq, opts)
 }

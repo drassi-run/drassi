@@ -1,13 +1,9 @@
 package workflows
 
 func (c *Container) DecodeMapstructure(input any) (any, error) {
-	if s, ok := input.(string); ok {
-		if image, err := NewEvaluable(s, toString); err != nil {
-			return nil, err
-		} else {
-			c.Image = image
-			return nil, nil
-		}
+	if image, ok := input.(string); ok {
+		m := map[string]any{"image": image}
+		return m, nil
 	}
 	// process Container normal way
 	return input, nil

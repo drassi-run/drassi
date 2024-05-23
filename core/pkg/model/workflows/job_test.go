@@ -3,18 +3,9 @@ package workflows
 import (
 	"fmt"
 	"github.com/dungdm93/drassi/core/pkg/model"
-	"github.com/mitchellh/copystructure"
 	"gotest.tools/v3/assert"
 	"testing"
 )
-
-func clone[T any](i T) T {
-	if o, err := copystructure.Copy(i); err != nil {
-		return i
-	} else {
-		return o.(T)
-	}
-}
 
 type jobTestStruct struct {
 	Job          Job             `mapstructure:"job"`
@@ -35,8 +26,8 @@ func TestDecodeJob(t *testing.T) {
 
 	t.Run("normal", func(tt *testing.T) {
 		job := &NormalJob{
-			RunsOn: RunsOn{
-				Labels: []Evaluable[string]{NewIdent("ubuntu")},
+			RunsOn: Evaluable[RunsOn]{
+				Token: NewLiteralToken("ubuntu"),
 			},
 		}
 		testDecodeJob(tt, runsOnInput, job)
@@ -133,7 +124,7 @@ func testDecodeJob[T any](tt *testing.T, value T, job Job) {
 	actual := jobTestStruct{}
 	err := model.Decode(data, &actual)
 
-	opts := commonComparerForEvaluable()
+	opts := comparerForLiteralToken()
 	expected := jobTestStruct{
 		Job:          job,
 		JobPtr:       &job,
@@ -143,7 +134,7 @@ func testDecodeJob[T any](tt *testing.T, value T, job Job) {
 		MapOfJobPtr:  map[string]*Job{"key": &job},
 	}
 	assert.NilError(tt, err)
-	assert.DeepEqual(tt, actual, expected, opts...)
+	assert.DeepEqual(tt, actual, expected, opts)
 }
 
 type jobNeedsTestStruct struct {
@@ -183,7 +174,6 @@ func testDecodeJobNeeds[T any](tt *testing.T, value T, jn JobNeeds) {
 	actual := jobNeedsTestStruct{}
 	err := model.Decode(data, &actual)
 
-	opts := comparerForEvaluable[string]()
 	expected := jobNeedsTestStruct{
 		JN:          jn,
 		JNPtr:       &jn,
@@ -193,7 +183,7 @@ func testDecodeJobNeeds[T any](tt *testing.T, value T, jn JobNeeds) {
 		MapOfJNPtr:  map[string]*JobNeeds{"key": &jn},
 	}
 	assert.NilError(tt, err)
-	assert.DeepEqual(tt, actual, expected, opts...)
+	assert.DeepEqual(tt, actual, expected)
 }
 
 type jobSecretTestStruct struct {
@@ -213,16 +203,29 @@ func TestDecodeJobSecrets(t *testing.T) {
 		testDecodeJobSecrets(tt, "inherit", js)
 	})
 
-	t.Run("expr", func(tt *testing.T) {
+	t.Run("map/string", func(tt *testing.T) {
 		js := JobSecrets{
-			Secrets: map[string]Evaluable[string]{
-				"normal":     NewIdent("normal"),
-				"expression": NewExpr("${{ expression }}", toString),
+			Secrets: map[string]string{
+				"first":  "foobar",
+				"second": "abcyxz",
 			},
 		}
 		v := map[string]string{
-			"normal":     "normal",
-			"expression": "${{ expression }}",
+			"first":  "foobar",
+			"second": "abcyxz",
+		}
+		testDecodeJobSecrets(tt, v, js)
+	})
+	t.Run("map/any", func(tt *testing.T) {
+		js := JobSecrets{
+			Secrets: map[string]string{
+				"first":  "foobar",
+				"second": "abcyxz",
+			},
+		}
+		v := map[string]any{
+			"first":  "foobar",
+			"second": "abcyxz",
 		}
 		testDecodeJobSecrets(tt, v, js)
 	})
@@ -245,7 +248,6 @@ func testDecodeJobSecrets[T any](tt *testing.T, value T, js JobSecrets) {
 	actual := jobSecretTestStruct{}
 	err := model.Decode(data, &actual)
 
-	opts := comparerForEvaluable[string]()
 	expected := jobSecretTestStruct{
 		JS:          js,
 		JSPtr:       &js,
@@ -255,7 +257,7 @@ func testDecodeJobSecrets[T any](tt *testing.T, value T, js JobSecrets) {
 		MapOfJSPtr:  map[string]*JobSecrets{"key": &js},
 	}
 	assert.NilError(tt, err)
-	assert.DeepEqual(tt, actual, expected, opts...)
+	assert.DeepEqual(tt, actual, expected)
 }
 
 type environmentTestStruct struct {
@@ -270,38 +272,19 @@ type environmentTestStruct struct {
 func TestDecodeEnvironment(t *testing.T) {
 	t.Run("string", func(tt *testing.T) {
 		env := Environment{
-			Name: NewIdent("name1"),
+			Name: "name1",
 		}
 		testDecodeEnvironment(tt, "name1", env)
 	})
 
-	t.Run("expr", func(tt *testing.T) {
+	t.Run("map", func(tt *testing.T) {
 		env := Environment{
-			Name: NewExpr("${{ foobar }}", toString),
-		}
-		testDecodeEnvironment(tt, "${{ foobar }}", env)
-	})
-
-	t.Run("map/string", func(tt *testing.T) {
-		env := Environment{
-			Name: NewIdent("name1"),
-			Url:  NewExpr("${{ foobar }}", toString),
+			Name: "name1",
+			Url:  "https://example.com",
 		}
 		v := map[string]any{
 			"name": "name1",
-			"url":  "${{ foobar }}",
-		}
-		testDecodeEnvironment(tt, v, env)
-	})
-
-	t.Run("map/expr", func(tt *testing.T) {
-		env := Environment{
-			Name: NewExpr("${{ foobar }}", toString),
-			Url:  NewIdent("url1"),
-		}
-		v := map[string]any{
-			"name": "${{ foobar }}",
-			"url":  "url1",
+			"url":  "https://example.com",
 		}
 		testDecodeEnvironment(tt, v, env)
 	})
@@ -324,7 +307,6 @@ func testDecodeEnvironment[T any](tt *testing.T, value T, env Environment) {
 	actual := environmentTestStruct{}
 	err := model.Decode(data, &actual)
 
-	opts := comparerForEvaluable[string]()
 	expected := environmentTestStruct{
 		Environment:          env,
 		EnvironmentPtr:       &env,
@@ -334,7 +316,7 @@ func testDecodeEnvironment[T any](tt *testing.T, value T, env Environment) {
 		MapOfEnvironmentPtr:  map[string]*Environment{"key": &env},
 	}
 	assert.NilError(tt, err)
-	assert.DeepEqual(tt, actual, expected, opts...)
+	assert.DeepEqual(tt, actual, expected)
 }
 
 type runOnTestStruct struct {
@@ -349,31 +331,28 @@ type runOnTestStruct struct {
 func TestDecodeRunsOn(t *testing.T) {
 	t.Run("string", func(tt *testing.T) {
 		ro := RunsOn{
-			Labels: []Evaluable[string]{NewIdent("label1")},
+			Labels: []string{"label1"},
 		}
 		testDecodeRunsOn(tt, "label1", ro)
 	})
 
-	t.Run("expr", func(tt *testing.T) {
+	t.Run("list/string", func(tt *testing.T) {
 		ro := RunsOn{
-			Labels: []Evaluable[string]{NewExpr("${{ foobar }}", toString)},
+			Labels: []string{"label1", "label2"},
 		}
-		testDecodeRunsOn(tt, "${{ foobar }}", ro)
+		testDecodeRunsOn(tt, []string{"label1", "label2"}, ro)
 	})
 
-	t.Run("list", func(tt *testing.T) {
+	t.Run("list/any", func(tt *testing.T) {
 		ro := RunsOn{
-			Labels: []Evaluable[string]{
-				NewIdent("label1"),
-				NewExpr("${{ foobar }}", toString),
-			},
+			Labels: []string{"label1", "label2"},
 		}
-		testDecodeRunsOn(tt, []string{"label1", "${{ foobar }}"}, ro)
+		testDecodeRunsOn(tt, []any{"label1", "label2"}, ro)
 	})
 
-	t.Run("map/string", func(tt *testing.T) {
+	t.Run("map/single_label", func(tt *testing.T) {
 		ro := RunsOn{
-			Labels: []Evaluable[string]{NewIdent("label1")},
+			Labels: []string{"label1"},
 		}
 		v := map[string]any{
 			"labels": "label1",
@@ -381,27 +360,14 @@ func TestDecodeRunsOn(t *testing.T) {
 		testDecodeRunsOn(tt, v, ro)
 	})
 
-	t.Run("map/expr", func(tt *testing.T) {
+	t.Run("map/list_labels", func(tt *testing.T) {
 		ro := RunsOn{
-			Labels: []Evaluable[string]{NewExpr("${{ foobar }}", toString)},
-		}
-		v := map[string]any{
-			"labels": "${{ foobar }}",
-		}
-		testDecodeRunsOn(tt, v, ro)
-	})
-
-	t.Run("map/list", func(tt *testing.T) {
-		ro := RunsOn{
-			Group: "foobar",
-			Labels: []Evaluable[string]{
-				NewIdent("label1"),
-				NewExpr("${{ foobar }}", toString),
-			},
+			Group:  "foobar",
+			Labels: []string{"label1", "label1"},
 		}
 		v := map[string]any{
 			"group":  "foobar",
-			"labels": []string{"label1", "${{ foobar }}"},
+			"labels": []string{"label1", "label1"},
 		}
 		testDecodeRunsOn(tt, v, ro)
 	})
@@ -424,7 +390,6 @@ func testDecodeRunsOn[T any](tt *testing.T, value T, ro RunsOn) {
 	actual := runOnTestStruct{}
 	err := model.Decode(data, &actual)
 
-	opts := comparerForEvaluable[string]()
 	expected := runOnTestStruct{
 		RO:          ro,
 		ROPtr:       &ro,
@@ -434,5 +399,5 @@ func testDecodeRunsOn[T any](tt *testing.T, value T, ro RunsOn) {
 		MapOfROPtr:  map[string]*RunsOn{"key": &ro},
 	}
 	assert.NilError(tt, err)
-	assert.DeepEqual(tt, actual, expected, opts...)
+	assert.DeepEqual(tt, actual, expected)
 }

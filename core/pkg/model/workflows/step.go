@@ -66,7 +66,7 @@ func (s *BaseStep) Base() *BaseStep {
 }
 
 type UsesStep struct {
-	BaseStep `yaml:",inline" mapstructure:",squash"`
+	BaseStep `json:",inline" yaml:",inline" mapstructure:",squash"`
 
 	// Selects an action to run as part of a step in your job. An action is a reusable unit of code.
 	// You can use an action defined in the same repository as the workflow, a public repository, or in a published Docker container image (https://hub.docker.com/).

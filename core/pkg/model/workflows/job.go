@@ -71,11 +71,11 @@ func (j *BaseJob) Base() *BaseJob {
 }
 
 type NormalJob struct {
-	BaseJob `yaml:",inline" mapstructure:",squash"`
+	BaseJob `json:",inline" yaml:",inline" mapstructure:",squash"`
 
 	// The type of machine to run the job on. The machine can be either a GitHub-hosted runner, or a self-hosted runner.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idruns-on
-	RunsOn RunsOn `json:"runs-on,omitempty" yaml:"runs-on,omitempty" mapstructure:"runs-on,omitempty" validate:"required"`
+	RunsOn Evaluable[RunsOn] `json:"runs-on,omitempty" yaml:"runs-on,omitempty" mapstructure:"runs-on,omitempty" validate:"required"`
 
 	// The environment that the job references.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idenvironment
@@ -114,7 +114,7 @@ type NormalJob struct {
 	// If you do not set a container, all steps will run directly on the host specified by runs-on unless a step
 	// refers to an action configured to run in a container.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idcontainer
-	Container *Container `json:"container,omitempty" yaml:"container,omitempty" mapstructure:"container,omitempty"`
+	Container Evaluable[*Container] `json:"container,omitempty" yaml:"container,omitempty" mapstructure:"container,omitempty"`
 
 	// Additional containers to host services for a job in a workflow. These are useful for creating databases or cache services like redis.
 	// The runner on the virtual machine will automatically create a network and manage the life cycle of the service containers.
@@ -124,7 +124,7 @@ type NormalJob struct {
 	// The hostname is automatically mapped to the service name.
 	// When a step does not use a container action, you must access the service using localhost and bind the ports.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idservices
-	Services map[string]*Container `json:"services,omitempty" yaml:"services,omitempty" mapstructure:"services,omitempty"`
+	Services Evaluable[map[string]*Container] `json:"services,omitempty" yaml:"services,omitempty" mapstructure:"services,omitempty"`
 }
 
 // Each job must have an id to associate with the job.
@@ -133,7 +133,7 @@ type NormalJob struct {
 // The <job_id> must start with a letter or _ and contain only alphanumeric characters, -, or _.", type: "object
 // https://docs.github.com/en/actions/using-workflows/reusing-workflows#calling-a-reusable-workflow
 type ReusableWorkflowCallJob struct {
-	BaseJob `yaml:",inline" mapstructure:",squash"`
+	BaseJob `json:",inline" yaml:",inline" mapstructure:",squash"`
 
 	// The location and version of a reusable workflow file to run as a job, of the form './{path/to}/{localfile}.yml'
 	// or '{owner}/{repo}/{path}/{filename}@{ref}'. {ref} can be a SHA, a release tag, or a branch name.
@@ -151,7 +151,7 @@ type ReusableWorkflowCallJob struct {
 	// When a job is used to call a reusable workflow, you can use 'secrets' to provide a map of secrets that are passed to the called workflow.
 	// Any secrets that you pass must match the names defined in the called workflow.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idsecrets
-	Secrets JobSecrets `json:"secrets,omitempty" yaml:"secrets,omitempty" mapstructure:"secrets,omitempty"`
+	Secrets Evaluable[JobSecrets] `json:"secrets,omitempty" yaml:"secrets,omitempty" mapstructure:"secrets,omitempty"`
 }
 
 // Context available:
@@ -174,7 +174,7 @@ type JobSecrets struct {
 	//
 	// Context available: `github`, `needs`, `strategy`, `matrix`, `secrets`, `inputs`, `vars`
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
-	Secrets map[string]Evaluable[string]
+	Secrets map[string]string
 
 	// Use the inherit keyword to pass all the calling workflow's secrets to the called workflow.
 	// This includes all secrets the calling workflow has access to, namely organization, repository, and environment secrets.
@@ -188,13 +188,13 @@ type Environment struct {
 	// The name of the environment configured in the repo.
 	// Context available: `github`, `needs`, `strategy`, `matrix`, `vars`, `inputs`
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
-	Name Evaluable[string] `json:"name,omitempty" yaml:"name,omitempty" mapstructure:"name,omitempty"`
+	Name string `json:"name,omitempty" yaml:"name,omitempty" mapstructure:"name,omitempty"`
 
 	// A deployment URL
 	//
 	// Context available: `github`, `needs`, `strategy`, `matrix`, `job`, `runner`, `env`, `vars`, `steps`, `inputs`
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
-	Url Evaluable[string] `json:"url,omitempty" yaml:"url,omitempty" mapstructure:"url,omitempty"`
+	Url string `json:"url,omitempty" yaml:"url,omitempty" mapstructure:"url,omitempty"`
 }
 
 // The type of machine to run the job on. The machine can be either a GitHub-hosted runner, or a self-hosted runner.
@@ -209,7 +209,7 @@ type RunsOn struct {
 	//
 	// Context available: `github`, `needs`, `strategy`, `matrix`, `vars`, `inputs`
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
-	Labels []Evaluable[string] `json:"labels,omitempty" yaml:"labels,omitempty" mapstructure:"labels,omitempty"`
+	Labels []string `json:"labels,omitempty" yaml:"labels,omitempty" mapstructure:"labels,omitempty"`
 }
 
 // A strategy creates a build matrix for your jobs. You can define different variations of an environment to run each job in.

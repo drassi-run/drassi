@@ -19,7 +19,7 @@ func createMockData(types any) map[string]any {
 	}
 }
 
-func testSenerio(t *testing.T, check func(tt *testing.T, data map[string]any, value any), value any) {
+func testScenario(t *testing.T, check func(tt *testing.T, data map[string]any, value any), value any) {
 	t.Run("absent", func(tt *testing.T) {
 		data := map[string]any{
 			"event": map[string]any{},
@@ -69,7 +69,7 @@ func TestOnBranchProtectionRule(t *testing.T) {
 		}
 	}
 
-	testSenerio(t, check, []EventBranchProtectionRuleActivity{
+	testScenario(t, check, []EventBranchProtectionRuleActivity{
 		EventBranchProtectionRuleActivityCreate,
 	})
 }
@@ -95,7 +95,7 @@ func TestOnCheckRun(t *testing.T) {
 		}
 	}
 
-	testSenerio(t, check, []EventCheckRunActivity{
+	testScenario(t, check, []EventCheckRunActivity{
 		EventCheckRunActivityCreated,
 	})
 }
@@ -121,7 +121,7 @@ func TestOnCheckSuite(t *testing.T) {
 		}
 	}
 
-	testSenerio(t, check, []EventCheckSuiteActivity{
+	testScenario(t, check, []EventCheckSuiteActivity{
 		EventCheckSuiteActivityCompleted,
 	})
 }
@@ -147,7 +147,7 @@ func TestOnDiscussion(t *testing.T) {
 		}
 	}
 
-	testSenerio(t, check, []EventDiscussionActivity{
+	testScenario(t, check, []EventDiscussionActivity{
 		EventDiscussionActivityCreated,
 	})
 }
@@ -173,7 +173,7 @@ func TestOnDiscussionComment(t *testing.T) {
 		}
 	}
 
-	testSenerio(t, check, []EventDiscussionCommentActivity{
+	testScenario(t, check, []EventDiscussionCommentActivity{
 		EventDiscussionCommentActivityCreated,
 	})
 }
@@ -199,7 +199,7 @@ func TestOnIssueComment(t *testing.T) {
 		}
 	}
 
-	testSenerio(t, check, []EventIssueCommentActivity{
+	testScenario(t, check, []EventIssueCommentActivity{
 		EventIssueCommentActivityCreated,
 	})
 }
@@ -225,7 +225,7 @@ func TestOnIssues(t *testing.T) {
 		}
 	}
 
-	testSenerio(t, check, []EventIssuesActivity{
+	testScenario(t, check, []EventIssuesActivity{
 		EventIssuesActivityOpened,
 	})
 }
@@ -251,7 +251,7 @@ func TestOnLabel(t *testing.T) {
 		}
 	}
 
-	testSenerio(t, check, []EventLabelActivity{
+	testScenario(t, check, []EventLabelActivity{
 		EventLabelActivityCreated,
 	})
 }
@@ -277,7 +277,7 @@ func TestOnMergeGroup(t *testing.T) {
 		}
 	}
 
-	testSenerio(t, check, []EventMergeGroupActivity{
+	testScenario(t, check, []EventMergeGroupActivity{
 		EventMergeGroupActivityChecksRequested,
 	})
 }
@@ -303,7 +303,7 @@ func TestOnMilestone(t *testing.T) {
 		}
 	}
 
-	testSenerio(t, check, []EventMilestoneActivity{
+	testScenario(t, check, []EventMilestoneActivity{
 		EventMilestoneActivityCreated,
 	})
 }
@@ -329,7 +329,7 @@ func TestOnProject(t *testing.T) {
 		}
 	}
 
-	testSenerio(t, check, []EventProjectActivity{
+	testScenario(t, check, []EventProjectActivity{
 		EventProjectActivityReopened,
 	})
 }
@@ -355,7 +355,7 @@ func TestOnProjectCard(t *testing.T) {
 		}
 	}
 
-	testSenerio(t, check, []EventProjectCardActivity{
+	testScenario(t, check, []EventProjectCardActivity{
 		EventProjectCardActivityCreated,
 	})
 }
@@ -381,7 +381,7 @@ func TestOnProjectColumn(t *testing.T) {
 		}
 	}
 
-	testSenerio(t, check, []EventProjectColumnActivity{
+	testScenario(t, check, []EventProjectColumnActivity{
 		EventProjectColumnActivityMoved,
 	})
 }
@@ -407,7 +407,7 @@ func TestOnPullRequest(t *testing.T) {
 		}
 	}
 
-	testSenerio(t, check, []EventPullRequestActivity{
+	testScenario(t, check, []EventPullRequestActivity{
 		EventPullRequestActivityOpened,
 	})
 }
@@ -433,7 +433,7 @@ func TestOnPullRequestReview(t *testing.T) {
 		}
 	}
 
-	testSenerio(t, check, []EventPullRequestReviewActivity{
+	testScenario(t, check, []EventPullRequestReviewActivity{
 		EventPullRequestReviewActivitySubmitted,
 	})
 }
@@ -459,7 +459,7 @@ func TestOnPullRequestReviewComment(t *testing.T) {
 		}
 	}
 
-	testSenerio(t, check, []EventPullRequestReviewCommentActivity{
+	testScenario(t, check, []EventPullRequestReviewCommentActivity{
 		EventPullRequestReviewCommentActivityCreated,
 	})
 }
@@ -485,7 +485,7 @@ func TestOnPullRequestTarget(t *testing.T) {
 		}
 	}
 
-	testSenerio(t, check, []EventPullRequestTargetActivity{
+	testScenario(t, check, []EventPullRequestTargetActivity{
 		EventPullRequestTargetActivityOpened,
 	})
 }
@@ -511,7 +511,7 @@ func TestOnRegistryPackage(t *testing.T) {
 		}
 	}
 
-	testSenerio(t, check, []EventRegistryPackageActivity{
+	testScenario(t, check, []EventRegistryPackageActivity{
 		EventRegistryPackageActivityPublished,
 	})
 }
@@ -537,7 +537,7 @@ func TestOnRelease(t *testing.T) {
 		}
 	}
 
-	testSenerio(t, check, []EventReleaseActivity{
+	testScenario(t, check, []EventReleaseActivity{
 		EventReleaseActivityPublished,
 	})
 }
@@ -563,7 +563,7 @@ func TestOnWatch(t *testing.T) {
 		}
 	}
 
-	testSenerio(t, check, []EventWatchActivity{
+	testScenario(t, check, []EventWatchActivity{
 		EventWatchActivityStarted,
 	})
 }
@@ -589,7 +589,7 @@ func TestOnWorkflowRun(t *testing.T) {
 		}
 	}
 
-	testSenerio(t, check, []EventWorkflowRunActivity{
+	testScenario(t, check, []EventWorkflowRunActivity{
 		EventWorkflowRunActivityCompleted,
 	})
 }
