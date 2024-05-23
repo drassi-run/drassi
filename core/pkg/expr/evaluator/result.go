@@ -407,6 +407,12 @@ func (e *result) string() string {
 		switch e.value.(type) {
 		case float64:
 			f := e.value.(float64)
+			if f == math.Inf(1) {
+				return "Infinity"
+			}
+			if f == math.Inf(-1) {
+				return "-Infinity"
+			}
 			// chooses between fixed-point and exponential notation based on the value's magnitude and precision, aiming to present the number in the most compact form without losing significant digits.
 			return fmt.Sprintf("%g", f)
 		case int:

@@ -86,6 +86,8 @@ func TestLiteral(t *testing.T) {
 		// {"'こんにちは＼(^o^)／世界😊'", "こんにちは＼(^o^)／世界😊"},
 		{"'foo'", "foo"},
 		{"'it''s foo'", "it's foo"},
+		{"Infinity", math.Inf(1)},
+		{"-Infinity", math.Inf(-1)},
 	}
 	var namedValues []ast.INamedValueInfo[ast.INamedValue]
 	var fns []functions.IFnInfo[ast_ifaces.Fn]
