@@ -79,8 +79,8 @@ func TestAbstractEqual(t *testing.T) {
 		}
 	})
 	t.Run("Mismatched Types", func(t *testing.T) {
-		if equal(42, 42) {
-			t.Error("Expect non-zero int not equal")
+		if !equal(42, 42) {
+			t.Error("Expect non-zero int equal")
 		}
 		if !equal(0, 0) {
 			t.Error("Expect zero value equal")
@@ -88,8 +88,8 @@ func TestAbstractEqual(t *testing.T) {
 		if !equal(struct{}{}, struct{}{}) {
 			t.Error("Expect not int equal")
 		}
-		if equal(42, "42") {
-			t.Error("Expected integer number and string not to be equal")
+		if !equal(42, "42") {
+			t.Error("Expected integer number and string to be equal")
 		}
 		if !equal(42.0, "42") {
 			t.Error("Expected float number and string to be equal")

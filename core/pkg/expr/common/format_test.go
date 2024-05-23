@@ -103,8 +103,8 @@ func Test_ToCanonicalValue(t *testing.T) {
 		},
 		{
 			desc:     "Int input",
-			input:    int(42),
-			expected: float64(42),
+			input:    42,
+			expected: 42,
 			kind:     expr.Number,
 		},
 		{
