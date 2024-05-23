@@ -11,13 +11,14 @@ var typeStep = reflect.TypeFor[Step]()
 
 func DecodeStepHook(from reflect.Value, to reflect.Value) (any, error) {
 	if !to.Type().Implements(typeStep) {
-		return from.Interface(), nil
+		return valueOf(from), nil
 	}
 	t := to.Interface()
 
-	m, ok := from.Interface().(map[string]any)
+	raw := valueOf(from)
+	m, ok := raw.(map[string]any)
 	if !ok || m == nil {
-		return from.Interface(), nil
+		return raw, nil
 	}
 
 	_, containsRun := m["run"]
@@ -40,7 +41,7 @@ func DecodeStepHook(from reflect.Value, to reflect.Value) (any, error) {
 			return nil, fmt.Errorf("map contains `uses` CAN'T be decode to %T", t)
 		}
 	}
-	return from.Interface(), nil
+	return m, nil
 }
 
 func init() {

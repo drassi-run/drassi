@@ -26,7 +26,9 @@ func TestDecodeStep(t *testing.T) {
 
 	t.Run("run", func(tt *testing.T) {
 		step := &RunStep{
-			Run: NewIdent("echo hello world"),
+			Run: Evaluable[string]{
+				Token: NewLiteralToken("echo hello world"),
+			},
 		}
 		testDecodeStep(tt, runInput, step)
 	})
@@ -122,7 +124,7 @@ func testDecodeStep[T any](tt *testing.T, value T, step Step) {
 	actual := stepTestStruct{}
 	err := model.Decode(data, &actual)
 
-	opts := commonComparerForEvaluable()
+	opts := comparerForLiteralToken()
 	expected := stepTestStruct{
 		Step:          step,
 		StepPtr:       &step,
@@ -132,5 +134,5 @@ func testDecodeStep[T any](tt *testing.T, value T, step Step) {
 		MapOfStepPtr:  map[string]*Step{"key": &step},
 	}
 	assert.NilError(tt, err)
-	assert.DeepEqual(tt, actual, expected, opts...)
+	assert.DeepEqual(tt, actual, expected, opts)
 }
