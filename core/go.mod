@@ -14,6 +14,7 @@ require (
 	github.com/lxc/incus v0.7.0
 	github.com/mitchellh/copystructure v1.2.0
 	github.com/mitchellh/mapstructure v1.5.0
+	github.com/samber/slog-logrus/v2 v2.3.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/pflag v1.0.5
 	golang.org/x/oauth2 v0.20.0
@@ -66,6 +67,8 @@ require (
 	github.com/pjbgf/sha1cd v0.3.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pkg/sftp v1.13.6 // indirect
+	github.com/samber/lo v1.38.1 // indirect
+	github.com/samber/slog-common v0.16.0 // indirect
 	github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3 // indirect
 	github.com/skeema/knownhosts v1.2.2 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
