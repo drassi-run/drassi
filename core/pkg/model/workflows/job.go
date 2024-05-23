@@ -79,11 +79,14 @@ type NormalJob struct {
 
 	// The environment that the job references.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idenvironment
-	Environment Environment `json:"environment,omitempty" yaml:"environment,omitempty" mapstructure:"environment,omitempty"`
+	Environment Evaluable[Environment] `json:"environment,omitempty" yaml:"environment,omitempty" mapstructure:"environment,omitempty"`
 
 	// A map of outputs for a job. Job outputs are available to all downstream jobs that depend on this job.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idoutputs
-	Outputs JobOutputs `json:"outputs,omitempty" yaml:"outputs,omitempty" mapstructure:"outputs,omitempty"`
+	//
+	// Context available: `github`, `needs`, `strategy`, `matrix`, `job`, `runner`, `env`, `vars`, `secrets`, `steps`, `inputs`
+	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
+	Outputs Evaluable[map[string]string] `json:"outputs,omitempty" yaml:"outputs,omitempty" mapstructure:"outputs,omitempty"`
 
 	// A map of environment variables that are available to all steps in the job.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idenv
@@ -163,10 +166,6 @@ type ReusableWorkflowCallJob struct {
 type With map[string]Evaluable[string]
 
 type JobNeeds []string
-
-// Context available: `github`, `needs`, `strategy`, `matrix`, `job`, `runner`, `env`, `vars`, `secrets`, `steps`, `inputs`
-// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
-type JobOutputs map[string]Evaluable[string]
 
 type JobSecrets struct {
 	// A pair consisting of a string identifier for the secret and the value of the secret.
