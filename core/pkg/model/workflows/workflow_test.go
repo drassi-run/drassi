@@ -18,27 +18,39 @@ type concurrencyTestStruct struct {
 func TestDecodeConcurrency(t *testing.T) {
 	t.Run("string", func(tt *testing.T) {
 		c := Concurrency{
-			Group: NewIdent("group1"),
+			Group: Evaluable[string]{Token: NewLiteralToken("group1")},
 		}
 		testDecodeConcurrency(tt, "group1", c)
 	})
 
 	t.Run("expr", func(tt *testing.T) {
 		c := Concurrency{
-			Group: NewExpr("${{ foobar }}", toString),
+			Group: Evaluable[string]{Token: NewExpressionToken("${{ foobar }}")},
 		}
 		testDecodeConcurrency(tt, "${{ foobar }}", c)
 	})
 
-	t.Run("map", func(tt *testing.T) {
+	t.Run("map/group-expr", func(tt *testing.T) {
 		c := Concurrency{
-			Group:            NewExpr("${{ foobar }}", toString),
+			Group:            Evaluable[string]{Token: NewExpressionToken("${{ foobar }}")},
 			CancelInProgress: true,
 		}
-		testDecodeConcurrency(tt, map[string]any{
+		input := map[string]any{
 			"group":              "${{ foobar }}",
 			"cancel-in-progress": true,
-		}, c)
+		}
+		testDecodeConcurrency(tt, input, c)
+	})
+	t.Run("map/group-string", func(tt *testing.T) {
+		c := Concurrency{
+			Group:            Evaluable[string]{Token: NewLiteralToken("group1")},
+			CancelInProgress: true,
+		}
+		input := map[string]any{
+			"group":              "group1",
+			"cancel-in-progress": true,
+		}
+		testDecodeConcurrency(tt, input, c)
 	})
 }
 
@@ -59,7 +71,7 @@ func testDecodeConcurrency(tt *testing.T, value any, con Concurrency) {
 	actual := concurrencyTestStruct{}
 	err := model.Decode(data, &actual)
 
-	opts := comparerForEvaluable[string]()
+	opts := comparerForLiteralToken()
 	expected := concurrencyTestStruct{
 		Con:          con,
 		ConPtr:       &con,
@@ -69,7 +81,7 @@ func testDecodeConcurrency(tt *testing.T, value any, con Concurrency) {
 		MapOfConPtr:  map[string]*Concurrency{"key": &con},
 	}
 	assert.NilError(tt, err)
-	assert.DeepEqual(tt, actual, expected, opts...)
+	assert.DeepEqual(tt, actual, expected, opts)
 }
 
 type permissionTestStruct struct {

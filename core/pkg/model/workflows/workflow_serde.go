@@ -43,12 +43,8 @@ func (p *Permissions) DecodeMapstructure(input any) (any, error) {
 
 func (c *Concurrency) DecodeMapstructure(input any) (any, error) {
 	if s, ok := input.(string); ok {
-		if group, err := NewEvaluable(s, toString); err != nil {
-			return nil, err
-		} else {
-			c.Group = group
-			return nil, nil
-		}
+		m := map[string]any{"group": s}
+		return m, nil
 	}
 	// process Concurrency normal way
 	return input, nil
