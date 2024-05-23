@@ -40,8 +40,16 @@ func newEvaluationResult(eCtx ast_ifaces.Context, level int, val any, kind expr.
 }
 
 func (e *result) Value() any {
+	var (
+		pmaxInt32 = 2147483647.0
+		nmaxInt32 = -2147483648.0
+	)
+
 	if e.kind == expr.Number && reflect.TypeOf(e.value).Name() == reflect.TypeFor[float64]().Name() {
 		f := e.value.(float64)
+		if f < nmaxInt32 || f > pmaxInt32 {
+			return e.value
+		}
 		floored := int(f)
 		if float64(floored) == f {
 			return floored
@@ -154,7 +162,7 @@ func equal(canonicalLeftValue, canonicalRightValue any) bool {
 func coerceTypes(canonicalLeftValue, canonicalRightValue any) (leftValue, rightValue any, lk, rk expr.ResultKind) {
 	lk = getKind(canonicalLeftValue)
 	rk = getKind(canonicalRightValue)
-	if lk == rk  {
+	if lk == rk {
 		// Same kind different type
 		if lk == expr.Number && reflect.TypeOf(canonicalLeftValue).Name() != reflect.TypeOf(canonicalRightValue).Name() {
 			lf, lFloatAble := canonicalLeftValue.(float64)
@@ -266,7 +274,6 @@ func toFloat(canonicalValue any) float64 {
 	return math.NaN()
 }
 
-
 func toInt(canonicalValue any) int {
 	kind := getKind(canonicalValue)
 	switch kind {
@@ -282,7 +289,7 @@ func toInt(canonicalValue any) int {
 	case expr.String:
 		i, err := common.ParseInt(canonicalValue.(string))
 		if err == nil {
-				return i
+			return i
 		}
 	}
 	panic("toInt should not reach here")
@@ -403,7 +410,7 @@ func (e *result) string() string {
 			return fmt.Sprintf("%g", f)
 		case int:
 			i := e.value.(int)
-			return fmt.Sprintf("%d",i )
+			return fmt.Sprintf("%d", i)
 		default:
 			panic("result.string() should not reach here")
 		}

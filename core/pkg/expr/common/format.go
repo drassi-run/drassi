@@ -78,7 +78,8 @@ func FormatValue(masker secret_masker.Interface, value any, kind expr.ResultKind
 				return masker.MaskSecrets(str)
 			}
 			return str
-		default: panic("FormatValue should not reach here")
+		default:
+			panic("FormatValue should not reach here")
 		}
 	case expr.String:
 		str := value.(string)

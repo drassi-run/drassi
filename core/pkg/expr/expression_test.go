@@ -72,9 +72,9 @@ func TestLiteral(t *testing.T) {
 		{"123", 123},
 		{"0xff", 255},
 		{"-2.99e-2", -2.99e-2},
-		{"1.2e3", 1.2e3},
+		{"1.2e3", 1200},
 		{"-0.123e-12", -0.123e-12},
-		{"0e3", 0e3},
+		{"0e3", 0},
 		{"''", ""},
 		// {"'こんにちは＼(^o^)／世界😊'", "こんにちは＼(^o^)／世界😊"},
 		{"'foo'", "foo"},
@@ -498,7 +498,7 @@ func TestBooleanEvaluation(t *testing.T) {
 			result, err := evaluator.EvaluateWithDefaults(root, nil, "")
 			assert.NilError(t, err)
 			if expected, ok := tt.expected.(float64); ok && math.IsNaN(expected) {
-				assert.Equal(t,true, math.IsNaN(result.Value().(float64)))
+				assert.Equal(t, true, math.IsNaN(result.Value().(float64)))
 			} else {
 				assert.Equal(t, tt.expected, result.Value())
 			}
@@ -633,9 +633,9 @@ func TestFunctionJoin(t *testing.T) {
 }
 
 func TestFunctionToJson(t *testing.T) {
-	 namedVals := []ast.INamedValueInfo[ast.INamedValue] {
-		 ast.NewNamedValueInfo[ast.ContextValueNode]("env"),
-	 }
+	namedVals := []ast.INamedValueInfo[ast.INamedValue]{
+		ast.NewNamedValueInfo[ast.ContextValueNode]("env"),
+	}
 	var fns []functions.IFnInfo[ast_ifaces.Fn]
 	table := []struct {
 		input    string

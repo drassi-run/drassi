@@ -11,7 +11,6 @@ type ToJson struct {
 	Fn
 }
 
-
 func (t *ToJson) Value() any {
 	panic("not implemented")
 }
