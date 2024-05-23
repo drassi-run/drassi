@@ -33,12 +33,12 @@ func (e *runStepExecutor) MainTask() *Task {
 func (e *runStepExecutor) executeMain(ctx context.Context, rCtx *StepRunContext) error {
 	shell := Shell(e.getShell(rCtx))
 
-	workdir, err := e.getWorkingDir(ctx, rCtx)
+	workdir, err := e.step.WorkingDir.Evaluate("job.step.working-directory", rCtx)
 	if err != nil {
 		return err
 	}
 
-	script, err := e.step.Run.Evaluate(ctx)
+	script, err := e.step.Run.Evaluate("job.step.run", rCtx)
 	if err != nil {
 		return err
 	}
@@ -76,13 +76,6 @@ func (e *runStepExecutor) getShell(rCtx *StepRunContext) string {
 		return e.step.Shell
 	}
 	return rCtx.job.defaultRun.shell
-}
-
-func (e *runStepExecutor) getWorkingDir(ctx context.Context, rCtx *StepRunContext) (string, error) {
-	if e.step.WorkingDir != nil {
-		return rCtx.evaluateWorkingDir(ctx, e.step.WorkingDir)
-	}
-	return rCtx.job.defaultRun.workDir, nil
 }
 
 func (e *runStepExecutor) getCommand(shell Shell, rCtx *StepRunContext) ([]string, string, error) {

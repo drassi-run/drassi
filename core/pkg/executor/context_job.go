@@ -30,6 +30,21 @@ type JobRunContext struct {
 	executors    []StepExecutor
 }
 
+func (c *JobRunContext) ContextData(name string) context.Context {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (c *JobRunContext) Functions(name string) []string {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (c *JobRunContext) DefaultValue(name string) any {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (c *JobRunContext) Sandbox() sandboxer.Sandbox {
 	return c.sandbox
 }

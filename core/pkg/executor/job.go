@@ -36,23 +36,30 @@ func NewJobExecutor(job *workflows.NormalJob, jobId string) *JobExecutor {
 	}
 }
 
-func (e *JobExecutor) Initialize(ctx context.Context, runtime sandboxer.SandboxRuntime) (err error) {
+func (e *JobExecutor) Initialize(ctx context.Context, runtime sandboxer.SandboxRuntime) error {
 	e.rCtx = &JobRunContext{
 		job: e.job,
 	}
 
 	var jobContainer *container.ContainerConfig
-	if e.job.Container != nil {
-		jobContainer, err = toContainerConfig(ctx, e.rCtx, e.job.Container)
+	if con, err := e.job.Container.Evaluate("job.container", e.rCtx); err != nil {
+		return err
+	} else {
+		jobContainer, err = toContainerConfig(ctx, e.rCtx, con)
 		if err != nil {
 			return err
 		}
 	}
 	var serviceContainers = make(map[string]*container.ContainerConfig)
-	for name, con := range e.job.Services {
-		serviceContainers[name], err = toContainerConfig(ctx, e.rCtx, con)
-		if err != nil {
-			return err
+	if sers, err := e.job.Services.Evaluate("job.services", e.rCtx); err != nil {
+		return err
+	} else {
+		for name, ser := range sers {
+			con, err := toContainerConfig(ctx, e.rCtx, ser)
+			if err != nil {
+				return err
+			}
+			serviceContainers[name] = con
 		}
 	}
 

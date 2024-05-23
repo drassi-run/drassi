@@ -48,6 +48,25 @@ func (c *StepRunContext) NewChildContext(step workflows.Step) *StepRunContext {
 	}
 }
 
+func (c *StepRunContext) ContextData(name string) context.Context {
+	return context.Background() // TODO real implementation
+}
+
+func (c *StepRunContext) Functions(name string) []string {
+	return nil // TODO real implementation
+}
+
+func (c *StepRunContext) DefaultValue(name string) any {
+	switch name {
+	case "job.step.timeout-minutes":
+		return int64(360)
+	case "job.step.working-directory":
+		return c.job.defaultRun.workDir
+	default:
+		return nil
+	}
+}
+
 func (c *StepRunContext) Sandbox() sandboxer.Sandbox {
 	return c.job.Sandbox()
 }
@@ -70,7 +89,7 @@ func (c *StepRunContext) RunStep(ctx context.Context, task *Task) error {
 		return err
 	}
 
-	if meet, err := c.evaluateIf(ctx, task.Condition); err != nil {
+	if meet, err := task.Condition.Meet("job.step", c); err != nil {
 		c.result.Conclusion = contexts.ActionResultFailure
 		c.result.Outcome = contexts.ActionResultFailure
 		return err
@@ -85,7 +104,7 @@ func (c *StepRunContext) RunStep(ctx context.Context, task *Task) error {
 		return err
 	}
 
-	timeout, err := c.evaluateTimeoutMinutes(ctx, base.TimeoutMinutes)
+	timeout, err := base.TimeoutMinutes.Evaluate("job.step.timeout-minutes", c)
 	if err != nil {
 		return err
 	}
@@ -107,7 +126,7 @@ func (c *StepRunContext) RunStep(ctx context.Context, task *Task) error {
 	if err != nil {
 		c.result.Outcome = contexts.ActionResultFailure
 
-		if continueOnError, parseErr := c.evaluateContinueOnError(ctx, base.ContinueOnError); parseErr != nil {
+		if continueOnError, parseErr := base.ContinueOnError.Evaluate("job.step.continue-on-error", c); parseErr != nil {
 			c.result.Conclusion = contexts.ActionResultFailure
 			return parseErr
 		} else if continueOnError {
