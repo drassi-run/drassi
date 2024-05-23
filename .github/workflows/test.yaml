@@ -1,0 +1,34 @@
+on:
+  push:
+    branches: [main]
+  pull_request:
+name: Test
+jobs:
+  test:
+    strategy:
+      matrix:
+        go-version: [1.21.x, 1.22.x] # test with 2 most recent go versions
+        platform: [ubuntu-latest]
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Install Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Fmt
+        run: "diff <(gofmt -d .) <(printf '')"
+        shell: bash
+
+      - name: Vet
+        run: |
+          go vet ./core/...
+          go vet ./gha-runner/...
+
+      - name: Test
+        run: |
+          go test -race ./core/...
+          go test -race ./gha-runner/...
