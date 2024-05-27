@@ -15,8 +15,7 @@ func EvaluateWithDefaults(root ast_ifaces.ExprNode, state any, workingDir string
 }
 
 // Evaluate from ast root and return an error if any
-func Evaluate(root ast_ifaces.ExprNode, masker secret_masker.Interface, state any,
-	opt *Option) (r expr.Result, err error) {
+func Evaluate(root ast_ifaces.ExprNode, masker secret_masker.Interface, state any, opt *Option) (r expr.Result, err error) {
 	defer func() {
 		if v := recover(); v != nil {
 			r, err = nil, fmt.Errorf("%+v", v)

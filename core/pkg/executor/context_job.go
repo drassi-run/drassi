@@ -4,10 +4,12 @@ import (
 	"context"
 	"slices"
 
-	"github.com/dungdm93/drassi/core/pkg/model/workflows"
-	"github.com/dungdm93/drassi/core/pkg/sandboxer"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/util/sets"
+
+	"github.com/dungdm93/drassi/core/pkg/model/contexts"
+	"github.com/dungdm93/drassi/core/pkg/model/workflows"
+	"github.com/dungdm93/drassi/core/pkg/sandboxer"
 )
 
 var (
@@ -30,7 +32,7 @@ type JobRunContext struct {
 	executors    []StepExecutor
 }
 
-func (c *JobRunContext) ContextData(name string) context.Context {
+func (c *JobRunContext) ContextData(name string) contexts.Context {
 	//TODO implement me
 	panic("implement me")
 }

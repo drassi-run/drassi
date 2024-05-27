@@ -48,8 +48,8 @@ func (c *StepRunContext) NewChildContext(step workflows.Step) *StepRunContext {
 	}
 }
 
-func (c *StepRunContext) ContextData(name string) context.Context {
-	return context.Background() // TODO real implementation
+func (c *StepRunContext) ContextData(name string) contexts.Context {
+	return contexts.Context{} // TODO real implementation
 }
 
 func (c *StepRunContext) Functions(name string) []string {

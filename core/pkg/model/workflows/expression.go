@@ -1,9 +1,16 @@
 package workflows
 
 import (
-	"context"
 	"fmt"
+	"math"
+
+	"github.com/dungdm93/drassi/core/pkg/expr/ast"
+	"github.com/dungdm93/drassi/core/pkg/expr/ast/ast_ifaces"
+	"github.com/dungdm93/drassi/core/pkg/expr/ast/functions"
+	"github.com/dungdm93/drassi/core/pkg/expr/evaluator"
+	"github.com/dungdm93/drassi/core/pkg/expr/parser"
 	"github.com/dungdm93/drassi/core/pkg/model"
+	"github.com/dungdm93/drassi/core/pkg/model/contexts"
 )
 
 const (
@@ -12,7 +19,7 @@ const (
 )
 
 type EvaluatorProvider interface {
-	ContextData(name string) context.Context
+	ContextData(name string) contexts.Context
 	Functions(name string) []string
 	DefaultValue(name string) any
 }
@@ -73,7 +80,35 @@ type expressionToken string
 
 func (e *expressionToken) Appraise(name string, provider EvaluatorProvider) (any, error) {
 	ctx := provider.ContextData(name)
-	return ctx.Value(e), nil // TODO real expression evaluation
+	keys := provider.Functions(name)
+	var availableFuncs []functions.IFnInfo[ast_ifaces.Fn]
+	for _, k := range keys {
+		switch k {
+		case "always":
+			availableFuncs = append(availableFuncs, functions.NewFunctionInfo[functions.Always]("always", 0, math.MaxInt32))
+		case "cancelled":
+			availableFuncs = append(availableFuncs, functions.NewFunctionInfo[functions.Cancelled]("cancelled", 0, 0))
+		case "success":
+			availableFuncs = append(availableFuncs, functions.NewFunctionInfo[functions.Success]("success", 0, 0))
+		case "failure":
+			 availableFuncs = append(availableFuncs, functions.NewFunctionInfo[functions.Failure]("failure", 0, 0))
+		case "hashfile":
+			availableFuncs = append(availableFuncs, functions.NewFunctionInfo[functions.HashFile]("hashfile", 1, math.MaxUint8))
+		default:
+		}
+	}
+	availableContexts := []ast.INamedValueInfo[ast.INamedValue]{
+		ast.NewNamedValueInfo[ast.ContextValueNode]("github"),
+		ast.NewNamedValueInfo[ast.ContextValueNode]("strategy"),
+	}
+
+	a := parser.Parse(string(*e), availableContexts, availableFuncs)
+	// TODO: proper way to set pass working dir
+	r, err  := evaluator.EvaluateWithDefaults(a, &contexts.Expr{State: &ctx}, "")
+	if err != nil {
+		return nil, err
+	}
+	return r.Value(), nil
 }
 
 func NewExpressionToken(expr string) Token {
