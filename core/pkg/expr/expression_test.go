@@ -725,7 +725,7 @@ func TestStatusCheckFunctions(t *testing.T) {
 	}
 	var namedVals []ast.INamedValueInfo[ast.INamedValue]
 	fns := []functions.IFnInfo[ast_ifaces.Fn]{
-		functions.NewFunctionInfo[functions.Always]("always", 0, 2147483647),
+		functions.NewFunctionInfo[functions.Always]("always", 0, math.MaxInt32),
 		functions.NewFunctionInfo[functions.Cancelled]("cancelled", 0, 0),
 		functions.NewFunctionInfo[functions.Success]("success", 0, 0),
 		functions.NewFunctionInfo[functions.Failure]("failure", 0, 0),

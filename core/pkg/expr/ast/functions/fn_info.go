@@ -1,5 +1,9 @@
 package functions
 
+import (
+	"math"
+)
+
 type IFnInfo[T any] interface {
 	GetName() string
 	CreateNode() any
@@ -36,4 +40,20 @@ func (f *FnInfo[T]) MaxParameters() int {
 // CreateNode create a node with of type T that is embed type Fn
 func (f *FnInfo[T]) CreateNode() any {
 	return new(T)
+}
+
+func ContextBased(name string) any  {
+	switch name {
+	case "always":
+		return NewFunctionInfo[Always]("always", 0, math.MaxInt32)
+	case "cancelled":
+		return NewFunctionInfo[Cancelled]("cancelled", 0, 0)
+	case "success":
+		return	NewFunctionInfo[Success]("success", 0, 0)
+	case "failure":
+		return NewFunctionInfo[Failure]("failure", 0, 0)
+	case "hashfile":
+		return NewFunctionInfo[HashFile]("hashfile", 1, math.MaxUint8)
+	}
+	return nil
 }
