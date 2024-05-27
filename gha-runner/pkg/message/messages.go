@@ -72,7 +72,7 @@ type PipelineAgentJobRequest struct {
 	ContextData          ContextData              `mapstructure:"contextData,omitempty"`
 	Workspace            *WorkspaceOptions        `mapstructure:"workspace,omitempty"`
 	MaskHints            []MaskHint               `mapstructure:"mask,omitempty"`
-	EnvironmentVariables []TemplateToken          `mapstructure:"environmentVariables,omitempty"`
+	Env                  []TemplateToken          `mapstructure:"environmentVariables,omitempty"`
 	Defaults             []TemplateToken          `mapstructure:"defaults,omitempty"`
 	Environment          *EnvironmentReference    `mapstructure:"actionsEnvironment,omitempty"`
 	Snapshot             *TemplateToken           `mapstructure:"snapshot,omitempty"`
@@ -264,7 +264,7 @@ type JobStep struct {
 	Reference        StepReference  `mapstructure:"reference,omitempty"`
 	ContextName      string         `mapstructure:"contextName,omitempty"`
 	DisplayNameToken *TemplateToken `mapstructure:"displayNameToken,omitempty"`
-	Environment      *TemplateToken `mapstructure:"environment,omitempty"`
+	Env              *TemplateToken `mapstructure:"environment,omitempty"`
 	Inputs           *TemplateToken `mapstructure:"inputs,omitempty"`
 }
 
