@@ -1,17 +1,17 @@
-package gha
+package message
 
 import (
 	"time"
 )
 
 const (
-	MessageTypeAgentRefresh            = "AgentRefresh"
-	MessageTypeRunnerRefresh           = "RunnerRefresh"
-	MessageTypeRunnerShutdown          = "RunnerShutdown"
-	MessageTypeJobCancelMessage        = "JobCancellation"
-	MessageTypeRunnerJobRequest        = "RunnerJobRequest"
-	MessageTypePipelineAgentJobRequest = "PipelineAgentJobRequest"
-	MessageTypeForceTokenRefresh       = "ForceTokenRefresh"
+	TypeAgentRefresh            = "AgentRefresh"
+	TypeRunnerRefresh           = "RunnerRefresh"
+	TypeRunnerShutdown          = "RunnerShutdown"
+	TypeJobCancelMessage        = "JobCancellation"
+	TypeRunnerJobRequest        = "RunnerJobRequest"
+	TypePipelineAgentJobRequest = "PipelineAgentJobRequest"
+	TypeForceTokenRefresh       = "ForceTokenRefresh"
 )
 
 type Duration struct {
@@ -23,14 +23,14 @@ type Time struct {
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTWebApi/WebApi/AgentRefreshMessage.cs
-type AgentRefreshMessage struct {
+type AgentRefresh struct {
 	AgentId       int32    `json:"agentId,omitempty"`
 	Timeout       Duration `json:"timeout,omitempty"`
 	TargetVersion string   `json:"targetVersion,omitempty"`
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTWebApi/WebApi/RunnerRefreshMessage.cs
-type RunnerRefreshMessage struct {
+type RunnerRefresh struct {
 	TargetVersion  string `json:"target_version,omitempty"`
 	DownloadUrl    string `json:"download_url,omitempty"`
 	SHA256Checksum string `json:"sha256_checksum,omitempty"`
@@ -38,25 +38,25 @@ type RunnerRefreshMessage struct {
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTPipelines/Pipelines/RunnerShutdownMessage.cs
-type RunnerShutdownMessage struct {
+type RunnerShutdown struct {
 	Reason string `json:"reason,omitempty"`
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTWebApi/WebApi/JobCancelMessage.cs
-type JobCancelMessage struct {
+type JobCancel struct {
 	JobId   string   `json:"jobId,omitempty"`
 	Timeout Duration `json:"timeout,omitempty"`
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Listener/RunnerJobRequestRef.cs
-type RunnerJobRequestMessage struct {
+type RunnerJobRequest struct {
 	Id              string `json:"id,omitempty"`
 	RunnerRequestId string `json:"runner_request_id,omitempty"`
 	RunServiceUrl   string `json:"run_service_url,omitempty"`
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTPipelines/Pipelines/AgentJobRequestMessage.cs
-type PipelineAgentJobRequestMessage struct {
+type PipelineAgentJobRequest struct {
 	MessageType          string                   `json:"messageType,omitempty"`
 	RequestId            int64                    `json:"requestId,omitempty"`
 	Plan                 PlanReference            `json:"plan,omitempty"`
@@ -116,13 +116,13 @@ type TemplateToken struct {
 	Line   int32     `json:"line,omitempty"`
 	Column int32     `json:"column,omitempty"`
 
-	String    string                          `json:"lit,omitempty"`       // StringToken (type=0)
-	Number    float64                         `json:"num,omitempty"`       // NumberToken (type=6)
-	Boolean   bool                            `json:"bool,omitempty"`      // BooleanToken (type=5)
-	Directive string                          `json:"directive,omitempty"` // InsertExpressionToken (type=4)
-	Expr      string                          `json:"expr,omitempty"`      // BasicExpressionToken (type=3)
-	Seq       []TemplateToken                 `json:"seq,omitempty"`       // SequenceToken (type=1)
-	Map       []KVPair[string, TemplateToken] `json:"map,omitempty"`       // MappingToken (type=2)
+	String    string                                   `json:"lit,omitempty"`       // StringToken (type=0)
+	Number    float64                                  `json:"num,omitempty"`       // NumberToken (type=6)
+	Boolean   bool                                     `json:"bool,omitempty"`      // BooleanToken (type=5)
+	Directive string                                   `json:"directive,omitempty"` // InsertExpressionToken (type=4)
+	Expr      string                                   `json:"expr,omitempty"`      // BasicExpressionToken (type=3)
+	Seq       []*TemplateToken                         `json:"seq,omitempty"`       // SequenceToken (type=1)
+	Map       []KVPair[*TemplateToken, *TemplateToken] `json:"map,omitempty"`       // MappingToken (type=2)
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTObjectTemplating/ObjectTemplating/Tokens/TokenType.cs

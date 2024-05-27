@@ -16,6 +16,7 @@ import (
 
 	"github.com/dungdm93/drassi/core/pkg/util/oauth2/clientcredentials"
 	"github.com/dungdm93/drassi/gha-runner/pkg/gha"
+	"github.com/dungdm93/drassi/gha-runner/pkg/message"
 	"github.com/spf13/cobra"
 	"golang.org/x/oauth2"
 )
@@ -133,14 +134,14 @@ func (c *launchCommand) run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		err = c.handleMessage(msg)
+		err = c.handleMessage(ctx, msg)
 		if err != nil {
 			return err
 		}
 	}
 }
 
-func (c *launchCommand) handleMessage(msg *gha.Message) error {
+func (c *launchCommand) handleMessage(ctx context.Context, msg *gha.Message) error {
 	if msg == nil || msg.Type == "" {
 		return nil
 	}
@@ -150,80 +151,80 @@ func (c *launchCommand) handleMessage(msg *gha.Message) error {
 	}
 
 	switch msg.Type {
-	case gha.MessageTypeAgentRefresh:
-		message := new(gha.AgentRefreshMessage)
-		if err := json.Unmarshal(body, message); err != nil {
+	case message.TypeAgentRefresh:
+		if msg, err := message.Decode[message.AgentRefresh](body); err != nil {
 			return err
+		} else {
+			return c.refreshAgent(ctx, msg)
 		}
-		return c.refreshAgent(message)
-	case gha.MessageTypeRunnerRefresh:
-		message := new(gha.RunnerRefreshMessage)
-		if err := json.Unmarshal(body, message); err != nil {
+	case message.TypeRunnerRefresh:
+		if msg, err := message.Decode[message.RunnerRefresh](body); err != nil {
 			return err
+		} else {
+			return c.refreshRunner(ctx, msg)
 		}
-		return c.refreshRunner(message)
-	case gha.MessageTypeRunnerShutdown:
-		message := new(gha.RunnerShutdownMessage)
-		if err := json.Unmarshal(body, message); err != nil {
+	case message.TypeRunnerShutdown:
+		if msg, err := message.Decode[message.RunnerShutdown](body); err != nil {
 			return err
+		} else {
+			return c.shutdownRunner(ctx, msg)
 		}
-		return c.shutdownRunner(message)
-	case gha.MessageTypeJobCancelMessage:
-		message := new(gha.JobCancelMessage)
-		if err := json.Unmarshal(body, message); err != nil {
+	case message.TypeJobCancelMessage:
+		if msg, err := message.Decode[message.JobCancel](body); err != nil {
 			return err
+		} else {
+			return c.cancelJob(ctx, msg)
 		}
-		return c.cancelJob(message)
-	case gha.MessageTypeRunnerJobRequest:
-		message := new(gha.RunnerJobRequestMessage)
-		if err := json.Unmarshal(body, message); err != nil {
+	case message.TypeRunnerJobRequest:
+		if msg, err := message.Decode[message.RunnerJobRequest](body); err != nil {
 			return err
+		} else {
+			return c.requestRunnerJob(ctx, msg)
 		}
-		return c.requestRunnerJob(message)
-	case gha.MessageTypePipelineAgentJobRequest:
-		message := new(gha.PipelineAgentJobRequestMessage)
-		if err := json.Unmarshal(body, message); err != nil {
+	case message.TypePipelineAgentJobRequest:
+		if msg, err := message.Decode[message.PipelineAgentJobRequest](body); err != nil {
 			return err
+		} else {
+			return c.requestPipelineAgentJob(ctx, msg)
 		}
-		return c.requestPipelineAgentJob(message)
-	case gha.MessageTypeForceTokenRefresh:
-		return c.forceRefreshToken()
+	case message.TypeForceTokenRefresh:
+		return c.forceRefreshToken(ctx)
 	default:
 		return fmt.Errorf("unsupported message type: %s", msg.Type)
 	}
 }
 
-func (c *launchCommand) refreshAgent(message *gha.AgentRefreshMessage) error {
-	log.Printf("%#v", message)
+func (c *launchCommand) refreshAgent(ctx context.Context, msg *message.AgentRefresh) error {
+	log.Printf("%#v", msg)
 	return nil
 }
 
-func (c *launchCommand) refreshRunner(message *gha.RunnerRefreshMessage) error {
-	log.Printf("%#v", message)
+func (c *launchCommand) refreshRunner(ctx context.Context, msg *message.RunnerRefresh) error {
+	log.Printf("%#v", msg)
 	return nil
 }
 
-func (c *launchCommand) shutdownRunner(message *gha.RunnerShutdownMessage) error {
-	log.Printf("%#v", message)
+func (c *launchCommand) shutdownRunner(ctx context.Context, msg *message.RunnerShutdown) error {
+	log.Printf("%#v", msg)
 	return nil
 }
 
-func (c *launchCommand) cancelJob(message *gha.JobCancelMessage) error {
-	log.Printf("%#v", message)
+func (c *launchCommand) cancelJob(ctx context.Context, msg *message.JobCancel) error {
+	log.Printf("%#v", msg)
 	return nil
 }
 
-func (c *launchCommand) requestRunnerJob(message *gha.RunnerJobRequestMessage) error {
-	log.Printf("%#v", message)
+func (c *launchCommand) requestRunnerJob(ctx context.Context, msg *message.RunnerJobRequest) error {
+	log.Printf("%#v", msg)
 	return nil
 }
 
-func (c *launchCommand) requestPipelineAgentJob(message *gha.PipelineAgentJobRequestMessage) error {
-	log.Printf("%#v", message)
+func (c *launchCommand) requestPipelineAgentJob(ctx context.Context, msg *message.PipelineAgentJobRequest) error {
+	log.Printf("%#v", msg)
 	return nil
 }
 
-func (c *launchCommand) forceRefreshToken() error {
+func (c *launchCommand) forceRefreshToken(ctx context.Context) error {
 	log.Printf("force refresh token")
 	return nil
 }
