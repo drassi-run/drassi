@@ -12,14 +12,14 @@ import (
 type compositeActionExecutor struct {
 	action *actions.CompositeRuns
 
-	executors []StepExecutor
+	executors []StepRun
 	contexts  map[string]*StepRunContext
 }
 
 func (e *compositeActionExecutor) Initialize(ctx context.Context, rCtx *StepRunContext) (err error) {
 	steps := e.action.Steps
 	e.contexts = make(map[string]*StepRunContext, len(steps))
-	e.executors = make([]StepExecutor, len(steps))
+	e.executors = make([]StepRun, len(steps))
 	for i, step := range steps {
 		e.contexts[step.Base().Id] = rCtx.NewChildContext(step)
 		e.executors[i], err = NewStepExecutor(step)
@@ -31,7 +31,7 @@ func (e *compositeActionExecutor) Initialize(ctx context.Context, rCtx *StepRunC
 	g, ctx := errgroup.WithContext(ctx)
 	for _, executor := range e.executors {
 		r := executor
-		rChildCtx := e.contexts[r.Step().Base().Id]
+		rChildCtx := e.contexts[r.StepId()]
 		g.Go(func() error {
 			return r.Initialize(ctx, rChildCtx)
 		})
@@ -40,22 +40,22 @@ func (e *compositeActionExecutor) Initialize(ctx context.Context, rCtx *StepRunC
 }
 
 func (e *compositeActionExecutor) PreTask() *Task {
-	return e.createStageTask(StagePre, StepExecutor.PreTask)
+	return e.createStageTask(StagePre, StepRun.PreTask)
 }
 
 func (e *compositeActionExecutor) MainTask() *Task {
-	return e.createStageTask(StageMain, StepExecutor.MainTask)
+	return e.createStageTask(StageMain, StepRun.MainTask)
 }
 
 func (e *compositeActionExecutor) PostTask() *Task {
-	return e.createStageTask(StagePost, StepExecutor.PostTask)
+	return e.createStageTask(StagePost, StepRun.PostTask)
 }
 
 func (e *compositeActionExecutor) Action() actions.Runs {
 	return e.action
 }
 
-func (e *compositeActionExecutor) createStageTask(stage Stage, fn func(StepExecutor) *Task) *Task {
+func (e *compositeActionExecutor) createStageTask(stage Stage, fn func(StepRun) *Task) *Task {
 	var tasks []*Task
 	for _, executor := range e.executors {
 		if t := fn(executor); t != nil {

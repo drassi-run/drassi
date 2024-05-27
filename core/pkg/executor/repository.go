@@ -12,7 +12,7 @@ var (
 	hostPortRegex = regexp.MustCompile(`^(?P<host>[^:\s]+)(?::(?P<port>\d{1,5}))?$`)
 )
 
-type repository struct {
+type Repository struct {
 	Protocol string // e.g. https
 	Endpoint string // e.g. github.com
 	Repo     string // e.g. actions/checkout
@@ -20,7 +20,7 @@ type repository struct {
 	Ref      string // e.g. v3
 }
 
-func parseRepository(s string) (*repository, error) {
+func ParseRepository(s string) (*Repository, error) {
 	match := useRegex.FindStringSubmatch(s)
 	if match == nil {
 		return nil, fmt.Errorf("invalid uses %q", s)
@@ -50,7 +50,7 @@ func parseRepository(s string) (*repository, error) {
 		path = strings.Join(locPart[2:], "/")
 	}
 
-	r := repository{
+	r := Repository{
 		Protocol: protocol,
 		Endpoint: endpoint,
 		Repo:     repo,

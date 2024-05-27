@@ -8,41 +8,62 @@ import (
 	"github.com/dungdm93/drassi/core/pkg/model/workflows"
 )
 
-type StepExecutor interface {
+type StepRun interface {
+	StepId() string
+	StepUuid() string
+
 	Initialize(ctx context.Context, rCtx *StepRunContext) error
 	PreTask() *Task
 	MainTask() *Task
 	PostTask() *Task
-	Step() workflows.Step
 }
 
-// ensure StepExecutor implementations
+// ensure StepRun implementations
 var (
-	_ StepExecutor = (*runStepExecutor)(nil)
-	_ StepExecutor = (*usesDockerStepExecutor)(nil)
-	_ StepExecutor = (*usesActionStepExecutor)(nil)
+	_ StepRun = (*ScriptStepRun)(nil)
+	_ StepRun = (*DockerStepRun)(nil)
+	_ StepRun = (*RepositoryStepRun)(nil)
 )
 
-func NewStepExecutor(step workflows.Step) (StepExecutor, error) {
+type BaseStepRun struct {
+	UUID             string
+	ID               string
+	Name             workflows.Evaluable[string]
+	Condition        workflows.Conditional
+	ContinueOnError  workflows.Evaluable[bool]
+	TimeoutInMinutes workflows.Evaluable[int64]
+	Env              workflows.Evaluable[map[string]string]
+	Inputs           workflows.Evaluable[map[string]string]
+}
+
+func (s *BaseStepRun) StepId() string {
+	return s.ID
+}
+
+func (s *BaseStepRun) StepUuid() string {
+	return s.UUID
+}
+
+func NewStepExecutor(step workflows.Step) (StepRun, error) {
 	switch s := step.(type) {
 	case *workflows.RunStep:
-		r := &runStepExecutor{
+		r := &ScriptStepRun{
 			step: s,
 		}
 		return r, nil
 	case *workflows.UsesStep:
 		if image, ok := strings.CutPrefix(s.Uses, "docker://"); ok {
-			e := &usesDockerStepExecutor{
+			e := &DockerStepRun{
 				step:  s,
-				image: image,
+				Image: image,
 			}
 			return e, nil
 		} else {
-			repo, err := parseRepository(s.Uses)
+			repo, err := ParseRepository(s.Uses)
 			if err != nil {
 				return nil, err
 			}
-			e := &usesActionStepExecutor{
+			e := &RepositoryStepRun{
 				step: s,
 				repo: repo,
 			}

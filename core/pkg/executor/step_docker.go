@@ -2,42 +2,52 @@ package executor
 
 import (
 	"context"
-	"github.com/dungdm93/drassi/core/pkg/model/workflows"
 )
 
 // Example:
 // + `uses: docker://alpine:3.8`
 // + `uses: docker://gcr.io/cloud-builders/gradle`
-type usesDockerStepExecutor struct {
-	step  *workflows.UsesStep
-	image string
+type DockerStepRun struct {
+	BaseStepRun
+	Image string
 }
 
-func (e *usesDockerStepExecutor) Initialize(ctx context.Context, rCtx *StepRunContext) error {
-	return rCtx.Sandbox().PullImage(ctx, e.image)
+func (sr *DockerStepRun) Initialize(ctx context.Context, rCtx *StepRunContext) error {
+	return rCtx.Sandbox().PullImage(ctx, sr.Image)
 }
 
-func (e *usesDockerStepExecutor) PreTask() *Task {
+func (sr *DockerStepRun) PreTask() *Task {
 	return nil
 }
 
-func (e *usesDockerStepExecutor) MainTask() *Task {
+func (sr *DockerStepRun) MainTask() *Task {
 	return &Task{
-		StepID:    e.step.Id,
+		StepID:    sr.UUID,
 		Stage:     StageMain,
-		Condition: e.step.If,
-		Run:       e.executeMain,
+		Condition: sr.Condition,
+		Run:       sr.executeMain,
 	}
 }
 
-func (e *usesDockerStepExecutor) executeMain(ctx context.Context, rCtx *StepRunContext) error {
-	return rCtx.Sandbox().RunContainer(ctx, e.image, nil, nil, nil, "")
+func (sr *DockerStepRun) executeMain(ctx context.Context, rCtx *StepRunContext) error {
+	inputs, err := sr.Inputs.Evaluate("job.step", rCtx)
+	if err != nil {
+		return err
+	}
+
+	var entrypoint []string
+	if ep, ok := inputs["entrypoint"]; ok {
+		entrypoint = append(entrypoint, ep)
+	}
+
+	var cmd []string
+	if c, ok := inputs["cmd"]; ok {
+		cmd = append(cmd, c)
+	}
+
+	return rCtx.Sandbox().RunContainer(ctx, sr.Image, entrypoint, cmd, nil, "")
 }
 
-func (e *usesDockerStepExecutor) PostTask() *Task {
+func (sr *DockerStepRun) PostTask() *Task {
 	return nil
-}
-
-func (e *usesDockerStepExecutor) Step() workflows.Step {
-	return e.step
 }

@@ -27,7 +27,7 @@ type JobRunContext struct {
 	paths []string
 
 	stepContexts map[string]*StepRunContext
-	executors    []StepExecutor
+	executors    []StepRun
 }
 
 func (c *JobRunContext) ContextData(name string) context.Context {
@@ -58,13 +58,13 @@ func (c *JobRunContext) RunJob(ctx context.Context) error {
 		return err
 	}
 
-	if err := c.runStage(ctx, StagePre, StepExecutor.PreTask); err != nil {
+	if err := c.runStage(ctx, StagePre, StepRun.PreTask); err != nil {
 		return err
 	}
-	if err := c.runStage(ctx, StageMain, StepExecutor.MainTask); err != nil {
+	if err := c.runStage(ctx, StageMain, StepRun.MainTask); err != nil {
 		return err
 	}
-	if err := c.runStage(ctx, StagePost, StepExecutor.PostTask); err != nil {
+	if err := c.runStage(ctx, StagePost, StepRun.PostTask); err != nil {
 		return err
 	}
 	return nil
@@ -72,7 +72,7 @@ func (c *JobRunContext) RunJob(ctx context.Context) error {
 
 func (c *JobRunContext) makeExecutors() error {
 	c.stepContexts = make(map[string]*StepRunContext, len(c.job.Steps))
-	c.executors = make([]StepExecutor, len(c.job.Steps))
+	c.executors = make([]StepRun, len(c.job.Steps))
 	var err error
 	for i, step := range c.job.Steps {
 		c.stepContexts[step.Base().Id] = NewStepRunContext(c, step)
@@ -96,7 +96,7 @@ func (c *JobRunContext) initializeExecutors(ctx context.Context) error {
 	return g.Wait()
 }
 
-func (c *JobRunContext) runStage(ctx context.Context, stage Stage, fn func(executor StepExecutor) *Task) error {
+func (c *JobRunContext) runStage(ctx context.Context, stage Stage, fn func(executor StepRun) *Task) error {
 	var tasks []*Task
 	for _, executor := range c.executors {
 		if t := fn(executor); t != nil {

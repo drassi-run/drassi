@@ -8,7 +8,7 @@ import (
 
 type javaScriptActionExecutor struct {
 	action *actions.JavaScriptRuns
-	repo   *repository
+	repo   *Repository
 	rev    string
 }
 
