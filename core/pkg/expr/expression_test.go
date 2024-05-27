@@ -724,7 +724,12 @@ func TestStatusCheckFunctions(t *testing.T) {
 		templateCtx func() *contexts.Expr
 	}
 	var namedVals []ast.INamedValueInfo[ast.INamedValue]
-	var fns []functions.IFnInfo[ast_ifaces.Fn]
+	fns := []functions.IFnInfo[ast_ifaces.Fn]{
+		functions.NewFunctionInfo[functions.Always]("always", 0, 2147483647),
+		functions.NewFunctionInfo[functions.Cancelled]("cancelled", 0, 0),
+		functions.NewFunctionInfo[functions.Success]("success", 0, 0),
+		functions.NewFunctionInfo[functions.Failure]("failure", 0, 0),
+	}
 
 	// testcase cases
 	tcs := []testcase{

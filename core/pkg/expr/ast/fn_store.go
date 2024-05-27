@@ -13,6 +13,8 @@ type FnStore struct {
 
 var e *FnStore
 
+// Store functions that are available everywhere, see https://github.com/actions/runner/blob/dfaf6e06ee862f94e0daf11ac5e5d197b913080c/src/Sdk/DTExpressions2/Expressions2/ExpressionConstants.cs#L10
+
 func NewFnStore() *FnStore {
 	if e != nil {
 		return e
@@ -24,18 +26,14 @@ func NewFnStore() *FnStore {
 	// [x] startsWith
 	// [x] join
 	// [x] format
-	// [] toJson
-	// [] fromJSON
+	// [x] toJson
+	// [x] fromJSON
 	e.WellKnownFns["contains"] = functions.NewFunctionInfo[functions.Contains]("contains", 2, 2)
 	e.WellKnownFns["endswith"] = functions.NewFunctionInfo[functions.EndsWith]("endsWith", 2, 2)
 	e.WellKnownFns["startswith"] = functions.NewFunctionInfo[functions.StartsWith]("startsWith", 2, 2)
-	e.WellKnownFns["join"] = functions.NewFunctionInfo[functions.Join]("join", 1, 2)
 	e.WellKnownFns["format"] = functions.NewFunctionInfo[functions.Format]("format", 1, math.MaxUint8)
+	e.WellKnownFns["join"] = functions.NewFunctionInfo[functions.Join]("join", 1, 2)
 	e.WellKnownFns["fromjson"] = functions.NewFunctionInfo[functions.FromJson]("fromJSON", 1, 1)
 	e.WellKnownFns["tojson"] = functions.NewFunctionInfo[functions.ToJson]("toJSON", 1, 1)
-	e.WellKnownFns["always"] = functions.NewFunctionInfo[functions.Always]("always", 0, 2147483647)
-	e.WellKnownFns["cancelled"] = functions.NewFunctionInfo[functions.Cancelled]("cancelled", 0, 0)
-	e.WellKnownFns["success"] = functions.NewFunctionInfo[functions.Success]("success", 0, 0)
-	e.WellKnownFns["failure"] = functions.NewFunctionInfo[functions.Failure]("failure", 0, 0)
 	return e
 }

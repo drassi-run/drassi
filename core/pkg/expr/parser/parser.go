@@ -81,8 +81,7 @@ func ParseWithDefaults(expr string) (root ast_ifaces.ExprNode) {
 	return parse(newParseContext(expr, namedVals, nil, false))
 }
 
-func Parse(expr string, namedValues []ast.INamedValueInfo[ast.INamedValue],
-	functions []functions.IFnInfo[ast_ifaces.Fn]) (root ast_ifaces.ExprNode) {
+func Parse(expr string, namedValues []ast.INamedValueInfo[ast.INamedValue], functions []functions.IFnInfo[ast_ifaces.Fn]) (root ast_ifaces.ExprNode) {
 	return parse(newParseContext(expr, namedValues, functions, false))
 }
 
