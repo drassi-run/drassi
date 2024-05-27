@@ -11,7 +11,9 @@ func NewGiteaRunnerCommand() *cobra.Command {
 		Args:  cobra.NoArgs,
 	}
 
-	cmd.AddCommand()
+	cmd.AddCommand(
+		NewRegisterCommand(),
+	)
 
 	return cmd
 }
