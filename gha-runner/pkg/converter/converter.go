@@ -10,6 +10,10 @@ import (
 )
 
 func ToToken(token *message.TemplateToken) workflows.Token {
+	if token == nil {
+		return nil
+	}
+
 	switch token.Type {
 	case message.TokenTypeString:
 		return workflows.NewLiteralToken(token.String)
@@ -51,22 +55,18 @@ func ToEvaluable[R any](token *message.TemplateToken) workflows.Evaluable[R] {
 	}
 }
 
-func ToEnv(tokens []message.TemplateToken) workflows.Evaluable[map[string]string] {
+func squashTokens(tokens []message.TemplateToken) workflows.Token {
 	switch len(tokens) {
 	case 0:
-		return workflows.Evaluable[map[string]string]{}
+		return nil
 	case 1:
-		return workflows.Evaluable[map[string]string]{
-			Token: ToToken(&tokens[0]),
-		}
+		return ToToken(&tokens[0])
 	default:
 		ts := make([]workflows.Token, len(tokens))
 		for i, token := range tokens {
 			ts[i] = ToToken(&token)
 		}
-		return workflows.Evaluable[map[string]string]{
-			Token: &multiMapToken{tokens: ts},
-		}
+		return &multiMapToken{tokens: ts}
 	}
 }
 
@@ -119,4 +119,34 @@ func ToStepRun(step *message.JobStep) (executor.StepRun, error) {
 	default:
 		return nil, fmt.Errorf("unsupported step %s reference type %s", step.ContextName, ref.Type)
 	}
+}
+
+func ToJobRun(job *message.PipelineAgentJobRequest) (*executor.JobRun, error) {
+	steps := make([]executor.StepRun, len(job.Steps))
+	for i, s := range job.Steps {
+		step, err := ToStepRun(&s)
+		if err != nil {
+			return nil, err
+		}
+		steps[i] = step
+	}
+
+	jr := &executor.JobRun{
+		UUID: job.JobId,
+		ID:   job.JobName,
+		Name: job.JobDisplayName,
+
+		Container: ToEvaluable[*workflows.Container](job.JobContainer),
+		Services:  ToEvaluable[map[string]*workflows.Container](job.JobServiceContainers),
+
+		Defaults: workflows.Evaluable[workflows.Defaults]{
+			Token: squashTokens(job.Defaults),
+		},
+		Env: workflows.Evaluable[map[string]string]{
+			Token: squashTokens(job.Env),
+		},
+		Steps:   steps,
+		Outputs: ToEvaluable[map[string]string](job.JobOutputs),
+	}
+	return jr, nil
 }
