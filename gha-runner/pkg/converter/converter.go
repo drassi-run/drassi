@@ -1,6 +1,10 @@
 package converter
 
 import (
+	"fmt"
+	"strings"
+
+	"github.com/dungdm93/drassi/core/pkg/executor"
 	"github.com/dungdm93/drassi/core/pkg/model/workflows"
 	"github.com/dungdm93/drassi/gha-runner/pkg/message"
 )
@@ -63,5 +67,56 @@ func ToEnv(tokens []message.TemplateToken) workflows.Evaluable[map[string]string
 		return workflows.Evaluable[map[string]string]{
 			Token: &multiMapToken{tokens: ts},
 		}
+	}
+}
+
+func ToStepRun(step *message.JobStep) (executor.StepRun, error) {
+	sr := executor.BaseStepRun{
+		UUID:             step.Id,
+		ID:               step.ContextName,
+		Name:             ToEvaluable[string](step.DisplayNameToken),
+		ContinueOnError:  ToEvaluable[bool](step.ContinueOnError),
+		TimeoutInMinutes: ToEvaluable[int64](step.TimeoutInMinutes),
+		Env:              ToEvaluable[map[string]string](step.Env),
+		Inputs:           ToEvaluable[map[string]string](step.Inputs),
+	}
+	if step.Condition != "" {
+		sr.Condition = workflows.NewConditional(step.Condition)
+	}
+
+	ref := &step.Reference
+	switch ref.Type {
+	case message.SourceTypeScript:
+		ssr := &executor.ScriptStepRun{
+			BaseStepRun: sr,
+		}
+		return ssr, nil
+	case message.SourceTypeContainerRegistry:
+		if ref.Image == "" {
+			return nil, fmt.Errorf("step %s image is required", step.ContextName)
+		}
+		dsr := &executor.DockerStepRun{
+			BaseStepRun: sr,
+			Image:       ref.Image,
+		}
+		return dsr, nil
+	case message.SourceTypeRepository:
+		if !strings.EqualFold(ref.RepositoryType, "github") {
+			return nil, fmt.Errorf("unsupported step %s with repo type %s", step.ContextName, ref.RepositoryType)
+		}
+		repo := executor.Repository{
+			Protocol: "https",
+			Endpoint: "github.com",
+			Repo:     ref.Name,
+			Path:     ref.Path,
+			Ref:      ref.Ref,
+		}
+		rsr := &executor.RepositoryStepRun{
+			BaseStepRun: sr,
+			Repo:        repo,
+		}
+		return rsr, nil
+	default:
+		return nil, fmt.Errorf("unsupported step %s reference type %s", step.ContextName, ref.Type)
 	}
 }
