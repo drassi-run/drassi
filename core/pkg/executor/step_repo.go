@@ -15,7 +15,7 @@ type RepositoryStepRun struct {
 	Repo Repository
 
 	rev    string
-	action ActionExecutor
+	action ActionRun
 }
 
 func (sr *RepositoryStepRun) Initialize(ctx context.Context, rCtx *StepRunContext) error {

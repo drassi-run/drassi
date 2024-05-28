@@ -8,22 +8,22 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-type compositeActionExecutor struct {
+type compositeActionRun struct {
 	action *actions.CompositeRuns
 
 	stepRuns     []StepRun
 	stepContexts map[string]*StepRunContext
 }
 
-func (e *compositeActionExecutor) Initialize(ctx context.Context, rCtx *StepRunContext) (err error) {
-	e.stepContexts = make(map[string]*StepRunContext, len(e.stepRuns))
-	for _, step := range e.stepRuns {
-		e.stepContexts[step.StepId()] = rCtx.NewChildContext(step)
+func (ar *compositeActionRun) Initialize(ctx context.Context, rCtx *StepRunContext) (err error) {
+	ar.stepContexts = make(map[string]*StepRunContext, len(ar.stepRuns))
+	for _, step := range ar.stepRuns {
+		ar.stepContexts[step.StepId()] = rCtx.NewChildContext(step)
 	}
 
 	g, ctx := errgroup.WithContext(ctx)
-	for _, step := range e.stepRuns {
-		rChildCtx := e.stepContexts[step.StepId()]
+	for _, step := range ar.stepRuns {
+		rChildCtx := ar.stepContexts[step.StepId()]
 		g.Go(func() error {
 			return rChildCtx.Initialize(ctx)
 		})
@@ -31,25 +31,25 @@ func (e *compositeActionExecutor) Initialize(ctx context.Context, rCtx *StepRunC
 	return g.Wait()
 }
 
-func (e *compositeActionExecutor) PreTask() *Task {
-	return e.createStageTask(StagePre, StepRun.PreTask)
+func (ar *compositeActionRun) PreTask() *Task {
+	return ar.createStageTask(StagePre, StepRun.PreTask)
 }
 
-func (e *compositeActionExecutor) MainTask() *Task {
-	return e.createStageTask(StageMain, StepRun.MainTask)
+func (ar *compositeActionRun) MainTask() *Task {
+	return ar.createStageTask(StageMain, StepRun.MainTask)
 }
 
-func (e *compositeActionExecutor) PostTask() *Task {
-	return e.createStageTask(StagePost, StepRun.PostTask)
+func (ar *compositeActionRun) PostTask() *Task {
+	return ar.createStageTask(StagePost, StepRun.PostTask)
 }
 
-func (e *compositeActionExecutor) Action() actions.Runs {
-	return e.action
+func (ar *compositeActionRun) Action() actions.Runs {
+	return ar.action
 }
 
-func (e *compositeActionExecutor) createStageTask(stage Stage, fn func(StepRun) *Task) *Task {
-	taskIds := make([]string, len(e.stepRuns))
-	for i, step := range e.stepRuns {
+func (ar *compositeActionRun) createStageTask(stage Stage, fn func(StepRun) *Task) *Task {
+	taskIds := make([]string, len(ar.stepRuns))
+	for i, step := range ar.stepRuns {
 		taskIds[i] = step.StepId()
 	}
 	if stage == StagePost {
@@ -60,7 +60,7 @@ func (e *compositeActionExecutor) createStageTask(stage Stage, fn func(StepRun) 
 		Stage: stage,
 		Run: func(ctx context.Context, _ *StepRunContext) error {
 			for _, id := range taskIds {
-				rChildCtx := e.stepContexts[id]
+				rChildCtx := ar.stepContexts[id]
 				if err := rChildCtx.RunStep(ctx, fn); err != nil {
 					return err
 				}

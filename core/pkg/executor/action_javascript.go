@@ -6,31 +6,31 @@ import (
 	"github.com/dungdm93/drassi/core/pkg/model/actions"
 )
 
-type javaScriptActionExecutor struct {
+type javaScriptActionRun struct {
 	action *actions.JavaScriptRuns
 	repo   *Repository
 	rev    string
 }
 
-func (e *javaScriptActionExecutor) Initialize(ctx context.Context, rCtx *StepRunContext) error {
+func (ar *javaScriptActionRun) Initialize(ctx context.Context, rCtx *StepRunContext) error {
 	panic("Copy repo to sandbox")
 }
 
-func (e *javaScriptActionExecutor) PreTask() *Task {
+func (ar *javaScriptActionRun) PreTask() *Task {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (e *javaScriptActionExecutor) MainTask() *Task {
+func (ar *javaScriptActionRun) MainTask() *Task {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (e *javaScriptActionExecutor) PostTask() *Task {
+func (ar *javaScriptActionRun) PostTask() *Task {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (e *javaScriptActionExecutor) Action() actions.Runs {
-	return e.action
+func (ar *javaScriptActionRun) Action() actions.Runs {
+	return ar.action
 }
