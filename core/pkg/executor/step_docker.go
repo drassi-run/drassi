@@ -12,8 +12,8 @@ type DockerStepRun struct {
 	Image string
 }
 
-func (sr *DockerStepRun) Initialize(ctx context.Context, rCtx *StepRunContext) error {
-	return rCtx.Sandbox().PullImage(ctx, sr.Image)
+func (sr *DockerStepRun) Initialize(ctx context.Context, exec *StepExecutor) error {
+	return exec.Sandbox().PullImage(ctx, sr.Image)
 }
 
 func (sr *DockerStepRun) PreTask() *Task {
@@ -29,8 +29,8 @@ func (sr *DockerStepRun) MainTask() *Task {
 	}
 }
 
-func (sr *DockerStepRun) executeMain(ctx context.Context, rCtx *StepRunContext) error {
-	inputs, err := sr.Inputs.Evaluate("job.step", rCtx)
+func (sr *DockerStepRun) executeMain(ctx context.Context, exec *StepExecutor) error {
+	inputs, err := sr.Inputs.Evaluate("job.step", exec)
 	if err != nil {
 		return err
 	}
@@ -45,7 +45,7 @@ func (sr *DockerStepRun) executeMain(ctx context.Context, rCtx *StepRunContext) 
 		cmd = append(cmd, c)
 	}
 
-	return rCtx.Sandbox().RunContainer(ctx, sr.Image, entrypoint, cmd, nil, "")
+	return exec.Sandbox().RunContainer(ctx, sr.Image, entrypoint, cmd, nil, "")
 }
 
 func (sr *DockerStepRun) PostTask() *Task {

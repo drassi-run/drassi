@@ -15,60 +15,60 @@ var (
 	setEnvBlockList = sets.New("NODE_OPTIONS")
 )
 
-type JobRunContext struct {
+type JobExecutor struct {
 	JobRun *JobRun
 
-	sandbox      sandboxer.Sandbox
-	stepContexts map[string]*StepRunContext
+	sandbox       sandboxer.Sandbox
+	stepExecutors map[string]*StepExecutor
 
 	defaults workflows.Defaults
 	env      map[string]string
 	paths    []string
 }
 
-func (c *JobRunContext) ContextData(name string) context.Context {
+func (e *JobExecutor) ContextData(name string) context.Context {
 	panic("implement me")
 }
 
-func (c *JobRunContext) Functions(name string) []string {
+func (e *JobExecutor) Functions(name string) []string {
 	panic("implement me")
 }
 
-func (c *JobRunContext) DefaultValue(name string) any {
+func (e *JobExecutor) DefaultValue(name string) any {
 	panic("implement me")
 }
 
-func (c *JobRunContext) Sandbox() sandboxer.Sandbox {
-	return c.sandbox
+func (e *JobExecutor) Sandbox() sandboxer.Sandbox {
+	return e.sandbox
 }
 
-func (c *JobRunContext) Initialize(ctx context.Context, runtime sandboxer.SandboxRuntime) error {
+func (e *JobExecutor) Initialize(ctx context.Context, runtime sandboxer.SandboxRuntime) error {
 	var err error
-	c.env, err = c.JobRun.Env.Evaluate("job.env", c)
+	e.env, err = e.JobRun.Env.Evaluate("job.env", e)
 	if err != nil {
 		return err
 	}
 
-	c.defaults, err = c.JobRun.Defaults.Evaluate("job.defaults", c)
+	e.defaults, err = e.JobRun.Defaults.Evaluate("job.defaults", e)
 	if err != nil {
 		return err
 	}
 
 	var jobContainer *container.ContainerConfig
-	if con, err := c.JobRun.Container.Evaluate("job.container", c); err != nil {
+	if con, err := e.JobRun.Container.Evaluate("job.container", e); err != nil {
 		return err
 	} else {
-		jobContainer, err = c.toContainerConfig(ctx, con)
+		jobContainer, err = e.toContainerConfig(ctx, con)
 		if err != nil {
 			return err
 		}
 	}
 	var serviceContainers = make(map[string]*container.ContainerConfig)
-	if sers, err := c.JobRun.Services.Evaluate("job.services", c); err != nil {
+	if sers, err := e.JobRun.Services.Evaluate("job.services", e); err != nil {
 		return err
 	} else {
 		for name, ser := range sers {
-			con, err := c.toContainerConfig(ctx, ser)
+			con, err := e.toContainerConfig(ctx, ser)
 			if err != nil {
 				return err
 			}
@@ -77,75 +77,75 @@ func (c *JobRunContext) Initialize(ctx context.Context, runtime sandboxer.Sandbo
 	}
 
 	req := sandboxer.LaunchSandboxRequest{
-		JobId:             c.JobRun.ID,
-		JobEnv:            c.env,
+		JobId:             e.JobRun.ID,
+		JobEnv:            e.env,
 		JobContainer:      jobContainer,
 		ServiceContainers: serviceContainers,
 	}
 	if res, err := runtime.LaunchSandbox(ctx, req); err != nil {
 		return err
 	} else {
-		c.sandbox = res.Sandbox
+		e.sandbox = res.Sandbox
 	}
 	return nil
 }
 
-func (c *JobRunContext) RunJob(ctx context.Context) error {
-	c.makeStepRunContexts()
+func (e *JobExecutor) RunJob(ctx context.Context) error {
+	e.makeStepExecutors()
 
-	if err := c.initializeSteps(ctx); err != nil {
+	if err := e.initializeSteps(ctx); err != nil {
 		return err
 	}
 
-	if err := c.runStage(ctx, StagePre, StepRun.PreTask); err != nil {
+	if err := e.runStage(ctx, StagePre, StepRun.PreTask); err != nil {
 		return err
 	}
-	if err := c.runStage(ctx, StageMain, StepRun.MainTask); err != nil {
+	if err := e.runStage(ctx, StageMain, StepRun.MainTask); err != nil {
 		return err
 	}
-	if err := c.runStage(ctx, StagePost, StepRun.PostTask); err != nil {
+	if err := e.runStage(ctx, StagePost, StepRun.PostTask); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (c *JobRunContext) Finalize(ctx context.Context, runtime sandboxer.SandboxRuntime) error {
+func (e *JobExecutor) Finalize(ctx context.Context, runtime sandboxer.SandboxRuntime) error {
 	req := sandboxer.TerminateSandboxRequest{
-		Sandbox: c.sandbox,
+		Sandbox: e.sandbox,
 	}
 	_, err := runtime.TerminateSandbox(ctx, req)
 	return err
 }
 
-func (c *JobRunContext) makeStepRunContexts() {
-	c.stepContexts = make(map[string]*StepRunContext, len(c.JobRun.Steps))
-	for _, step := range c.JobRun.Steps {
-		c.stepContexts[step.StepId()] = NewStepRunContext(c, step)
+func (e *JobExecutor) makeStepExecutors() {
+	e.stepExecutors = make(map[string]*StepExecutor, len(e.JobRun.Steps))
+	for _, step := range e.JobRun.Steps {
+		e.stepExecutors[step.StepId()] = NewStepExecutor(e, step)
 	}
 }
 
-func (c *JobRunContext) initializeSteps(ctx context.Context) error {
+func (e *JobExecutor) initializeSteps(ctx context.Context) error {
 	g, ctx := errgroup.WithContext(ctx)
-	for _, step := range c.JobRun.Steps {
-		rCtx := c.stepContexts[step.StepId()]
+	for _, step := range e.JobRun.Steps {
+		exec := e.stepExecutors[step.StepId()]
 		g.Go(func() error {
-			return rCtx.Initialize(ctx)
+			return exec.Initialize(ctx)
 		})
 	}
 	return g.Wait()
 }
 
-func (c *JobRunContext) runStage(ctx context.Context, stage Stage, fn func(executor StepRun) *Task) error {
-	ids := make([]string, len(c.JobRun.Steps))
-	for i, step := range c.JobRun.Steps {
+func (e *JobExecutor) runStage(ctx context.Context, stage Stage, fn func(executor StepRun) *Task) error {
+	ids := make([]string, len(e.JobRun.Steps))
+	for i, step := range e.JobRun.Steps {
 		ids[i] = step.StepId()
 	}
 	if stage == StagePost {
 		slices.Reverse(ids) // in place reverse
 	}
 	for _, id := range ids {
-		rCtx := c.stepContexts[id]
-		if err := rCtx.RunStep(ctx, fn); err != nil {
+		exec := e.stepExecutors[id]
+		if err := exec.RunStep(ctx, fn); err != nil {
 			return err
 		}
 	}
@@ -156,7 +156,7 @@ func (c *JobRunContext) runStage(ctx context.Context, stage Stage, fn func(execu
 // Add paths to the context and remove duplicates
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L107
 // https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#adding-a-system-path
-func (c *JobRunContext) addPath(paths []string) error {
+func (e *JobExecutor) addPath(paths []string) error {
 	if len(paths) == 0 {
 		return nil
 	}
@@ -171,30 +171,30 @@ func (c *JobRunContext) addPath(paths []string) error {
 			set.Insert(path)
 		}
 	}
-	for _, path := range c.paths {
+	for _, path := range e.paths {
 		if !set.Has(path) {
 			newPaths = append(newPaths, path)
 			set.Insert(path)
 		}
 	}
 
-	c.paths = newPaths
+	e.paths = newPaths
 	return nil
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L132
 // https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#setting-an-environment-variable
-func (c *JobRunContext) setEnv(env map[string]string) error {
+func (e *JobExecutor) setEnv(env map[string]string) error {
 	for k, v := range env {
 		if setEnvBlockList.Has(k) {
 			// TODO context.AddIssue
 			continue
 		}
-		c.env[k] = v
+		e.env[k] = v
 	}
 	return nil
 }
 
-func (c *JobRunContext) toContainerConfig(ctx context.Context, container *workflows.Container) (*container.ContainerConfig, error) {
+func (e *JobExecutor) toContainerConfig(ctx context.Context, container *workflows.Container) (*container.ContainerConfig, error) {
 	return nil, nil
 }

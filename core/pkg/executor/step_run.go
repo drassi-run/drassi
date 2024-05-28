@@ -13,7 +13,7 @@ type ScriptStepRun struct {
 	BaseStepRun
 }
 
-func (sr *ScriptStepRun) Initialize(_ context.Context, _ *StepRunContext) error {
+func (sr *ScriptStepRun) Initialize(_ context.Context, _ *StepExecutor) error {
 	return nil
 }
 
@@ -30,16 +30,16 @@ func (sr *ScriptStepRun) MainTask() *Task {
 	}
 }
 
-func (sr *ScriptStepRun) executeMain(ctx context.Context, rCtx *StepRunContext) error {
-	inputs, err := sr.Inputs.Evaluate("job.step", rCtx)
+func (sr *ScriptStepRun) executeMain(ctx context.Context, exec *StepExecutor) error {
+	inputs, err := sr.Inputs.Evaluate("job.step", exec)
 	if err != nil {
 		return err
 	}
 
-	shell := Shell(sr.getShell(inputs, rCtx))
+	shell := Shell(sr.getShell(inputs, exec))
 	workdir, ok := inputs["workdir"]
 	if !ok {
-		workdir = rCtx.job.defaults.Run.WorkingDir
+		workdir = exec.job.defaults.Run.WorkingDir
 	}
 	script, ok := inputs["script"]
 	if !ok {
@@ -47,7 +47,7 @@ func (sr *ScriptStepRun) executeMain(ctx context.Context, rCtx *StepRunContext) 
 	}
 	script = shell.FixupScript(script)
 
-	cmd, scriptPath, err := sr.getCommand(shell, rCtx)
+	cmd, scriptPath, err := sr.getCommand(shell, exec)
 	if err != nil {
 		return err
 	}
@@ -60,25 +60,25 @@ func (sr *ScriptStepRun) executeMain(ctx context.Context, rCtx *StepRunContext) 
 		return err
 	}
 
-	if err = rCtx.Sandbox().CopyIn(ctx, reader, scriptPath); err != nil {
+	if err = exec.Sandbox().CopyIn(ctx, reader, scriptPath); err != nil {
 		return err
 	}
-	return rCtx.Sandbox().Execute(ctx, cmd, nil, workdir)
+	return exec.Sandbox().Execute(ctx, cmd, nil, workdir)
 }
 
 func (sr *ScriptStepRun) PostTask() *Task {
 	return nil
 }
 
-func (sr *ScriptStepRun) getShell(inputs map[string]string, rCtx *StepRunContext) string {
+func (sr *ScriptStepRun) getShell(inputs map[string]string, exec *StepExecutor) string {
 	if shell, ok := inputs["shell"]; ok {
 		return shell
 	}
-	return rCtx.job.defaults.Run.Shell
+	return exec.job.defaults.Run.Shell
 }
 
-func (sr *ScriptStepRun) getCommand(shell Shell, rCtx *StepRunContext) ([]string, string, error) {
-	scriptPath := sr.getScriptPath(rCtx, shell, sr.ID)
+func (sr *ScriptStepRun) getCommand(shell Shell, exec *StepExecutor) ([]string, string, error) {
+	scriptPath := sr.getScriptPath(exec, shell, sr.ID)
 	cmds, err := shell.Command()
 	if err != nil {
 		return nil, "", err
@@ -91,10 +91,10 @@ func (sr *ScriptStepRun) getCommand(shell Shell, rCtx *StepRunContext) ([]string
 	return c, scriptPath, nil
 }
 
-func (sr *ScriptStepRun) getScriptPath(rCtx *StepRunContext, shell Shell, name string) string {
+func (sr *ScriptStepRun) getScriptPath(exec *StepExecutor, shell Shell, name string) string {
 	scriptName := name
 	//for stepInfo := &rc.StepInfo; stepInfo.Parent != nil; stepInfo = stepInfo.Parent {
 	//	scriptName = fmt.Sprintf("%s-composite-%s", stepInfo.Parent.StepId, scriptName)
 	//}
-	return filepath.Join(rCtx.Sandbox().GetTempDir(), "scripts", scriptName+shell.Extension())
+	return filepath.Join(exec.Sandbox().GetTempDir(), "scripts", scriptName+shell.Extension())
 }

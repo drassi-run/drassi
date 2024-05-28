@@ -12,7 +12,7 @@ type javaScriptActionRun struct {
 	rev    string
 }
 
-func (ar *javaScriptActionRun) Initialize(ctx context.Context, rCtx *StepRunContext) error {
+func (ar *javaScriptActionRun) Initialize(ctx context.Context, exec *StepExecutor) error {
 	panic("Copy repo to sandbox")
 }
 
