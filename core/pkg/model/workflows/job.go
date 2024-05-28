@@ -106,7 +106,7 @@ type NormalJob struct {
 	//
 	// Context available: `github`, `needs`, `strategy`, `matrix`, `vars`, `inputs`
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
-	TimeoutMinutes Evaluable[int64] `json:"timeout-minutes,omitempty" yaml:"timeout-minutes,omitempty" mapstructure:"timeout-minutes,omitempty"`
+	TimeoutInMinutes Evaluable[int64] `json:"timeout-minutes,omitempty" yaml:"timeout-minutes,omitempty" mapstructure:"timeout-minutes,omitempty"`
 
 	// A container to run any steps in a job that don't already specify a container.
 	// If you have steps that use both script and container actions,
