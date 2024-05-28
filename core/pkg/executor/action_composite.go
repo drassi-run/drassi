@@ -2,6 +2,7 @@ package executor
 
 import (
 	"context"
+	"fmt"
 	"slices"
 
 	"github.com/dungdm93/drassi/core/pkg/model/actions"
@@ -11,19 +12,13 @@ import (
 type compositeActionRun struct {
 	action *actions.CompositeRuns
 
-	stepRuns     []StepRun
-	stepContexts map[string]*StepRunContext
+	stepRuns []StepRun
 }
 
 func (ar *compositeActionRun) Initialize(ctx context.Context, rCtx *StepRunContext) (err error) {
-	ar.stepContexts = make(map[string]*StepRunContext, len(ar.stepRuns))
-	for _, step := range ar.stepRuns {
-		ar.stepContexts[step.StepId()] = rCtx.NewChildContext(step)
-	}
-
 	g, ctx := errgroup.WithContext(ctx)
 	for _, step := range ar.stepRuns {
-		rChildCtx := ar.stepContexts[step.StepId()]
+		rChildCtx := rCtx.NewChildContext(step)
 		g.Go(func() error {
 			return rChildCtx.Initialize(ctx)
 		})
@@ -58,9 +53,12 @@ func (ar *compositeActionRun) createStageTask(stage Stage, fn func(StepRun) *Tas
 
 	return &Task{
 		Stage: stage,
-		Run: func(ctx context.Context, _ *StepRunContext) error {
+		Run: func(ctx context.Context, rCtx *StepRunContext) error {
 			for _, id := range taskIds {
-				rChildCtx := ar.stepContexts[id]
+				rChildCtx := rCtx.ChildContext(id)
+				if rChildCtx == nil {
+					return fmt.Errorf(`task "%s" has no child context`, id)
+				}
 				if err := rChildCtx.RunStep(ctx, fn); err != nil {
 					return err
 				}

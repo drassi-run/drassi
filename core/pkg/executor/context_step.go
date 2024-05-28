@@ -14,9 +14,10 @@ import (
 )
 
 type StepRunContext struct {
-	job     *JobRunContext
-	parent  *StepRunContext
-	stepRun StepRun
+	job      *JobRunContext
+	parent   *StepRunContext
+	children map[string]*StepRunContext
+	stepRun  StepRun
 
 	envOverride map[string]string
 	input       map[string]string
@@ -29,6 +30,7 @@ func NewStepRunContext(jobContext *JobRunContext, stepRun StepRun) *StepRunConte
 	return &StepRunContext{
 		job:         jobContext,
 		parent:      nil,
+		children:    make(map[string]*StepRunContext),
 		stepRun:     stepRun,
 		envOverride: make(map[string]string),
 		input:       make(map[string]string),
@@ -37,14 +39,22 @@ func NewStepRunContext(jobContext *JobRunContext, stepRun StepRun) *StepRunConte
 }
 
 func (c *StepRunContext) NewChildContext(stepRun StepRun) *StepRunContext {
-	return &StepRunContext{
+	rChildCtx := &StepRunContext{
 		job:         c.job,
 		parent:      c,
+		children:    make(map[string]*StepRunContext),
 		stepRun:     stepRun,
 		envOverride: make(map[string]string),
 		input:       make(map[string]string),
 		result:      &contexts.Step{},
 	}
+
+	c.children[stepRun.StepId()] = rChildCtx
+	return rChildCtx
+}
+
+func (c *StepRunContext) ChildContext(id string) *StepRunContext {
+	return c.children[id]
 }
 
 func (c *StepRunContext) ContextData(name string) context.Context {
