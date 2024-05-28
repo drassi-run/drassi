@@ -9,15 +9,14 @@ import (
 	"time"
 
 	"github.com/dungdm93/drassi/core/pkg/model/contexts"
-	"github.com/dungdm93/drassi/core/pkg/model/workflows"
 	"github.com/dungdm93/drassi/core/pkg/sandboxer"
 	utilreader "github.com/dungdm93/drassi/core/pkg/util/reader"
 )
 
 type StepRunContext struct {
-	job    *JobRunContext
-	parent *StepRunContext
-	step   workflows.Step
+	job     *JobRunContext
+	parent  *StepRunContext
+	stepRun StepRun
 
 	envOverride map[string]string
 	input       map[string]string
@@ -26,22 +25,22 @@ type StepRunContext struct {
 	state  map[string]string
 }
 
-func NewStepRunContext(jobContext *JobRunContext, step workflows.Step) *StepRunContext {
+func NewStepRunContext(jobContext *JobRunContext, stepRun StepRun) *StepRunContext {
 	return &StepRunContext{
 		job:         jobContext,
 		parent:      nil,
-		step:        step,
+		stepRun:     stepRun,
 		envOverride: make(map[string]string),
 		input:       make(map[string]string),
 		result:      &contexts.Step{},
 	}
 }
 
-func (c *StepRunContext) NewChildContext(step workflows.Step) *StepRunContext {
+func (c *StepRunContext) NewChildContext(stepRun StepRun) *StepRunContext {
 	return &StepRunContext{
 		job:         c.job,
 		parent:      c,
-		step:        step,
+		stepRun:     stepRun,
 		envOverride: make(map[string]string),
 		input:       make(map[string]string),
 		result:      &contexts.Step{},
@@ -61,7 +60,7 @@ func (c *StepRunContext) DefaultValue(name string) any {
 	case "job.step.timeout-minutes":
 		return int64(360)
 	case "job.step.working-directory":
-		return c.job.defaultRun.workDir
+		return c.job.defaults.Run.WorkingDir
 	default:
 		return nil
 	}
@@ -79,13 +78,23 @@ func (c *StepRunContext) RootContext() *StepRunContext {
 	return r
 }
 
-func (c *StepRunContext) RunStep(ctx context.Context, task *Task) error {
-	base := c.step.Base()
-	if task.StepID != base.Id {
-		return fmt.Errorf("task step ID does not match step ID %s", task.StepID)
+func (c *StepRunContext) Initialize(ctx context.Context) error {
+	return c.stepRun.Initialize(ctx, c)
+}
+
+func (c *StepRunContext) RunStep(ctx context.Context, fn func(StepRun) *Task) error {
+	task := fn(c.stepRun)
+	if task == nil {
+		return nil
 	}
 
-	if err := c.setupEnv(ctx, c.step); err != nil {
+	return c.runTask(ctx, task)
+}
+
+func (c *StepRunContext) runTask(ctx context.Context, task *Task) error {
+	base := c.stepRun.Base()
+
+	if err := c.setupEnv(ctx, c.stepRun); err != nil {
 		return err
 	}
 
@@ -104,7 +113,7 @@ func (c *StepRunContext) RunStep(ctx context.Context, task *Task) error {
 		return err
 	}
 
-	timeout, err := base.TimeoutMinutes.Evaluate("job.step.timeout-minutes", c)
+	timeout, err := base.TimeoutInMinutes.Evaluate("job.step.timeout-minutes", c)
 	if err != nil {
 		return err
 	}
@@ -205,7 +214,7 @@ func (c *StepRunContext) setOutput(output map[string]string) error {
 	return nil
 }
 
-func (c *StepRunContext) setupEnv(ctx context.Context, step workflows.Step) error {
+func (c *StepRunContext) setupEnv(ctx context.Context, step StepRun) error {
 	// TODO "implement me"
 	return nil
 }

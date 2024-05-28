@@ -22,7 +22,7 @@ func (sr *DockerStepRun) PreTask() *Task {
 
 func (sr *DockerStepRun) MainTask() *Task {
 	return &Task{
-		StepID:    sr.UUID,
+		StepID:    sr.ID,
 		Stage:     StageMain,
 		Condition: sr.Condition,
 		Run:       sr.executeMain,

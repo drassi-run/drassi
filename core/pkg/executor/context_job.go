@@ -4,6 +4,7 @@ import (
 	"context"
 	"slices"
 
+	"github.com/dungdm93/drassi/core/pkg/container"
 	"github.com/dungdm93/drassi/core/pkg/model/workflows"
 	"github.com/dungdm93/drassi/core/pkg/sandboxer"
 	"golang.org/x/sync/errgroup"
@@ -15,33 +16,25 @@ var (
 )
 
 type JobRunContext struct {
-	sandbox sandboxer.Sandbox
-	job     *workflows.NormalJob
+	JobRun *JobRun
 
-	defaultRun struct {
-		shell   string
-		workDir string
-	}
-
-	env   map[string]string
-	paths []string
-
+	sandbox      sandboxer.Sandbox
 	stepContexts map[string]*StepRunContext
-	executors    []StepRun
+
+	defaults workflows.Defaults
+	env      map[string]string
+	paths    []string
 }
 
 func (c *JobRunContext) ContextData(name string) context.Context {
-	//TODO implement me
 	panic("implement me")
 }
 
 func (c *JobRunContext) Functions(name string) []string {
-	//TODO implement me
 	panic("implement me")
 }
 
 func (c *JobRunContext) DefaultValue(name string) any {
-	//TODO implement me
 	panic("implement me")
 }
 
@@ -49,12 +42,58 @@ func (c *JobRunContext) Sandbox() sandboxer.Sandbox {
 	return c.sandbox
 }
 
-func (c *JobRunContext) RunJob(ctx context.Context) error {
-	if err := c.makeExecutors(); err != nil {
+func (c *JobRunContext) Initialize(ctx context.Context, runtime sandboxer.SandboxRuntime) error {
+	var err error
+	c.env, err = c.JobRun.Env.Evaluate("job.env", c)
+	if err != nil {
 		return err
 	}
 
-	if err := c.initializeExecutors(ctx); err != nil {
+	c.defaults, err = c.JobRun.Defaults.Evaluate("job.defaults", c)
+	if err != nil {
+		return err
+	}
+
+	var jobContainer *container.ContainerConfig
+	if con, err := c.JobRun.Container.Evaluate("job.container", c); err != nil {
+		return err
+	} else {
+		jobContainer, err = c.toContainerConfig(ctx, con)
+		if err != nil {
+			return err
+		}
+	}
+	var serviceContainers = make(map[string]*container.ContainerConfig)
+	if sers, err := c.JobRun.Services.Evaluate("job.services", c); err != nil {
+		return err
+	} else {
+		for name, ser := range sers {
+			con, err := c.toContainerConfig(ctx, ser)
+			if err != nil {
+				return err
+			}
+			serviceContainers[name] = con
+		}
+	}
+
+	req := sandboxer.LaunchSandboxRequest{
+		JobId:             c.JobRun.ID,
+		JobEnv:            c.env,
+		JobContainer:      jobContainer,
+		ServiceContainers: serviceContainers,
+	}
+	if res, err := runtime.LaunchSandbox(ctx, req); err != nil {
+		return err
+	} else {
+		c.sandbox = res.Sandbox
+	}
+	return nil
+}
+
+func (c *JobRunContext) RunJob(ctx context.Context) error {
+	c.makeStepRunContexts()
+
+	if err := c.initializeSteps(ctx); err != nil {
 		return err
 	}
 
@@ -70,45 +109,43 @@ func (c *JobRunContext) RunJob(ctx context.Context) error {
 	return nil
 }
 
-func (c *JobRunContext) makeExecutors() error {
-	c.stepContexts = make(map[string]*StepRunContext, len(c.job.Steps))
-	c.executors = make([]StepRun, len(c.job.Steps))
-	var err error
-	for i, step := range c.job.Steps {
-		c.stepContexts[step.Base().Id] = NewStepRunContext(c, step)
-		c.executors[i], err = NewStepExecutor(step)
-		if err != nil {
-			return err
-		}
+func (c *JobRunContext) Finalize(ctx context.Context, runtime sandboxer.SandboxRuntime) error {
+	req := sandboxer.TerminateSandboxRequest{
+		Sandbox: c.sandbox,
 	}
-	return nil
+	_, err := runtime.TerminateSandbox(ctx, req)
+	return err
 }
 
-func (c *JobRunContext) initializeExecutors(ctx context.Context) error {
+func (c *JobRunContext) makeStepRunContexts() {
+	c.stepContexts = make(map[string]*StepRunContext, len(c.JobRun.Steps))
+	for _, step := range c.JobRun.Steps {
+		c.stepContexts[step.StepId()] = NewStepRunContext(c, step)
+	}
+}
+
+func (c *JobRunContext) initializeSteps(ctx context.Context) error {
 	g, ctx := errgroup.WithContext(ctx)
-	for i, step := range c.job.Steps {
-		executor := c.executors[i]
-		rCtx := c.stepContexts[step.Base().Id]
+	for _, step := range c.JobRun.Steps {
+		rCtx := c.stepContexts[step.StepId()]
 		g.Go(func() error {
-			return executor.Initialize(ctx, rCtx)
+			return rCtx.Initialize(ctx)
 		})
 	}
 	return g.Wait()
 }
 
 func (c *JobRunContext) runStage(ctx context.Context, stage Stage, fn func(executor StepRun) *Task) error {
-	var tasks []*Task
-	for _, executor := range c.executors {
-		if t := fn(executor); t != nil {
-			tasks = append(tasks, t)
-		}
+	ids := make([]string, len(c.JobRun.Steps))
+	for i, step := range c.JobRun.Steps {
+		ids[i] = step.StepId()
 	}
 	if stage == StagePost {
-		slices.Reverse(tasks) // in place reverse
+		slices.Reverse(ids) // in place reverse
 	}
-	for _, task := range tasks {
-		rCtx := c.stepContexts[task.StepID]
-		if err := rCtx.RunStep(ctx, task); err != nil {
+	for _, id := range ids {
+		rCtx := c.stepContexts[id]
+		if err := rCtx.RunStep(ctx, fn); err != nil {
 			return err
 		}
 	}
@@ -156,4 +193,8 @@ func (c *JobRunContext) setEnv(env map[string]string) error {
 		c.env[k] = v
 	}
 	return nil
+}
+
+func (c *JobRunContext) toContainerConfig(ctx context.Context, container *workflows.Container) (*container.ContainerConfig, error) {
+	return nil, nil
 }

@@ -2,7 +2,6 @@ package executor
 
 import (
 	"context"
-	"fmt"
 	"slices"
 
 	"github.com/dungdm93/drassi/core/pkg/model/actions"
@@ -12,28 +11,21 @@ import (
 type compositeActionExecutor struct {
 	action *actions.CompositeRuns
 
-	executors []StepRun
-	contexts  map[string]*StepRunContext
+	stepRuns     []StepRun
+	stepContexts map[string]*StepRunContext
 }
 
 func (e *compositeActionExecutor) Initialize(ctx context.Context, rCtx *StepRunContext) (err error) {
-	steps := e.action.Steps
-	e.contexts = make(map[string]*StepRunContext, len(steps))
-	e.executors = make([]StepRun, len(steps))
-	for i, step := range steps {
-		e.contexts[step.Base().Id] = rCtx.NewChildContext(step)
-		e.executors[i], err = NewStepExecutor(step)
-		if err != nil {
-			return
-		}
+	e.stepContexts = make(map[string]*StepRunContext, len(e.stepRuns))
+	for _, step := range e.stepRuns {
+		e.stepContexts[step.StepId()] = rCtx.NewChildContext(step)
 	}
 
 	g, ctx := errgroup.WithContext(ctx)
-	for _, executor := range e.executors {
-		r := executor
-		rChildCtx := e.contexts[r.StepId()]
+	for _, step := range e.stepRuns {
+		rChildCtx := e.stepContexts[step.StepId()]
 		g.Go(func() error {
-			return r.Initialize(ctx, rChildCtx)
+			return rChildCtx.Initialize(ctx)
 		})
 	}
 	return g.Wait()
@@ -56,35 +48,24 @@ func (e *compositeActionExecutor) Action() actions.Runs {
 }
 
 func (e *compositeActionExecutor) createStageTask(stage Stage, fn func(StepRun) *Task) *Task {
-	var tasks []*Task
-	for _, executor := range e.executors {
-		if t := fn(executor); t != nil {
-			tasks = append(tasks, t)
-		}
+	taskIds := make([]string, len(e.stepRuns))
+	for i, step := range e.stepRuns {
+		taskIds[i] = step.StepId()
 	}
-	if len(tasks) == 0 {
-		return nil
+	if stage == StagePost {
+		slices.Reverse(taskIds) // in place reverse
 	}
 
 	return &Task{
 		Stage: stage,
-		Run:   e.executeTasks(stage, tasks),
-	}
-}
-
-func (e *compositeActionExecutor) executeTasks(stage Stage, tasks []*Task) func(context.Context, *StepRunContext) error {
-	if stage == StagePost {
-		slices.Reverse(tasks) // in place reverse
-	}
-
-	return func(ctx context.Context, rCtx *StepRunContext) error {
-		for _, task := range tasks {
-			rChildCtx := e.contexts[task.StepID]
-			if rChildCtx == nil || rChildCtx.parent != rCtx {
-				return fmt.Errorf("StepRunContext for task %s need to be initialize correctly", task.StepID)
+		Run: func(ctx context.Context, _ *StepRunContext) error {
+			for _, id := range taskIds {
+				rChildCtx := e.stepContexts[id]
+				if err := rChildCtx.RunStep(ctx, fn); err != nil {
+					return err
+				}
 			}
-			_ = rChildCtx.RunStep(ctx, task)
-		}
-		return nil
+			return nil
+		},
 	}
 }

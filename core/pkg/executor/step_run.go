@@ -23,7 +23,7 @@ func (sr *ScriptStepRun) PreTask() *Task {
 
 func (sr *ScriptStepRun) MainTask() *Task {
 	return &Task{
-		StepID:    sr.UUID,
+		StepID:    sr.ID,
 		Stage:     StageMain,
 		Condition: sr.Condition,
 		Run:       sr.executeMain,
@@ -39,7 +39,7 @@ func (sr *ScriptStepRun) executeMain(ctx context.Context, rCtx *StepRunContext) 
 	shell := Shell(sr.getShell(inputs, rCtx))
 	workdir, ok := inputs["workdir"]
 	if !ok {
-		workdir = rCtx.job.defaultRun.workDir
+		workdir = rCtx.job.defaults.Run.WorkingDir
 	}
 	script, ok := inputs["script"]
 	if !ok {
@@ -74,7 +74,7 @@ func (sr *ScriptStepRun) getShell(inputs map[string]string, rCtx *StepRunContext
 	if shell, ok := inputs["shell"]; ok {
 		return shell
 	}
-	return rCtx.job.defaultRun.shell
+	return rCtx.job.defaults.Run.Shell
 }
 
 func (sr *ScriptStepRun) getCommand(shell Shell, rCtx *StepRunContext) ([]string, string, error) {
