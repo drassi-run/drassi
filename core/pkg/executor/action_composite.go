@@ -18,9 +18,9 @@ type compositeActionRun struct {
 func (ar *compositeActionRun) Initialize(ctx context.Context, exec *StepExecutor) (err error) {
 	g, ctx := errgroup.WithContext(ctx)
 	for _, step := range ar.stepRuns {
-		childExec := exec.NewChildExecutor(step)
+		cExec := exec.NewChildExecutor(step)
 		g.Go(func() error {
-			return childExec.Initialize(ctx)
+			return cExec.Initialize(ctx)
 		})
 	}
 	return g.Wait()
@@ -55,11 +55,11 @@ func (ar *compositeActionRun) createStageTask(stage Stage, fn func(StepRun) *Tas
 		Stage: stage,
 		Run: func(ctx context.Context, exec *StepExecutor) error {
 			for _, id := range taskIds {
-				childExec := exec.ChildExecutor(id)
-				if childExec == nil {
+				cExec := exec.ChildExecutor(id)
+				if cExec == nil {
 					return fmt.Errorf(`task "%s" has no child context`, id)
 				}
-				if err := childExec.RunStep(ctx, fn); err != nil {
+				if err := cExec.RunStep(ctx, fn); err != nil {
 					return err
 				}
 			}

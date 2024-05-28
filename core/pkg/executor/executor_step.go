@@ -39,7 +39,7 @@ func NewStepExecutor(jobExecutor *JobExecutor, stepRun StepRun) *StepExecutor {
 }
 
 func (e *StepExecutor) NewChildExecutor(stepRun StepRun) *StepExecutor {
-	rChildCtx := &StepExecutor{
+	cExec := &StepExecutor{
 		job:         e.job,
 		parent:      e,
 		children:    make(map[string]*StepExecutor),
@@ -49,8 +49,8 @@ func (e *StepExecutor) NewChildExecutor(stepRun StepRun) *StepExecutor {
 		result:      &contexts.Step{},
 	}
 
-	e.children[stepRun.StepId()] = rChildCtx
-	return rChildCtx
+	e.children[stepRun.StepId()] = cExec
+	return cExec
 }
 
 func (e *StepExecutor) ChildExecutor(id string) *StepExecutor {
