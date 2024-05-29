@@ -2,49 +2,52 @@ package executor
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"strings"
 
-	"github.com/dungdm93/drassi/core/pkg/model/workflows"
 	utilreader "github.com/dungdm93/drassi/core/pkg/util/reader"
 )
 
-type runStepExecutor struct {
-	step *workflows.RunStep
+type ScriptStepRun struct {
+	BaseStepRun
 }
 
-func (e *runStepExecutor) Initialize(_ context.Context, _ *StepRunContext) error {
+func (sr *ScriptStepRun) Initialize(_ context.Context, _ *StepExecutor) error {
 	return nil
 }
 
-func (e *runStepExecutor) PreTask() *Task {
+func (sr *ScriptStepRun) PreTask() *Task {
 	return nil
 }
 
-func (e *runStepExecutor) MainTask() *Task {
+func (sr *ScriptStepRun) MainTask() *Task {
 	return &Task{
-		StepID:    e.step.Id,
+		StepID:    sr.ID,
 		Stage:     StageMain,
-		Condition: e.step.If,
-		Run:       e.executeMain,
+		Condition: sr.Condition,
+		Run:       sr.executeMain,
 	}
 }
 
-func (e *runStepExecutor) executeMain(ctx context.Context, rCtx *StepRunContext) error {
-	shell := Shell(e.getShell(rCtx))
-
-	workdir, err := e.step.WorkingDir.Evaluate("job.step.working-directory", rCtx)
+func (sr *ScriptStepRun) executeMain(ctx context.Context, exec *StepExecutor) error {
+	inputs, err := sr.Inputs.Evaluate("job.step", exec)
 	if err != nil {
 		return err
 	}
 
-	script, err := e.step.Run.Evaluate("job.step.run", rCtx)
-	if err != nil {
-		return err
+	shell := Shell(sr.getShell(inputs, exec))
+	workdir, ok := inputs["workdir"]
+	if !ok {
+		workdir = exec.job.defaults.Run.WorkingDir
+	}
+	script, ok := inputs["script"]
+	if !ok {
+		return fmt.Errorf("script not found")
 	}
 	script = shell.FixupScript(script)
 
-	cmd, scriptPath, err := e.getCommand(shell, rCtx)
+	cmd, scriptPath, err := sr.getCommand(shell, exec)
 	if err != nil {
 		return err
 	}
@@ -57,29 +60,25 @@ func (e *runStepExecutor) executeMain(ctx context.Context, rCtx *StepRunContext)
 		return err
 	}
 
-	if err = rCtx.Sandbox().CopyIn(ctx, reader, scriptPath); err != nil {
+	if err = exec.Sandbox().CopyIn(ctx, reader, scriptPath); err != nil {
 		return err
 	}
-	return rCtx.Sandbox().Execute(ctx, cmd, nil, workdir)
+	return exec.Sandbox().Execute(ctx, cmd, nil, workdir)
 }
 
-func (e *runStepExecutor) PostTask() *Task {
+func (sr *ScriptStepRun) PostTask() *Task {
 	return nil
 }
 
-func (e *runStepExecutor) Step() workflows.Step {
-	return e.step
-}
-
-func (e *runStepExecutor) getShell(rCtx *StepRunContext) string {
-	if e.step.Shell != "" {
-		return e.step.Shell
+func (sr *ScriptStepRun) getShell(inputs map[string]string, exec *StepExecutor) string {
+	if shell, ok := inputs["shell"]; ok {
+		return shell
 	}
-	return rCtx.job.defaultRun.shell
+	return exec.job.defaults.Run.Shell
 }
 
-func (e *runStepExecutor) getCommand(shell Shell, rCtx *StepRunContext) ([]string, string, error) {
-	scriptPath := e.getScriptPath(rCtx, shell, e.step.Id)
+func (sr *ScriptStepRun) getCommand(shell Shell, exec *StepExecutor) ([]string, string, error) {
+	scriptPath := sr.getScriptPath(exec, shell, sr.ID)
 	cmds, err := shell.Command()
 	if err != nil {
 		return nil, "", err
@@ -92,10 +91,10 @@ func (e *runStepExecutor) getCommand(shell Shell, rCtx *StepRunContext) ([]strin
 	return c, scriptPath, nil
 }
 
-func (e *runStepExecutor) getScriptPath(rCtx *StepRunContext, shell Shell, name string) string {
+func (sr *ScriptStepRun) getScriptPath(exec *StepExecutor, shell Shell, name string) string {
 	scriptName := name
 	//for stepInfo := &rc.StepInfo; stepInfo.Parent != nil; stepInfo = stepInfo.Parent {
 	//	scriptName = fmt.Sprintf("%s-composite-%s", stepInfo.Parent.StepId, scriptName)
 	//}
-	return filepath.Join(rCtx.Sandbox().GetTempDir(), "scripts", scriptName+shell.Extension())
+	return filepath.Join(exec.Sandbox().GetTempDir(), "scripts", scriptName+shell.Extension())
 }

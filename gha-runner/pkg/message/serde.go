@@ -1,10 +1,12 @@
-package gha
+package message
 
 import (
 	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
+
+	"github.com/dungdm93/drassi/core/pkg/model"
 )
 
 var zeroTime time.Time
@@ -13,28 +15,24 @@ func init() {
 	zeroTime, _ = time.Parse(time.TimeOnly, "00:00:00")
 }
 
+func Decode[M any](content []byte) (*M, error) {
+	var a any
+	if err := json.Unmarshal(content, &a); err != nil {
+		return nil, err
+	}
+
+	m := new(M)
+	if err := model.Decode(a, m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func (d *Duration) DecodeMapstructure(input any) (any, error) {
 	if s, ok := input.(string); ok {
 		return nil, d.parse(s)
 	} else {
 		return input, nil
-	}
-}
-
-func (d *Duration) UnmarshalJSON(b []byte) error {
-	var v any
-	if err := json.Unmarshal(b, &v); err != nil {
-		return err
-	}
-
-	switch value := v.(type) {
-	case float64:
-		d.Duration = time.Duration(value)
-		return nil
-	case string:
-		return d.parse(value)
-	default:
-		return errors.New("invalid duration")
 	}
 }
 
@@ -62,20 +60,6 @@ func (t *Time) DecodeMapstructure(input any) (any, error) {
 	}
 }
 
-func (t *Time) UnmarshalJSON(b []byte) error {
-	var v any
-	if err := json.Unmarshal(b, &v); err != nil {
-		return err
-	}
-
-	switch value := v.(type) {
-	case string:
-		return t.parse(value)
-	default:
-		return errors.New("invalid time")
-	}
-}
-
 func (t *Time) parse(s string) error {
 	// first try (RFC3339 format with zone info)
 	if dt, err := time.Parse(time.RFC3339, s); err == nil {
@@ -90,6 +74,16 @@ func (t *Time) parse(s string) error {
 	}
 
 	return errors.New("unknown time format: " + s)
+}
+
+func (t *TemplateToken) DecodeMapstructure(input any) (any, error) {
+	if s, ok := input.(string); ok {
+		t.Type = TokenTypeString
+		t.String = s
+		return nil, nil
+	} else {
+		return input, nil
+	}
 }
 
 func (cd *ContextData) DecodeMapstructure(input any) (any, error) {
@@ -107,25 +101,6 @@ func (cd *ContextData) DecodeMapstructure(input any) (any, error) {
 		}
 	}
 	return res, nil
-}
-
-func (cd *ContextData) UnmarshalJSON(b []byte) error {
-	var m map[string]any
-	if err := json.Unmarshal(b, &m); err != nil {
-		return err
-	}
-
-	var err error
-	var res = make(map[string]any, len(m))
-
-	for k, v := range m {
-		if res[k], err = DecodeContextData(k, v); err != nil {
-			return err
-		}
-	}
-	*cd = res
-
-	return nil
 }
 
 func DecodeContextData(name string, d any) (any, error) {

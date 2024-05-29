@@ -2,53 +2,42 @@ package executor
 
 import (
 	"context"
-	"fmt"
-	"strings"
 
 	"github.com/dungdm93/drassi/core/pkg/model/workflows"
 )
 
-type StepExecutor interface {
-	Initialize(ctx context.Context, rCtx *StepRunContext) error
+type StepRun interface {
+	StepId() string
+	Base() *BaseStepRun
+
+	Initialize(ctx context.Context, exec *StepExecutor) error
 	PreTask() *Task
 	MainTask() *Task
 	PostTask() *Task
-	Step() workflows.Step
 }
 
-// ensure StepExecutor implementations
+// ensure StepRun implementations
 var (
-	_ StepExecutor = (*runStepExecutor)(nil)
-	_ StepExecutor = (*usesDockerStepExecutor)(nil)
-	_ StepExecutor = (*usesActionStepExecutor)(nil)
+	_ StepRun = (*ScriptStepRun)(nil)
+	_ StepRun = (*DockerStepRun)(nil)
+	_ StepRun = (*RepositoryStepRun)(nil)
 )
 
-func NewStepExecutor(step workflows.Step) (StepExecutor, error) {
-	switch s := step.(type) {
-	case *workflows.RunStep:
-		r := &runStepExecutor{
-			step: s,
-		}
-		return r, nil
-	case *workflows.UsesStep:
-		if image, ok := strings.CutPrefix(s.Uses, "docker://"); ok {
-			e := &usesDockerStepExecutor{
-				step:  s,
-				image: image,
-			}
-			return e, nil
-		} else {
-			repo, err := parseRepository(s.Uses)
-			if err != nil {
-				return nil, err
-			}
-			e := &usesActionStepExecutor{
-				step: s,
-				repo: repo,
-			}
-			return e, nil
-		}
-	default:
-		return nil, fmt.Errorf("unknown step type: %T", step)
-	}
+type BaseStepRun struct {
+	ID               string
+	UUID             string
+	Name             workflows.Evaluable[string]
+	Condition        workflows.Conditional
+	ContinueOnError  workflows.Evaluable[bool]
+	TimeoutInMinutes workflows.Evaluable[int64]
+	Env              workflows.Evaluable[map[string]string]
+	Inputs           workflows.Evaluable[map[string]string]
+}
+
+func (s *BaseStepRun) StepId() string {
+	return s.ID
+}
+
+func (s *BaseStepRun) Base() *BaseStepRun {
+	return s
 }

@@ -91,7 +91,7 @@ type NormalJob struct {
 
 	// A map of default settings that will apply to all steps in the job.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_iddefaults
-	Defaults Defaults `json:"defaults,omitempty" yaml:"defaults,omitempty" mapstructure:"defaults,omitempty"`
+	Defaults Evaluable[Defaults] `json:"defaults,omitempty" yaml:"defaults,omitempty" mapstructure:"defaults,omitempty"`
 
 	// A job contains a sequence of tasks called steps. Steps can run commands, run setup tasks, or run an action in your repository,
 	// a public repository, or an action published in a Docker registry. Not all steps run actions, but all actions run as a step.
@@ -106,7 +106,7 @@ type NormalJob struct {
 	//
 	// Context available: `github`, `needs`, `strategy`, `matrix`, `vars`, `inputs`
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
-	TimeoutMinutes Evaluable[int64] `json:"timeout-minutes,omitempty" yaml:"timeout-minutes,omitempty" mapstructure:"timeout-minutes,omitempty"`
+	TimeoutInMinutes Evaluable[int64] `json:"timeout-minutes,omitempty" yaml:"timeout-minutes,omitempty" mapstructure:"timeout-minutes,omitempty"`
 
 	// A container to run any steps in a job that don't already specify a container.
 	// If you have steps that use both script and container actions,

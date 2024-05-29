@@ -7,74 +7,74 @@ import (
 	"github.com/dungdm93/drassi/core/pkg/model/actions"
 )
 
-type dockerActionExecutor struct {
+type dockerActionRun struct {
 	action *actions.DockerRuns
 	image  string
 }
 
-func (e *dockerActionExecutor) Initialize(ctx context.Context, rCtx *StepRunContext) error {
-	if i, ok := strings.CutPrefix(e.action.Image, "docker://"); ok {
+func (ar *dockerActionRun) Initialize(ctx context.Context, exec *StepExecutor) error {
+	if i, ok := strings.CutPrefix(ar.action.Image, "docker://"); ok {
 		// TODO pull image
-		e.image = i
+		ar.image = i
 	} else {
-		e.image = "" // random string
+		ar.image = "" // random string
 		// TODO build image from ./path/to/Dockerfile
 	}
 	return nil
 }
 
-func (e *dockerActionExecutor) PreTask() *Task {
-	if e.action.PreEntrypoint == "" {
+func (ar *dockerActionRun) PreTask() *Task {
+	if ar.action.PreEntrypoint == "" {
 		return nil
 	}
 	return &Task{
 		Stage:     StagePre,
-		Condition: e.action.PreIf,
-		Run:       e.executePre,
+		Condition: ar.action.PreIf,
+		Run:       ar.executePre,
 	}
 }
 
-func (e *dockerActionExecutor) executePre(ctx context.Context, rCtx *StepRunContext) error {
-	entrypoint := []string{e.action.PreEntrypoint}
-	env := e.evaluateEnv()
-	return rCtx.Sandbox().RunContainer(ctx, e.image, entrypoint, nil, env, "")
+func (ar *dockerActionRun) executePre(ctx context.Context, exec *StepExecutor) error {
+	entrypoint := []string{ar.action.PreEntrypoint}
+	env := ar.evaluateEnv()
+	return exec.Sandbox().RunContainer(ctx, ar.image, entrypoint, nil, env, "")
 }
 
-func (e *dockerActionExecutor) MainTask() *Task {
+func (ar *dockerActionRun) MainTask() *Task {
 	return &Task{
 		Stage: StageMain,
-		Run:   e.executeMain,
+		Run:   ar.executeMain,
 	}
 }
 
-func (e *dockerActionExecutor) executeMain(ctx context.Context, rCtx *StepRunContext) error {
-	entrypoint := []string{e.action.Entrypoint}
-	env := e.evaluateEnv()
-	return rCtx.Sandbox().RunContainer(ctx, e.image, entrypoint, nil, env, "")
+func (ar *dockerActionRun) executeMain(ctx context.Context, exec *StepExecutor) error {
+	entrypoint := []string{ar.action.Entrypoint}
+	env := ar.evaluateEnv()
+	return exec.Sandbox().RunContainer(ctx, ar.image, entrypoint, nil, env, "")
 }
 
-func (e *dockerActionExecutor) PostTask() *Task {
-	if e.action.PostEntrypoint == "" {
+func (ar *dockerActionRun) PostTask() *Task {
+	if ar.action.PostEntrypoint == "" {
 		return nil
 	}
 	return &Task{
 		Stage:     StagePost,
-		Condition: e.action.PreIf,
-		Run:       e.executePre,
+		Condition: ar.action.PreIf,
+		Run:       ar.executePre,
 	}
 }
 
-func (e *dockerActionExecutor) executePost(ctx context.Context, rCtx *StepRunContext) error {
-	entrypoint := []string{e.action.PostEntrypoint}
-	env := e.evaluateEnv()
-	return rCtx.Sandbox().RunContainer(ctx, e.image, entrypoint, nil, env, "")
+func (ar *dockerActionRun) executePost(ctx context.Context, exec *StepExecutor) error {
+	entrypoint := []string{ar.action.PostEntrypoint}
+	env := ar.evaluateEnv()
+	return exec.Sandbox().RunContainer(ctx, ar.image, entrypoint, nil, env, "")
 }
 
-func (e *dockerActionExecutor) Action() actions.Runs {
-	return e.action
+func (ar *dockerActionRun) Action() actions.Runs {
+	return ar.action
 }
 
-func (e *dockerActionExecutor) evaluateEnv() map[string]string {
-	// TODO compute env from  e.action.Env
+func (ar *dockerActionRun) evaluateEnv() map[string]string {
+	// TODO compute env from  ar.action.Env
 	return nil
 }

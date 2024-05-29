@@ -1,4 +1,4 @@
-package gha
+package message
 
 import (
 	"github.com/google/go-cmp/cmp"

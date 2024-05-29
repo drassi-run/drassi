@@ -34,7 +34,7 @@ type Workflow struct {
 
 	// A map of default settings that will apply to all jobs in the workflow.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#defaults
-	Defaults Defaults `json:"defaults,omitempty" yaml:"defaults,omitempty" mapstructure:"defaults,omitempty"`
+	Defaults Evaluable[Defaults] `json:"defaults,omitempty" yaml:"defaults,omitempty" mapstructure:"defaults,omitempty"`
 
 	// Concurrency ensures that only a single job or workflow using the same concurrency group will run at a time.
 	// A concurrency group can be any string or expression. The expression can use any context except for the secrets context.
@@ -102,8 +102,8 @@ type Defaults struct {
 	// - in job level: `github`, `needs`, `strategy`, `matrix`, `env`, `vars`, `inputs`
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
 	Run struct {
-		Shell      string            `json:"shell,omitempty" yaml:"shell,omitempty" mapstructure:"shell,omitempty"`
-		WorkingDir Evaluable[string] `json:"working-directory,omitempty" yaml:"working-directory,omitempty" mapstructure:"working-directory,omitempty"`
+		Shell      string `json:"shell,omitempty" yaml:"shell,omitempty" mapstructure:"shell,omitempty"`
+		WorkingDir string `json:"working-directory,omitempty" yaml:"working-directory,omitempty" mapstructure:"working-directory,omitempty"`
 	} `json:"run,omitempty" yaml:"run,omitempty" mapstructure:"run,omitempty"`
 }
 
