@@ -112,15 +112,17 @@ func (e *StepExecutor) runTask(ctx context.Context, task *Task) error {
 		return err
 	}
 
-	if meet, err := task.Condition.Meet("job.step", e); err != nil {
-		e.result.Conclusion = contexts.ActionResultFailure
-		e.result.Outcome = contexts.ActionResultFailure
-		return err
-	} else if !meet {
-		e.result.Conclusion = contexts.ActionResultSkipped
-		e.result.Outcome = contexts.ActionResultSkipped
-		// TODO logging
-		return nil
+	if task.Condition != nil {
+		if meet, err := task.Condition.Meet("job.step", e); err != nil {
+			e.result.Conclusion = contexts.ActionResultFailure
+			e.result.Outcome = contexts.ActionResultFailure
+			return err
+		} else if !meet {
+			e.result.Conclusion = contexts.ActionResultSkipped
+			e.result.Outcome = contexts.ActionResultSkipped
+			// TODO logging
+			return nil
+		}
 	}
 
 	if err := e.initializeRunStep(ctx); err != nil {

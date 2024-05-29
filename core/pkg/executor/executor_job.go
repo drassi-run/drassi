@@ -27,15 +27,15 @@ type JobExecutor struct {
 }
 
 func (e *JobExecutor) ContextData(name string) context.Context {
-	panic("implement me")
+	return context.Background()
 }
 
 func (e *JobExecutor) Functions(name string) []string {
-	panic("implement me")
+	return nil
 }
 
 func (e *JobExecutor) DefaultValue(name string) any {
-	panic("implement me")
+	return nil
 }
 
 func (e *JobExecutor) Sandbox() sandboxer.Sandbox {
@@ -54,41 +54,10 @@ func (e *JobExecutor) Initialize(ctx context.Context, runtime sandboxer.SandboxR
 		return err
 	}
 
-	var jobContainer *container.ContainerConfig
-	if con, err := e.JobRun.Container.Evaluate("job.container", e); err != nil {
+	if err = e.initializeSandbox(ctx, runtime); err != nil {
 		return err
-	} else {
-		jobContainer, err = e.toContainerConfig(ctx, con)
-		if err != nil {
-			return err
-		}
-	}
-	var serviceContainers = make(map[string]*container.ContainerConfig)
-	if sers, err := e.JobRun.Services.Evaluate("job.services", e); err != nil {
-		return err
-	} else {
-		for name, ser := range sers {
-			con, err := e.toContainerConfig(ctx, ser)
-			if err != nil {
-				return err
-			}
-			serviceContainers[name] = con
-		}
 	}
 
-	req := sandboxer.LaunchSandboxRequest{
-		JobId:             e.JobRun.ID,
-		JobEnv:            e.env,
-		JobContainer:      jobContainer,
-		ServiceContainers: serviceContainers,
-	}
-	if res, err := runtime.LaunchSandbox(ctx, req); err != nil {
-		return err
-	} else {
-		e.sandbox = res.Sandbox
-	}
-
-	e.makeStepExecutors()
 	return e.initializeSteps(ctx)
 }
 
@@ -113,17 +82,50 @@ func (e *JobExecutor) Finalize(ctx context.Context, runtime sandboxer.SandboxRun
 	return err
 }
 
-func (e *JobExecutor) makeStepExecutors() {
-	e.stepExecutors = make(map[string]*StepExecutor, len(e.JobRun.Steps))
-	for _, step := range e.JobRun.Steps {
-		e.stepExecutors[step.StepId()] = NewStepExecutor(e, step)
+func (e *JobExecutor) initializeSandbox(ctx context.Context, runtime sandboxer.SandboxRuntime) error {
+	var jobContainer *container.ContainerConfig
+	if con, err := e.JobRun.Container.Evaluate("job.container", e); err != nil {
+		return err
+	} else {
+		jobContainer, err = e.toContainerConfig(ctx, con)
+		if err != nil {
+			return err
+		}
 	}
+
+	var serviceContainers = make(map[string]*container.ContainerConfig)
+	if sers, err := e.JobRun.Services.Evaluate("job.services", e); err != nil {
+		return err
+	} else {
+		for name, ser := range sers {
+			con, err := e.toContainerConfig(ctx, ser)
+			if err != nil {
+				return err
+			}
+			serviceContainers[name] = con
+		}
+	}
+
+	req := sandboxer.LaunchSandboxRequest{
+		JobId:             e.JobRun.ID,
+		JobEnv:            e.env,
+		JobContainer:      jobContainer,
+		ServiceContainers: serviceContainers,
+	}
+	if res, err := runtime.LaunchSandbox(ctx, req); err != nil {
+		return err
+	} else {
+		e.sandbox = res.Sandbox
+	}
+	return nil
 }
 
 func (e *JobExecutor) initializeSteps(ctx context.Context) error {
+	e.stepExecutors = make(map[string]*StepExecutor, len(e.JobRun.Steps))
 	g, ctx := errgroup.WithContext(ctx)
 	for _, step := range e.JobRun.Steps {
-		exec := e.stepExecutors[step.StepId()]
+		exec := NewStepExecutor(e, step)
+		e.stepExecutors[step.StepId()] = exec
 		g.Go(func() error {
 			return exec.Initialize(ctx)
 		})
