@@ -26,18 +26,6 @@ type StepExecutor struct {
 	state  map[string]string
 }
 
-func NewStepExecutor(jobExecutor *JobExecutor, stepRun StepRun) *StepExecutor {
-	return &StepExecutor{
-		job:         jobExecutor,
-		parent:      nil,
-		children:    make(map[string]*StepExecutor),
-		stepRun:     stepRun,
-		envOverride: make(map[string]string),
-		input:       make(map[string]string),
-		result:      &contexts.Step{},
-	}
-}
-
 func (e *StepExecutor) NewChildExecutor(stepRun StepRun) *StepExecutor {
 	cExec := &StepExecutor{
 		job:         e.job,

@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/dungdm93/drassi/core/pkg/container"
+	"github.com/dungdm93/drassi/core/pkg/model/contexts"
 	"github.com/dungdm93/drassi/core/pkg/model/workflows"
 	"github.com/dungdm93/drassi/core/pkg/sandboxer"
 	"golang.org/x/sync/errgroup"
@@ -24,6 +25,20 @@ type JobExecutor struct {
 	defaults workflows.Defaults
 	env      map[string]string
 	paths    []string
+}
+
+func (e *JobExecutor) NewStepExecutor(step StepRun) *StepExecutor {
+	exec := &StepExecutor{
+		job:         e,
+		parent:      nil,
+		children:    make(map[string]*StepExecutor),
+		stepRun:     step,
+		envOverride: make(map[string]string),
+		input:       make(map[string]string),
+		result:      &contexts.Step{},
+	}
+	e.stepExecutors[step.StepId()] = exec
+	return exec
 }
 
 func (e *JobExecutor) ContextData(name string) context.Context {
@@ -124,8 +139,7 @@ func (e *JobExecutor) initializeSteps(ctx context.Context) error {
 	e.stepExecutors = make(map[string]*StepExecutor, len(e.JobRun.Steps))
 	g, ctx := errgroup.WithContext(ctx)
 	for _, step := range e.JobRun.Steps {
-		exec := NewStepExecutor(e, step)
-		e.stepExecutors[step.StepId()] = exec
+		exec := e.NewStepExecutor(step)
 		g.Go(func() error {
 			return exec.Initialize(ctx)
 		})
