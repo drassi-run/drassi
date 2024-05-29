@@ -87,16 +87,12 @@ func (e *JobExecutor) Initialize(ctx context.Context, runtime sandboxer.SandboxR
 	} else {
 		e.sandbox = res.Sandbox
 	}
-	return nil
+
+	e.makeStepExecutors()
+	return e.initializeSteps(ctx)
 }
 
 func (e *JobExecutor) RunJob(ctx context.Context) error {
-	e.makeStepExecutors()
-
-	if err := e.initializeSteps(ctx); err != nil {
-		return err
-	}
-
 	if err := e.runStage(ctx, StagePre, StepRun.PreTask); err != nil {
 		return err
 	}
@@ -135,7 +131,7 @@ func (e *JobExecutor) initializeSteps(ctx context.Context) error {
 	return g.Wait()
 }
 
-func (e *JobExecutor) runStage(ctx context.Context, stage Stage, fn func(executor StepRun) *Task) error {
+func (e *JobExecutor) runStage(ctx context.Context, stage Stage, fn func(StepRun) *Task) error {
 	ids := make([]string, len(e.JobRun.Steps))
 	for i, step := range e.JobRun.Steps {
 		ids[i] = step.StepId()
