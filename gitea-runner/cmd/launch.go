@@ -15,6 +15,8 @@ import (
 
 	runnerv1 "code.gitea.io/actions-proto-go/runner/v1"
 	"connectrpc.com/connect"
+	"github.com/dungdm93/drassi/core/pkg/model"
+	"github.com/dungdm93/drassi/core/pkg/model/workflows"
 	"github.com/dungdm93/drassi/gitea-runner/pkg/service"
 	"github.com/spf13/cobra"
 	"golang.org/x/time/rate"
@@ -124,12 +126,27 @@ func (c *launchCommand) fetchTask(ctx context.Context) (*runnerv1.Task, bool) {
 }
 
 func (c *launchCommand) runTask(ctx context.Context, task *runnerv1.Task) error {
-	var raw any
-	if err := yaml.NewDecoder(bytes.NewReader(task.WorkflowPayload)).Decode(&raw); err != nil && err != io.EOF {
+	workflow, err := c.decodeWorkflow(task.WorkflowPayload)
+	if err != nil {
 		return err
 	}
-	fmt.Printf("%#v\n", task)
+
+	fmt.Printf("%#v\n", workflow)
 	return nil
+}
+
+func (c *launchCommand) decodeWorkflow(payload []byte) (*workflows.Workflow, error) {
+	var raw any
+	reader := bytes.NewReader(payload)
+	if err := yaml.NewDecoder(reader).Decode(&raw); err != nil && err != io.EOF {
+		return nil, err
+	}
+
+	workflow := &workflows.Workflow{}
+	if err := model.Decode(raw, workflow); err != nil {
+		return nil, err
+	}
+	return workflow, nil
 }
 
 func (c *launchCommand) finalize(ctx context.Context) {
