@@ -3,12 +3,13 @@ package executor
 import (
 	"context"
 
+	"github.com/dungdm93/drassi/core/pkg/model"
 	"github.com/dungdm93/drassi/core/pkg/model/actions"
 )
 
 type javaScriptActionRun struct {
 	action *actions.JavaScriptRuns
-	repo   *Repository
+	repo   *model.Repository
 	rev    string
 }
 

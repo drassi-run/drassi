@@ -3,6 +3,7 @@ package executor
 import (
 	"context"
 
+	"github.com/dungdm93/drassi/core/pkg/model"
 	"github.com/dungdm93/drassi/core/pkg/model/workflows"
 )
 
@@ -12,7 +13,7 @@ import (
 // + Using a local action: `uses: ./.github/actions/hello-world-action`
 type RepositoryStepRun struct {
 	BaseStepRun
-	Repo Repository
+	Repo model.Repository
 
 	rev    string
 	action ActionRun
