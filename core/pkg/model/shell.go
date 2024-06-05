@@ -1,9 +1,8 @@
-package executor
+package model
 
 import (
 	"fmt"
 
-	"github.com/dungdm93/drassi/core/pkg/model"
 	"github.com/google/shlex"
 )
 
@@ -31,16 +30,16 @@ var (
 	powershellCommand = []string{"powershell", "-command", ". '{0}'"}
 )
 
-func (s Shell) SupportedPlatform(platform model.Machine) bool {
+func (s Shell) SupportedPlatform(platform Machine) bool {
 	switch s {
 	case "": // unspecified `shell` parameter
-		return platform == model.Linux || platform == model.MacOS
+		return platform == Linux || platform == MacOS
 	case Bash, Pwsh, Python:
 		return true // Support all platforms
 	case Sh:
-		return platform == model.Linux || platform == model.MacOS
+		return platform == Linux || platform == MacOS
 	case Cmd, Powershell:
-		return platform == model.Windows
+		return platform == Windows
 	default:
 		return true // Custom shell
 	}

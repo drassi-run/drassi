@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/dungdm93/drassi/core/pkg/model"
 	utilreader "github.com/dungdm93/drassi/core/pkg/util/reader"
 )
 
@@ -36,7 +37,7 @@ func (sr *ScriptStepRun) executeMain(ctx context.Context, exec *StepExecutor) er
 		return err
 	}
 
-	shell := Shell(sr.getShell(inputs, exec))
+	shell := model.Shell(sr.getShell(inputs, exec))
 	workdir, ok := inputs["workdir"]
 	if !ok {
 		workdir = exec.job.defaults.Run.WorkingDir
@@ -77,7 +78,7 @@ func (sr *ScriptStepRun) getShell(inputs map[string]string, exec *StepExecutor) 
 	return exec.job.defaults.Run.Shell
 }
 
-func (sr *ScriptStepRun) getCommand(shell Shell, exec *StepExecutor) ([]string, string, error) {
+func (sr *ScriptStepRun) getCommand(shell model.Shell, exec *StepExecutor) ([]string, string, error) {
 	scriptPath := sr.getScriptPath(exec, shell, sr.ID)
 	cmds, err := shell.Command()
 	if err != nil {
@@ -91,7 +92,7 @@ func (sr *ScriptStepRun) getCommand(shell Shell, exec *StepExecutor) ([]string, 
 	return c, scriptPath, nil
 }
 
-func (sr *ScriptStepRun) getScriptPath(exec *StepExecutor, shell Shell, name string) string {
+func (sr *ScriptStepRun) getScriptPath(exec *StepExecutor, shell model.Shell, name string) string {
 	scriptName := name
 	//for stepInfo := &rc.StepInfo; stepInfo.Parent != nil; stepInfo = stepInfo.Parent {
 	//	scriptName = fmt.Sprintf("%s-composite-%s", stepInfo.Parent.StepId, scriptName)
