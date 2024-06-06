@@ -43,9 +43,11 @@ type Command struct {
 	Value  string
 }
 
+type ConsoleCommandHandler = func(cmd *Command) error
+
 type regCmd struct {
 	echo    bool
-	handler func(cmd *Command) error
+	handler ConsoleCommandHandler
 }
 
 type ConsoleCommandManager struct {
@@ -69,7 +71,7 @@ func NewConsoleCommandManager(w io.Writer) *ConsoleCommandManager {
 	return mgr
 }
 
-func (mgr *ConsoleCommandManager) RegisterCommand(name string, echo bool, handler func(cmd *Command) error) error {
+func (mgr *ConsoleCommandManager) RegisterCommand(name string, echo bool, handler ConsoleCommandHandler) error {
 	if slices.Contains(builtinCommands, name) {
 		if _, ok := mgr.registeredCommands[name]; ok {
 			return fmt.Errorf("can't overwrite built-in command %s", name)
