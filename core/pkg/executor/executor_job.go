@@ -60,6 +60,10 @@ func (e *JobExecutor) DefaultValue(name string) any {
 	return nil
 }
 
+func (e *JobExecutor) Streams() *sandboxer.Streams {
+	return e.streams
+}
+
 func (e *JobExecutor) Sandbox() sandboxer.Sandbox {
 	return e.sandbox
 }

@@ -29,7 +29,7 @@ type incusSandbox struct {
 
 var _ sandboxer.Sandbox = (*incusSandbox)(nil)
 
-func (s *incusSandbox) Execute(ctx context.Context, cmd []string, env map[string]string, workdir string) error {
+func (s *incusSandbox) Execute(ctx context.Context, cmd []string, env map[string]string, workdir string, streams *sandboxer.Streams) error {
 	if s.jobContainerId == "" {
 		if workdir == "" || strings.HasPrefix(workdir, "./") {
 			workdir = filepath.Join(s.GetWorkspaceDir(), workdir)
