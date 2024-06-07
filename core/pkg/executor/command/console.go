@@ -99,6 +99,7 @@ func (mgr *ConsoleCommandManager) ParseCommand(line string) *Command {
 
 var cmdV2Regex = regexp.MustCompile(`^::([^\s:]+)( .*)?::(.*)$`)
 
+// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Common/ActionCommand.cs#L51
 func (mgr *ConsoleCommandManager) parseCommandV2(line string) *Command {
 	line = strings.TrimSpace(line)
 	if !strings.HasPrefix(line, "::") {
@@ -128,6 +129,7 @@ func (mgr *ConsoleCommandManager) parseCommandV2(line string) *Command {
 
 var cmdV1Regex = regexp.MustCompile(`##\[([^\s\]]+)( .*)?\](.*)$`)
 
+// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Common/ActionCommand.cs#L121
 func (mgr *ConsoleCommandManager) parseCommandV1(line string) *Command {
 	matches := cmdV1Regex.FindStringSubmatch(line)
 	if matches == nil {
@@ -210,6 +212,7 @@ func (mgr *ConsoleCommandManager) Process(line string, cmd *Command) error {
 	return handler(cmd)
 }
 
+// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L765
 func (mgr *ConsoleCommandManager) setEcho(cmd *Command) error {
 	mod := strings.TrimSpace(cmd.Value)
 	mod = strings.ToUpper(mod)
@@ -239,6 +242,7 @@ func (mgr *ConsoleCommandManager) resumeCommands(cmd *Command) error {
 	return mgr.RegisterCommand(cmd.Name, true, nil)
 }
 
+// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L156
 func (mgr *ConsoleCommandManager) validStopCommandToken(token string) bool {
 	if token == "" || strings.EqualFold(token, "pause-logging") {
 		return false

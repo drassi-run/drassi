@@ -37,6 +37,7 @@ func (h *consoleCommandHandlers) RegisterForStepExecutor(ctx context.Context, ex
 	_ = h.cmdMgr.RegisterCommand("save-state", true, h.saveState(executor))
 }
 
+// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L384
 func (h *consoleCommandHandlers) addSecretMask(e *JobExecutor) command.ConsoleCommandHandler {
 	return func(cmd *command.Command) error {
 		if cmd.Value == "" {
@@ -56,6 +57,7 @@ func (h *consoleCommandHandlers) addSecretMask(e *JobExecutor) command.ConsoleCo
 	}
 }
 
+// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L451
 func (h *consoleCommandHandlers) addProblemMatcher(ctx context.Context, e *JobExecutor) command.ConsoleCommandHandler {
 	return func(cmd *command.Command) error {
 		file := cmd.Value
@@ -75,6 +77,7 @@ func (h *consoleCommandHandlers) addProblemMatcher(ctx context.Context, e *JobEx
 	}
 }
 
+// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L498
 func (h *consoleCommandHandlers) removeProblemMatcher(ctx context.Context, e *JobExecutor) command.ConsoleCommandHandler {
 	return func(cmd *command.Command) error {
 		file := cmd.Value
@@ -123,6 +126,7 @@ func (h *consoleCommandHandlers) readProblemMatcherFile(ctx context.Context, e *
 	return matchers, nil
 }
 
+// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L751
 func (h *consoleCommandHandlers) groupingLog(e *JobExecutor) command.ConsoleCommandHandler {
 	return func(cmd *command.Command) error {
 		e.Log("", "##[group]"+cmd.Value)
@@ -130,6 +134,7 @@ func (h *consoleCommandHandlers) groupingLog(e *JobExecutor) command.ConsoleComm
 	}
 }
 
+// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L751
 func (h *consoleCommandHandlers) endGroupingLog(e *JobExecutor) command.ConsoleCommandHandler {
 	return func(cmd *command.Command) error {
 		e.Log("", "##[endgroup]")
@@ -137,6 +142,8 @@ func (h *consoleCommandHandlers) endGroupingLog(e *JobExecutor) command.ConsoleC
 	}
 }
 
+// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L566
+// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L600
 func (h *consoleCommandHandlers) logMessage(e *JobExecutor) command.ConsoleCommandHandler {
 	return func(cmd *command.Command) error {
 		// TODO
@@ -144,6 +151,7 @@ func (h *consoleCommandHandlers) logMessage(e *JobExecutor) command.ConsoleComma
 	}
 }
 
+// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L417
 func (h *consoleCommandHandlers) addPath(e *JobExecutor) command.ConsoleCommandHandler {
 	return func(cmd *command.Command) error {
 		paths := []string{cmd.Value}
@@ -151,6 +159,7 @@ func (h *consoleCommandHandlers) addPath(e *JobExecutor) command.ConsoleCommandH
 	}
 }
 
+// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L234
 func (h *consoleCommandHandlers) setEnv(e *JobExecutor) command.ConsoleCommandHandler {
 	return func(cmd *command.Command) error {
 		name, ok := cmd.Params["name"]
@@ -165,6 +174,7 @@ func (h *consoleCommandHandlers) setEnv(e *JobExecutor) command.ConsoleCommandHa
 	}
 }
 
+// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L301
 func (h *consoleCommandHandlers) setOutput(e *StepExecutor) command.ConsoleCommandHandler {
 	return func(cmd *command.Command) error {
 		name, ok := cmd.Params["name"]
@@ -179,6 +189,7 @@ func (h *consoleCommandHandlers) setOutput(e *StepExecutor) command.ConsoleComma
 	}
 }
 
+// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L336
 func (h *consoleCommandHandlers) saveState(e *StepExecutor) command.ConsoleCommandHandler {
 	return func(cmd *command.Command) error {
 		name, ok := cmd.Params["name"]
