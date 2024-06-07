@@ -1,15 +1,18 @@
-package executor
+package problem
 
-type ProblemMatchers struct {
-	ProblemMatcher []ProblemMatcher `json:"problemMatcher,omitempty"`
+// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/IssueMatcher.cs#L230
+type Configs struct {
+	ProblemMatcher []Config `json:"problemMatcher,omitempty"`
 }
 
-type ProblemMatcher struct {
+// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/IssueMatcher.cs#L274
+type Config struct {
 	Owner    string    `json:"owner,omitempty"`
 	Severity string    `json:"severity,omitempty"`
 	Pattern  []Pattern `json:"pattern,omitempty"`
 }
 
+// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/IssueMatcher.cs#L398
 type Pattern struct {
 	File     *int   `json:"file,omitempty"`
 	Line     *int   `json:"line,omitempty"`

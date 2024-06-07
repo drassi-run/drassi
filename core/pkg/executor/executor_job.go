@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/dungdm93/drassi/core/pkg/container"
+	"github.com/dungdm93/drassi/core/pkg/executor/problem"
 	"github.com/dungdm93/drassi/core/pkg/executor/secret"
 	"github.com/dungdm93/drassi/core/pkg/model/contexts"
 	"github.com/dungdm93/drassi/core/pkg/model/workflows"
@@ -217,7 +218,7 @@ func (e *JobExecutor) AddSecretMask(secret secret.Secret) {
 	// TODO
 }
 
-func (e *JobExecutor) AddProblemMatcher(pm ProblemMatcher) {
+func (e *JobExecutor) AddProblemMatcher(config problem.Config) {
 	// TODO
 }
 

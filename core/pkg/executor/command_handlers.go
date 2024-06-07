@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/dungdm93/drassi/core/pkg/executor/command"
+	"github.com/dungdm93/drassi/core/pkg/executor/problem"
 	"github.com/dungdm93/drassi/core/pkg/executor/secret"
 )
 
@@ -65,13 +66,13 @@ func (h *consoleCommandHandlers) addProblemMatcher(ctx context.Context, e *JobEx
 			return errors.New("file path must be specified in ##[add-matcher] command")
 		}
 
-		matchers, err := h.readProblemMatcherFile(ctx, e, file)
+		configs, err := h.readProblemMatcherFile(ctx, e, file)
 		if err != nil {
 			return err
 		}
 
-		for _, m := range matchers.ProblemMatcher {
-			e.AddProblemMatcher(m)
+		for _, config := range configs.ProblemMatcher {
+			e.AddProblemMatcher(config)
 		}
 		return nil
 	}
@@ -90,13 +91,13 @@ func (h *consoleCommandHandlers) removeProblemMatcher(ctx context.Context, e *Jo
 		if owner != "" {
 			owners = []string{owner}
 		} else {
-			matchers, err := h.readProblemMatcherFile(ctx, e, file)
+			configs, err := h.readProblemMatcherFile(ctx, e, file)
 			if err != nil {
 				return err
 			}
-			owners = make([]string, len(matchers.ProblemMatcher))
-			for i, m := range matchers.ProblemMatcher {
-				owners[i] = m.Owner
+			owners = make([]string, len(configs.ProblemMatcher))
+			for i, config := range configs.ProblemMatcher {
+				owners[i] = config.Owner
 			}
 		}
 
@@ -108,7 +109,7 @@ func (h *consoleCommandHandlers) removeProblemMatcher(ctx context.Context, e *Jo
 	}
 }
 
-func (h *consoleCommandHandlers) readProblemMatcherFile(ctx context.Context, e *JobExecutor, file string) (*ProblemMatchers, error) {
+func (h *consoleCommandHandlers) readProblemMatcherFile(ctx context.Context, e *JobExecutor, file string) (*problem.Configs, error) {
 	if filepath.IsLocal(file) {
 		ws := e.Sandbox().GetWorkspaceDir()
 		file = filepath.Join(ws, file)
@@ -119,11 +120,11 @@ func (h *consoleCommandHandlers) readProblemMatcherFile(ctx context.Context, e *
 	}
 	defer reader.Close()
 
-	matchers := new(ProblemMatchers)
-	if err = json.NewDecoder(reader).Decode(matchers); err != nil {
+	conf := new(problem.Configs)
+	if err = json.NewDecoder(reader).Decode(conf); err != nil {
 		return nil, err
 	}
-	return matchers, nil
+	return conf, nil
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L751
