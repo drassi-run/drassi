@@ -41,6 +41,10 @@ func (e *StepExecutor) NewChildExecutor(stepRun StepRun) *StepExecutor {
 	return cExec
 }
 
+func (e *StepExecutor) JobExecutor() *JobExecutor {
+	return e.job
+}
+
 func (e *StepExecutor) ChildExecutor(id string) *StepExecutor {
 	return e.children[id]
 }
@@ -181,16 +185,16 @@ func (e *StepExecutor) initializeRunStep(ctx context.Context) error {
 func (e *StepExecutor) finalizeRunStep(ctx context.Context) error {
 	fileCommandsDir := filepath.Join(e.Sandbox().GetTempDir(), "file_commands")
 
-	if err := updateRunContext(ctx, e, filepath.Join(fileCommandsDir, "GITHUB_OUTPUT"), utilreader.ParseEnvVars, e.setOutput); err != nil {
+	if err := updateRunContext(ctx, e, filepath.Join(fileCommandsDir, "GITHUB_OUTPUT"), utilreader.ParseEnvVars, e.SetOutput); err != nil {
 		return err
 	}
-	if err := updateRunContext(ctx, e, filepath.Join(fileCommandsDir, "GITHUB_STATE"), utilreader.ParseEnvVars, e.saveState); err != nil {
+	if err := updateRunContext(ctx, e, filepath.Join(fileCommandsDir, "GITHUB_STATE"), utilreader.ParseEnvVars, e.SaveState); err != nil {
 		return err
 	}
-	if err := updateRunContext(ctx, e, filepath.Join(fileCommandsDir, "GITHUB_PATH"), utilreader.ReadLine, e.job.addPath); err != nil {
+	if err := updateRunContext(ctx, e, filepath.Join(fileCommandsDir, "GITHUB_PATH"), utilreader.ReadLine, e.job.AddPath); err != nil {
 		return err
 	}
-	if err := updateRunContext(ctx, e, filepath.Join(fileCommandsDir, "GITHUB_ENV"), utilreader.ParseEnvVars, e.job.setEnv); err != nil {
+	if err := updateRunContext(ctx, e, filepath.Join(fileCommandsDir, "GITHUB_ENV"), utilreader.ParseEnvVars, e.job.SetEnv); err != nil {
 		return err
 	}
 	// TODO update GITHUB_STEP_SUMMARY
@@ -199,21 +203,21 @@ func (e *StepExecutor) finalizeRunStep(ctx context.Context) error {
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L186
 // https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#adding-a-job-summary
-func (e *StepExecutor) createStepSummary() error {
+func (e *StepExecutor) CreateStepSummary() error {
 	panic("implement me")
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L260
 // https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#sending-values-to-the-pre-and-post-actions
-func (e *StepExecutor) saveState(state map[string]string) error {
-	// TODO if composite step -> return e.root.saveState(state)
+func (e *StepExecutor) SaveState(state map[string]string) error {
+	// TODO if composite step -> return e.root.SaveState(state)
 	e.state = state
 	return nil
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L293
 // https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#setting-an-output-parameter
-func (e *StepExecutor) setOutput(output map[string]string) error {
+func (e *StepExecutor) SetOutput(output map[string]string) error {
 	e.result.Outputs = output
 	return nil
 }

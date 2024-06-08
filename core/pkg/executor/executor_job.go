@@ -2,9 +2,11 @@ package executor
 
 import (
 	"context"
+	"fmt"
 	"slices"
 
 	"github.com/dungdm93/drassi/core/pkg/container"
+	"github.com/dungdm93/drassi/core/pkg/executor/secret"
 	"github.com/dungdm93/drassi/core/pkg/model/contexts"
 	"github.com/dungdm93/drassi/core/pkg/model/workflows"
 	"github.com/dungdm93/drassi/core/pkg/sandboxer"
@@ -39,6 +41,10 @@ func (e *JobExecutor) NewStepExecutor(step StepRun) *StepExecutor {
 	}
 	e.stepExecutors[step.StepId()] = exec
 	return exec
+}
+
+func (e *JobExecutor) StepExecutor(id string) *StepExecutor {
+	return e.stepExecutors[id]
 }
 
 func (e *JobExecutor) ContextData(name string) context.Context {
@@ -156,7 +162,7 @@ func (e *JobExecutor) runStage(ctx context.Context, stage Stage, fn func(StepRun
 		slices.Reverse(ids) // in place reverse
 	}
 	for _, id := range ids {
-		exec := e.stepExecutors[id]
+		exec := e.StepExecutor(id)
 		if err := exec.RunStep(ctx, fn); err != nil {
 			return err
 		}
@@ -168,7 +174,7 @@ func (e *JobExecutor) runStage(ctx context.Context, stage Stage, fn func(StepRun
 // Add paths to the context and remove duplicates
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L107
 // https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#adding-a-system-path
-func (e *JobExecutor) addPath(paths []string) error {
+func (e *JobExecutor) AddPath(paths []string) error {
 	if len(paths) == 0 {
 		return nil
 	}
@@ -196,7 +202,7 @@ func (e *JobExecutor) addPath(paths []string) error {
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L132
 // https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#setting-an-environment-variable
-func (e *JobExecutor) setEnv(env map[string]string) error {
+func (e *JobExecutor) SetEnv(env map[string]string) error {
 	for k, v := range env {
 		if setEnvBlockList.Has(k) {
 			// TODO context.AddIssue
@@ -205,6 +211,24 @@ func (e *JobExecutor) setEnv(env map[string]string) error {
 		e.env[k] = v
 	}
 	return nil
+}
+
+func (e *JobExecutor) AddSecretMask(secret secret.Secret) {
+	// TODO
+}
+
+func (e *JobExecutor) AddProblemMatcher(pm ProblemMatcher) {
+	// TODO
+}
+
+func (e *JobExecutor) RemoveProblemMatcher(owner string) {
+	// TODO
+}
+
+func (e *JobExecutor) Log(tag, format string, a ...any) {
+	// TODO
+	message := fmt.Sprintf(format, a...)
+	fmt.Println(message)
 }
 
 func (e *JobExecutor) toContainerConfig(ctx context.Context, container *workflows.Container) (*container.ContainerConfig, error) {
