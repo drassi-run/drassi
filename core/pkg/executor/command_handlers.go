@@ -66,12 +66,12 @@ func (h *consoleCommandHandlers) addProblemMatcher(ctx context.Context, e *JobEx
 			return errors.New("file path must be specified in ##[add-matcher] command")
 		}
 
-		configs, err := h.readProblemMatcherFile(ctx, e, file)
+		conf, err := h.readProblemMatcherFile(ctx, e, file)
 		if err != nil {
 			return err
 		}
 
-		for _, config := range configs.ProblemMatcher {
+		for _, config := range conf.Configs {
 			e.AddProblemMatcher(config)
 		}
 		return nil
@@ -91,12 +91,12 @@ func (h *consoleCommandHandlers) removeProblemMatcher(ctx context.Context, e *Jo
 		if owner != "" {
 			owners = []string{owner}
 		} else {
-			configs, err := h.readProblemMatcherFile(ctx, e, file)
+			conf, err := h.readProblemMatcherFile(ctx, e, file)
 			if err != nil {
 				return err
 			}
-			owners = make([]string, len(configs.ProblemMatcher))
-			for i, config := range configs.ProblemMatcher {
+			owners = make([]string, len(conf.Configs))
+			for i, config := range conf.Configs {
 				owners[i] = config.Owner
 			}
 		}
@@ -109,7 +109,7 @@ func (h *consoleCommandHandlers) removeProblemMatcher(ctx context.Context, e *Jo
 	}
 }
 
-func (h *consoleCommandHandlers) readProblemMatcherFile(ctx context.Context, e *JobExecutor, file string) (*problem.Configs, error) {
+func (h *consoleCommandHandlers) readProblemMatcherFile(ctx context.Context, e *JobExecutor, file string) (*problem.MatcherConfigs, error) {
 	if filepath.IsLocal(file) {
 		ws := e.Sandbox().GetWorkspaceDir()
 		file = filepath.Join(ws, file)
@@ -120,7 +120,7 @@ func (h *consoleCommandHandlers) readProblemMatcherFile(ctx context.Context, e *
 	}
 	defer reader.Close()
 
-	conf := new(problem.Configs)
+	conf := new(problem.MatcherConfigs)
 	if err = json.NewDecoder(reader).Decode(conf); err != nil {
 		return nil, err
 	}

@@ -10,20 +10,22 @@ import (
 )
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/IssueMatcher.cs#L230
-type Configs struct {
-	ProblemMatcher []Config `json:"problemMatcher,omitempty"`
+type MatcherConfigs struct {
+	Configs []Config `json:"problemMatcher,omitempty"`
 }
 
-func (c *Configs) Validate() error {
+func (c *MatcherConfigs) Validate() error {
 	distinctOwners := sets.New[string]()
-	for _, config := range c.ProblemMatcher {
+	for _, config := range c.Configs {
 		if err := config.Validate(); err != nil {
 			return err
 		}
-		if distinctOwners.Has(config.Owner) {
+
+		owner := strings.ToLower(config.Owner)
+		if distinctOwners.Has(owner) {
 			return fmt.Errorf("duplicate owner name %s", config.Owner)
 		}
-		distinctOwners.Insert(config.Owner)
+		distinctOwners.Insert(owner)
 	}
 	return nil
 }
@@ -32,7 +34,7 @@ func (c *Configs) Validate() error {
 type Config struct {
 	Owner    string    `json:"owner,omitempty"`
 	Severity string    `json:"severity,omitempty"`
-	Pattern  []Pattern `json:"pattern,omitempty"`
+	Patterns []Pattern `json:"pattern,omitempty"`
 }
 
 var validSeverities = []string{"", "ERROR", "WARNING", "NOTICE"}
@@ -43,11 +45,11 @@ func (c *Config) Validate() error {
 	}
 
 	c.Severity = strings.ToUpper(c.Severity)
-	if slices.Contains(validSeverities, c.Severity) {
+	if !slices.Contains(validSeverities, c.Severity) {
 		return fmt.Errorf("matcher %s contains unexpected default severity: %s", c.Owner, c.Severity)
 	}
 
-	patternCount := len(c.Pattern)
+	patternCount := len(c.Patterns)
 	if patternCount == 0 {
 		return fmt.Errorf("matcher %s pattern must not be empty", c.Owner)
 	}
@@ -61,7 +63,11 @@ func (c *Config) Validate() error {
 		message  = -1
 		fromPath = -1
 	)
-	for i, p := range c.Pattern {
+	for i, p := range c.Patterns {
+		if p.Regexp == "" {
+			return fmt.Errorf("regexp must not be empty")
+		}
+
 		re, err := regexp.Compile(p.Regexp)
 		if err != nil {
 			return err
