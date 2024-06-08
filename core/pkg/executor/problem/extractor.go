@@ -18,43 +18,57 @@ func newExtractor(p Pattern) (*extractor, error) {
 	if p.File != nil {
 		i := *p.File
 		sr = append(sr, func(result []string, problem *Problem) {
-			problem.File = result[i]
+			if v := result[i]; v != "" {
+				problem.File = v
+			}
 		})
 	}
 	if p.Line != nil {
 		i := *p.Line
 		sr = append(sr, func(result []string, problem *Problem) {
-			problem.Line = result[i]
+			if v := result[i]; v != "" {
+				problem.Line = v
+			}
 		})
 	}
 	if p.Column != nil {
 		i := *p.Column
 		sr = append(sr, func(result []string, problem *Problem) {
-			problem.Column = result[i]
+			if v := result[i]; v != "" {
+				problem.Column = v
+			}
 		})
 	}
 	if p.Severity != nil {
 		i := *p.Severity
 		sr = append(sr, func(result []string, problem *Problem) {
-			problem.Severity = result[i]
+			if v := result[i]; v != "" {
+				problem.Severity = v
+			}
 		})
 	}
 	if p.Code != nil {
 		i := *p.Code
 		sr = append(sr, func(result []string, problem *Problem) {
-			problem.Code = result[i]
+			if v := result[i]; v != "" {
+				problem.Code = v
+			}
 		})
 	}
 	if p.Message != nil {
 		i := *p.Message
 		sr = append(sr, func(result []string, problem *Problem) {
-			problem.Message = result[i]
+			if v := result[i]; v != "" {
+				problem.Message = v
+			}
 		})
 	}
 	if p.FromPath != nil {
 		i := *p.FromPath
 		sr = append(sr, func(result []string, problem *Problem) {
-			problem.FromPath = result[i]
+			if v := result[i]; v != "" {
+				problem.FromPath = v
+			}
 		})
 	}
 
