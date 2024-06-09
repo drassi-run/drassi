@@ -70,9 +70,19 @@ func (h *consoleCommandHandlers) addProblemMatcher(ctx context.Context, e *JobEx
 		if err != nil {
 			return err
 		}
+		if len(conf.Configs) == 0 {
+			return nil
+		}
+		if err = conf.Validate(); err != nil {
+			return err
+		}
 
 		for _, config := range conf.Configs {
-			e.AddProblemMatcher(config)
+			if matcher, err := problem.NewMatcher(config.Severity, config.Patterns); err != nil {
+				return err
+			} else {
+				e.AddProblemMatcher(config.Owner, matcher)
+			}
 		}
 		return nil
 	}
