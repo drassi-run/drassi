@@ -15,6 +15,9 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: ${{ matrix.go-version }}
+          cache-dependency-path: |
+            core/go.sum
+            gha-runner/go.sum
 
       - name: Checkout code
         uses: actions/checkout@v3
