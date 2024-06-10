@@ -14,6 +14,7 @@ type Problem struct {
 
 type Matcher interface {
 	Match(line string) *Problem
+	Reset()
 }
 
 func NewMatcher(severity string, patterns []Pattern) (Matcher, error) {
@@ -54,6 +55,8 @@ func (m *singleLineMatcher) Match(line string) *Problem {
 		return p
 	}
 }
+
+func (m *singleLineMatcher) Reset() {}
 
 type multiLineMatcher struct {
 	severity   string
@@ -117,7 +120,7 @@ func (m *multiLineMatcher) Match(line string) *Problem {
 		}
 
 		// The last pattern
-		clear(m.states)
+		m.Reset()
 		if m.loop {
 			p := *runningMatch // clone Problem
 			m.states[i-1] = &p
@@ -125,4 +128,8 @@ func (m *multiLineMatcher) Match(line string) *Problem {
 		return runningMatch
 	}
 	return nil
+}
+
+func (m *multiLineMatcher) Reset() {
+	clear(m.states)
 }

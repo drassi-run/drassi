@@ -8,9 +8,9 @@ import (
 )
 
 type Streams struct {
-	Stdin  io.Reader
-	Stdout io.Writer
-	Stderr io.Writer
+	In  io.Reader
+	Out io.Writer
+	Err io.Writer
 }
 
 type Sandbox interface {

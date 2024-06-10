@@ -140,7 +140,7 @@ func (h *consoleCommandHandlers) readProblemMatcherFile(ctx context.Context, e *
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L751
 func (h *consoleCommandHandlers) groupingLog(e *JobExecutor) command.ConsoleCommandHandler {
 	return func(cmd *command.Command) error {
-		e.Log("", "##[group]"+cmd.Value)
+		e.Log(TagGroup, cmd.Value)
 		return nil
 	}
 }
@@ -148,7 +148,7 @@ func (h *consoleCommandHandlers) groupingLog(e *JobExecutor) command.ConsoleComm
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L751
 func (h *consoleCommandHandlers) endGroupingLog(e *JobExecutor) command.ConsoleCommandHandler {
 	return func(cmd *command.Command) error {
-		e.Log("", "##[endgroup]")
+		e.Log(TagEndGroup, "")
 		return nil
 	}
 }
