@@ -120,7 +120,7 @@ type TemplateToken struct {
 	Number    float64                                  `mapstructure:"num,omitempty"`       // NumberToken (type=6)
 	Boolean   bool                                     `mapstructure:"bool,omitempty"`      // BooleanToken (type=5)
 	Directive string                                   `mapstructure:"directive,omitempty"` // InsertExpressionToken (type=4)
-	Expr      string                                   `mapstructure:"expr,omitempty"`      // BasicExpressionToken (type=3)
+	Expr      string                                   `mapstructure:"expression,omitempty"`      // BasicExpressionToken (type=3)
 	Seq       []*TemplateToken                         `mapstructure:"seq,omitempty"`       // SequenceToken (type=1)
 	Map       []KVPair[*TemplateToken, *TemplateToken] `mapstructure:"map,omitempty"`       // MappingToken (type=2)
 }

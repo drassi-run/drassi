@@ -82,7 +82,7 @@ type Need struct {
 
 type Expr struct {
 	// State contains context data, used in when evaluating status check function or access context data
-	// Examples for such expr:
+	// Examples for such expression:
 	// name: ${{ github.actor }}
 	// when: ${{ success() }}
 	State *Context
