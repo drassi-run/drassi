@@ -3,6 +3,7 @@ package executor
 import (
 	"context"
 	"fmt"
+	"github.com/dungdm93/drassi/core/pkg/executor/problem"
 	"slices"
 
 	"github.com/dungdm93/drassi/core/pkg/container"
@@ -217,7 +218,7 @@ func (e *JobExecutor) AddSecretMask(secret secret.Secret) {
 	// TODO
 }
 
-func (e *JobExecutor) AddProblemMatcher(pm ProblemMatcher) {
+func (e *JobExecutor) AddProblemMatcher(owner string, matcher problem.Matcher) {
 	// TODO
 }
 
