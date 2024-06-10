@@ -50,7 +50,7 @@ func TestDecodeEvaluable(t *testing.T) {
 		LitInt    Evaluable[int64]          `mapstructure:"litInt"`
 		LitFloat  Evaluable[float64]        `mapstructure:"litFloat"`
 		LitString Evaluable[string]         `mapstructure:"litString"`
-		Expr      Evaluable[string]         `mapstructure:"expr"`
+		Expr      Evaluable[string]         `mapstructure:"expression"`
 		Seq       Evaluable[[]any]          `mapstructure:"seq"`
 		Dict      Evaluable[map[string]any] `mapstructure:"dict"`
 	}
@@ -60,7 +60,7 @@ func TestDecodeEvaluable(t *testing.T) {
 		"litInt":    int64(123),
 		"litFloat":  float64(1.23),
 		"litString": "hello world",
-		"expr":      "${{ foo.bar }}",
+		"expression":      "${{ foo.bar }}",
 	}
 	input := clone(scala)
 	input["seq"] = mapValues(scala)
@@ -71,7 +71,7 @@ func TestDecodeEvaluable(t *testing.T) {
 		"litInt":    NewLiteralToken(int64(123)),
 		"litFloat":  NewLiteralToken(float64(1.23)),
 		"litString": NewLiteralToken("hello world"),
-		"expr":      NewExpressionToken("${{ foo.bar }}"),
+		"expression":      NewExpressionToken("${{ foo.bar }}"),
 	}
 	expected := &testEvaluable{
 		LitBool:   Evaluable[bool]{Token: NewLiteralToken(true)},

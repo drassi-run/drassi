@@ -23,14 +23,14 @@ func TestDecodeConcurrency(t *testing.T) {
 		testDecodeConcurrency(tt, "group1", c)
 	})
 
-	t.Run("expr", func(tt *testing.T) {
+	t.Run("expression", func(tt *testing.T) {
 		c := Concurrency{
 			Group: Evaluable[string]{Token: NewExpressionToken("${{ foobar }}")},
 		}
 		testDecodeConcurrency(tt, "${{ foobar }}", c)
 	})
 
-	t.Run("map/group-expr", func(tt *testing.T) {
+	t.Run("map/group-expression", func(tt *testing.T) {
 		c := Concurrency{
 			Group:            Evaluable[string]{Token: NewExpressionToken("${{ foobar }}")},
 			CancelInProgress: true,

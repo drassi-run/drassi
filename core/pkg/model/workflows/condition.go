@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/dungdm93/drassi/core/pkg/expr/ast"
-	"github.com/dungdm93/drassi/core/pkg/expr/ast/ast_ifaces"
-	"github.com/dungdm93/drassi/core/pkg/expr/ast/functions"
-	"github.com/dungdm93/drassi/core/pkg/expr/evaluator"
-	"github.com/dungdm93/drassi/core/pkg/expr/parser"
+	"github.com/dungdm93/drassi/core/pkg/expression/ast"
+	"github.com/dungdm93/drassi/core/pkg/expression/ast/ast_ifaces"
+	"github.com/dungdm93/drassi/core/pkg/expression/ast/functions"
+	"github.com/dungdm93/drassi/core/pkg/expression/evaluator"
+	"github.com/dungdm93/drassi/core/pkg/expression/parser"
 	"github.com/dungdm93/drassi/core/pkg/model/contexts"
 )
 
