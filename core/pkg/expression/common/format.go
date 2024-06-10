@@ -69,13 +69,13 @@ func FormatValue(masker secret_masker.Interface, value any, kind expression.Resu
 			// without trailing zeros
 			str := fmt.Sprintf("%g", value.(float64))
 			if masker != nil {
-				return masker.MaskSecrets(str)
+				return masker.Mask(str)
 			}
 			return str
 		case int:
 			str := fmt.Sprintf("%d", value.(int))
 			if masker != nil {
-				return masker.MaskSecrets(str)
+				return masker.Mask(str)
 			}
 			return str
 		default:
@@ -84,7 +84,7 @@ func FormatValue(masker secret_masker.Interface, value any, kind expression.Resu
 	case expression.String:
 		str := value.(string)
 		if masker != nil {
-			str = masker.MaskSecrets(str)
+			str = masker.Mask(str)
 		}
 		return escapeSingleQuotes(str)
 	case expression.Array, expression.Object:

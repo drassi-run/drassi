@@ -2,6 +2,11 @@ package workflows
 
 import (
 	"fmt"
+
+	"github.com/dungdm93/drassi/core/pkg/executor/secret"
+	"github.com/dungdm93/drassi/core/pkg/expression/evaluator"
+	"github.com/dungdm93/drassi/core/pkg/expression/parser"
+	"github.com/dungdm93/drassi/core/pkg/expression/tools"
 )
 
 // Conditional is Evaluable[bool] type used by `if`, `pre-if` and `post-if`.
@@ -14,7 +19,13 @@ type cond string
 
 func (c *cond) Meet(name string, provider EvaluatorProvider) (bool, error) {
 	ctx := provider.ContextData(name)
-	if b, ok := ctx.Value(c).(bool); ok { // TODO real expression evaluation
+	functionNames := provider.Functions(name)
+	ast := parser.ParseWithDefaults(string(*c), tools.GetFunctionNode(functionNames))
+	ret, err := evaluator.Evaluate(ast, new(secret.Masker), ctx, nil)
+	if err != nil {
+		return false, err
+	}
+	if b, ok := ret.Value().(bool); ok {
 		return b, nil
 	} else {
 		return false, fmt.Errorf("%s is not a bool", string(*c))

@@ -67,23 +67,22 @@ Parse
   - parse with parseContext
 */
 
-func ParseWithDefaults(expr string) (root ast_ifaces.ExprNode) {
+func ParseWithDefaults(expr string, 	fns []functions.IFnInfo[ast_ifaces.Fn]) (root ast_ifaces.ExprNode) {
 	namedVals := []ast.INamedValueInfo[ast.INamedValue]{
 		ast.NewNamedValueInfo[ast.ContextValueNode]("github"),
 		ast.NewNamedValueInfo[ast.ContextValueNode]("strategy"),
 		ast.NewNamedValueInfo[ast.ContextValueNode]("env"),
 		ast.NewNamedValueInfo[ast.ContextValueNode]("steps"),
 		ast.NewNamedValueInfo[ast.ContextValueNode]("runner"),
-		ast.NewNamedValueInfo[ast.ContextValueNode]("strategy"),
 		ast.NewNamedValueInfo[ast.ContextValueNode]("needs"),
 		ast.NewNamedValueInfo[ast.ContextValueNode]("inputs"),
 	}
-	return parse(newParseContext(expr, namedVals, nil, false))
+	return parse(newParseContext(expr, namedVals, fns, true))
 }
 
 func Parse(expr string, namedValues []ast.INamedValueInfo[ast.INamedValue],
 	functions []functions.IFnInfo[ast_ifaces.Fn]) (root ast_ifaces.ExprNode) {
-	return parse(newParseContext(expr, namedValues, functions, false))
+	return parse(newParseContext(expr, namedValues, functions, true))
 }
 
 func parse(pCtx *parseContext) ast_ifaces.ExprNode {

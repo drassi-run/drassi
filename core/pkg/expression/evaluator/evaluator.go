@@ -25,10 +25,8 @@ func Evaluate(root ast_ifaces.ExprNode, masker secret_masker.Interface, state an
 	if root.GetCtn() != nil {
 		panic(ErrorNonRootEvaluate)
 	}
-	if masker != nil {
-		masker = masker.Clone()
-	} else {
-		masker = newNoOpSecretMasker()
+	if masker == nil {
+		masker = new(noOpSecretMasker)
 	}
 	eTrace := newEvaluationTraceWriter(masker)
 	eCtx := newContext(eTrace, masker, state, opt, &visitorImpl{workingDir: opt.WorkingDir})

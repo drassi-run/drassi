@@ -3,16 +3,18 @@ package executor
 import (
 	"context"
 	"fmt"
-	"github.com/dungdm93/drassi/core/pkg/executor/problem"
 	"slices"
+
+	"github.com/dungdm93/drassi/core/pkg/executor/problem"
+
+	"golang.org/x/sync/errgroup"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/dungdm93/drassi/core/pkg/container"
 	"github.com/dungdm93/drassi/core/pkg/executor/secret"
 	"github.com/dungdm93/drassi/core/pkg/model/contexts"
 	"github.com/dungdm93/drassi/core/pkg/model/workflows"
 	"github.com/dungdm93/drassi/core/pkg/sandboxer"
-	"golang.org/x/sync/errgroup"
-	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 var (
@@ -48,12 +50,12 @@ func (e *JobExecutor) StepExecutor(id string) *StepExecutor {
 	return e.stepExecutors[id]
 }
 
-func (e *JobExecutor) ContextData(name string) context.Context {
-	return context.Background()
+func (e *JobExecutor) ContextData(name string) contexts.Context {
+	return contexts.Context{} // TODO real implementation
 }
 
 func (e *JobExecutor) Functions(name string) []string {
-	return nil
+	return nil // TODO real implementation
 }
 
 func (e *JobExecutor) DefaultValue(name string) any {

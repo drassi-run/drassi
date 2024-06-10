@@ -1,9 +1,14 @@
 package workflows
 
 import (
-	"context"
 	"fmt"
+
+	"github.com/dungdm93/drassi/core/pkg/executor/secret"
+	"github.com/dungdm93/drassi/core/pkg/expression/evaluator"
+	"github.com/dungdm93/drassi/core/pkg/expression/parser"
+	"github.com/dungdm93/drassi/core/pkg/expression/tools"
 	"github.com/dungdm93/drassi/core/pkg/model"
+	"github.com/dungdm93/drassi/core/pkg/model/contexts"
 )
 
 const (
@@ -12,7 +17,7 @@ const (
 )
 
 type EvaluatorProvider interface {
-	ContextData(name string) context.Context
+	ContextData(name string) contexts.Context
 	Functions(name string) []string
 	DefaultValue(name string) any
 }
@@ -73,7 +78,13 @@ type expressionToken string
 
 func (e *expressionToken) Appraise(name string, provider EvaluatorProvider) (any, error) {
 	ctx := provider.ContextData(name)
-	return ctx.Value(e), nil // TODO real expression evaluation
+	functionNames := provider.Functions(name)
+	ast := parser.ParseWithDefaults(string(*e),  tools.GetFunctionNode(functionNames))
+	ret, err := evaluator.Evaluate(ast, new(secret.Masker), ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	return ret.Value(), nil
 }
 
 func NewExpressionToken(expr string) Token {

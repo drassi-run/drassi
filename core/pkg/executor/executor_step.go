@@ -61,8 +61,8 @@ func (e *StepExecutor) RootExecutor() *StepExecutor {
 	return exec
 }
 
-func (e *StepExecutor) ContextData(name string) context.Context {
-	return context.Background() // TODO real implementation
+func (e *StepExecutor) ContextData(name string) contexts.Context {
+	return contexts.Context{} // TODO real implementation
 }
 
 func (e *StepExecutor) Functions(name string) []string {

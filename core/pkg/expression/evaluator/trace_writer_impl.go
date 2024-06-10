@@ -16,9 +16,6 @@ type traceWriter struct {
 }
 
 func newEvaluationTraceWriter(m secret_masker.Interface) ast_ifaces.TraceWriter {
-	if m == nil {
-		panic("secret masker must be provided")
-	}
 	l := logrus.New()
 	return &traceWriter{
 		tr: slog.New(sloglogrus.Option{Level: slog.LevelDebug, Logger: l}.NewLogrusHandler()),
@@ -28,12 +25,12 @@ func newEvaluationTraceWriter(m secret_masker.Interface) ast_ifaces.TraceWriter 
 
 func (e *traceWriter) Info(msg string, args ...any) {
 	if e.tr != nil {
-		e.tr.Info(e.sm.MaskSecrets(msg), args...)
+		e.tr.Info(e.sm.Mask(msg), args...)
 	}
 }
 
 func (e *traceWriter) Debug(msg string, args ...any) {
 	if e.tr != nil {
-		e.tr.Debug(e.sm.MaskSecrets(msg), args...)
+		e.tr.Debug(e.sm.Mask(msg), args...)
 	}
 }
