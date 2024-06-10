@@ -12,8 +12,8 @@ import (
 )
 
 type result struct {
-	kind  expression.ResultKind
-	value any
+	kind        expression.ResultKind
+	value       any
 	level       int
 	omitTracing bool
 }

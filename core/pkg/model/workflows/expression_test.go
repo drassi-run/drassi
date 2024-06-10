@@ -56,22 +56,22 @@ func TestDecodeEvaluable(t *testing.T) {
 	}
 
 	scala := map[string]any{
-		"litBool":   true,
-		"litInt":    int64(123),
-		"litFloat":  float64(1.23),
-		"litString": "hello world",
-		"expression":      "${{ foo.bar }}",
+		"litBool":    true,
+		"litInt":     int64(123),
+		"litFloat":   float64(1.23),
+		"litString":  "hello world",
+		"expression": "${{ foo.bar }}",
 	}
 	input := clone(scala)
 	input["seq"] = mapValues(scala)
 	input["dict"] = clone(scala)
 
 	scalaExpected := map[string]Token{
-		"litBool":   NewLiteralToken(true),
-		"litInt":    NewLiteralToken(int64(123)),
-		"litFloat":  NewLiteralToken(float64(1.23)),
-		"litString": NewLiteralToken("hello world"),
-		"expression":      NewExpressionToken("${{ foo.bar }}"),
+		"litBool":    NewLiteralToken(true),
+		"litInt":     NewLiteralToken(int64(123)),
+		"litFloat":   NewLiteralToken(float64(1.23)),
+		"litString":  NewLiteralToken("hello world"),
+		"expression": NewExpressionToken("${{ foo.bar }}"),
 	}
 	expected := &testEvaluable{
 		LitBool:   Evaluable[bool]{Token: NewLiteralToken(true)},
