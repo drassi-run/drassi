@@ -45,6 +45,10 @@ type JobExecutor struct {
 	paths    []string
 }
 
+func (e *JobExecutor) JobId() string {
+	return e.JobRun.ID
+}
+
 func (e *JobExecutor) NewStepExecutor(step StepRun) *StepExecutor {
 	exec := &StepExecutor{
 		job:         e,
@@ -107,6 +111,11 @@ func (e *JobExecutor) Initialize(ctx context.Context, runtime sandboxer.SandboxR
 }
 
 func (e *JobExecutor) RunJob(ctx context.Context) error {
+	if err := e.consoleCmdHandler.StartJob(ctx, e); err != nil {
+		return err
+	}
+	defer e.consoleCmdHandler.EndJob()
+
 	if err := e.runStage(ctx, StagePre, StepRun.PreTask); err != nil {
 		return err
 	}
@@ -141,8 +150,7 @@ func (e *JobExecutor) initializeJob(ctx context.Context) error {
 	}
 
 	e.consoleCmdMgr = command.NewConsoleCommandManager(e.outWriter)
-	e.consoleCmdHandler = &consoleCommandHandlers{e.consoleCmdMgr}
-	e.consoleCmdHandler.RegisterForJobExecutor(ctx, e)
+	e.consoleCmdHandler = &consoleCommandHandlers{cmdMgr: e.consoleCmdMgr}
 	return nil
 }
 
