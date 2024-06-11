@@ -64,7 +64,7 @@ func (sr *ScriptStepRun) executeMain(ctx context.Context, exec *StepExecutor) er
 	if err = exec.Sandbox().CopyIn(ctx, reader, scriptPath); err != nil {
 		return err
 	}
-	return exec.Sandbox().Execute(ctx, cmd, nil, workdir)
+	return exec.Sandbox().Execute(ctx, cmd, nil, workdir, exec.Streams())
 }
 
 func (sr *ScriptStepRun) PostTask() *Task {

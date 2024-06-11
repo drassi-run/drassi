@@ -80,6 +80,10 @@ func (e *StepExecutor) DefaultValue(name string) any {
 	}
 }
 
+func (e *StepExecutor) Streams() *sandboxer.Streams {
+	return e.job.Streams()
+}
+
 func (e *StepExecutor) Sandbox() sandboxer.Sandbox {
 	return e.job.Sandbox()
 }
