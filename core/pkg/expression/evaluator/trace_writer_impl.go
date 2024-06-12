@@ -7,7 +7,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/dungdm93/drassi/core/pkg/expression/ast/ast_ifaces"
-	"github.com/dungdm93/drassi/core/pkg/secret_masker"
+	"github.com/dungdm93/drassi/core/pkg/expression/secret_masker"
 )
 
 type traceWriter struct {

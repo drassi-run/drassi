@@ -67,7 +67,29 @@ func (e *JobExecutor) StepExecutor(id string) *StepExecutor {
 }
 
 func (e *JobExecutor) ContextData(name string) contexts.Context {
-	return contexts.Context{} // TODO real implementation
+	switch name {
+	case "job.env":
+		return contexts.Context{
+		Github: contexts.Github{},
+		Needs: map[string]contexts.Need{},
+		Strategy: contexts.Strategy{},
+		Matrix: make(map[string]string),
+		Variables: make(map[string]string),
+		Secrets: make(map[string]string),
+		Inputs: make(map[string]any),
+		}
+	case "job.defaults":
+		return contexts.Context{
+			Github: contexts.Github{},
+			Needs: map[string]contexts.Need{},
+			Strategy: contexts.Strategy{},
+			Matrix: make(map[string]string),
+			Env: make(map[string]string),
+			Variables: make(map[string]string),
+			Inputs: make(map[string]any),
+		}
+	}
+	return contexts.Context{}
 }
 
 func (e *JobExecutor) Functions(name string) []string {

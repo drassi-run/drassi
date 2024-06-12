@@ -62,6 +62,10 @@ func (e *StepExecutor) RootExecutor() *StepExecutor {
 }
 
 func (e *StepExecutor) ContextData(name string) contexts.Context {
+	switch name {
+	case "job.step.timeout-minutes":
+	case "job.step.working-directory":
+	}
 	return contexts.Context{} // TODO real implementation
 }
 

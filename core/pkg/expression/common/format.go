@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/dungdm93/drassi/core/pkg/expression"
-	"github.com/dungdm93/drassi/core/pkg/secret_masker"
+	"github.com/dungdm93/drassi/core/pkg/expression/secret_masker"
 )
 
 // ParseInt use strconv.ParseInt, allowing conversion from different bases (e.g., binary, octal, hexadecimal),

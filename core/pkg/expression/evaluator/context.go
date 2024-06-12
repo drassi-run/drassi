@@ -4,7 +4,7 @@ import (
 	"github.com/dungdm93/drassi/core/pkg/expression"
 	"github.com/dungdm93/drassi/core/pkg/expression/ast/ast_ifaces"
 	"github.com/dungdm93/drassi/core/pkg/expression/common"
-	"github.com/dungdm93/drassi/core/pkg/secret_masker"
+	"github.com/dungdm93/drassi/core/pkg/expression/secret_masker"
 )
 
 type (
