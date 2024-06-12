@@ -2,11 +2,15 @@ package problem
 
 import "regexp"
 
-type setter = func([]string, *Problem)
-
 type extractor struct {
 	re *regexp.Regexp
-	sr []setter
+	sr []func([]string, *Problem)
+}
+
+func set(v string, val *string) {
+	if v != "" {
+		*val = v
+	}
 }
 
 func newExtractor(p Pattern) (*extractor, error) {
@@ -14,68 +18,51 @@ func newExtractor(p Pattern) (*extractor, error) {
 	if err != nil {
 		return nil, err
 	}
-	var sr []setter
+	proc := &extractor{re: re}
+
 	if p.File != nil {
 		i := *p.File
-		sr = append(sr, func(result []string, problem *Problem) {
-			if v := result[i]; v != "" {
-				problem.File = v
-			}
+		proc.sr = append(proc.sr, func(result []string, problem *Problem) {
+			set(result[i], &problem.File)
 		})
 	}
 	if p.Line != nil {
 		i := *p.Line
-		sr = append(sr, func(result []string, problem *Problem) {
-			if v := result[i]; v != "" {
-				problem.Line = v
-			}
+		proc.sr = append(proc.sr, func(result []string, problem *Problem) {
+			set(result[i], &problem.Line)
 		})
 	}
 	if p.Column != nil {
 		i := *p.Column
-		sr = append(sr, func(result []string, problem *Problem) {
-			if v := result[i]; v != "" {
-				problem.Column = v
-			}
+		proc.sr = append(proc.sr, func(result []string, problem *Problem) {
+			set(result[i], &problem.Column)
 		})
 	}
 	if p.Severity != nil {
 		i := *p.Severity
-		sr = append(sr, func(result []string, problem *Problem) {
-			if v := result[i]; v != "" {
-				problem.Severity = v
-			}
+		proc.sr = append(proc.sr, func(result []string, problem *Problem) {
+			set(result[i], &problem.Severity)
 		})
 	}
 	if p.Code != nil {
 		i := *p.Code
-		sr = append(sr, func(result []string, problem *Problem) {
-			if v := result[i]; v != "" {
-				problem.Code = v
-			}
+		proc.sr = append(proc.sr, func(result []string, problem *Problem) {
+			set(result[i], &problem.Code)
 		})
 	}
 	if p.Message != nil {
 		i := *p.Message
-		sr = append(sr, func(result []string, problem *Problem) {
-			if v := result[i]; v != "" {
-				problem.Message = v
-			}
+		proc.sr = append(proc.sr, func(result []string, problem *Problem) {
+			set(result[i], &problem.Message)
 		})
 	}
 	if p.FromPath != nil {
 		i := *p.FromPath
-		sr = append(sr, func(result []string, problem *Problem) {
-			if v := result[i]; v != "" {
-				problem.FromPath = v
-			}
+		proc.sr = append(proc.sr, func(result []string, problem *Problem) {
+			set(result[i], &problem.FromPath)
 		})
 	}
 
-	proc := &extractor{
-		re: re,
-		sr: sr,
-	}
 	return proc, nil
 }
 

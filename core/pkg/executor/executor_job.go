@@ -3,7 +3,10 @@ package executor
 import (
 	"context"
 	"fmt"
+	"io"
+	"regexp"
 	"slices"
+	"strings"
 
 	"github.com/dungdm93/drassi/core/pkg/executor/problem"
 
@@ -11,6 +14,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/dungdm93/drassi/core/pkg/container"
+	"github.com/dungdm93/drassi/core/pkg/executor/command"
+	"github.com/dungdm93/drassi/core/pkg/executor/problem"
+	"github.com/dungdm93/drassi/core/pkg/executor/reporter"
 	"github.com/dungdm93/drassi/core/pkg/executor/secret"
 	"github.com/dungdm93/drassi/core/pkg/model/contexts"
 	"github.com/dungdm93/drassi/core/pkg/model/workflows"
@@ -22,10 +28,20 @@ var (
 )
 
 type JobExecutor struct {
-	JobRun *JobRun
+	JobRun   *JobRun
+	Reporter reporter.Reporter
 
 	sandbox       sandboxer.Sandbox
 	stepExecutors map[string]*StepExecutor
+
+	secretMasker    secret.Masker
+	problemMatchers map[string]problem.Matcher
+
+	outWriter         io.Writer
+	errWriter         io.Writer
+	streams           *sandboxer.Streams
+	consoleCmdMgr     *command.ConsoleCommandManager
+	consoleCmdHandler *consoleCommandHandlers
 
 	defaults workflows.Defaults
 	env      map[string]string
@@ -62,12 +78,20 @@ func (e *JobExecutor) DefaultValue(name string) any {
 	return nil
 }
 
+func (e *JobExecutor) Streams() *sandboxer.Streams {
+	return e.streams
+}
+
 func (e *JobExecutor) Sandbox() sandboxer.Sandbox {
 	return e.sandbox
 }
 
 func (e *JobExecutor) Initialize(ctx context.Context, runtime sandboxer.SandboxRuntime) error {
 	var err error
+	if err = e.initializeJob(ctx); err != nil {
+		return err
+	}
+
 	e.env, err = e.JobRun.Env.Evaluate("job.env", e)
 	if err != nil {
 		return err
@@ -104,6 +128,25 @@ func (e *JobExecutor) Finalize(ctx context.Context, runtime sandboxer.SandboxRun
 	}
 	_, err := runtime.TerminateSandbox(ctx, req)
 	return err
+}
+
+func (e *JobExecutor) initializeJob(ctx context.Context) error {
+	e.outWriter = secret.NewWriter(e.Reporter.Stdout(), &e.secretMasker)
+	e.errWriter = secret.NewWriter(e.Reporter.Stderr(), &e.secretMasker)
+
+	lineOutWriter := reporter.NewLineWriter(e.lineHandler(e.outWriter))
+	lineErrWriter := reporter.NewLineWriter(e.lineHandler(e.errWriter))
+
+	e.streams = &sandboxer.Streams{
+		In:  e.Reporter.Stdin(),
+		Out: lineOutWriter,
+		Err: lineErrWriter,
+	}
+
+	e.consoleCmdMgr = command.NewConsoleCommandManager(e.outWriter)
+	e.consoleCmdHandler = &consoleCommandHandlers{e.consoleCmdMgr}
+	e.consoleCmdHandler.RegisterForJobExecutor(ctx, e)
+	return nil
 }
 
 func (e *JobExecutor) initializeSandbox(ctx context.Context, runtime sandboxer.SandboxRuntime) error {
@@ -217,23 +260,95 @@ func (e *JobExecutor) SetEnv(env map[string]string) error {
 }
 
 func (e *JobExecutor) AddSecretMask(secret secret.Secret) {
-	// TODO
+	e.secretMasker.AddSecret(secret)
 }
 
 func (e *JobExecutor) AddProblemMatcher(owner string, matcher problem.Matcher) {
-	// TODO
+	if e.problemMatchers == nil {
+		e.problemMatchers = make(map[string]problem.Matcher)
+	}
+	e.problemMatchers[owner] = matcher
 }
 
 func (e *JobExecutor) RemoveProblemMatcher(owner string) {
-	// TODO
+	delete(e.problemMatchers, owner)
 }
+
+// https://en.wikipedia.org/wiki/ANSI_escape_code
+var colorCodeRegex = regexp.MustCompile(`\033\[[\d;]*m`)
+
+func (e *JobExecutor) scanProblem(line string) error {
+	line = colorCodeRegex.ReplaceAllLiteralString(line, "")
+	var owner string
+	var pbl *problem.Problem
+
+	for o, m := range e.problemMatchers {
+		if p := m.Match(line); p != nil {
+			owner = o
+			pbl = p
+			break
+		}
+	}
+
+	// Not matched
+	if pbl == nil {
+		return nil
+	}
+
+	// Matched
+	// 1. Reset other matchers
+	for o, m := range e.problemMatchers {
+		if o != owner {
+			m.Reset()
+		}
+	}
+
+	// 2. convert Problem to Issue
+	if issue, err := e.toIssuer(pbl); err != nil {
+		return err
+	} else {
+		// 3. Report the issue
+		return e.Reporter.AddIssue(issue)
+	}
+}
+
+func (e *JobExecutor) lineHandler(w io.Writer) reporter.LineHandler {
+	return func(line string) error {
+		if cmd := e.consoleCmdMgr.ParseCommand(line); cmd != nil {
+			if err := e.consoleCmdMgr.Process(line, cmd); err != nil {
+				e.Log(TagError, err.Error())
+			}
+			return nil
+		}
+		if err := e.scanProblem(line); err != nil {
+			e.Log(TagError, err.Error())
+		}
+		_, err := io.WriteString(w, line)
+		return err
+	}
+}
+
+const (
+	TagGroup    = "##[group]"
+	TagEndGroup = "##[endgroup]"
+	TagSection  = "##[section]"
+	TagCommand  = "##[command]"
+	TagError    = "##[error]"
+	TagWarning  = "##[warning]"
+	TagNotice   = "##[notice]"
+	TagDebug    = "##[debug]"
+)
 
 func (e *JobExecutor) Log(tag, format string, a ...any) {
-	// TODO
-	message := fmt.Sprintf(format, a...)
-	fmt.Println(message)
-}
-
-func (e *JobExecutor) toContainerConfig(ctx context.Context, container *workflows.Container) (*container.ContainerConfig, error) {
-	return nil, nil
+	message := format
+	if len(a) > 0 {
+		message = fmt.Sprintf(format, a...)
+	}
+	if tag != "" {
+		message = tag + message
+	}
+	if !strings.HasSuffix(message, "\n") {
+		message = message + "\n"
+	}
+	_, _ = io.WriteString(e.outWriter, message)
 }

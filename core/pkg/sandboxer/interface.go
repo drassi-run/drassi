@@ -7,8 +7,14 @@ import (
 	"github.com/dungdm93/drassi/core/pkg/container"
 )
 
+type Streams struct {
+	In  io.Reader
+	Out io.Writer
+	Err io.Writer
+}
+
 type Sandbox interface {
-	Execute(ctx context.Context, cmd []string, env map[string]string, workdir string) error
+	Execute(ctx context.Context, cmd []string, env map[string]string, workdir string, streams *Streams) error
 	CopyIn(ctx context.Context, reader io.Reader, dst string) error
 	CopyOut(ctx context.Context, src string) (io.ReadCloser, error)
 
