@@ -30,7 +30,14 @@ type Workflow struct {
 
 	// A map of environment variables that are available to all jobs and steps in the workflow.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#env
-	Env Env `json:"env,omitempty" yaml:"env,omitempty" mapstructure:"env,omitempty"`
+	//
+	// To set custom environment variables, you need to specify the variables in the workflow file.
+	// You can define environment variables for a step, job, or entire workflow using the jobs.<job_id>.steps[*].env, jobs.<job_id>.env, and env keywords.
+	// For more information, see https://docs.github.com/en/actions/learn-github-actions/variables
+	//
+	// Context available: `github`, `secrets`, `inputs`, `vars`
+	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
+	Env Evaluable[map[string]string] `json:"env,omitempty" yaml:"env,omitempty" mapstructure:"env,omitempty"`
 
 	// A map of default settings that will apply to all jobs in the workflow.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#defaults
@@ -81,20 +88,6 @@ const (
 	PermissionsLevelRead  PermissionsLevel = "read"
 	PermissionsLevelWrite PermissionsLevel = "write"
 )
-
-// To set custom environment variables, you need to specify the variables in the workflow file.
-// You can define environment variables for a step, job, or entire workflow using the jobs.<job_id>.steps[*].env, jobs.<job_id>.env, and env keywords.
-// For more information, see https://docs.github.com/en/actions/learn-github-actions/variables
-//
-// Context available:
-// - in workflow level: `github`, `secrets`, `inputs`, `vars`
-// - in job level: `github`, `needs`, `strategy`, `matrix`, `vars`, `secrets`, `inputs`
-// - in step level: `github`, `needs`, `strategy`, `matrix`, `job`, `runner`, `env`, `vars`, `secrets`, `steps`, `inputs`
-// - in container: `github`, `needs`, `strategy`, `matrix`, `job`, `runner`, `env`, `vars`, `secrets`, `inputs`
-// Special functions:
-// - in step level: `hashFiles`
-// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
-type Env map[string]Evaluable[string]
 
 type Defaults struct {
 	// Context available:

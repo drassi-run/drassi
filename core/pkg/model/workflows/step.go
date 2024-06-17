@@ -42,7 +42,15 @@ type BaseStep struct {
 
 	// Sets environment variables for steps to use in the virtual environment. You can also set environment variables for the entire workflow or a job.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsenv
-	Env Env `json:"env,omitempty" yaml:"env,omitempty" mapstructure:"env,omitempty"`
+	//
+	// To set custom environment variables, you need to specify the variables in the workflow file.
+	// You can define environment variables for a step, job, or entire workflow using the jobs.<job_id>.steps[*].env, jobs.<job_id>.env, and env keywords.
+	// For more information, see https://docs.github.com/en/actions/learn-github-actions/variables
+	//
+	// Context available: `github`, `needs`, `strategy`, `matrix`, `job`, `runner`, `env`, `vars`, `secrets`, `steps`, `inputs`
+	// Special functions: `hashFiles`
+	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
+	Env Evaluable[map[string]string] `json:"env,omitempty" yaml:"env,omitempty" mapstructure:"env,omitempty"`
 
 	// Prevents a job from failing when a step fails. Set to true to allow a job to pass when this step fails.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepscontinue-on-error

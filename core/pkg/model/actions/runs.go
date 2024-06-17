@@ -60,7 +60,11 @@ type DockerRuns struct {
 
 	// Specifies a key/value map of environment variables to set in the container environment.
 	// https://docs.github.com/en/actions/creating-actions/metadata-syntax-for-github-actions#runsenv
-	Env workflows.Env `json:"env,omitempty" yaml:"env,omitempty" mapstructure:"env,omitempty"`
+	//
+	// To set custom environment variables, you need to specify the variables in the workflow file.
+	// You can define environment variables for a step, job, or entire workflow using the jobs.<job_id>.steps[*].env, jobs.<job_id>.env, and env keywords.
+	// For more information, see https://docs.github.com/en/actions/learn-github-actions/variables
+	Env workflows.Evaluable[map[string]string] `json:"env,omitempty" yaml:"env,omitempty" mapstructure:"env,omitempty"`
 
 	// Overrides the Docker `ENTRYPOINT` in the `Dockerfile`, or sets it if one wasn't already specified.
 	// Use `entrypoint` when the `Dockerfile` does not specify an `ENTRYPOINT` or you want to override the `ENTRYPOINT` instruction.

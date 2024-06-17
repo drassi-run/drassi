@@ -17,7 +17,14 @@ type Container struct {
 
 	// Sets an array of environment variables in the container.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idcontainerenv
-	Env Env `json:"env,omitempty" yaml:"env,omitempty" mapstructure:"env,omitempty"`
+	//
+	// To set custom environment variables, you need to specify the variables in the workflow file.
+	// You can define environment variables for a step, job, or entire workflow using the jobs.<job_id>.steps[*].env, jobs.<job_id>.env, and env keywords.
+	// For more information, see https://docs.github.com/en/actions/learn-github-actions/variables
+	//
+	// Context available: `github`, `needs`, `strategy`, `matrix`, `job`, `runner`, `env`, `vars`, `secrets`, `inputs`
+	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
+	Env Evaluable[map[string]string] `json:"env,omitempty" yaml:"env,omitempty" mapstructure:"env,omitempty"`
 
 	// Sets an array of ports to expose on the container.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idcontainerports
