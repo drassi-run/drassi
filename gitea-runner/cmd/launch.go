@@ -15,17 +15,24 @@ import (
 
 	runnerv1 "code.gitea.io/actions-proto-go/runner/v1"
 	"connectrpc.com/connect"
+	"github.com/dungdm93/drassi/core/pkg/executor"
 	"github.com/dungdm93/drassi/core/pkg/model"
 	"github.com/dungdm93/drassi/core/pkg/model/workflows"
+	"github.com/dungdm93/drassi/core/pkg/sandboxer"
+	"github.com/dungdm93/drassi/core/pkg/sandboxer/incus"
+	"github.com/dungdm93/drassi/gitea-runner/pkg/reporter"
 	"github.com/dungdm93/drassi/gitea-runner/pkg/service"
+	"github.com/lxc/incus/shared/api"
 	"github.com/spf13/cobra"
 	"golang.org/x/time/rate"
 	"gopkg.in/yaml.v3"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type launchCommand struct {
 	runnerInfo RunnerInfo
 	client     service.Client
+	runtime    sandboxer.SandboxRuntime
 
 	// tasksVersion used to store the version of the last task fetched from the Gitea.
 	tasksVersion atomic.Int64
@@ -67,7 +74,8 @@ func (c *launchCommand) initialize(ctx context.Context) error {
 		c.runnerInfo.UUID,
 		c.runnerInfo.Token,
 	)
-	return nil
+	c.runtime = incus.NewSandboxRuntime(newDefaultConfig())
+	return c.runtime.Connect(ctx)
 }
 
 func (c *launchCommand) run(ctx context.Context) error {
@@ -131,8 +139,42 @@ func (c *launchCommand) runTask(ctx context.Context, task *runnerv1.Task) error 
 		return err
 	}
 
-	fmt.Printf("%#v\n", workflow)
-	return nil
+	jr, err := c.convertJobRun(workflow)
+	if err != nil {
+		return err
+	}
+
+	rep := reporter.New(ctx, task.Id, c.client)
+	defer rep.Close()
+
+	je := executor.JobExecutor{
+		JobRun:   jr,
+		Reporter: rep,
+	}
+
+	if err = je.Initialize(ctx, c.runtime); err != nil {
+		return err
+	}
+
+	if err = je.RunJob(ctx); err != nil {
+		return err
+	}
+
+	return je.Finalize(ctx, c.runtime)
+}
+
+func (c *launchCommand) convertJobRun(wf *workflows.Workflow) (*executor.JobRun, error) {
+	if len(wf.Jobs) > 1 {
+		return nil, errors.New("multiple jobs found")
+	}
+	for jobId, job := range wf.Jobs {
+		if nj, ok := job.(*workflows.NormalJob); ok {
+			jr := executor.ToJobRun(jobId, nj)
+			return jr, nil
+		}
+		return nil, fmt.Errorf("unsupported job type %T", job)
+	}
+	return nil, fmt.Errorf("empty job")
 }
 
 func (c *launchCommand) decodeWorkflow(payload []byte) (*workflows.Workflow, error) {
@@ -142,7 +184,7 @@ func (c *launchCommand) decodeWorkflow(payload []byte) (*workflows.Workflow, err
 		return nil, err
 	}
 
-	workflow := &workflows.Workflow{}
+	workflow := new(workflows.Workflow)
 	if err := model.Decode(raw, workflow); err != nil {
 		return nil, err
 	}
@@ -150,6 +192,31 @@ func (c *launchCommand) decodeWorkflow(payload []byte) (*workflows.Workflow, err
 }
 
 func (c *launchCommand) finalize(ctx context.Context) {
+}
+
+func newDefaultConfig() *incus.Incus {
+	return &incus.Incus{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "sandboxer.drasi.run/v1",
+			Kind:       "Incus",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "default",
+		},
+		Spec: incus.IncusSpec{
+			Endpoint: "unix://",
+			Template: incus.IncusTemplateSpec{
+				Source: api.InstanceSource{
+					Type:     "image",
+					Alias:    "ubuntu/22.04",
+					Server:   "https://images.linuxcontainers.org",
+					Protocol: "simplestreams",
+					//Mode:     "pull",
+				},
+				Type: "container",
+			},
+		},
+	}
 }
 
 func loadJson(file string, object any) error {
