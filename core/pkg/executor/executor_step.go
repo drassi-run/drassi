@@ -26,6 +26,10 @@ type StepExecutor struct {
 	state  map[string]string
 }
 
+func (e *StepExecutor) StepId() string {
+	return e.stepRun.StepId()
+}
+
 func (e *StepExecutor) NewChildExecutor(stepRun StepRun) *StepExecutor {
 	cExec := &StepExecutor{
 		job:         e.job,
@@ -132,6 +136,11 @@ func (e *StepExecutor) runTask(ctx context.Context, task *Task) error {
 
 	timeoutCtx, cancel := context.WithTimeout(ctx, time.Duration(timeout)*time.Minute)
 	defer cancel()
+
+	if err = e.job.consoleCmdHandler.StartStep(timeoutCtx, e); err != nil {
+		return err
+	}
+	defer e.job.consoleCmdHandler.EndStep()
 
 	ch := make(chan error)
 	go func() {
