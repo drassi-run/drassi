@@ -4,12 +4,15 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/dungdm93/drassi/core/pkg/container"
 	"github.com/dungdm93/drassi/core/pkg/executor/problem"
 	"github.com/dungdm93/drassi/core/pkg/executor/reporter"
+	"github.com/dungdm93/drassi/core/pkg/model"
 	"github.com/dungdm93/drassi/core/pkg/model/workflows"
+	"github.com/google/uuid"
 )
 
 func (e *JobExecutor) toContainerConfig(ctx context.Context, container *workflows.Container) (*container.ContainerConfig, error) {
@@ -58,4 +61,126 @@ func (e *JobExecutor) toIssuer(pbl *problem.Problem) (*reporter.Issue, error) {
 	iss.Data["file"] = pbl.File // TODO
 
 	return iss, nil
+}
+
+func ToJobRun(jobId string, job *workflows.NormalJob) *JobRun {
+	idMap := make(map[string]int)
+	stepRuns := make([]StepRun, len(job.Steps))
+
+	for i, step := range job.Steps {
+		sr := ToStepRun(step)
+
+		// generate StepId if empty
+		if sr.StepId() == "" {
+			var id string
+			switch s := sr.(type) {
+			case *ScriptStepRun:
+				id = "run"
+			case *DockerStepRun:
+				id = normalize(s.Image)
+			case *RepositoryStepRun:
+				id = normalize(s.Repo.Repo)
+			}
+
+			count := idMap[id] + 1
+			idMap[id] = count
+			if count > 1 {
+				id += "_" + strconv.Itoa(count)
+			}
+
+			sr.Base().Id = "__" + id
+		}
+
+		stepRuns[i] = sr
+	}
+
+	uid, _ := uuid.NewRandom()
+	return &JobRun{
+		Id:        jobId,
+		Uid:       uid.String(),
+		Name:      job.Name,
+		Container: job.Container,
+		Services:  job.Services,
+		Env:       job.Env,
+		Steps:     stepRuns,
+		Outputs:   job.Outputs,
+		Defaults:  job.Defaults,
+	}
+}
+
+func ToStepRun(step workflows.Step) StepRun {
+	b := step.Base()
+	uid, _ := uuid.NewRandom()
+	bsr := &BaseStepRun{
+		Id:               b.Id,
+		Uid:              uid.String(),
+		Name:             b.Name,
+		Condition:        b.If,
+		ContinueOnError:  b.ContinueOnError,
+		TimeoutInMinutes: b.TimeoutInMinutes,
+		Env:              b.Env,
+	}
+	switch s := step.(type) {
+	case *workflows.RunStep:
+		return toScriptStepRun(s, bsr)
+	case *workflows.UsesStep:
+		bsr.Inputs = s.With
+		if strings.HasPrefix(s.Uses, "docker://") {
+			return toDockerStepRun(s, bsr)
+		} else {
+			return toRepositoryStepRun(s, bsr)
+		}
+	}
+	return nil
+}
+
+func toScriptStepRun(s *workflows.RunStep, bsr *BaseStepRun) StepRun {
+	inputs := make([]workflows.KVPair[workflows.Token, workflows.Token], 0)
+	inputs = append(inputs, workflows.KVPair[workflows.Token, workflows.Token]{
+		Key:   workflows.NewLiteralToken("script"),
+		Value: s.Run.Token,
+	})
+	if s.Shell != "" {
+		inputs = append(inputs, workflows.KVPair[workflows.Token, workflows.Token]{
+			Key:   workflows.NewLiteralToken("shell"),
+			Value: workflows.NewLiteralToken(s.Shell),
+		})
+	}
+	if !s.WorkingDir.IsNil() {
+		inputs = append(inputs, workflows.KVPair[workflows.Token, workflows.Token]{
+			Key:   workflows.NewLiteralToken("workingDirectory"),
+			Value: s.WorkingDir.Token,
+		})
+	}
+	bsr.Inputs = workflows.Evaluable[map[string]string]{
+		Token: workflows.NewMappingToken(inputs),
+	}
+	return &ScriptStepRun{
+		BaseStepRun: *bsr,
+	}
+}
+
+func toDockerStepRun(s *workflows.UsesStep, bsr *BaseStepRun) StepRun {
+	return &DockerStepRun{
+		BaseStepRun: *bsr,
+		Image:       strings.TrimPrefix(s.Uses, "docker://"),
+	}
+}
+
+func toRepositoryStepRun(s *workflows.UsesStep, bsr *BaseStepRun) StepRun {
+	repo, _ := model.ParseRepository(s.Uses)
+	return &RepositoryStepRun{
+		BaseStepRun: *bsr,
+		Repo:        *repo,
+	}
+}
+
+// normalize string by remove all special characters
+func normalize(s string) string {
+	return strings.Map(func(r rune) rune {
+		if ('0' <= r && r <= '9') || ('A' <= r && r <= 'Z') || ('a' <= r && r <= 'z') {
+			return r
+		}
+		return '_'
+	}, s)
 }
