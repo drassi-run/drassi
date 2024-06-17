@@ -156,21 +156,16 @@ type ReusableWorkflowCallJob struct {
 	// Unlike 'jobs.<job_id>.steps[*].with', the inputs you pass with 'jobs.<job_id>.with' are not be available
 	// as environment variables in the called workflow. Instead, you can reference the inputs by using the inputs context.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idwith
-	With With `json:"with,omitempty" yaml:"with,omitempty" mapstructure:"with,omitempty"`
+	//
+	// Context available: `github`, `needs`, `strategy`, `matrix`, `inputs`, `vars`
+	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
+	With Evaluable[map[string]string] `json:"with,omitempty" yaml:"with,omitempty" mapstructure:"with,omitempty"`
 
 	// When a job is used to call a reusable workflow, you can use 'secrets' to provide a map of secrets that are passed to the called workflow.
 	// Any secrets that you pass must match the names defined in the called workflow.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idsecrets
 	Secrets Evaluable[JobSecrets] `json:"secrets,omitempty" yaml:"secrets,omitempty" mapstructure:"secrets,omitempty"`
 }
-
-// Context available:
-// - in job level: `github`, `needs`, `strategy`, `matrix`, `inputs`, `vars`
-// - in step level: `github`, `needs`, `strategy`, `matrix`, `job`, `runner`, `env`, `vars`, `secrets`, `steps`, `inputs`
-// Special functions:
-// - in step level: `hashFiles`
-// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
-type With map[string]Evaluable[string]
 
 type JobNeeds []string
 
