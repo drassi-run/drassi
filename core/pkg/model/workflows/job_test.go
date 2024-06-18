@@ -3,7 +3,10 @@ package workflows
 import (
 	"fmt"
 	"github.com/dungdm93/drassi/core/pkg/model"
+	utilreflect "github.com/dungdm93/drassi/core/pkg/util/reflect"
+	"github.com/mitchellh/mapstructure"
 	"gotest.tools/v3/assert"
+	"reflect"
 	"testing"
 )
 
@@ -104,6 +107,26 @@ func TestDecodeJob(t *testing.T) {
 		assert.Check(tt, job.Job == nil)
 		assert.Check(tt, job.ListOfJob == nil)
 		assert.Check(tt, job.MapOfJob == nil)
+	})
+
+	t.Run("invalid-reflection", func(tt *testing.T) {
+		opt := func(config *mapstructure.DecoderConfig) {
+			fault := func(from reflect.Value, to reflect.Value) (any, error) {
+				if !to.Type().Implements(typeJob) {
+					return utilreflect.ValueOf(from), nil
+				}
+				return nil, nil // fault injection
+			}
+			// DecodeJobHook MUST be after fault
+			config.DecodeHook = mapstructure.ComposeDecodeHookFunc(fault, DecodeJobHook)
+		}
+
+		input := map[string]any{
+			"runs-on": "ubuntu",
+		}
+		job := new(NormalJob)
+		err := model.DecodeWithOptions(input, &job, opt)
+		assert.NilError(tt, err)
 	})
 }
 

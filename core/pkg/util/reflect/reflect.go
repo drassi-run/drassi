@@ -1,18 +1,18 @@
-package workflows
+package utilreflect
 
 import (
 	"fmt"
 	"reflect"
 )
 
-func valueOf(v reflect.Value) any {
+func ValueOf(v reflect.Value) any {
 	if !v.IsValid() {
 		return nil
 	}
 	return v.Interface()
 }
 
-func castArray[E any](input []any) ([]E, error) {
+func CastArray[E any](input []any) ([]E, error) {
 	res := make([]E, 0, len(input))
 	for _, v := range input {
 		if e, ok := v.(E); ok {
@@ -24,7 +24,7 @@ func castArray[E any](input []any) ([]E, error) {
 	return res, nil
 }
 
-func castMap[K comparable, V any](input map[K]any) (map[K]V, error) {
+func CastMap[K comparable, V any](input map[K]any) (map[K]V, error) {
 	res := make(map[K]V, len(input))
 	for k, v := range input {
 		if e, ok := v.(V); ok {

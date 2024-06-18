@@ -3,7 +3,10 @@ package workflows
 import (
 	"fmt"
 	"github.com/dungdm93/drassi/core/pkg/model"
+	utilreflect "github.com/dungdm93/drassi/core/pkg/util/reflect"
+	"github.com/mitchellh/mapstructure"
 	"gotest.tools/v3/assert"
+	"reflect"
 	"testing"
 )
 
@@ -104,6 +107,26 @@ func TestDecodeStep(t *testing.T) {
 		assert.Check(tt, step.Step == nil)
 		assert.Check(tt, step.ListOfStep == nil)
 		assert.Check(tt, step.MapOfStep == nil)
+	})
+
+	t.Run("invalid-reflection", func(tt *testing.T) {
+		opt := func(config *mapstructure.DecoderConfig) {
+			fault := func(from reflect.Value, to reflect.Value) (any, error) {
+				if !to.Type().Implements(typeStep) {
+					return utilreflect.ValueOf(from), nil
+				}
+				return nil, nil // fault injection
+			}
+			// DecodeStepHook MUST be after fault
+			config.DecodeHook = mapstructure.ComposeDecodeHookFunc(fault, DecodeStepHook)
+		}
+
+		input := map[string]any{
+			"run": "true",
+		}
+		step := new(RunStep)
+		err := model.DecodeWithOptions(input, &step, opt)
+		assert.NilError(tt, err)
 	})
 }
 

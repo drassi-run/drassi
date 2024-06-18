@@ -5,28 +5,29 @@ import (
 	"reflect"
 
 	"github.com/dungdm93/drassi/core/pkg/model"
+	"github.com/dungdm93/drassi/core/pkg/util/reflect"
 )
 
 var typeJob = reflect.TypeFor[Job]()
 
 func DecodeJobHook(from reflect.Value, to reflect.Value) (any, error) {
-	if !to.Type().Implements(typeJob) {
-		return valueOf(from), nil
+	if !from.IsValid() || !to.Type().Implements(typeJob) {
+		return utilreflect.ValueOf(from), nil
 	}
-	t := to.Interface()
 
-	raw := valueOf(from)
-	m, ok := raw.(map[string]any)
-	if !ok || m == nil {
-		return raw, nil
+	f := from.Interface()
+	m, ok := f.(map[string]any)
+	if !ok {
+		return f, nil
 	}
 
 	_, containsRunsOn := m["runs-on"]
 	_, containsUses := m["uses"]
-
 	if containsRunsOn == containsUses {
 		return nil, fmt.Errorf("map MUST be contains either `runs-on` or `uses`")
 	}
+
+	t := to.Interface()
 	if containsRunsOn {
 		if t == nil {
 			to.Set(reflect.ValueOf(&NormalJob{}))
@@ -66,7 +67,7 @@ func (s *JobSecrets) DecodeMapstructure(input any) (any, error) {
 		return nil, nil
 	}
 	if m, ok := input.(map[string]any); ok {
-		if secrets, err := castMap[string, string](m); err != nil {
+		if secrets, err := utilreflect.CastMap[string, string](m); err != nil {
 			return nil, err
 		} else {
 			s.Secrets = secrets
@@ -95,7 +96,7 @@ func (r *RunsOn) setLabels(input any, rec bool) (any, error) {
 		r.Labels = inp
 		return nil, nil
 	case []any:
-		if labels, err := castArray[string](inp); err != nil {
+		if labels, err := utilreflect.CastArray[string](inp); err != nil {
 			return nil, err
 		} else {
 			r.Labels = labels
