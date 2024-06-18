@@ -15,16 +15,16 @@ const (
 )
 
 type Task struct {
-	StepID    string
+	StepId    string
 	Stage     Stage
 	Condition workflows.Conditional // default true
 	Run       func(context.Context, *StepExecutor) error
 }
 
 type JobRun struct {
-	ID   string
-	UUID string
-	Name string
+	Id   string
+	Uid  string
+	Name workflows.Evaluable[string]
 
 	Container workflows.Evaluable[*workflows.Container]
 	Services  workflows.Evaluable[map[string]*workflows.Container]

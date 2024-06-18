@@ -46,7 +46,7 @@ type JobExecutor struct {
 }
 
 func (e *JobExecutor) JobId() string {
-	return e.JobRun.ID
+	return e.JobRun.Id
 }
 
 func (e *JobExecutor) NewStepExecutor(step StepRun) *StepExecutor {
@@ -179,7 +179,7 @@ func (e *JobExecutor) initializeSandbox(ctx context.Context, runtime sandboxer.S
 	}
 
 	req := sandboxer.LaunchSandboxRequest{
-		JobId:             e.JobRun.ID,
+		JobId:             e.JobRun.Id,
 		JobEnv:            e.env,
 		JobContainer:      jobContainer,
 		ServiceContainers: serviceContainers,

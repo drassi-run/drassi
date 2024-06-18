@@ -24,8 +24,8 @@ var (
 )
 
 type BaseStepRun struct {
-	ID               string
-	UUID             string
+	Id               string
+	Uid              string
 	Name             workflows.Evaluable[string]
 	Condition        workflows.Conditional
 	ContinueOnError  workflows.Evaluable[bool]
@@ -35,7 +35,7 @@ type BaseStepRun struct {
 }
 
 func (s *BaseStepRun) StepId() string {
-	return s.ID
+	return s.Id
 }
 
 func (s *BaseStepRun) Base() *BaseStepRun {

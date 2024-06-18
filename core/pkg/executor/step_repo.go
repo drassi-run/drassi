@@ -50,6 +50,6 @@ func (sr *RepositoryStepRun) fixupTask(t *Task) *Task {
 			t.Condition = sr.Condition
 		}
 	}
-	t.StepID = sr.ID
+	t.StepId = sr.Id
 	return t
 }

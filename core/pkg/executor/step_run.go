@@ -24,7 +24,7 @@ func (sr *ScriptStepRun) PreTask() *Task {
 
 func (sr *ScriptStepRun) MainTask() *Task {
 	return &Task{
-		StepID:    sr.ID,
+		StepId:    sr.Id,
 		Stage:     StageMain,
 		Condition: sr.Condition,
 		Run:       sr.executeMain,
@@ -79,7 +79,7 @@ func (sr *ScriptStepRun) getShell(inputs map[string]string, exec *StepExecutor) 
 }
 
 func (sr *ScriptStepRun) getCommand(shell model.Shell, exec *StepExecutor) ([]string, string, error) {
-	scriptPath := sr.getScriptPath(exec, shell, sr.ID)
+	scriptPath := sr.getScriptPath(exec, shell, sr.Id)
 	cmds, err := shell.Command()
 	if err != nil {
 		return nil, "", err

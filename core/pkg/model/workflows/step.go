@@ -70,7 +70,7 @@ type BaseStep struct {
 	// Context available: `github`, `needs`, `strategy`, `matrix`, `job`, `runner`, `env`, `vars`, `secrets`, `steps`, `inputs`
 	// Special functions: `hashFiles`
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
-	TimeoutMinutes Evaluable[int64] `json:"timeout-minutes,omitempty" yaml:"timeout-minutes,omitempty" mapstructure:"timeout-minutes,omitempty"`
+	TimeoutInMinutes Evaluable[int64] `json:"timeout-minutes,omitempty" yaml:"timeout-minutes,omitempty" mapstructure:"timeout-minutes,omitempty"`
 }
 
 func (s *BaseStep) Base() *BaseStep {

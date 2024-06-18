@@ -73,8 +73,8 @@ func squashTokens(tokens []message.TemplateToken) workflows.Token {
 
 func ToStepRun(step *message.JobStep) (executor.StepRun, error) {
 	sr := executor.BaseStepRun{
-		UUID:             step.Id,
-		ID:               step.ContextName,
+		Uid:              step.Id,
+		Id:               step.ContextName,
 		Name:             ToEvaluable[string](step.DisplayNameToken),
 		ContinueOnError:  ToEvaluable[bool](step.ContinueOnError),
 		TimeoutInMinutes: ToEvaluable[int64](step.TimeoutInMinutes),
@@ -133,9 +133,11 @@ func ToJobRun(job *message.PipelineAgentJobRequest) (*executor.JobRun, error) {
 	}
 
 	jr := &executor.JobRun{
-		UUID: job.JobId,
-		ID:   job.JobName,
-		Name: job.JobDisplayName,
+		Uid: job.JobId,
+		Id:  job.JobName,
+		Name: workflows.Evaluable[string]{
+			Token: workflows.NewLiteralToken(job.JobDisplayName),
+		},
 
 		Container: ToEvaluable[*workflows.Container](job.JobContainer),
 		Services:  ToEvaluable[map[string]*workflows.Container](job.JobServiceContainers),
