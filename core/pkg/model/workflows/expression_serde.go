@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/dungdm93/drassi/core/pkg/model"
+	"github.com/dungdm93/drassi/core/pkg/util/reflect"
 )
 
 func (e *Evaluable[R]) DecodeMapstructure(a any) (any, error) {
@@ -14,8 +15,8 @@ func (e *Evaluable[R]) DecodeMapstructure(a any) (any, error) {
 var typeToken = reflect.TypeFor[Token]()
 
 func DecodeTokenHook(from reflect.Value, to reflect.Value) (any, error) {
-	if !to.Type().Implements(typeToken) || to.Interface() != nil {
-		return valueOf(from), nil
+	if !from.IsValid() || !to.Type().Implements(typeToken) || to.Interface() != nil {
+		return utilreflect.ValueOf(from), nil
 	}
 
 	var (
@@ -46,7 +47,7 @@ func DecodeTokenHook(from reflect.Value, to reflect.Value) (any, error) {
 		} else if from.CanFloat() {
 			token = NewLiteralToken(from.Float())
 		} else {
-			data = valueOf(from)
+			data = from.Interface()
 		}
 	}
 	if token != nil {

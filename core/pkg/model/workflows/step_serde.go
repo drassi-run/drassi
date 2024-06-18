@@ -5,28 +5,29 @@ import (
 	"reflect"
 
 	"github.com/dungdm93/drassi/core/pkg/model"
+	"github.com/dungdm93/drassi/core/pkg/util/reflect"
 )
 
 var typeStep = reflect.TypeFor[Step]()
 
 func DecodeStepHook(from reflect.Value, to reflect.Value) (any, error) {
-	if !to.Type().Implements(typeStep) {
-		return valueOf(from), nil
+	if !from.IsValid() || !to.Type().Implements(typeStep) {
+		return utilreflect.ValueOf(from), nil
 	}
-	t := to.Interface()
 
-	raw := valueOf(from)
-	m, ok := raw.(map[string]any)
-	if !ok || m == nil {
-		return raw, nil
+	f := from.Interface()
+	m, ok := f.(map[string]any)
+	if !ok {
+		return f, nil
 	}
 
 	_, containsRun := m["run"]
 	_, containsUses := m["uses"]
-
 	if containsRun == containsUses {
 		return nil, fmt.Errorf("map MUST be contains either `run` or `uses`")
 	}
+
+	t := to.Interface()
 	if containsRun {
 		if t == nil {
 			to.Set(reflect.ValueOf(&RunStep{}))

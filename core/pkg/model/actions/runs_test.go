@@ -4,8 +4,11 @@ import (
 	"fmt"
 	"github.com/dungdm93/drassi/core/pkg/model"
 	"github.com/dungdm93/drassi/core/pkg/model/workflows"
+	utilreflect "github.com/dungdm93/drassi/core/pkg/util/reflect"
 	"github.com/mitchellh/copystructure"
+	"github.com/mitchellh/mapstructure"
 	"gotest.tools/v3/assert"
+	"reflect"
 	"testing"
 )
 
@@ -124,6 +127,26 @@ func TestDecodeRuns(t *testing.T) {
 		assert.Check(tt, runs.Runs == nil)
 		assert.Check(tt, runs.ListOfRuns == nil)
 		assert.Check(tt, runs.MapOfRuns == nil)
+	})
+
+	t.Run("invalid-reflection", func(tt *testing.T) {
+		opt := func(config *mapstructure.DecoderConfig) {
+			fault := func(from reflect.Value, to reflect.Value) (any, error) {
+				if !to.Type().Implements(typeRuns) {
+					return utilreflect.ValueOf(from), nil
+				}
+				return nil, nil // fault injection
+			}
+			// DecodeRunsHook MUST be after fault
+			config.DecodeHook = mapstructure.ComposeDecodeHookFunc(fault, DecodeRunsHook)
+		}
+
+		input := map[string]any{
+			"using": "docker",
+		}
+		runs := new(JavaScriptRuns)
+		err := model.DecodeWithOptions(input, &runs, opt)
+		assert.NilError(tt, err)
 	})
 }
 

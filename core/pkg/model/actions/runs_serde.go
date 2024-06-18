@@ -6,19 +6,20 @@ import (
 	"strings"
 
 	"github.com/dungdm93/drassi/core/pkg/model"
+	"github.com/dungdm93/drassi/core/pkg/util/reflect"
 )
 
 var typeRuns = reflect.TypeFor[Runs]()
 
 func DecodeRunsHook(from reflect.Value, to reflect.Value) (any, error) {
-	if !to.Type().Implements(typeRuns) {
-		return from.Interface(), nil
+	if !from.IsValid() || !to.Type().Implements(typeRuns) {
+		return utilreflect.ValueOf(from), nil
 	}
-	t := to.Interface()
 
-	m, ok := from.Interface().(map[string]any)
-	if !ok || m == nil {
-		return from.Interface(), nil
+	f := from.Interface()
+	m, ok := f.(map[string]any)
+	if !ok {
+		return f, nil
 	}
 
 	using, ok := m["using"].(string)
@@ -26,6 +27,7 @@ func DecodeRunsHook(from reflect.Value, to reflect.Value) (any, error) {
 		return nil, fmt.Errorf("`using` is required, and MUST be a string")
 	}
 
+	t := to.Interface()
 	if using == "composite" {
 		if t == nil {
 			to.Set(reflect.ValueOf(&CompositeRuns{}))
@@ -45,7 +47,7 @@ func DecodeRunsHook(from reflect.Value, to reflect.Value) (any, error) {
 			return nil, fmt.Errorf(`map with using="%s" CAN'T be decode to %T`, using, t)
 		}
 	}
-	return from.Interface(), nil
+	return m, nil
 }
 
 func init() {
