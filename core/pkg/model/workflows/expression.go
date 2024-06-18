@@ -21,8 +21,12 @@ type Evaluable[R any] struct {
 	Token Token `json:"token" yaml:"token" mapstructure:"token"`
 }
 
+func (e *Evaluable[_]) IsNil() bool {
+	return e == nil || e.Token == nil
+}
+
 func (e *Evaluable[R]) Evaluate(name string, provider EvaluatorProvider) (R, error) {
-	if e.Token == nil {
+	if e.IsNil() {
 		v := provider.DefaultValue(name)
 		if v == nil {
 			return *new(R), nil
