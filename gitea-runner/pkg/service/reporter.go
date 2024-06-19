@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 
 	"code.gitea.io/actions-proto-go/runner/v1"
@@ -81,6 +82,10 @@ func (r *GiteaReporter) Stderr() io.Writer {
 }
 
 func (r *GiteaReporter) appendLogLine(line string) error {
+	line = strings.TrimRightFunc(line, func(r rune) bool {
+		return r == '\n' || r == '\r'
+	})
+
 	row := &runnerv1.LogRow{
 		Time:    timestamppb.Now(),
 		Content: line,
