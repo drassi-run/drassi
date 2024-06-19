@@ -8,7 +8,6 @@ import (
 	"io"
 	"maps"
 	"net/url"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -222,9 +221,9 @@ func (i *incusSandboxRuntime) ExecuteSandbox(ctx context.Context, request sandbo
 	}
 
 	execArgs := incusclient.InstanceExecArgs{
-		Stdin:    os.Stdin,
-		Stdout:   os.Stdout,
-		Stderr:   os.Stderr,
+		Stdin:    request.Streams.In,
+		Stdout:   request.Streams.Out,
+		Stderr:   request.Streams.Err,
 		Control:  func(conn *websocket.Conn) {}, // TODO
 		DataDone: make(chan bool),
 	}
