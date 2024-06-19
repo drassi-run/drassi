@@ -1,4 +1,4 @@
-package reporter
+package service
 
 import (
 	"context"
@@ -21,7 +21,7 @@ var resultMap = map[string]runnerv1.Result{
 	"skipped":   runnerv1.Result_RESULT_SKIPPED,
 }
 
-type giteaReporter struct {
+type GiteaReporter struct {
 	ctx    context.Context
 	taskId int64
 	client runnerv1connect.RunnerServiceClient
@@ -37,8 +37,13 @@ type giteaReporter struct {
 	mu          sync.RWMutex
 }
 
-func New(ctx context.Context, taskId int64, jobRun *executor.JobRun, client runnerv1connect.RunnerServiceClient) reporter.Reporter {
-	r := &giteaReporter{
+func NewReporter(
+	ctx context.Context,
+	taskId int64,
+	jobRun *executor.JobRun,
+	client runnerv1connect.RunnerServiceClient,
+) *GiteaReporter {
+	r := &GiteaReporter{
 		ctx:    ctx,
 		taskId: taskId,
 		client: client,
@@ -63,19 +68,19 @@ func New(ctx context.Context, taskId int64, jobRun *executor.JobRun, client runn
 	return r
 }
 
-func (r *giteaReporter) Stdin() io.Reader {
+func (r *GiteaReporter) Stdin() io.Reader {
 	return nil
 }
 
-func (r *giteaReporter) Stdout() io.Writer {
+func (r *GiteaReporter) Stdout() io.Writer {
 	return r.out
 }
 
-func (r *giteaReporter) Stderr() io.Writer {
+func (r *GiteaReporter) Stderr() io.Writer {
 	return r.err
 }
 
-func (r *giteaReporter) appendLogLine(line string) error {
+func (r *GiteaReporter) appendLogLine(line string) error {
 	row := &runnerv1.LogRow{
 		Time:    timestamppb.Now(),
 		Content: line,
@@ -88,7 +93,7 @@ func (r *giteaReporter) appendLogLine(line string) error {
 	return nil
 }
 
-func (r *giteaReporter) uploadLog(noMore bool) error {
+func (r *GiteaReporter) uploadLog(noMore bool) error {
 	req := &runnerv1.UpdateLogRequest{
 		TaskId: r.taskId,
 		Index:  r.logOffset,
@@ -117,11 +122,13 @@ func (r *giteaReporter) uploadLog(noMore bool) error {
 	return nil
 }
 
-func (r *giteaReporter) StartJob() {
+func (r *GiteaReporter) StartJob() {
 	r.taskState.StartedAt = timestamppb.Now()
+
+	_ = r.updateTask()
 }
 
-func (r *giteaReporter) EndJob(result string, outputs map[string]string) {
+func (r *GiteaReporter) EndJob(result string, outputs map[string]string) {
 	r.taskState.StoppedAt = timestamppb.Now()
 	if res, ok := resultMap[result]; ok {
 		r.taskState.Result = res
@@ -132,16 +139,20 @@ func (r *giteaReporter) EndJob(result string, outputs map[string]string) {
 	for k, v := range outputs {
 		r.taskOutputs[k] = v
 	}
+
+	_ = r.updateTask()
 }
 
-func (r *giteaReporter) StartStep(stepId string) {
+func (r *GiteaReporter) StartStep(stepId string) {
 	stepState := r.stepStates[stepId]
 
 	stepState.StartedAt = timestamppb.Now()
-	stepState.LogIndex = r.logOffset
+	stepState.LogIndex = r.logOffset + int64(len(r.logRows))
+
+	_ = r.updateTask()
 }
 
-func (r *giteaReporter) EndStep(stepId string, result string) {
+func (r *GiteaReporter) EndStep(stepId string, result string) {
 	stepState := r.stepStates[stepId]
 
 	stepState.StoppedAt = timestamppb.Now()
@@ -150,10 +161,12 @@ func (r *giteaReporter) EndStep(stepId string, result string) {
 	} else {
 		stepState.Result = runnerv1.Result_RESULT_UNSPECIFIED
 	}
-	stepState.LogLength = r.logOffset - stepState.LogIndex
+	stepState.LogLength = r.logOffset + int64(len(r.logRows)) - stepState.LogIndex
+
+	_ = r.updateTask()
 }
 
-func (r *giteaReporter) updateTask() error {
+func (r *GiteaReporter) updateTask() error {
 	req := &runnerv1.UpdateTaskRequest{
 		State:   r.taskState,
 		Outputs: r.taskOutputs,
@@ -173,17 +186,17 @@ func (r *giteaReporter) updateTask() error {
 	return nil
 }
 
-func (r *giteaReporter) AddIssue(issue *reporter.Issue) error {
+func (r *GiteaReporter) AddIssue(issue *reporter.Issue) error {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (r *giteaReporter) AttachFile(kind, name string, reader io.Reader) error {
+func (r *GiteaReporter) AttachFile(kind, name string, reader io.Reader) error {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (r *giteaReporter) Close() error {
+func (r *GiteaReporter) Close() error {
 	if err := r.uploadLog(true); err != nil {
 		return err
 	}

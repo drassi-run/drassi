@@ -20,7 +20,6 @@ import (
 	"github.com/dungdm93/drassi/core/pkg/model/workflows"
 	"github.com/dungdm93/drassi/core/pkg/sandboxer"
 	"github.com/dungdm93/drassi/core/pkg/sandboxer/incus"
-	"github.com/dungdm93/drassi/gitea-runner/pkg/reporter"
 	"github.com/dungdm93/drassi/gitea-runner/pkg/service"
 	"github.com/lxc/incus/shared/api"
 	"github.com/spf13/cobra"
@@ -31,7 +30,7 @@ import (
 
 type launchCommand struct {
 	runnerInfo RunnerInfo
-	client     service.Client
+	client     service.GiteaClient
 	runtime    sandboxer.SandboxRuntime
 
 	// tasksVersion used to store the version of the last task fetched from the Gitea.
@@ -144,12 +143,12 @@ func (c *launchCommand) runTask(ctx context.Context, task *runnerv1.Task) error 
 		return err
 	}
 
-	rep := reporter.New(ctx, task.Id, jr, c.client)
-	defer rep.Close()
+	reporter := service.NewReporter(ctx, task.Id, jr, c.client)
+	defer reporter.Close()
 
 	je := executor.JobExecutor{
 		JobRun:   jr,
-		Reporter: rep,
+		Reporter: reporter,
 	}
 
 	if err = je.Initialize(ctx, c.runtime); err != nil {
