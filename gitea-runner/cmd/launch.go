@@ -144,7 +144,7 @@ func (c *launchCommand) runTask(ctx context.Context, task *runnerv1.Task) error 
 		return err
 	}
 
-	rep := reporter.New(ctx, task.Id, c.client)
+	rep := reporter.New(ctx, task.Id, jr, c.client)
 	defer rep.Close()
 
 	je := executor.JobExecutor{

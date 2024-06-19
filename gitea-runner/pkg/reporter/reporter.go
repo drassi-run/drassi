@@ -9,9 +9,17 @@ import (
 	"code.gitea.io/actions-proto-go/runner/v1"
 	"code.gitea.io/actions-proto-go/runner/v1/runnerv1connect"
 	"connectrpc.com/connect"
+	"github.com/dungdm93/drassi/core/pkg/executor"
 	"github.com/dungdm93/drassi/core/pkg/executor/reporter"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
+
+var resultMap = map[string]runnerv1.Result{
+	"success":   runnerv1.Result_RESULT_SUCCESS,
+	"failure":   runnerv1.Result_RESULT_FAILURE,
+	"cancelled": runnerv1.Result_RESULT_CANCELLED,
+	"skipped":   runnerv1.Result_RESULT_SKIPPED,
+}
 
 type giteaReporter struct {
 	ctx    context.Context
@@ -21,12 +29,15 @@ type giteaReporter struct {
 	out io.Writer
 	err io.Writer
 
-	logOffset int64
-	logRows   []*runnerv1.LogRow
-	mu        sync.RWMutex
+	logOffset   int64
+	logRows     []*runnerv1.LogRow
+	taskOutputs map[string]string
+	taskState   *runnerv1.TaskState
+	stepStates  map[string]*runnerv1.StepState
+	mu          sync.RWMutex
 }
 
-func New(ctx context.Context, taskId int64, client runnerv1connect.RunnerServiceClient) reporter.Reporter {
+func New(ctx context.Context, taskId int64, jobRun *executor.JobRun, client runnerv1connect.RunnerServiceClient) reporter.Reporter {
 	r := &giteaReporter{
 		ctx:    ctx,
 		taskId: taskId,
@@ -35,6 +46,20 @@ func New(ctx context.Context, taskId int64, client runnerv1connect.RunnerService
 
 	r.out = reporter.NewLineWriter(r.appendLogLine)
 	r.err = reporter.NewLineWriter(r.appendLogLine)
+
+	r.taskOutputs = make(map[string]string)
+	stepStates := make([]*runnerv1.StepState, len(jobRun.Steps))
+	r.stepStates = make(map[string]*runnerv1.StepState, len(jobRun.Steps))
+	for i, step := range jobRun.Steps {
+		s := &runnerv1.StepState{Id: int64(i)}
+		stepStates[i] = s
+		r.stepStates[step.StepId()] = s
+	}
+	r.taskState = &runnerv1.TaskState{
+		Id:    taskId,
+		Steps: stepStates,
+	}
+
 	return r
 }
 
@@ -92,6 +117,62 @@ func (r *giteaReporter) uploadLog(noMore bool) error {
 	return nil
 }
 
+func (r *giteaReporter) StartJob() {
+	r.taskState.StartedAt = timestamppb.Now()
+}
+
+func (r *giteaReporter) EndJob(result string, outputs map[string]string) {
+	r.taskState.StoppedAt = timestamppb.Now()
+	if res, ok := resultMap[result]; ok {
+		r.taskState.Result = res
+	} else {
+		r.taskState.Result = runnerv1.Result_RESULT_UNSPECIFIED
+	}
+
+	for k, v := range outputs {
+		r.taskOutputs[k] = v
+	}
+}
+
+func (r *giteaReporter) StartStep(stepId string) {
+	stepState := r.stepStates[stepId]
+
+	stepState.StartedAt = timestamppb.Now()
+	stepState.LogIndex = r.logOffset
+}
+
+func (r *giteaReporter) EndStep(stepId string, result string) {
+	stepState := r.stepStates[stepId]
+
+	stepState.StoppedAt = timestamppb.Now()
+	if res, ok := resultMap[result]; ok {
+		stepState.Result = res
+	} else {
+		stepState.Result = runnerv1.Result_RESULT_UNSPECIFIED
+	}
+	stepState.LogLength = r.logOffset - stepState.LogIndex
+}
+
+func (r *giteaReporter) updateTask() error {
+	req := &runnerv1.UpdateTaskRequest{
+		State:   r.taskState,
+		Outputs: r.taskOutputs,
+	}
+	resp, err := r.client.UpdateTask(r.ctx, connect.NewRequest(req))
+	if err != nil {
+		return err
+	}
+
+	// TODO: gitea server cancel job
+	//if resp.Msg.State != nil && resp.Msg.State.Result == runnerv1.Result_RESULT_CANCELLED {
+	//	r.cancel()
+	//}
+	for _, k := range resp.Msg.SentOutputs {
+		delete(r.taskOutputs, k)
+	}
+	return nil
+}
+
 func (r *giteaReporter) AddIssue(issue *reporter.Issue) error {
 	//TODO implement me
 	panic("implement me")
@@ -105,6 +186,14 @@ func (r *giteaReporter) AttachFile(kind, name string, reader io.Reader) error {
 func (r *giteaReporter) Close() error {
 	if err := r.uploadLog(true); err != nil {
 		return err
+	}
+
+	if err := r.updateTask(); err != nil {
+		return err
+	}
+
+	if len(r.taskOutputs) > 0 {
+		return fmt.Errorf("there are still outputs that have not been sent")
 	}
 	return nil
 }
