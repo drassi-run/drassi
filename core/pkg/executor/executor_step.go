@@ -106,6 +106,11 @@ func (e *StepExecutor) RunStep(ctx context.Context, fn func(StepRun) *Task) erro
 }
 
 func (e *StepExecutor) runTask(ctx context.Context, task *Task) error {
+	if e.parent == nil {
+		e.job.Reporter.StartStep(e.StepId())
+		defer e.job.Reporter.EndStep(e.StepId(), string(e.result.Outcome))
+	}
+
 	base := e.stepRun.Base()
 
 	if err := e.setupEnv(ctx, e.stepRun); err != nil {

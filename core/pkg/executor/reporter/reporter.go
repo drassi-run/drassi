@@ -25,6 +25,11 @@ type Reporter interface {
 	Stdout() io.Writer
 	Stderr() io.Writer
 
+	StartJob()
+	EndJob(result string, outputs map[string]string)
+	StartStep(stepId string)
+	EndStep(stepId string, result string)
+
 	AddIssue(issue *Issue) error
 	AttachFile(kind, name string, reader io.Reader) error
 
