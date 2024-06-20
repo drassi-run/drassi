@@ -73,6 +73,15 @@ func (c *launchCommand) initialize(ctx context.Context) error {
 		c.runnerInfo.UUID,
 		c.runnerInfo.Token,
 	)
+
+	req := &runnerv1.DeclareRequest{
+		Version: "dev",
+		Labels:  c.runnerInfo.Labels,
+	}
+	if _, err := c.client.Declare(ctx, connect.NewRequest(req)); err != nil {
+		return err
+	}
+
 	c.runtime = incus.NewSandboxRuntime(newDefaultConfig())
 	return c.runtime.Connect(ctx)
 }
