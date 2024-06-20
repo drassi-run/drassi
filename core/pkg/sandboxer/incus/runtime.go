@@ -11,8 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/dungdm93/drassi/core/pkg/sandboxer"
-	utilreader "github.com/dungdm93/drassi/core/pkg/util/reader"
+	"drassi.run/core/pkg/sandboxer"
+	utilreader "drassi.run/core/pkg/util/reader"
 	"github.com/gorilla/websocket"
 	incusclient "github.com/lxc/incus/client"
 	incusapi "github.com/lxc/incus/shared/api"

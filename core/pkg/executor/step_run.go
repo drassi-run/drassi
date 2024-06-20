@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/dungdm93/drassi/core/pkg/model"
-	utilreader "github.com/dungdm93/drassi/core/pkg/util/reader"
+	"drassi.run/core/pkg/model"
+	utilreader "drassi.run/core/pkg/util/reader"
 )
 
 type ScriptStepRun struct {

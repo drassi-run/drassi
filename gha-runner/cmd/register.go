@@ -14,9 +14,9 @@ import (
 	"os"
 	"strings"
 
+	"drassi.run/core/pkg/util/http"
+	"drassi.run/gha-runner/pkg/gha"
 	"github.com/charmbracelet/huh"
-	"github.com/dungdm93/drassi/core/pkg/util/http"
-	"github.com/dungdm93/drassi/gha-runner/pkg/gha"
 	"github.com/spf13/cobra"
 	"golang.org/x/oauth2"
 )

@@ -7,11 +7,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/dungdm93/drassi/core/pkg/container"
-	"github.com/dungdm93/drassi/core/pkg/executor/problem"
-	"github.com/dungdm93/drassi/core/pkg/executor/reporter"
-	"github.com/dungdm93/drassi/core/pkg/model"
-	"github.com/dungdm93/drassi/core/pkg/model/workflows"
+	"drassi.run/core/pkg/container"
+	"drassi.run/core/pkg/executor/problem"
+	"drassi.run/core/pkg/executor/reporter"
+	"drassi.run/core/pkg/model"
+	"drassi.run/core/pkg/model/workflows"
 	"github.com/google/uuid"
 )
 

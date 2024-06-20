@@ -10,8 +10,8 @@ import (
 	pingv1 "code.gitea.io/actions-proto-go/ping/v1"
 	runnerv1 "code.gitea.io/actions-proto-go/runner/v1"
 	"connectrpc.com/connect"
+	"drassi.run/gitea-runner/pkg/service"
 	"github.com/charmbracelet/huh"
-	"github.com/dungdm93/drassi/gitea-runner/pkg/service"
 	"github.com/spf13/cobra"
 )
 

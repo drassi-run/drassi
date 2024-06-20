@@ -6,12 +6,12 @@ import (
 	"math"
 	"testing"
 
-	"github.com/dungdm93/drassi/core/pkg/expression/ast"
-	"github.com/dungdm93/drassi/core/pkg/expression/ast/ast_ifaces"
-	"github.com/dungdm93/drassi/core/pkg/expression/ast/functions"
-	"github.com/dungdm93/drassi/core/pkg/expression/evaluator"
-	"github.com/dungdm93/drassi/core/pkg/expression/parser"
-	"github.com/dungdm93/drassi/core/pkg/model/contexts"
+	"drassi.run/core/pkg/expression/ast"
+	"drassi.run/core/pkg/expression/ast/ast_ifaces"
+	"drassi.run/core/pkg/expression/ast/functions"
+	"drassi.run/core/pkg/expression/evaluator"
+	"drassi.run/core/pkg/expression/parser"
+	"drassi.run/core/pkg/model/contexts"
 	"gotest.tools/v3/assert"
 )
 

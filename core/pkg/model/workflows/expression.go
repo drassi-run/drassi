@@ -2,8 +2,8 @@ package workflows
 
 import (
 	"context"
+	"drassi.run/core/pkg/model"
 	"fmt"
-	"github.com/dungdm93/drassi/core/pkg/model"
 )
 
 const (

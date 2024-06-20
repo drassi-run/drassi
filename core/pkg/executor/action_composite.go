@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/dungdm93/drassi/core/pkg/model/actions"
+	"drassi.run/core/pkg/model/actions"
 	"golang.org/x/sync/errgroup"
 )
 

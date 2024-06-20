@@ -1,7 +1,7 @@
 package workflows
 
 import (
-	"github.com/dungdm93/drassi/core/pkg/model"
+	"drassi.run/core/pkg/model"
 	"gotest.tools/v3/assert"
 	"testing"
 )

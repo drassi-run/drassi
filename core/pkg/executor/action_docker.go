@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/dungdm93/drassi/core/pkg/model/actions"
+	"drassi.run/core/pkg/model/actions"
 )
 
 type dockerActionRun struct {

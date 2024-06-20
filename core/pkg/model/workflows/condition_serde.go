@@ -3,7 +3,7 @@ package workflows
 import (
 	"reflect"
 
-	"github.com/dungdm93/drassi/core/pkg/model"
+	"drassi.run/core/pkg/model"
 )
 
 var typeConditional = reflect.TypeFor[Conditional]()

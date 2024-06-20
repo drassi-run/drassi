@@ -5,12 +5,12 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/dungdm93/drassi/core/pkg/expression/ast"
-	"github.com/dungdm93/drassi/core/pkg/expression/ast/ast_ifaces"
-	"github.com/dungdm93/drassi/core/pkg/expression/ast/functions"
-	"github.com/dungdm93/drassi/core/pkg/expression/ast/operators"
-	"github.com/dungdm93/drassi/core/pkg/expression/scanner"
-	token2 "github.com/dungdm93/drassi/core/pkg/expression/token"
+	"drassi.run/core/pkg/expression/ast"
+	"drassi.run/core/pkg/expression/ast/ast_ifaces"
+	"drassi.run/core/pkg/expression/ast/functions"
+	"drassi.run/core/pkg/expression/ast/operators"
+	"drassi.run/core/pkg/expression/scanner"
+	token2 "drassi.run/core/pkg/expression/token"
 )
 
 const (

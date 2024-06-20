@@ -1,7 +1,7 @@
 package token
 
 import (
-	"github.com/dungdm93/drassi/core/pkg/expression/common"
+	"drassi.run/core/pkg/expression/common"
 )
 
 // Kind represents the Kind of Token in the scanner.

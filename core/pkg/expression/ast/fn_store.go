@@ -3,8 +3,8 @@ package ast
 import (
 	"math"
 
-	"github.com/dungdm93/drassi/core/pkg/expression/ast/ast_ifaces"
-	"github.com/dungdm93/drassi/core/pkg/expression/ast/functions"
+	"drassi.run/core/pkg/expression/ast/ast_ifaces"
+	"drassi.run/core/pkg/expression/ast/functions"
 )
 
 type FnStore struct {

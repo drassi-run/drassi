@@ -1,10 +1,10 @@
 package evaluator
 
 import (
-	"github.com/dungdm93/drassi/core/pkg/expression"
-	"github.com/dungdm93/drassi/core/pkg/expression/ast/ast_ifaces"
-	"github.com/dungdm93/drassi/core/pkg/expression/common"
-	"github.com/dungdm93/drassi/core/pkg/expression/secret_masker"
+	"drassi.run/core/pkg/expression"
+	"drassi.run/core/pkg/expression/ast/ast_ifaces"
+	"drassi.run/core/pkg/expression/common"
+	"drassi.run/core/pkg/expression/secret_masker"
 )
 
 type (

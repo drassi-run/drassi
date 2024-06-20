@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/dungdm93/drassi/core/pkg/container"
-	"github.com/dungdm93/drassi/core/pkg/sandboxer"
+	"drassi.run/core/pkg/container"
+	"drassi.run/core/pkg/sandboxer"
 )
 
 type incusSandbox struct {

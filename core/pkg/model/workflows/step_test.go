@@ -1,9 +1,9 @@
 package workflows
 
 import (
+	"drassi.run/core/pkg/model"
+	utilreflect "drassi.run/core/pkg/util/reflect"
 	"fmt"
-	"github.com/dungdm93/drassi/core/pkg/model"
-	utilreflect "github.com/dungdm93/drassi/core/pkg/util/reflect"
 	"github.com/mitchellh/mapstructure"
 	"gotest.tools/v3/assert"
 	"reflect"

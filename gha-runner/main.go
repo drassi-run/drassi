@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/dungdm93/drassi/gha-runner/cmd"
+	"drassi.run/gha-runner/cmd"
 )
 
 func main() {

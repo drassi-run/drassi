@@ -1,7 +1,7 @@
 package evaluator
 
 import (
-	"github.com/dungdm93/drassi/core/pkg/expression/secret_masker"
+	"drassi.run/core/pkg/expression/secret_masker"
 )
 
 // TODO next phase

@@ -1,6 +1,6 @@
 package actions
 
-import "github.com/dungdm93/drassi/core/pkg/model/workflows"
+import "drassi.run/core/pkg/model/workflows"
 
 type Runs interface {
 	isRuns()

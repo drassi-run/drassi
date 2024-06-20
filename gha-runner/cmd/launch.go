@@ -14,9 +14,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/dungdm93/drassi/core/pkg/util/oauth2/clientcredentials"
-	"github.com/dungdm93/drassi/gha-runner/pkg/gha"
-	"github.com/dungdm93/drassi/gha-runner/pkg/message"
+	"drassi.run/core/pkg/util/oauth2/clientcredentials"
+	"drassi.run/gha-runner/pkg/gha"
+	"drassi.run/gha-runner/pkg/message"
 	"github.com/spf13/cobra"
 	"golang.org/x/oauth2"
 )

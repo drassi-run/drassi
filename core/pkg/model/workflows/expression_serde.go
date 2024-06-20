@@ -4,8 +4,8 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/dungdm93/drassi/core/pkg/model"
-	"github.com/dungdm93/drassi/core/pkg/util/reflect"
+	"drassi.run/core/pkg/model"
+	"drassi.run/core/pkg/util/reflect"
 )
 
 func (e *Evaluable[R]) DecodeMapstructure(a any) (any, error) {

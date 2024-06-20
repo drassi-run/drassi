@@ -1,6 +1,6 @@
 package actions
 
-import "github.com/dungdm93/drassi/core/pkg/model/workflows"
+import "drassi.run/core/pkg/model/workflows"
 
 type Action struct {
 	// The name of your action. GitHub displays the `name` in the Actions tab to help visually identify actions in each job.

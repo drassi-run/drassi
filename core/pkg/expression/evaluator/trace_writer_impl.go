@@ -3,8 +3,8 @@ package evaluator
 import (
 	"log/slog"
 
-	"github.com/dungdm93/drassi/core/pkg/expression/ast/ast_ifaces"
-	"github.com/dungdm93/drassi/core/pkg/expression/secret_masker"
+	"drassi.run/core/pkg/expression/ast/ast_ifaces"
+	"drassi.run/core/pkg/expression/secret_masker"
 	sloglogrus "github.com/samber/slog-logrus/v2"
 	"github.com/sirupsen/logrus"
 )

@@ -6,8 +6,8 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/dungdm93/drassi/core/pkg/expression/common"
-	"github.com/dungdm93/drassi/core/pkg/expression/token"
+	"drassi.run/core/pkg/expression/common"
+	"drassi.run/core/pkg/expression/token"
 )
 
 type Scanner struct {

@@ -6,7 +6,7 @@ import (
 
 	"gotest.tools/v3/assert"
 
-	"github.com/dungdm93/drassi/core/pkg/expression"
+	"drassi.run/core/pkg/expression"
 )
 
 // TestParseNumber tests various scenarios for the ParseFloat function

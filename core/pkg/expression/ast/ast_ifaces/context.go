@@ -1,8 +1,8 @@
 package ast_ifaces
 
 import (
-	"github.com/dungdm93/drassi/core/pkg/expression"
-	"github.com/dungdm93/drassi/core/pkg/expression/secret_masker"
+	"drassi.run/core/pkg/expression"
+	"drassi.run/core/pkg/expression/secret_masker"
 )
 
 type Context interface {

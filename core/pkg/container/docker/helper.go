@@ -5,9 +5,9 @@ import (
 	"io"
 	"os"
 
+	"drassi.run/core/pkg/util"
 	dockertypes "github.com/docker/docker/api/types"
 	"github.com/docker/docker/pkg/stdcopy"
-	"github.com/dungdm93/drassi/core/pkg/util"
 )
 
 func streamingResponse(ctx context.Context, resp dockertypes.HijackedResponse, isTerminal bool) error {

@@ -10,8 +10,8 @@ import (
 	"code.gitea.io/actions-proto-go/runner/v1"
 	"code.gitea.io/actions-proto-go/runner/v1/runnerv1connect"
 	"connectrpc.com/connect"
-	"github.com/dungdm93/drassi/core/pkg/executor"
-	"github.com/dungdm93/drassi/core/pkg/executor/reporter"
+	"drassi.run/core/pkg/executor"
+	"drassi.run/core/pkg/executor/reporter"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 

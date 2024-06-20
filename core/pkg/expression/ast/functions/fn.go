@@ -1,8 +1,8 @@
 package functions
 
 import (
-	"github.com/dungdm93/drassi/core/pkg/expression/ast/ast_ifaces"
-	"github.com/dungdm93/drassi/core/pkg/expression/ast/base"
+	"drassi.run/core/pkg/expression/ast/ast_ifaces"
+	"drassi.run/core/pkg/expression/ast/base"
 )
 
 // Fn represent keyword available from parseContext eg: github, job, steps, env

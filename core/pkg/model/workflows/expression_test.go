@@ -1,8 +1,8 @@
 package workflows
 
 import (
-	"github.com/dungdm93/drassi/core/pkg/model"
-	utilreflect "github.com/dungdm93/drassi/core/pkg/util/reflect"
+	"drassi.run/core/pkg/model"
+	utilreflect "drassi.run/core/pkg/util/reflect"
 	"github.com/google/go-cmp/cmp"
 	"github.com/mitchellh/copystructure"
 	"github.com/mitchellh/mapstructure"

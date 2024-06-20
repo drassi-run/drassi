@@ -3,7 +3,7 @@ package executor
 import (
 	"context"
 
-	"github.com/dungdm93/drassi/core/pkg/model/workflows"
+	"drassi.run/core/pkg/model/workflows"
 )
 
 type Stage string

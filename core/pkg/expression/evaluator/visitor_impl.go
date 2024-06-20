@@ -14,11 +14,11 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 	"github.com/mitchellh/mapstructure"
 
-	"github.com/dungdm93/drassi/core/pkg/expression"
-	"github.com/dungdm93/drassi/core/pkg/expression/ast"
-	"github.com/dungdm93/drassi/core/pkg/expression/ast/ast_ifaces"
-	"github.com/dungdm93/drassi/core/pkg/expression/common"
-	"github.com/dungdm93/drassi/core/pkg/model/contexts"
+	"drassi.run/core/pkg/expression"
+	"drassi.run/core/pkg/expression/ast"
+	"drassi.run/core/pkg/expression/ast/ast_ifaces"
+	"drassi.run/core/pkg/expression/common"
+	"drassi.run/core/pkg/model/contexts"
 )
 
 type visitorImpl struct {

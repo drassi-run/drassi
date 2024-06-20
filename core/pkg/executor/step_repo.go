@@ -3,8 +3,8 @@ package executor
 import (
 	"context"
 
-	"github.com/dungdm93/drassi/core/pkg/model"
-	"github.com/dungdm93/drassi/core/pkg/model/workflows"
+	"drassi.run/core/pkg/model"
+	"drassi.run/core/pkg/model/workflows"
 )
 
 // Example:

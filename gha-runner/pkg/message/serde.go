@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/dungdm93/drassi/core/pkg/model"
+	"drassi.run/core/pkg/model"
 )
 
 var zeroTime time.Time

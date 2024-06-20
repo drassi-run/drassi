@@ -1,10 +1,10 @@
-module github.com/dungdm93/drassi/gha-runner
+module drassi.run/gha-runner
 
 go 1.22.1
 
 require (
+	drassi.run/core v0.0.0-00010101000000-000000000000
 	github.com/charmbracelet/huh v0.4.2
-	github.com/dungdm93/drassi/core v0.0.0-00010101000000-000000000000
 	github.com/google/go-cmp v0.6.0
 	github.com/spf13/cobra v1.8.0
 	golang.org/x/oauth2 v0.20.0
@@ -27,6 +27,7 @@ require (
 	github.com/compose-spec/compose-go/v2 v2.1.0 // indirect
 	github.com/containerd/containerd v1.7.17 // indirect
 	github.com/containerd/log v0.1.0 // indirect
+	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/distribution/reference v0.5.0 // indirect
 	github.com/docker/cli v26.1.3+incompatible // indirect
 	github.com/docker/docker v26.1.3+incompatible // indirect
@@ -39,6 +40,7 @@ require (
 	github.com/go-git/go-git/v5 v5.12.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/klauspost/compress v1.17.7 // indirect
@@ -60,6 +62,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
@@ -78,4 +81,4 @@ require (
 	k8s.io/apimachinery v0.30.1 // indirect
 )
 
-replace github.com/dungdm93/drassi/core => ../core
+replace drassi.run/core => ../core

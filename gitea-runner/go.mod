@@ -1,12 +1,12 @@
-module github.com/dungdm93/drassi/gitea-runner
+module drassi.run/gitea-runner
 
 go 1.22.1
 
 require (
 	code.gitea.io/actions-proto-go v0.4.0
 	connectrpc.com/connect v1.15.0
+	drassi.run/core v0.0.0-00010101000000-000000000000
 	github.com/charmbracelet/huh v0.4.2
-	github.com/dungdm93/drassi/core v0.0.0-00010101000000-000000000000
 	github.com/lxc/incus v0.7.0
 	github.com/spf13/cobra v1.8.0
 	golang.org/x/time v0.5.0
@@ -102,4 +102,4 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 )
 
-replace github.com/dungdm93/drassi/core => ../core
+replace drassi.run/core => ../core

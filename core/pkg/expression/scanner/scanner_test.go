@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/dungdm93/drassi/core/pkg/expression/token"
+	"drassi.run/core/pkg/expression/token"
 )
 
 func TestTokenBoundary(t *testing.T) {

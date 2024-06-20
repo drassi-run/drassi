@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/dungdm93/drassi/gitea-runner/cmd"
+	"drassi.run/gitea-runner/cmd"
 )
 
 func main() {

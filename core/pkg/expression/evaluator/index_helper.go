@@ -3,9 +3,9 @@ package evaluator
 import (
 	"math"
 
-	"github.com/dungdm93/drassi/core/pkg/expression/ast"
-	"github.com/dungdm93/drassi/core/pkg/expression/ast/ast_ifaces"
-	"github.com/dungdm93/drassi/core/pkg/expression/common"
+	"drassi.run/core/pkg/expression/ast"
+	"drassi.run/core/pkg/expression/ast/ast_ifaces"
+	"drassi.run/core/pkg/expression/common"
 )
 
 type (

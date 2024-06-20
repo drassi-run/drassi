@@ -3,10 +3,10 @@ package ast
 import (
 	"fmt"
 
-	"github.com/dungdm93/drassi/core/pkg/expression/ast/ast_ifaces"
-	"github.com/dungdm93/drassi/core/pkg/expression/ast/operators"
-	"github.com/dungdm93/drassi/core/pkg/expression/common"
-	"github.com/dungdm93/drassi/core/pkg/expression/token"
+	"drassi.run/core/pkg/expression/ast/ast_ifaces"
+	"drassi.run/core/pkg/expression/ast/operators"
+	"drassi.run/core/pkg/expression/common"
+	"drassi.run/core/pkg/expression/token"
 )
 
 /*

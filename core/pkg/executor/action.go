@@ -3,7 +3,7 @@ package executor
 import (
 	"context"
 
-	"github.com/dungdm93/drassi/core/pkg/model/actions"
+	"drassi.run/core/pkg/model/actions"
 )
 
 type ActionRun interface {

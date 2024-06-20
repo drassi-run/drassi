@@ -1,6 +1,6 @@
 package contexts
 
-import "github.com/dungdm93/drassi/core/pkg/model"
+import "drassi.run/core/pkg/model"
 
 // The `runner` context contains information about the runner that is executing the current job.
 // https://docs.github.com/en/actions/learn-github-actions/contexts#runner-context

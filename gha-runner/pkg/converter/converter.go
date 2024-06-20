@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/dungdm93/drassi/core/pkg/executor"
-	"github.com/dungdm93/drassi/core/pkg/model"
-	"github.com/dungdm93/drassi/core/pkg/model/workflows"
-	"github.com/dungdm93/drassi/gha-runner/pkg/message"
+	"drassi.run/core/pkg/executor"
+	"drassi.run/core/pkg/model"
+	"drassi.run/core/pkg/model/workflows"
+	"drassi.run/gha-runner/pkg/message"
 )
 
 func ToToken(token *message.TemplateToken) workflows.Token {

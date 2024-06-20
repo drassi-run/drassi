@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/dungdm93/drassi/core/pkg/executor/command"
-	"github.com/dungdm93/drassi/core/pkg/executor/problem"
-	"github.com/dungdm93/drassi/core/pkg/executor/secret"
+	"drassi.run/core/pkg/executor/command"
+	"drassi.run/core/pkg/executor/problem"
+	"drassi.run/core/pkg/executor/secret"
 )
 
 type handlerInfo[E any] struct {
