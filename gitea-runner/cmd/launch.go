@@ -69,7 +69,7 @@ func (c *launchCommand) initialize(ctx context.Context) error {
 
 	c.client = service.NewClient(
 		c.runnerInfo.Address,
-		true,
+		c.runnerInfo.InsecureSkipTLSVerify,
 		c.runnerInfo.UUID,
 		c.runnerInfo.Token,
 	)

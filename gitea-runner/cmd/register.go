@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	pingv1 "code.gitea.io/actions-proto-go/ping/v1"
 	runnerv1 "code.gitea.io/actions-proto-go/runner/v1"
@@ -15,10 +16,11 @@ import (
 )
 
 type registerOptions struct {
-	url    string
-	token  string
-	name   string
-	labels []string
+	url                   string
+	token                 string
+	name                  string
+	labels                []string
+	insecureSkipTLSVerify bool
 }
 
 type registerCommand struct {
@@ -41,6 +43,7 @@ func NewRegisterCommand() *cobra.Command {
 
 	flags := cmd.Flags()
 	flags.StringVar(&opts.url, "url", "", "Gitea instance URL")
+	flags.BoolVar(&opts.insecureSkipTLSVerify, "insecure-skip-tls-verify", false, "Skip verification of server certificate")
 	flags.StringVar(&opts.token, "token", "", "Runner registration token")
 	flags.StringVar(&opts.name, "name", "", "Runner name")
 	flags.StringSliceVar(&opts.labels, "labels", nil, "Runner tags, comma separated")
@@ -60,6 +63,17 @@ func (c *registerCommand) run(ctx context.Context) error {
 			return err
 		} else {
 			fmt.Printf("Gitea instance URL: %s\n", c.opts.url)
+		}
+	}
+	if strings.HasPrefix(c.opts.url, "https://") {
+		err := huh.NewConfirm().
+			Title("Skip verify server TLS").
+			Value(&c.opts.insecureSkipTLSVerify).
+			Run()
+		if err != nil {
+			return err
+		} else {
+			fmt.Printf("Skip verify server TLS: %s\n", c.opts.url)
 		}
 	}
 	if c.opts.token == "" {
@@ -95,7 +109,7 @@ func (c *registerCommand) run(ctx context.Context) error {
 }
 
 func (c *registerCommand) doRegister(ctx context.Context) error {
-	client := service.NewClient(c.opts.url, true, "", "")
+	client := service.NewClient(c.opts.url, c.opts.insecureSkipTLSVerify, "", "")
 
 	for {
 		_, err := client.Ping(ctx, connect.NewRequest(&pingv1.PingRequest{
@@ -118,12 +132,13 @@ func (c *registerCommand) doRegister(ctx context.Context) error {
 	}
 
 	runner := &RunnerInfo{
-		ID:      resp.Msg.Runner.Id,
-		UUID:    resp.Msg.Runner.Uuid,
-		Name:    resp.Msg.Runner.Name,
-		Token:   resp.Msg.Runner.Token,
-		Address: c.opts.url,
-		Labels:  resp.Msg.Runner.Labels,
+		ID:                    resp.Msg.Runner.Id,
+		UUID:                  resp.Msg.Runner.Uuid,
+		Name:                  resp.Msg.Runner.Name,
+		Token:                 resp.Msg.Runner.Token,
+		Address:               c.opts.url,
+		Labels:                resp.Msg.Runner.Labels,
+		InsecureSkipTLSVerify: c.opts.insecureSkipTLSVerify,
 	}
 
 	return saveJson(".runner", runner)
@@ -151,10 +166,11 @@ func saveJson(file string, object any) error {
 }
 
 type RunnerInfo struct {
-	ID      int64    `json:"id,omitempty" yaml:"id,omitempty"`
-	UUID    string   `json:"uuid,omitempty" yaml:"uuid,omitempty"`
-	Name    string   `json:"name,omitempty" yaml:"name,omitempty"`
-	Token   string   `json:"token,omitempty" yaml:"token,omitempty"`
-	Address string   `json:"address,omitempty" yaml:"address,omitempty"`
-	Labels  []string `json:"labels,omitempty" yaml:"labels,omitempty"`
+	ID                    int64    `json:"id,omitempty" yaml:"id,omitempty"`
+	UUID                  string   `json:"uuid,omitempty" yaml:"uuid,omitempty"`
+	Name                  string   `json:"name,omitempty" yaml:"name,omitempty"`
+	Token                 string   `json:"token,omitempty" yaml:"token,omitempty"`
+	Address               string   `json:"address,omitempty" yaml:"address,omitempty"`
+	Labels                []string `json:"labels,omitempty" yaml:"labels,omitempty"`
+	InsecureSkipTLSVerify bool     `json:"insecureSkipTLSVerify,omitempty" yaml:"insecureSkipTLSVerify,omitempty"`
 }
