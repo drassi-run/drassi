@@ -73,6 +73,7 @@ type ExecuteSandboxRequest struct {
 	User      string
 	Group     string
 	Workdir   string
+	Streams   *Streams
 }
 
 type ExecuteSandboxResponse struct {

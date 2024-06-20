@@ -88,6 +88,8 @@ func (e *JobExecutor) Sandbox() sandboxer.Sandbox {
 }
 
 func (e *JobExecutor) Initialize(ctx context.Context, runtime sandboxer.SandboxRuntime) error {
+	e.Reporter.StartJob()
+
 	var err error
 	if err = e.initializeJob(ctx); err != nil {
 		return err
@@ -129,6 +131,8 @@ func (e *JobExecutor) RunJob(ctx context.Context) error {
 }
 
 func (e *JobExecutor) Finalize(ctx context.Context, runtime sandboxer.SandboxRuntime) error {
+	defer e.Reporter.EndJob("success", nil)
+
 	req := sandboxer.TerminateSandboxRequest{
 		Sandbox: e.sandbox,
 	}

@@ -41,6 +41,7 @@ func (s *incusSandbox) Execute(ctx context.Context, cmd []string, env map[string
 			Cmd:       cmd,
 			Env:       env,
 			Workdir:   workdir,
+			Streams:   streams,
 		}
 		res, err := s.sandboxRuntime.ExecuteSandbox(ctx, req)
 		if err != nil {
