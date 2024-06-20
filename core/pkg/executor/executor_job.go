@@ -27,6 +27,7 @@ var (
 type JobExecutor struct {
 	JobRun   *JobRun
 	Reporter reporter.Reporter
+	Context  *contexts.Context
 
 	sandbox       sandboxer.Sandbox
 	stepExecutors map[string]*StepExecutor
