@@ -109,7 +109,7 @@ func (e *StepExecutor) runTask(ctx context.Context, task *Task) error {
 	if e.parent == nil {
 		e.job.Reporter.StartStep(e.StepId())
 		defer func() {
-			e.job.Reporter.EndStep(e.StepId(), string(e.result.Outcome))
+			e.job.Reporter.EndStep(e.StepId(), e.result.Outcome)
 		}()
 	}
 

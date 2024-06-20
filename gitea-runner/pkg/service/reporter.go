@@ -12,14 +12,16 @@ import (
 	"connectrpc.com/connect"
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/executor/reporter"
+	"drassi.run/core/pkg/model/contexts"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-var resultMap = map[string]runnerv1.Result{
-	"success":   runnerv1.Result_RESULT_SUCCESS,
-	"failure":   runnerv1.Result_RESULT_FAILURE,
-	"cancelled": runnerv1.Result_RESULT_CANCELLED,
-	"skipped":   runnerv1.Result_RESULT_SKIPPED,
+var resultMap = map[contexts.Result]runnerv1.Result{
+	"":                       runnerv1.Result_RESULT_UNSPECIFIED,
+	contexts.ResultSuccess:   runnerv1.Result_RESULT_SUCCESS,
+	contexts.ResultFailure:   runnerv1.Result_RESULT_FAILURE,
+	contexts.ResultCancelled: runnerv1.Result_RESULT_CANCELLED,
+	contexts.ResultSkipped:   runnerv1.Result_RESULT_SKIPPED,
 }
 
 type GiteaReporter struct {
@@ -133,13 +135,9 @@ func (r *GiteaReporter) StartJob() {
 	_ = r.updateTask()
 }
 
-func (r *GiteaReporter) EndJob(result string, outputs map[string]string) {
+func (r *GiteaReporter) EndJob(result contexts.Result, outputs map[string]string) {
 	r.taskState.StoppedAt = timestamppb.Now()
-	if res, ok := resultMap[result]; ok {
-		r.taskState.Result = res
-	} else {
-		r.taskState.Result = runnerv1.Result_RESULT_UNSPECIFIED
-	}
+	r.taskState.Result = resultMap[result]
 
 	for k, v := range outputs {
 		r.taskOutputs[k] = v
@@ -157,15 +155,11 @@ func (r *GiteaReporter) StartStep(stepId string) {
 	_ = r.updateTask()
 }
 
-func (r *GiteaReporter) EndStep(stepId string, result string) {
+func (r *GiteaReporter) EndStep(stepId string, result contexts.Result) {
 	stepState := r.stepStates[stepId]
 
 	stepState.StoppedAt = timestamppb.Now()
-	if res, ok := resultMap[result]; ok {
-		stepState.Result = res
-	} else {
-		stepState.Result = runnerv1.Result_RESULT_UNSPECIFIED
-	}
+	stepState.Result = resultMap[result]
 	stepState.LogLength = r.logOffset + int64(len(r.logRows)) - stepState.LogIndex
 
 	_ = r.updateTask()

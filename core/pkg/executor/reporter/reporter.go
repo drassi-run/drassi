@@ -1,6 +1,10 @@
 package reporter
 
-import "io"
+import (
+	"io"
+
+	"drassi.run/core/pkg/model/contexts"
+)
 
 // https://github.com/actions/runner/blob/main/src/Sdk/DTWebApi/WebApi/Issue.cs
 // https://github.com/actions/runner/blob/main/src/Sdk/RSWebApi/Contracts/AnnotationLevel.cs
@@ -26,9 +30,9 @@ type Reporter interface {
 	Stderr() io.Writer
 
 	StartJob()
-	EndJob(result string, outputs map[string]string)
+	EndJob(result contexts.Result, outputs map[string]string)
 	StartStep(stepId string)
-	EndStep(stepId string, result string)
+	EndStep(stepId string, result contexts.Result)
 
 	AddIssue(issue *Issue) error
 	AttachFile(kind, name string, reader io.Reader) error

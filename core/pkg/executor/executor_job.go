@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	"drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/executor/command"
@@ -44,6 +45,7 @@ type JobExecutor struct {
 	defaults workflows.Defaults
 	env      map[string]string
 	paths    []string
+	result   contexts.Result
 }
 
 func (e *JobExecutor) JobId() string {
@@ -131,14 +133,32 @@ func (e *JobExecutor) RunJob(ctx context.Context) error {
 	return nil
 }
 
-func (e *JobExecutor) Finalize(ctx context.Context, runtime sandboxer.SandboxRuntime) error {
-	defer e.Reporter.EndJob("success", nil)
+func (e *JobExecutor) Finalize(ctx context.Context, runtime sandboxer.SandboxRuntime) (err error) {
+	defer func() {
+		output, ex := e.JobRun.Outputs.Evaluate("job.output", nil)
+		if err != nil && ex != nil {
+			err = ex
+		}
+
+		e.Reporter.EndJob(e.result, output)
+	}()
+
+	if e.sandbox == nil {
+		return
+	}
+
+	// if ctx is done, a new one is created w/ timeout 5s to clean-up resources
+	if ctx.Err() != nil {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+	}
 
 	req := sandboxer.TerminateSandboxRequest{
 		Sandbox: e.sandbox,
 	}
-	_, err := runtime.TerminateSandbox(ctx, req)
-	return err
+	_, err = runtime.TerminateSandbox(ctx, req)
+	return
 }
 
 func (e *JobExecutor) initializeJob(ctx context.Context) error {
