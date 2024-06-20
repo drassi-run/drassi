@@ -49,7 +49,7 @@ func (v visitorImpl) VisitCancelledFn(eCtx ast_ifaces.Context, c ast_ifaces.Expr
 	if execCtx == nil {
 		panic(ErrorExecutionContextNotFound)
 	}
-	return execCtx.Job.Status == contexts.ActionResultCancelled
+	return execCtx.Job.Status == contexts.ResultCancelled
 }
 
 func (v visitorImpl) VisitContainsFn(eCtx ast_ifaces.Context, c ast_ifaces.Container) any {
@@ -113,7 +113,7 @@ func (v visitorImpl) VisitFailureFn(eCtx ast_ifaces.Context, c ast_ifaces.ExprNo
 	}
 	// TODO: refactor me
 	execCtx := tplCtx.State
-	return execCtx.Job.Status == contexts.ActionResultFailure
+	return execCtx.Job.Status == contexts.ResultFailure
 }
 
 func (v visitorImpl) VisitFormatFn(eCtx ast_ifaces.Context, c ast_ifaces.Container) any {
@@ -334,7 +334,7 @@ func (v visitorImpl) VisitSuccessFn(eCtx ast_ifaces.Context, c ast_ifaces.ExprNo
 		panic(ErrorExprContextNotFound)
 	}
 	ctx := tplCtx.State
-	return ctx.Job.Status == contexts.ActionResultSuccess
+	return ctx.Job.Status == contexts.ResultSuccess
 }
 
 func (v visitorImpl) VisitWildCard(eCtx ast_ifaces.Context, c ast_ifaces.ExprNode) any {

@@ -12,7 +12,7 @@ type contextKey struct{}
 type Context struct {
 	// The `github` context contains information about the workflow run and the event that triggered the run.
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#github-contex
-	Github Github `json:"github" yaml:"github" mapstructure:"github"`
+	Github *Github `json:"github" yaml:"github" mapstructure:"github"`
 
 	// The `env` context contains variables that have been set in a workflow, job, or step.
 	// It does not contain variables inherited by the runner process.
@@ -25,19 +25,19 @@ type Context struct {
 
 	// The job context contains information about the currently running job.
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#job-context
-	Job Job `json:"job" yaml:"job" mapstructure:"job"`
+	Job *Job `json:"job" yaml:"job" mapstructure:"job"`
 
 	// The `jobs` context is only available in reusable workflows, and can only be used to set outputs for a reusable workflow.
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#jobs-context
-	Jobs map[string]JobReusableWorkflow `json:"jobs" yaml:"jobs" mapstructure:"jobs"`
+	Jobs map[string]*JobReusableWorkflow `json:"jobs" yaml:"jobs" mapstructure:"jobs"`
 
 	// The `steps` context contains information about the steps in the current job that have an `id` specified and have already run.
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#steps-context
-	Steps map[string]Step `json:"steps" yaml:"steps" mapstructure:"steps"`
+	Steps map[string]*Step `json:"steps" yaml:"steps" mapstructure:"steps"`
 
 	// The `runner` context contains information about the runner that is executing the current job.
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#runner-context
-	Runner Runner `json:"runner" yaml:"runner" mapstructure:"runner"`
+	Runner *Runner `json:"runner" yaml:"runner" mapstructure:"runner"`
 
 	// The secrets context contains the names and values of secrets that are available to a workflow run.
 	// The secrets context is not available for composite actions due to security reasons.
@@ -47,7 +47,7 @@ type Context struct {
 
 	// For workflows with a matrix, the strategy context contains information about the matrix execution strategy for the current job.
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#strategy-context
-	Strategy Strategy `json:"strategy" yaml:"strategy" mapstructure:"strategy"`
+	Strategy *Strategy `json:"strategy" yaml:"strategy" mapstructure:"strategy"`
 
 	// For workflows with a matrix, the matrix context contains the matrix properties defined in the workflow file that apply to the current job.
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#matrix-context
@@ -56,7 +56,7 @@ type Context struct {
 	// The needs context contains outputs from all jobs that are defined as a direct dependency of the current job.
 	// Note that this doesn't include implicitly dependent jobs (for example, dependent jobs of a dependent job).
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#needs-context
-	Needs map[string]Need `json:"needs" yaml:"needs" mapstructure:"needs"`
+	Needs map[string]*Need `json:"needs" yaml:"needs" mapstructure:"needs"`
 
 	// The inputs context contains input properties passed to an action, to a reusable workflow, or to a manually triggered workflow.
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#inputs-context
@@ -77,7 +77,7 @@ type Strategy struct {
 // https://docs.github.com/en/actions/learn-github-actions/contexts#needs-context
 type Need struct {
 	Outputs map[string]string `json:"outputs" yaml:"outputs" mapstructure:"outputs"`
-	Result  ActionResult      `json:"result" yaml:"result" mapstructure:"result"`
+	Result  Result            `json:"result" yaml:"result" mapstructure:"result"`
 }
 
 type Expr struct {

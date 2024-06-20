@@ -121,12 +121,12 @@ func (e *StepExecutor) runTask(ctx context.Context, task *Task) error {
 
 	if task.Condition != nil {
 		if meet, err := task.Condition.Meet("job.step", e); err != nil {
-			e.result.Conclusion = contexts.ActionResultFailure
-			e.result.Outcome = contexts.ActionResultFailure
+			e.result.Conclusion = contexts.ResultFailure
+			e.result.Outcome = contexts.ResultFailure
 			return err
 		} else if !meet {
-			e.result.Conclusion = contexts.ActionResultSkipped
-			e.result.Outcome = contexts.ActionResultSkipped
+			e.result.Conclusion = contexts.ResultSkipped
+			e.result.Outcome = contexts.ResultSkipped
 			// TODO logging
 			return nil
 		}
@@ -161,23 +161,23 @@ func (e *StepExecutor) runTask(ctx context.Context, task *Task) error {
 	}
 
 	if err != nil {
-		e.result.Outcome = contexts.ActionResultFailure
+		e.result.Outcome = contexts.ResultFailure
 
 		if continueOnError, parseErr := base.ContinueOnError.Evaluate("job.step.continue-on-error", e); parseErr != nil {
-			e.result.Conclusion = contexts.ActionResultFailure
+			e.result.Conclusion = contexts.ResultFailure
 			return parseErr
 		} else if continueOnError {
-			e.result.Conclusion = contexts.ActionResultSuccess
+			e.result.Conclusion = contexts.ResultSuccess
 			//logger.Infof("Failed but continue next step")
 			err = nil
 		} else {
-			e.result.Conclusion = contexts.ActionResultFailure
+			e.result.Conclusion = contexts.ResultFailure
 		}
 
 		//logger.WithField("stepResult", stepResult.Outcome).Errorf("  \u274C  Failure - %s %s", stage, stepString)
 	} else {
-		e.result.Conclusion = contexts.ActionResultSuccess
-		e.result.Outcome = contexts.ActionResultSuccess
+		e.result.Conclusion = contexts.ResultSuccess
+		e.result.Outcome = contexts.ResultSuccess
 	}
 
 	if err := e.finalizeRunStep(ctx); err != nil {

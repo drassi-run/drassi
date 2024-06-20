@@ -735,8 +735,8 @@ func TestStatusCheckFunctions(t *testing.T) {
 			"invoke cancelled() evaluated to true", "cancelled()", true, func() *contexts.Expr {
 				return &contexts.Expr{
 					State: &contexts.Context{
-						Job: contexts.Job{
-							Status: contexts.ActionResultCancelled,
+						Job: &contexts.Job{
+							Status: contexts.ResultCancelled,
 						},
 					},
 				}
@@ -746,8 +746,8 @@ func TestStatusCheckFunctions(t *testing.T) {
 			"invoke cancelled() evaluated to false", "cancelled()", false, func() *contexts.Expr {
 				return &contexts.Expr{
 					State: &contexts.Context{
-						Job: contexts.Job{
-							Status: contexts.ActionResultSuccess,
+						Job: &contexts.Job{
+							Status: contexts.ResultSuccess,
 						},
 					},
 				}
@@ -758,8 +758,8 @@ func TestStatusCheckFunctions(t *testing.T) {
 			"invoke success() evaluated to true - pre, post and job-level steps", "success()", true,
 			func() *contexts.Expr {
 				return &contexts.Expr{State: &contexts.Context{
-					Job: contexts.Job{
-						Status: contexts.ActionResultSuccess,
+					Job: &contexts.Job{
+						Status: contexts.ResultSuccess,
 					},
 				},
 				}
@@ -769,8 +769,8 @@ func TestStatusCheckFunctions(t *testing.T) {
 			"invoke success() evaluated to false - pre, post and job-level steps", "success()", false,
 			func() *contexts.Expr {
 				return &contexts.Expr{State: &contexts.Context{
-					Job: contexts.Job{
-						Status: contexts.ActionResultCancelled,
+					Job: &contexts.Job{
+						Status: contexts.ResultCancelled,
 					},
 				},
 				}
@@ -780,8 +780,8 @@ func TestStatusCheckFunctions(t *testing.T) {
 		{
 			"invoke failure() evaluated to true - pre, post and job-level steps", "failure()", true, func() *contexts.Expr {
 				return &contexts.Expr{State: &contexts.Context{
-					Job: contexts.Job{
-						Status: contexts.ActionResultFailure,
+					Job: &contexts.Job{
+						Status: contexts.ResultFailure,
 					},
 				},
 				}
@@ -791,8 +791,8 @@ func TestStatusCheckFunctions(t *testing.T) {
 			"invoke failure() evaluated to false - pre, post and job-level steps", "failure()", false,
 			func() *contexts.Expr {
 				return &contexts.Expr{State: &contexts.Context{
-					Job: contexts.Job{
-						Status: contexts.ActionResultSuccess,
+					Job: &contexts.Job{
+						Status: contexts.ResultSuccess,
 					},
 				},
 				}
@@ -829,7 +829,7 @@ func TestContexts(t *testing.T) {
 			"with format", "format('github.actor: {0}', github.actor)", "github.actor: foo", func() *contexts.Expr {
 				return &contexts.Expr{
 					State: &contexts.Context{
-						Github: contexts.Github{
+						Github: &contexts.Github{
 							Actor: "foo",
 						},
 					},
@@ -843,7 +843,7 @@ func TestContexts(t *testing.T) {
 			func() *contexts.Expr {
 				return &contexts.Expr{
 					State: &contexts.Context{
-						Github: contexts.Github{
+						Github: &contexts.Github{
 							Actor: "foo",
 						},
 					},
