@@ -42,7 +42,7 @@ func NewRegisterCommand() *cobra.Command {
 	}
 
 	flags := cmd.Flags()
-	flags.StringVar(&opts.url, "url", "", "Gitea instance URL")
+	flags.StringVar(&opts.url, "url", "https://gitea.com", "Gitea instance URL")
 	flags.BoolVar(&opts.insecureSkipTLSVerify, "insecure-skip-tls-verify", false, "Skip verification of server certificate")
 	flags.StringVar(&opts.token, "token", "", "Runner registration token")
 	flags.StringVar(&opts.name, "name", "", "Runner name")
