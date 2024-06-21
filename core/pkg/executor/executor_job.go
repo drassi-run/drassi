@@ -33,17 +33,16 @@ type JobExecutor struct {
 	Dossier  *dossiers.Dossier
 
 	sandbox       sandboxer.Sandbox
-	stepExecutors map[string]*StepExecutor
+	stepExecutors map[string]StepExecutor
 
 	secretMasker    secret.Masker
 	problemMatchers map[string]problem.Matcher
 
-	outWriter          io.Writer
-	errWriter          io.Writer
-	streams            *sandboxer.Streams
-	consoleCmdMgr      *command.ConsoleCommandManager
-	consoleCmdHandler  *consoleCommandHandlers
-	evaluationSupplier workflows.EvaluationSupplier
+	outWriter         io.Writer
+	errWriter         io.Writer
+	streams           *sandboxer.Streams
+	consoleCmdMgr     *command.ConsoleCommandManager
+	consoleCmdHandler *consoleCommandHandlers
 
 	defaults workflows.Defaults
 	env      map[string]string // ref Dossier.Env
@@ -55,11 +54,11 @@ func (e *JobExecutor) JobId() string {
 	return e.JobRun.Id
 }
 
-func (e *JobExecutor) NewStepExecutor(step StepRun) *StepExecutor {
-	exec := &StepExecutor{
+func (e *JobExecutor) NewStepExecutor(step StepRun) StepExecutor {
+	exec := &stepExecutor{
 		job:         e,
 		parent:      nil,
-		children:    make(map[string]*StepExecutor),
+		children:    make(map[string]StepExecutor),
 		stepRun:     step,
 		envOverride: make(map[string]string),
 		input:       make(map[string]string),
@@ -69,7 +68,7 @@ func (e *JobExecutor) NewStepExecutor(step StepRun) *StepExecutor {
 	return exec
 }
 
-func (e *JobExecutor) StepExecutor(id string) *StepExecutor {
+func (e *JobExecutor) StepExecutor(id string) StepExecutor {
 	return e.stepExecutors[id]
 }
 
@@ -137,8 +136,9 @@ func (e *JobExecutor) RunJob(ctx context.Context) error {
 }
 
 func (e *JobExecutor) Finalize(ctx context.Context, runtime sandboxer.SandboxRuntime) (err error) {
+	evalSupplier := &evaluationSupplier{dossier: e.Dossier}
 	defer func() {
-		output, ex := e.JobRun.Outputs.Evaluate("job.output", e.evaluationSupplier)
+		output, ex := e.JobRun.Outputs.Evaluate("job.output", evalSupplier)
 		if err != nil && ex != nil {
 			err = ex
 		}
@@ -179,9 +179,9 @@ func (e *JobExecutor) initializeJob(ctx context.Context) error {
 
 	e.consoleCmdMgr = command.NewConsoleCommandManager(e.outWriter)
 	e.consoleCmdHandler = &consoleCommandHandlers{cmdMgr: e.consoleCmdMgr}
-	e.evaluationSupplier = &evaluationSupplier{dossier: e.Dossier}
+	evalSupplier := &evaluationSupplier{dossier: e.Dossier}
 
-	if env, err := e.JobRun.Env.Evaluate("job.env", e.evaluationSupplier); err != nil {
+	if env, err := e.JobRun.Env.Evaluate("job.env", evalSupplier); err != nil {
 		return err
 	} else {
 		if err = e.SetEnv(env); err != nil {
@@ -189,7 +189,7 @@ func (e *JobExecutor) initializeJob(ctx context.Context) error {
 		}
 	}
 
-	if defaults, err := e.JobRun.Defaults.Evaluate("job.defaults", e.evaluationSupplier); err != nil {
+	if defaults, err := e.JobRun.Defaults.Evaluate("job.defaults", evalSupplier); err != nil {
 		return err
 	} else {
 		e.defaults = defaults
@@ -198,8 +198,9 @@ func (e *JobExecutor) initializeJob(ctx context.Context) error {
 }
 
 func (e *JobExecutor) initializeSandbox(ctx context.Context, runtime sandboxer.SandboxRuntime) error {
+	evalSupplier := &evaluationSupplier{dossier: e.Dossier}
 	var jobContainer *container.ContainerConfig
-	if con, err := e.JobRun.Container.Evaluate("job.container", e.evaluationSupplier); err != nil {
+	if con, err := e.JobRun.Container.Evaluate("job.container", evalSupplier); err != nil {
 		return err
 	} else {
 		jobContainer, err = e.toContainerConfig(ctx, con)
@@ -209,7 +210,7 @@ func (e *JobExecutor) initializeSandbox(ctx context.Context, runtime sandboxer.S
 	}
 
 	var serviceContainers = make(map[string]*container.ContainerConfig)
-	if sers, err := e.JobRun.Services.Evaluate("job.services", e.evaluationSupplier); err != nil {
+	if sers, err := e.JobRun.Services.Evaluate("job.services", evalSupplier); err != nil {
 		return err
 	} else {
 		for name, ser := range sers {
@@ -240,7 +241,7 @@ func (e *JobExecutor) initializeSandbox(ctx context.Context, runtime sandboxer.S
 }
 
 func (e *JobExecutor) initializeSteps(ctx context.Context) error {
-	e.stepExecutors = make(map[string]*StepExecutor, len(e.JobRun.Steps))
+	e.stepExecutors = make(map[string]StepExecutor, len(e.JobRun.Steps))
 	g, ctx := errgroup.WithContext(ctx)
 	for _, step := range e.JobRun.Steps {
 		exec := e.NewStepExecutor(step)

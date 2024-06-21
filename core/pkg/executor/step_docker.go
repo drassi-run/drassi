@@ -12,7 +12,7 @@ type DockerStepRun struct {
 	Image string
 }
 
-func (sr *DockerStepRun) Initialize(ctx context.Context, exec *StepExecutor) error {
+func (sr *DockerStepRun) Initialize(ctx context.Context, exec StepExecutor) error {
 	return exec.Sandbox().PullImage(ctx, sr.Image)
 }
 
@@ -29,8 +29,9 @@ func (sr *DockerStepRun) MainTask() *Task {
 	}
 }
 
-func (sr *DockerStepRun) executeMain(ctx context.Context, exec *StepExecutor) error {
-	inputs, err := sr.Inputs.Evaluate("job.step", exec.evaluationSupplier)
+func (sr *DockerStepRun) executeMain(ctx context.Context, exec StepExecutor) error {
+	evalSupplier := &evaluationSupplier{dossier: exec.Dossier()}
+	inputs, err := sr.Inputs.Evaluate("job.step", evalSupplier)
 	if err != nil {
 		return err
 	}

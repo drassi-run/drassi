@@ -12,7 +12,7 @@ type dockerActionRun struct {
 	image  string
 }
 
-func (ar *dockerActionRun) Initialize(ctx context.Context, exec *StepExecutor) error {
+func (ar *dockerActionRun) Initialize(ctx context.Context, exec StepExecutor) error {
 	if i, ok := strings.CutPrefix(ar.action.Image, "docker://"); ok {
 		// TODO pull image
 		ar.image = i
@@ -34,7 +34,7 @@ func (ar *dockerActionRun) PreTask() *Task {
 	}
 }
 
-func (ar *dockerActionRun) executePre(ctx context.Context, exec *StepExecutor) error {
+func (ar *dockerActionRun) executePre(ctx context.Context, exec StepExecutor) error {
 	entrypoint := []string{ar.action.PreEntrypoint}
 	env := ar.evaluateEnv()
 	return exec.Sandbox().RunContainer(ctx, ar.image, entrypoint, nil, env, "")
@@ -47,7 +47,7 @@ func (ar *dockerActionRun) MainTask() *Task {
 	}
 }
 
-func (ar *dockerActionRun) executeMain(ctx context.Context, exec *StepExecutor) error {
+func (ar *dockerActionRun) executeMain(ctx context.Context, exec StepExecutor) error {
 	entrypoint := []string{ar.action.Entrypoint}
 	env := ar.evaluateEnv()
 	return exec.Sandbox().RunContainer(ctx, ar.image, entrypoint, nil, env, "")
@@ -64,7 +64,7 @@ func (ar *dockerActionRun) PostTask() *Task {
 	}
 }
 
-func (ar *dockerActionRun) executePost(ctx context.Context, exec *StepExecutor) error {
+func (ar *dockerActionRun) executePost(ctx context.Context, exec StepExecutor) error {
 	entrypoint := []string{ar.action.PostEntrypoint}
 	env := ar.evaluateEnv()
 	return exec.Sandbox().RunContainer(ctx, ar.image, entrypoint, nil, env, "")

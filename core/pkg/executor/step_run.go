@@ -14,7 +14,7 @@ type ScriptStepRun struct {
 	BaseStepRun
 }
 
-func (sr *ScriptStepRun) Initialize(_ context.Context, _ *StepExecutor) error {
+func (sr *ScriptStepRun) Initialize(_ context.Context, _ StepExecutor) error {
 	return nil
 }
 
@@ -31,8 +31,9 @@ func (sr *ScriptStepRun) MainTask() *Task {
 	}
 }
 
-func (sr *ScriptStepRun) executeMain(ctx context.Context, exec *StepExecutor) error {
-	inputs, err := sr.Inputs.Evaluate("job.step", exec.evaluationSupplier)
+func (sr *ScriptStepRun) executeMain(ctx context.Context, exec StepExecutor) error {
+	evalSupplier := &evaluationSupplier{dossier: exec.Dossier()}
+	inputs, err := sr.Inputs.Evaluate("job.step", evalSupplier)
 	if err != nil {
 		return err
 	}
@@ -40,7 +41,7 @@ func (sr *ScriptStepRun) executeMain(ctx context.Context, exec *StepExecutor) er
 	shell := model.Shell(sr.getShell(inputs, exec))
 	workdir, ok := inputs["workdir"]
 	if !ok {
-		workdir = exec.job.defaults.Run.WorkingDir
+		workdir = exec.JobExecutor().defaults.Run.WorkingDir
 	}
 	script, ok := inputs["script"]
 	if !ok {
@@ -71,14 +72,14 @@ func (sr *ScriptStepRun) PostTask() *Task {
 	return nil
 }
 
-func (sr *ScriptStepRun) getShell(inputs map[string]string, exec *StepExecutor) string {
+func (sr *ScriptStepRun) getShell(inputs map[string]string, exec StepExecutor) string {
 	if shell, ok := inputs["shell"]; ok {
 		return shell
 	}
-	return exec.job.defaults.Run.Shell
+	return exec.JobExecutor().defaults.Run.Shell
 }
 
-func (sr *ScriptStepRun) getCommand(shell model.Shell, exec *StepExecutor) ([]string, string, error) {
+func (sr *ScriptStepRun) getCommand(shell model.Shell, exec StepExecutor) ([]string, string, error) {
 	scriptPath := sr.getScriptPath(exec, shell, sr.Id)
 	cmds, err := shell.Command()
 	if err != nil {
@@ -92,7 +93,7 @@ func (sr *ScriptStepRun) getCommand(shell model.Shell, exec *StepExecutor) ([]st
 	return c, scriptPath, nil
 }
 
-func (sr *ScriptStepRun) getScriptPath(exec *StepExecutor, shell model.Shell, name string) string {
+func (sr *ScriptStepRun) getScriptPath(exec StepExecutor, shell model.Shell, name string) string {
 	scriptName := name
 	//for stepInfo := &rc.StepInfo; stepInfo.Parent != nil; stepInfo = stepInfo.Parent {
 	//	scriptName = fmt.Sprintf("%s-composite-%s", stepInfo.Parent.StepId, scriptName)

@@ -7,7 +7,7 @@ import (
 )
 
 type ActionRun interface {
-	Initialize(ctx context.Context, exec *StepExecutor) error
+	Initialize(ctx context.Context, exec StepExecutor) error
 	PreTask() *Task
 	MainTask() *Task
 	PostTask() *Task

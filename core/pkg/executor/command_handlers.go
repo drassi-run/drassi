@@ -15,13 +15,13 @@ import (
 
 type handlerInfo[E any] struct {
 	ctx  context.Context
-	exec *E
+	exec E
 }
 
 type consoleCommandHandlers struct {
 	cmdMgr *command.ConsoleCommandManager
 
-	job   handlerInfo[JobExecutor]
+	job   handlerInfo[*JobExecutor]
 	steps []handlerInfo[StepExecutor]
 }
 
@@ -81,7 +81,7 @@ func (h *consoleCommandHandlers) clearSteps() {
 	h.steps = nil
 }
 
-func (h *consoleCommandHandlers) StartStep(ctx context.Context, stepExec *StepExecutor) error {
+func (h *consoleCommandHandlers) StartStep(ctx context.Context, stepExec StepExecutor) error {
 	if h.job.exec == nil {
 		return errors.New("job need to be started before starting a step")
 	}
@@ -108,7 +108,7 @@ func (h *consoleCommandHandlers) EndStep() {
 	}
 }
 
-func (h *consoleCommandHandlers) stepHandle(fn func(ctx context.Context, exec *StepExecutor) error) error {
+func (h *consoleCommandHandlers) stepHandle(fn func(ctx context.Context, exec StepExecutor) error) error {
 	if len(h.steps) == 0 {
 		return errors.New("no step found")
 	}
@@ -282,7 +282,7 @@ func (h *consoleCommandHandlers) setEnv(cmd *command.Command) error {
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L301
 func (h *consoleCommandHandlers) setOutput(cmd *command.Command) error {
-	return h.stepHandle(func(ctx context.Context, e *StepExecutor) error {
+	return h.stepHandle(func(ctx context.Context, e StepExecutor) error {
 		name, ok := cmd.Params["name"]
 		if !ok || name == "" {
 			return fmt.Errorf("required field 'name' in ##[set-output] command")
@@ -297,7 +297,7 @@ func (h *consoleCommandHandlers) setOutput(cmd *command.Command) error {
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L336
 func (h *consoleCommandHandlers) saveState(cmd *command.Command) error {
-	return h.stepHandle(func(ctx context.Context, e *StepExecutor) error {
+	return h.stepHandle(func(ctx context.Context, e StepExecutor) error {
 		name, ok := cmd.Params["name"]
 		if !ok || name == "" {
 			return fmt.Errorf("required field 'name' in ##[save-state] command")

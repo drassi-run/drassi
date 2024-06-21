@@ -19,7 +19,7 @@ type RepositoryStepRun struct {
 	action ActionRun
 }
 
-func (sr *RepositoryStepRun) Initialize(ctx context.Context, exec *StepExecutor) error {
+func (sr *RepositoryStepRun) Initialize(ctx context.Context, exec StepExecutor) error {
 	//TODO implement me
 	panic("implement me")
 }
