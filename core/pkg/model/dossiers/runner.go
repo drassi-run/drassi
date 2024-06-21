@@ -1,4 +1,4 @@
-package contexts
+package dossiers
 
 import "drassi.run/core/pkg/model"
 

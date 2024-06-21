@@ -3,11 +3,11 @@ package executor
 import (
 	"context"
 
-	"drassi.run/core/pkg/model/contexts"
+	"drassi.run/core/pkg/model/dossiers"
 )
 
 type evaluationSupplier struct {
-	context *contexts.Context
+	dossier *dossiers.Dossier
 }
 
 func (e *evaluationSupplier) Values(name string) context.Context {

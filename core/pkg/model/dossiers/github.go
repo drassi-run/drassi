@@ -1,4 +1,4 @@
-package contexts
+package dossiers
 
 // The github context contains information about the workflow run and the event that triggered the run.
 // https://docs.github.com/en/actions/learn-github-actions/contexts#github-context

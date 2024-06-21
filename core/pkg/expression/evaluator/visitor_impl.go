@@ -18,7 +18,7 @@ import (
 	"drassi.run/core/pkg/expression/ast"
 	"drassi.run/core/pkg/expression/ast/ast_ifaces"
 	"drassi.run/core/pkg/expression/common"
-	"drassi.run/core/pkg/model/contexts"
+	"drassi.run/core/pkg/model/dossiers"
 )
 
 type visitorImpl struct {
@@ -41,7 +41,7 @@ func (v visitorImpl) VisitAnd(eCtx ast_ifaces.Context, c ast_ifaces.Container) a
 }
 
 func (v visitorImpl) VisitCancelledFn(eCtx ast_ifaces.Context, c ast_ifaces.ExprNode) any {
-	tplCtx := eCtx.State().(*contexts.Expr)
+	tplCtx := eCtx.State().(*dossiers.Expr)
 	if tplCtx == nil {
 		panic(ErrorExprContextNotFound)
 	}
@@ -49,7 +49,7 @@ func (v visitorImpl) VisitCancelledFn(eCtx ast_ifaces.Context, c ast_ifaces.Expr
 	if execCtx == nil {
 		panic(ErrorExecutionContextNotFound)
 	}
-	return execCtx.Job.Status == contexts.ResultCancelled
+	return execCtx.Job.Status == dossiers.ResultCancelled
 }
 
 func (v visitorImpl) VisitContainsFn(eCtx ast_ifaces.Context, c ast_ifaces.Container) any {
@@ -79,7 +79,7 @@ func (v visitorImpl) VisitContainsFn(eCtx ast_ifaces.Context, c ast_ifaces.Conta
 
 func (v visitorImpl) VisitContextValueNode(eCtx ast_ifaces.Context, c ast_ifaces.ExprNode) any {
 	var target map[string]interface{}
-	if err := mapstructure.Decode(*(eCtx.State().(*contexts.Expr).State), &target); err != nil {
+	if err := mapstructure.Decode(*(eCtx.State().(*dossiers.Expr).State), &target); err != nil {
 		panic(err)
 	}
 	return target[c.GetName()]
@@ -107,13 +107,13 @@ func (v visitorImpl) VisitEqual(eCtx ast_ifaces.Context, c ast_ifaces.Container)
 // TODO: composite action
 // See https://github.com/dungdm93/drasi/blob/bfc21ce03ad75998a64d4a4718c7d648fea24f2a/pkg/expression/evaluator/visitor.go#L99
 func (v visitorImpl) VisitFailureFn(eCtx ast_ifaces.Context, c ast_ifaces.ExprNode) any {
-	tplCtx := eCtx.State().(*contexts.Expr)
+	tplCtx := eCtx.State().(*dossiers.Expr)
 	if tplCtx == nil {
 		panic(ErrorExprContextNotFound)
 	}
 	// TODO: refactor me
 	execCtx := tplCtx.State
-	return execCtx.Job.Status == contexts.ResultFailure
+	return execCtx.Job.Status == dossiers.ResultFailure
 }
 
 func (v visitorImpl) VisitFormatFn(eCtx ast_ifaces.Context, c ast_ifaces.Container) any {
@@ -329,12 +329,12 @@ func (v visitorImpl) VisitStartsWithFn(eCtx ast_ifaces.Context, c ast_ifaces.Con
 // TODO: composite action
 // See https://github.com/dungdm93/drasi/blob/bfc21ce03ad75998a64d4a4718c7d648fea24f2a/pkg/expression/evaluator/visitor.go#L320
 func (v visitorImpl) VisitSuccessFn(eCtx ast_ifaces.Context, c ast_ifaces.ExprNode) any {
-	tplCtx := eCtx.State().(*contexts.Expr)
+	tplCtx := eCtx.State().(*dossiers.Expr)
 	if tplCtx == nil {
 		panic(ErrorExprContextNotFound)
 	}
 	ctx := tplCtx.State
-	return ctx.Job.Status == contexts.ResultSuccess
+	return ctx.Job.Status == dossiers.ResultSuccess
 }
 
 func (v visitorImpl) VisitWildCard(eCtx ast_ifaces.Context, c ast_ifaces.ExprNode) any {

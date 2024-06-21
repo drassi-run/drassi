@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"drassi.run/core/pkg/model/contexts"
+	"drassi.run/core/pkg/model/dossiers"
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
 	utilreader "drassi.run/core/pkg/util/reader"
@@ -24,7 +24,7 @@ type StepExecutor struct {
 	envOverride        map[string]string
 	input              map[string]string
 
-	result *contexts.Step
+	result *dossiers.Step
 	state  map[string]string
 }
 
@@ -40,7 +40,7 @@ func (e *StepExecutor) NewChildExecutor(stepRun StepRun) *StepExecutor {
 		stepRun:     stepRun,
 		envOverride: make(map[string]string),
 		input:       make(map[string]string),
-		result:      &contexts.Step{},
+		result:      &dossiers.Step{},
 	}
 
 	e.children[stepRun.StepId()] = cExec
@@ -97,7 +97,7 @@ func (e *StepExecutor) runTask(ctx context.Context, task *Task) error {
 	}
 
 	base := e.stepRun.Base()
-	e.evaluationSupplier = &evaluationSupplier{context: e.job.NewSubContext()}
+	e.evaluationSupplier = &evaluationSupplier{dossier: e.job.NewSubDossier()}
 
 	if err := e.setupEnv(ctx, e.stepRun); err != nil {
 		return err
@@ -105,12 +105,12 @@ func (e *StepExecutor) runTask(ctx context.Context, task *Task) error {
 
 	if task.Condition != nil {
 		if meet, err := task.Condition.Meet("job.step", e.evaluationSupplier); err != nil {
-			e.result.Conclusion = contexts.ResultFailure
-			e.result.Outcome = contexts.ResultFailure
+			e.result.Conclusion = dossiers.ResultFailure
+			e.result.Outcome = dossiers.ResultFailure
 			return err
 		} else if !meet {
-			e.result.Conclusion = contexts.ResultSkipped
-			e.result.Outcome = contexts.ResultSkipped
+			e.result.Conclusion = dossiers.ResultSkipped
+			e.result.Outcome = dossiers.ResultSkipped
 			// TODO logging
 			return nil
 		}
@@ -145,23 +145,23 @@ func (e *StepExecutor) runTask(ctx context.Context, task *Task) error {
 	}
 
 	if err != nil {
-		e.result.Outcome = contexts.ResultFailure
+		e.result.Outcome = dossiers.ResultFailure
 
 		if continueOnError, parseErr := base.ContinueOnError.Evaluate("job.step.continue-on-error", e.evaluationSupplier); parseErr != nil {
-			e.result.Conclusion = contexts.ResultFailure
+			e.result.Conclusion = dossiers.ResultFailure
 			return parseErr
 		} else if continueOnError {
-			e.result.Conclusion = contexts.ResultSuccess
+			e.result.Conclusion = dossiers.ResultSuccess
 			//logger.Infof("Failed but continue next step")
 			err = nil
 		} else {
-			e.result.Conclusion = contexts.ResultFailure
+			e.result.Conclusion = dossiers.ResultFailure
 		}
 
 		//logger.WithField("stepResult", stepResult.Outcome).Errorf("  \u274C  Failure - %s %s", stage, stepString)
 	} else {
-		e.result.Conclusion = contexts.ResultSuccess
-		e.result.Outcome = contexts.ResultSuccess
+		e.result.Conclusion = dossiers.ResultSuccess
+		e.result.Outcome = dossiers.ResultSuccess
 	}
 
 	if err := e.finalizeRunStep(ctx); err != nil {

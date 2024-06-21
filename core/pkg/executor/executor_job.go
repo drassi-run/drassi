@@ -16,7 +16,7 @@ import (
 	"drassi.run/core/pkg/executor/problem"
 	"drassi.run/core/pkg/executor/reporter"
 	"drassi.run/core/pkg/executor/secret"
-	"drassi.run/core/pkg/model/contexts"
+	"drassi.run/core/pkg/model/dossiers"
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
 	"golang.org/x/sync/errgroup"
@@ -30,7 +30,7 @@ var (
 type JobExecutor struct {
 	JobRun   *JobRun
 	Reporter reporter.Reporter
-	Context  *contexts.Context
+	Dossier  *dossiers.Dossier
 
 	sandbox       sandboxer.Sandbox
 	stepExecutors map[string]*StepExecutor
@@ -46,9 +46,9 @@ type JobExecutor struct {
 	evaluationSupplier workflows.EvaluationSupplier
 
 	defaults workflows.Defaults
-	env      map[string]string // ref Context.Env
+	env      map[string]string // ref Dossier.Env
 	paths    []string
-	result   contexts.Result
+	result   dossiers.Result
 }
 
 func (e *JobExecutor) JobId() string {
@@ -63,7 +63,7 @@ func (e *JobExecutor) NewStepExecutor(step StepRun) *StepExecutor {
 		stepRun:     step,
 		envOverride: make(map[string]string),
 		input:       make(map[string]string),
-		result:      &contexts.Step{},
+		result:      &dossiers.Step{},
 	}
 	e.stepExecutors[step.StepId()] = exec
 	return exec
@@ -73,28 +73,27 @@ func (e *JobExecutor) StepExecutor(id string) *StepExecutor {
 	return e.stepExecutors[id]
 }
 
-func (e *JobExecutor) NewSubContext() *contexts.Context {
+func (e *JobExecutor) NewSubDossier() *dossiers.Dossier {
 	// Github context is cloned because `github.action_*` can be set by step
-	gh := *e.Context.Github // shallow clone GitHub
+	gh := *e.Dossier.Github // shallow clone GitHub
 
 	// env context is cloned because of step level env
-	env := maps.Clone(e.Context.Env)
+	env := maps.Clone(e.Dossier.Env)
 
-	c := &contexts.Context{
+	return &dossiers.Dossier{
 		Github:    &gh,
 		Env:       env,
-		Variables: e.Context.Variables,
-		Job:       e.Context.Job,
-		Jobs:      e.Context.Jobs,
-		Steps:     e.Context.Steps,
-		Runner:    e.Context.Runner,
-		Secrets:   e.Context.Secrets, // TODO: secrets context is not available for composite actions
-		Strategy:  e.Context.Strategy,
-		Matrix:    e.Context.Matrix,
-		Needs:     e.Context.Needs,
-		Inputs:    e.Context.Inputs,
+		Variables: e.Dossier.Variables,
+		Job:       e.Dossier.Job,
+		Jobs:      e.Dossier.Jobs,
+		Steps:     e.Dossier.Steps,
+		Runner:    e.Dossier.Runner,
+		Secrets:   e.Dossier.Secrets, // TODO: secrets context is not available for composite actions
+		Strategy:  e.Dossier.Strategy,
+		Matrix:    e.Dossier.Matrix,
+		Needs:     e.Dossier.Needs,
+		Inputs:    e.Dossier.Inputs,
 	}
-	return c
 }
 
 func (e *JobExecutor) Streams() *sandboxer.Streams {
@@ -180,7 +179,7 @@ func (e *JobExecutor) initializeJob(ctx context.Context) error {
 
 	e.consoleCmdMgr = command.NewConsoleCommandManager(e.outWriter)
 	e.consoleCmdHandler = &consoleCommandHandlers{cmdMgr: e.consoleCmdMgr}
-	e.evaluationSupplier = &evaluationSupplier{context: e.Context}
+	e.evaluationSupplier = &evaluationSupplier{dossier: e.Dossier}
 
 	if env, err := e.JobRun.Env.Evaluate("job.env", e.evaluationSupplier); err != nil {
 		return err
@@ -232,8 +231,8 @@ func (e *JobExecutor) initializeSandbox(ctx context.Context, runtime sandboxer.S
 		return err
 	} else {
 		e.sandbox = resp.Sandbox
-		e.Context.Job.Container = resp.Container
-		e.Context.Job.Services = resp.Services
+		e.Dossier.Job.Container = resp.Container
+		e.Dossier.Job.Services = resp.Services
 
 		e.processSandboxEnv(resp.Env)
 	}
@@ -408,8 +407,8 @@ func (e *JobExecutor) Log(tag, format string, a ...any) {
 
 // https://docs.github.com/en/actions/learn-github-actions/variables#default-environment-variables
 func (e *JobExecutor) ciEnv() map[string]string {
-	gh := e.Context.Github
-	r := e.Context.Runner
+	gh := e.Dossier.Github
+	r := e.Dossier.Runner
 
 	m := map[string]string{
 		"CI":             "true",
@@ -455,11 +454,11 @@ func (e *JobExecutor) ciEnv() map[string]string {
 }
 
 func (e *JobExecutor) processSandboxEnv(env map[string]string) {
-	gh := e.Context.Github
+	gh := e.Dossier.Github
 	gh.Workspace = env["GITHUB_WORKSPACE"]
 	gh.EventPath = env["GITHUB_EVENT_PATH"]
 
-	r := e.Context.Runner
+	r := e.Dossier.Runner
 	r.Temp = env["RUNNER_TEMP"]
 	r.ToolCache = env["RUNNER_TOOL_CACHE"]
 	r.Workspace = env["RUNNER_WORKSPACE"]

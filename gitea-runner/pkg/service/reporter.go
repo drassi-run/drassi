@@ -12,16 +12,16 @@ import (
 	"connectrpc.com/connect"
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/executor/reporter"
-	"drassi.run/core/pkg/model/contexts"
+	"drassi.run/core/pkg/model/dossiers"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-var resultMap = map[contexts.Result]runnerv1.Result{
+var resultMap = map[dossiers.Result]runnerv1.Result{
 	"":                       runnerv1.Result_RESULT_UNSPECIFIED,
-	contexts.ResultSuccess:   runnerv1.Result_RESULT_SUCCESS,
-	contexts.ResultFailure:   runnerv1.Result_RESULT_FAILURE,
-	contexts.ResultCancelled: runnerv1.Result_RESULT_CANCELLED,
-	contexts.ResultSkipped:   runnerv1.Result_RESULT_SKIPPED,
+	dossiers.ResultSuccess:   runnerv1.Result_RESULT_SUCCESS,
+	dossiers.ResultFailure:   runnerv1.Result_RESULT_FAILURE,
+	dossiers.ResultCancelled: runnerv1.Result_RESULT_CANCELLED,
+	dossiers.ResultSkipped:   runnerv1.Result_RESULT_SKIPPED,
 }
 
 type GiteaReporter struct {
@@ -135,7 +135,7 @@ func (r *GiteaReporter) StartJob() {
 	_ = r.updateTask()
 }
 
-func (r *GiteaReporter) EndJob(result contexts.Result, outputs map[string]string) {
+func (r *GiteaReporter) EndJob(result dossiers.Result, outputs map[string]string) {
 	r.taskState.StoppedAt = timestamppb.Now()
 	r.taskState.Result = resultMap[result]
 
@@ -155,7 +155,7 @@ func (r *GiteaReporter) StartStep(stepId string) {
 	_ = r.updateTask()
 }
 
-func (r *GiteaReporter) EndStep(stepId string, result contexts.Result) {
+func (r *GiteaReporter) EndStep(stepId string, result dossiers.Result) {
 	stepState := r.stepStates[stepId]
 
 	stepState.StoppedAt = timestamppb.Now()

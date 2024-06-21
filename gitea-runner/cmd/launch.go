@@ -18,7 +18,7 @@ import (
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/executor/secret"
 	"drassi.run/core/pkg/model"
-	"drassi.run/core/pkg/model/contexts"
+	"drassi.run/core/pkg/model/dossiers"
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/sandboxer/incus"
@@ -176,7 +176,7 @@ func (c *launchCommand) runTask(ctx context.Context, task *runnerv1.Task) error 
 		Environment: "self-hosted",
 	}
 
-	con := &contexts.Context{
+	d := &dossiers.Dossier{
 		Github:    gh,
 		Secrets:   task.Secrets,
 		Variables: task.Vars,
@@ -190,7 +190,7 @@ func (c *launchCommand) runTask(ctx context.Context, task *runnerv1.Task) error 
 	je := executor.JobExecutor{
 		JobRun:   jr,
 		Reporter: reporter,
-		Context:  con,
+		Dossier:  d,
 	}
 
 	for _, v := range task.Secrets {
@@ -222,14 +222,14 @@ func (c *launchCommand) convertJobRun(wf *workflows.Workflow) (*executor.JobRun,
 	return nil, fmt.Errorf("empty job")
 }
 
-func (c *launchCommand) convertJobNeeds(taskNeeds map[string]*runnerv1.TaskNeed) map[string]*contexts.Need {
+func (c *launchCommand) convertJobNeeds(taskNeeds map[string]*runnerv1.TaskNeed) map[string]*dossiers.Need {
 	if len(taskNeeds) == 0 {
 		return nil
 	}
 
-	needs := make(map[string]*contexts.Need, len(taskNeeds))
+	needs := make(map[string]*dossiers.Need, len(taskNeeds))
 	for k, n := range taskNeeds {
-		needs[k] = &contexts.Need{
+		needs[k] = &dossiers.Need{
 			Outputs: n.Outputs,
 			Result:  resultMap[n.Result],
 		}
@@ -251,9 +251,9 @@ func (c *launchCommand) decodeWorkflow(payload []byte) (*workflows.Workflow, err
 	return workflow, nil
 }
 
-func (c *launchCommand) decodeContext(s *structpb.Struct) (*contexts.Github, error) {
+func (c *launchCommand) decodeContext(s *structpb.Struct) (*dossiers.Github, error) {
 	m := s.AsMap()
-	gh := new(contexts.Github)
+	gh := new(dossiers.Github)
 
 	if err := model.Decode(m, gh); err != nil {
 		return nil, err
@@ -297,10 +297,10 @@ func loadJson(file string, object any) error {
 	return json.NewDecoder(f).Decode(object)
 }
 
-var resultMap = map[runnerv1.Result]contexts.Result{
+var resultMap = map[runnerv1.Result]dossiers.Result{
 	runnerv1.Result_RESULT_UNSPECIFIED: "",
-	runnerv1.Result_RESULT_SUCCESS:     contexts.ResultSuccess,
-	runnerv1.Result_RESULT_FAILURE:     contexts.ResultFailure,
-	runnerv1.Result_RESULT_CANCELLED:   contexts.ResultCancelled,
-	runnerv1.Result_RESULT_SKIPPED:     contexts.ResultSkipped,
+	runnerv1.Result_RESULT_SUCCESS:     dossiers.ResultSuccess,
+	runnerv1.Result_RESULT_FAILURE:     dossiers.ResultFailure,
+	runnerv1.Result_RESULT_CANCELLED:   dossiers.ResultCancelled,
+	runnerv1.Result_RESULT_SKIPPED:     dossiers.ResultSkipped,
 }
