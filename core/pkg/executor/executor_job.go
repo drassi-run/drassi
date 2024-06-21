@@ -7,6 +7,7 @@ import (
 	"maps"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -45,7 +46,7 @@ type JobExecutor struct {
 	evaluationSupplier workflows.EvaluationSupplier
 
 	defaults workflows.Defaults
-	env      map[string]string
+	env      map[string]string // ref Context.Env
 	paths    []string
 	result   contexts.Result
 }
@@ -107,22 +108,11 @@ func (e *JobExecutor) Sandbox() sandboxer.Sandbox {
 func (e *JobExecutor) Initialize(ctx context.Context, runtime sandboxer.SandboxRuntime) error {
 	e.Reporter.StartJob()
 
-	var err error
-	if err = e.initializeJob(ctx); err != nil {
+	if err := e.initializeJob(ctx); err != nil {
 		return err
 	}
 
-	e.env, err = e.JobRun.Env.Evaluate("job.env", e.evaluationSupplier)
-	if err != nil {
-		return err
-	}
-
-	e.defaults, err = e.JobRun.Defaults.Evaluate("job.defaults", e.evaluationSupplier)
-	if err != nil {
-		return err
-	}
-
-	if err = e.initializeSandbox(ctx, runtime); err != nil {
+	if err := e.initializeSandbox(ctx, runtime); err != nil {
 		return err
 	}
 
@@ -191,6 +181,20 @@ func (e *JobExecutor) initializeJob(ctx context.Context) error {
 	e.consoleCmdMgr = command.NewConsoleCommandManager(e.outWriter)
 	e.consoleCmdHandler = &consoleCommandHandlers{cmdMgr: e.consoleCmdMgr}
 	e.evaluationSupplier = &evaluationSupplier{context: e.Context}
+
+	if env, err := e.JobRun.Env.Evaluate("job.env", e.evaluationSupplier); err != nil {
+		return err
+	} else {
+		if err = e.SetEnv(env); err != nil {
+			return err
+		}
+	}
+
+	if defaults, err := e.JobRun.Defaults.Evaluate("job.defaults", e.evaluationSupplier); err != nil {
+		return err
+	} else {
+		e.defaults = defaults
+	}
 	return nil
 }
 
@@ -220,14 +224,18 @@ func (e *JobExecutor) initializeSandbox(ctx context.Context, runtime sandboxer.S
 
 	req := sandboxer.LaunchSandboxRequest{
 		JobId:             e.JobRun.Id,
-		JobEnv:            e.env,
+		JobEnv:            e.ciEnv(),
 		JobContainer:      jobContainer,
 		ServiceContainers: serviceContainers,
 	}
-	if res, err := runtime.LaunchSandbox(ctx, req); err != nil {
+	if resp, err := runtime.LaunchSandbox(ctx, req); err != nil {
 		return err
 	} else {
-		e.sandbox = res.Sandbox
+		e.sandbox = resp.Sandbox
+		e.Context.Job.Container = resp.Container
+		e.Context.Job.Services = resp.Services
+
+		e.processSandboxEnv(resp.Env)
 	}
 	return nil
 }
@@ -397,3 +405,71 @@ func (e *JobExecutor) Log(tag, format string, a ...any) {
 	}
 	_, _ = io.WriteString(e.outWriter, message)
 }
+
+// https://docs.github.com/en/actions/learn-github-actions/variables#default-environment-variables
+func (e *JobExecutor) ciEnv() map[string]string {
+	gh := e.Context.Github
+	r := e.Context.Runner
+
+	m := map[string]string{
+		"CI":             "true",
+		"GITHUB_ACTIONS": "true",
+
+		"GITHUB_ACTOR":               gh.Actor,
+		"GITHUB_ACTOR_ID":            gh.ActorId,
+		"GITHUB_API_URL":             gh.ApiUrl,
+		"GITHUB_BASE_REF":            gh.BaseRef,
+		"GITHUB_EVENT_NAME":          gh.EventName,
+		"GITHUB_GRAPHQL_URL":         gh.GraphqlUrl,
+		"GITHUB_HEAD_REF":            gh.HeadRef,
+		"GITHUB_JOB":                 gh.Job,
+		"GITHUB_REF":                 gh.Ref,
+		"GITHUB_REF_NAME":            gh.RefName,
+		"GITHUB_REF_PROTECTED":       strconv.FormatBool(gh.RefProtected),
+		"GITHUB_REF_TYPE":            string(gh.RefType),
+		"GITHUB_REPOSITORY":          gh.Repository,
+		"GITHUB_REPOSITORY_ID":       gh.RepositoryId,
+		"GITHUB_REPOSITORY_OWNER":    gh.RepositoryOwner,
+		"GITHUB_REPOSITORY_OWNER_ID": gh.RepositoryOwnerId,
+		"GITHUB_RETENTION_DAYS":      gh.RetentionDays,
+		"GITHUB_RUN_ATTEMPT":         gh.RunAttempt,
+		"GITHUB_RUN_ID":              gh.RunId,
+		"GITHUB_RUN_NUMBER":          gh.RunNumber,
+		"GITHUB_SERVER_URL":          gh.ServerUrl,
+		"GITHUB_SHA":                 gh.Sha,
+		"GITHUB_TRIGGERING_ACTOR":    gh.TriggeringActor,
+		"GITHUB_WORKFLOW":            gh.Workflow,
+		"GITHUB_WORKFLOW_REF":        gh.WorkflowRef,
+		"GITHUB_WORKFLOW_SHA":        gh.WorkflowSha,
+
+		"RUNNER_NAME":        r.Name,
+		"RUNNER_ARCH":        string(r.Arch),
+		"RUNNER_OS":          string(r.Os),
+		"RUNNER_ENVIRONMENT": r.Environment,
+	}
+	if r.Debug == "1" {
+		m["RUNNER_DEBUG"] = r.Debug
+	}
+
+	return m
+}
+
+func (e *JobExecutor) processSandboxEnv(env map[string]string) {
+	gh := e.Context.Github
+	gh.Workspace = env["GITHUB_WORKSPACE"]
+	gh.EventPath = env["GITHUB_EVENT_PATH"]
+
+	r := e.Context.Runner
+	r.Temp = env["RUNNER_TEMP"]
+	r.ToolCache = env["RUNNER_TOOL_CACHE"]
+	r.Workspace = env["RUNNER_WORKSPACE"]
+	// env.RUNNER_USER
+	// env.RUNNER_PERFLOG
+}
+
+//// File commands env
+// "GITHUB_PATH": gh.Path
+// "GITHUB_ENV": gh.Env
+// "GITHUB_OUTPUT": gh.Output
+// "GITHUB_STATE": gh.State
+// "GITHUB_STEP_SUMMARY": gh.StepSummary

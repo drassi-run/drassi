@@ -169,12 +169,19 @@ func (c *launchCommand) runTask(ctx context.Context, task *runnerv1.Task) error 
 	}
 
 	needs := c.convertJobNeeds(task.Needs)
+	runner := &dossiers.Runner{
+		Name:        c.runnerInfo.Name,
+		Os:          model.Linux,
+		Arch:        model.X64,
+		Environment: "self-hosted",
+	}
 
 	con := &contexts.Context{
 		Github:    gh,
 		Secrets:   task.Secrets,
 		Variables: task.Vars,
 		Needs:     needs,
+		Runner:    runner,
 	}
 
 	reporter := service.NewReporter(ctx, task.Id, jr, c.client)
