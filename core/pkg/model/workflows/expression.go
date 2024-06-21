@@ -11,8 +11,8 @@ const (
 	CloseExpression = "}}"
 )
 
-type EvaluatorProvider interface {
-	ContextData(name string) context.Context
+type EvaluationSupplier interface {
+	Values(name string) context.Context
 	Functions(name string) []string
 	DefaultValue(name string) any
 }
@@ -25,9 +25,9 @@ func (e *Evaluable[_]) IsNil() bool {
 	return e == nil || e.Token == nil
 }
 
-func (e *Evaluable[R]) Evaluate(name string, provider EvaluatorProvider) (R, error) {
+func (e *Evaluable[R]) Evaluate(name string, supplier EvaluationSupplier) (R, error) {
 	if e.IsNil() {
-		v := provider.DefaultValue(name)
+		v := supplier.DefaultValue(name)
 		if v == nil {
 			return *new(R), nil
 		}
@@ -39,7 +39,7 @@ func (e *Evaluable[R]) Evaluate(name string, provider EvaluatorProvider) (R, err
 		return *new(R), fmt.Errorf("invalid default value for %s", name)
 	}
 
-	val, err := e.Token.Appraise(name, provider)
+	val, err := e.Token.Appraise(name, supplier)
 	if err != nil {
 		return *new(R), err
 	}
@@ -58,14 +58,14 @@ func (e *Evaluable[R]) Evaluate(name string, provider EvaluatorProvider) (R, err
 }
 
 type Token interface {
-	Appraise(name string, provider EvaluatorProvider) (any, error)
+	Appraise(name string, supplier EvaluationSupplier) (any, error)
 }
 
 type literalToken struct {
 	value any
 }
 
-func (l *literalToken) Appraise(string, EvaluatorProvider) (any, error) {
+func (l *literalToken) Appraise(string, EvaluationSupplier) (any, error) {
 	return l.value, nil
 }
 
@@ -75,8 +75,8 @@ func NewLiteralToken(value any) Token {
 
 type expressionToken string
 
-func (e *expressionToken) Appraise(name string, provider EvaluatorProvider) (any, error) {
-	ctx := provider.ContextData(name)
+func (e *expressionToken) Appraise(name string, supplier EvaluationSupplier) (any, error) {
+	ctx := supplier.Values(name)
 	return ctx.Value(e), nil // TODO real expression evaluation
 }
 
@@ -87,12 +87,12 @@ func NewExpressionToken(expr string) Token {
 
 type sequenceToken []Token
 
-func (s *sequenceToken) Appraise(name string, provider EvaluatorProvider) (any, error) {
+func (s *sequenceToken) Appraise(name string, supplier EvaluationSupplier) (any, error) {
 	seq := []Token(*s)
 	r := make([]any, len(seq))
 
 	for i, token := range seq {
-		if e, err := token.Appraise(name, provider); err != nil {
+		if e, err := token.Appraise(name, supplier); err != nil {
 			return nil, err
 		} else {
 			r[i] = e
@@ -113,12 +113,12 @@ type KVPair[K, V any] struct {
 
 type mappingToken []KVPair[Token, Token]
 
-func (m *mappingToken) Appraise(name string, provider EvaluatorProvider) (any, error) {
+func (m *mappingToken) Appraise(name string, supplier EvaluationSupplier) (any, error) {
 	pairs := []KVPair[Token, Token](*m)
 	r := make(map[string]any, len(pairs))
 
 	for _, pair := range pairs {
-		kAny, err := pair.Key.Appraise(name, provider)
+		kAny, err := pair.Key.Appraise(name, supplier)
 		if err != nil {
 			return nil, err
 		}
@@ -127,7 +127,7 @@ func (m *mappingToken) Appraise(name string, provider EvaluatorProvider) (any, e
 			return nil, fmt.Errorf("invalid key type: %T", kAny)
 		}
 
-		v, err := pair.Value.Appraise(name+"."+k, provider)
+		v, err := pair.Value.Appraise(name+"."+k, supplier)
 		if err != nil {
 			return nil, err
 		}

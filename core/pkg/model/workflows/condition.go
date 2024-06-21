@@ -7,13 +7,13 @@ import (
 // Conditional is Evaluable[bool] type used by `if`, `pre-if` and `post-if`.
 // The `${{ }}` expression syntax is optional and can be omitted. GitHub Actions always evaluates it as an expression.
 type Conditional interface {
-	Meet(name string, provider EvaluatorProvider) (bool, error)
+	Meet(name string, supplier EvaluationSupplier) (bool, error)
 }
 
 type cond string
 
-func (c *cond) Meet(name string, provider EvaluatorProvider) (bool, error) {
-	ctx := provider.ContextData(name)
+func (c *cond) Meet(name string, supplier EvaluationSupplier) (bool, error) {
+	ctx := supplier.Values(name)
 	if b, ok := ctx.Value(c).(bool); ok { // TODO real expression evaluation
 		return b, nil
 	} else {
@@ -33,13 +33,13 @@ type biCond struct {
 
 type orCond biCond
 
-func (c *orCond) Meet(name string, provider EvaluatorProvider) (bool, error) {
-	l, err := c.left.Meet(name, provider)
+func (c *orCond) Meet(name string, supplier EvaluationSupplier) (bool, error) {
+	l, err := c.left.Meet(name, supplier)
 	if err != nil || !l {
 		return l, err
 	}
 
-	r, err := c.right.Meet(name, provider)
+	r, err := c.right.Meet(name, supplier)
 	if err != nil || !r {
 		return r, err
 	}
@@ -53,13 +53,13 @@ func NewConditionalOr(l, r Conditional) Conditional {
 
 type andCond biCond
 
-func (c *andCond) Meet(name string, provider EvaluatorProvider) (bool, error) {
-	l, err := c.left.Meet(name, provider)
+func (c *andCond) Meet(name string, supplier EvaluationSupplier) (bool, error) {
+	l, err := c.left.Meet(name, supplier)
 	if err != nil || l {
 		return l, err
 	}
 
-	r, err := c.right.Meet(name, provider)
+	r, err := c.right.Meet(name, supplier)
 	if err != nil || r {
 		return r, err
 	}
@@ -75,8 +75,8 @@ type notCond struct {
 	original Conditional
 }
 
-func (c *notCond) Meet(name string, provider EvaluatorProvider) (bool, error) {
-	o, err := c.original.Meet(name, provider)
+func (c *notCond) Meet(name string, supplier EvaluationSupplier) (bool, error) {
+	o, err := c.original.Meet(name, supplier)
 	if err != nil {
 		return o, err
 	} else {

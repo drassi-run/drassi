@@ -32,7 +32,7 @@ func (sr *ScriptStepRun) MainTask() *Task {
 }
 
 func (sr *ScriptStepRun) executeMain(ctx context.Context, exec *StepExecutor) error {
-	inputs, err := sr.Inputs.Evaluate("job.step", exec)
+	inputs, err := sr.Inputs.Evaluate("job.step", exec.evaluationSupplier)
 	if err != nil {
 		return err
 	}

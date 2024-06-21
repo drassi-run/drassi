@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"drassi.run/core/pkg/model/contexts"
+	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
 	utilreader "drassi.run/core/pkg/util/reader"
 )
@@ -19,8 +20,9 @@ type StepExecutor struct {
 	children map[string]*StepExecutor
 	stepRun  StepRun
 
-	envOverride map[string]string
-	input       map[string]string
+	evaluationSupplier workflows.EvaluationSupplier
+	envOverride        map[string]string
+	input              map[string]string
 
 	result *contexts.Step
 	state  map[string]string
@@ -65,25 +67,6 @@ func (e *StepExecutor) RootExecutor() *StepExecutor {
 	return exec
 }
 
-func (e *StepExecutor) ContextData(name string) context.Context {
-	return context.Background() // TODO real implementation
-}
-
-func (e *StepExecutor) Functions(name string) []string {
-	return nil // TODO real implementation
-}
-
-func (e *StepExecutor) DefaultValue(name string) any {
-	switch name {
-	case "job.step.timeout-minutes":
-		return int64(360)
-	case "job.step.working-directory":
-		return e.job.defaults.Run.WorkingDir
-	default:
-		return nil
-	}
-}
-
 func (e *StepExecutor) Streams() *sandboxer.Streams {
 	return e.job.Streams()
 }
@@ -114,13 +97,14 @@ func (e *StepExecutor) runTask(ctx context.Context, task *Task) error {
 	}
 
 	base := e.stepRun.Base()
+	e.evaluationSupplier = &evaluationSupplier{context: e.job.NewSubContext()}
 
 	if err := e.setupEnv(ctx, e.stepRun); err != nil {
 		return err
 	}
 
 	if task.Condition != nil {
-		if meet, err := task.Condition.Meet("job.step", e); err != nil {
+		if meet, err := task.Condition.Meet("job.step", e.evaluationSupplier); err != nil {
 			e.result.Conclusion = contexts.ResultFailure
 			e.result.Outcome = contexts.ResultFailure
 			return err
@@ -136,7 +120,7 @@ func (e *StepExecutor) runTask(ctx context.Context, task *Task) error {
 		return err
 	}
 
-	timeout, err := base.TimeoutInMinutes.Evaluate("job.step.timeout-minutes", e)
+	timeout, err := base.TimeoutInMinutes.Evaluate("job.step.timeout-minutes", e.evaluationSupplier)
 	if err != nil {
 		return err
 	}
@@ -163,7 +147,7 @@ func (e *StepExecutor) runTask(ctx context.Context, task *Task) error {
 	if err != nil {
 		e.result.Outcome = contexts.ResultFailure
 
-		if continueOnError, parseErr := base.ContinueOnError.Evaluate("job.step.continue-on-error", e); parseErr != nil {
+		if continueOnError, parseErr := base.ContinueOnError.Evaluate("job.step.continue-on-error", e.evaluationSupplier); parseErr != nil {
 			e.result.Conclusion = contexts.ResultFailure
 			return parseErr
 		} else if continueOnError {

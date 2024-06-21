@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"maps"
 	"regexp"
 	"slices"
 	"strings"
@@ -36,11 +37,12 @@ type JobExecutor struct {
 	secretMasker    secret.Masker
 	problemMatchers map[string]problem.Matcher
 
-	outWriter         io.Writer
-	errWriter         io.Writer
-	streams           *sandboxer.Streams
-	consoleCmdMgr     *command.ConsoleCommandManager
-	consoleCmdHandler *consoleCommandHandlers
+	outWriter          io.Writer
+	errWriter          io.Writer
+	streams            *sandboxer.Streams
+	consoleCmdMgr      *command.ConsoleCommandManager
+	consoleCmdHandler  *consoleCommandHandlers
+	evaluationSupplier workflows.EvaluationSupplier
 
 	defaults workflows.Defaults
 	env      map[string]string
@@ -70,16 +72,28 @@ func (e *JobExecutor) StepExecutor(id string) *StepExecutor {
 	return e.stepExecutors[id]
 }
 
-func (e *JobExecutor) ContextData(name string) context.Context {
-	return context.Background()
-}
+func (e *JobExecutor) NewSubContext() *contexts.Context {
+	// Github context is cloned because `github.action_*` can be set by step
+	gh := *e.Context.Github // shallow clone GitHub
 
-func (e *JobExecutor) Functions(name string) []string {
-	return nil
-}
+	// env context is cloned because of step level env
+	env := maps.Clone(e.Context.Env)
 
-func (e *JobExecutor) DefaultValue(name string) any {
-	return nil
+	c := &contexts.Context{
+		Github:    &gh,
+		Env:       env,
+		Variables: e.Context.Variables,
+		Job:       e.Context.Job,
+		Jobs:      e.Context.Jobs,
+		Steps:     e.Context.Steps,
+		Runner:    e.Context.Runner,
+		Secrets:   e.Context.Secrets, // TODO: secrets context is not available for composite actions
+		Strategy:  e.Context.Strategy,
+		Matrix:    e.Context.Matrix,
+		Needs:     e.Context.Needs,
+		Inputs:    e.Context.Inputs,
+	}
+	return c
 }
 
 func (e *JobExecutor) Streams() *sandboxer.Streams {
@@ -98,12 +112,12 @@ func (e *JobExecutor) Initialize(ctx context.Context, runtime sandboxer.SandboxR
 		return err
 	}
 
-	e.env, err = e.JobRun.Env.Evaluate("job.env", e)
+	e.env, err = e.JobRun.Env.Evaluate("job.env", e.evaluationSupplier)
 	if err != nil {
 		return err
 	}
 
-	e.defaults, err = e.JobRun.Defaults.Evaluate("job.defaults", e)
+	e.defaults, err = e.JobRun.Defaults.Evaluate("job.defaults", e.evaluationSupplier)
 	if err != nil {
 		return err
 	}
@@ -135,7 +149,7 @@ func (e *JobExecutor) RunJob(ctx context.Context) error {
 
 func (e *JobExecutor) Finalize(ctx context.Context, runtime sandboxer.SandboxRuntime) (err error) {
 	defer func() {
-		output, ex := e.JobRun.Outputs.Evaluate("job.output", nil)
+		output, ex := e.JobRun.Outputs.Evaluate("job.output", e.evaluationSupplier)
 		if err != nil && ex != nil {
 			err = ex
 		}
@@ -176,12 +190,13 @@ func (e *JobExecutor) initializeJob(ctx context.Context) error {
 
 	e.consoleCmdMgr = command.NewConsoleCommandManager(e.outWriter)
 	e.consoleCmdHandler = &consoleCommandHandlers{cmdMgr: e.consoleCmdMgr}
+	e.evaluationSupplier = &evaluationSupplier{context: e.Context}
 	return nil
 }
 
 func (e *JobExecutor) initializeSandbox(ctx context.Context, runtime sandboxer.SandboxRuntime) error {
 	var jobContainer *container.ContainerConfig
-	if con, err := e.JobRun.Container.Evaluate("job.container", e); err != nil {
+	if con, err := e.JobRun.Container.Evaluate("job.container", e.evaluationSupplier); err != nil {
 		return err
 	} else {
 		jobContainer, err = e.toContainerConfig(ctx, con)
@@ -191,7 +206,7 @@ func (e *JobExecutor) initializeSandbox(ctx context.Context, runtime sandboxer.S
 	}
 
 	var serviceContainers = make(map[string]*container.ContainerConfig)
-	if sers, err := e.JobRun.Services.Evaluate("job.services", e); err != nil {
+	if sers, err := e.JobRun.Services.Evaluate("job.services", e.evaluationSupplier); err != nil {
 		return err
 	} else {
 		for name, ser := range sers {

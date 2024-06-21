@@ -30,7 +30,7 @@ func (sr *DockerStepRun) MainTask() *Task {
 }
 
 func (sr *DockerStepRun) executeMain(ctx context.Context, exec *StepExecutor) error {
-	inputs, err := sr.Inputs.Evaluate("job.step", exec)
+	inputs, err := sr.Inputs.Evaluate("job.step", exec.evaluationSupplier)
 	if err != nil {
 		return err
 	}
