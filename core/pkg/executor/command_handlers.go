@@ -19,7 +19,7 @@ type handlerInfo[E any] struct {
 }
 
 type consoleCommandHandlers struct {
-	cmdMgr *command.ConsoleCommandManager
+	cmdMgr command.ConsoleCommandManager
 
 	job   handlerInfo[*JobExecutor]
 	steps []handlerInfo[StepExecutor]

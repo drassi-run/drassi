@@ -41,7 +41,7 @@ type JobExecutor struct {
 	outWriter         io.Writer
 	errWriter         io.Writer
 	streams           *sandboxer.Streams
-	consoleCmdMgr     *command.ConsoleCommandManager
+	consoleCmdMgr     command.ConsoleCommandManager
 	consoleCmdHandler *consoleCommandHandlers
 
 	defaults workflows.Defaults

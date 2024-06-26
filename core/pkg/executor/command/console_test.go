@@ -5,6 +5,10 @@ import (
 	"testing"
 )
 
+func setupCmdMgr() *consoleCommandManager {
+	return NewConsoleCommandManager(nil).(*consoleCommandManager)
+}
+
 func TestParseCommandV1(t *testing.T) {
 	tests := map[string]*Command{
 		"##[do-something k1=v1;]msg": {
@@ -43,7 +47,7 @@ func TestParseCommandV1(t *testing.T) {
 		},
 	}
 
-	mgr := NewConsoleCommandManager(nil)
+	mgr := setupCmdMgr()
 	_ = mgr.RegisterCommand("do-something", true, func(cmd *Command) error { return nil })
 
 	for input, expected := range tests {
@@ -99,7 +103,7 @@ func TestParseCommandV2(t *testing.T) {
 		"   >>>   ::do-something k1=v1,::msg": nil,
 	}
 
-	mgr := NewConsoleCommandManager(nil)
+	mgr := setupCmdMgr()
 	_ = mgr.RegisterCommand("do-something", true, func(cmd *Command) error { return nil })
 
 	for input, expected := range tests {
@@ -111,7 +115,7 @@ func TestParseCommandV2(t *testing.T) {
 }
 
 func TestIsProcessingCommand(t *testing.T) {
-	mgr := NewConsoleCommandManager(nil)
+	mgr := setupCmdMgr()
 	_ = mgr.RegisterCommand("foobar", true, func(cmd *Command) error { return nil })
 
 	assert.DeepEqual(t, true, mgr.isProcessingCommand("foobar"))
@@ -123,7 +127,7 @@ func TestIsProcessingCommand(t *testing.T) {
 }
 
 func TestStopCommands(t *testing.T) {
-	mgr := NewConsoleCommandManager(nil)
+	mgr := setupCmdMgr()
 	_ = mgr.RegisterCommand("do-something", true, func(cmd *Command) error { return nil })
 	v1line := "##[do-something k1=v1;]msg"
 	v2line := "::do-something k1=v1,::msg"
