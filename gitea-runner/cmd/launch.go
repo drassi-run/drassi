@@ -187,11 +187,7 @@ func (c *launchCommand) runTask(ctx context.Context, task *runnerv1.Task) error 
 	reporter := service.NewReporter(ctx, task.Id, jr, c.client)
 	defer reporter.Close()
 
-	je := executor.JobExecutor{
-		JobRun:   jr,
-		Reporter: reporter,
-		Dossier:  d,
-	}
+	je := executor.NewJobExecutor(jr, d, reporter)
 
 	for _, v := range task.Secrets {
 		je.AddSecretMask(secret.NewValueSecret(v))

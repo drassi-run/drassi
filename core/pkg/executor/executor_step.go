@@ -7,7 +7,6 @@ import (
 	"io"
 	"maps"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"drassi.run/core/pkg/model/dossiers"
@@ -16,7 +15,7 @@ import (
 )
 
 type StepExecutor interface {
-	JobExecutor() *JobExecutor
+	JobExecutor() JobExecutor
 	NewChildExecutor(stepRun StepRun) StepExecutor
 	ChildExecutor(id string) StepExecutor
 	ParentExecutor() StepExecutor
@@ -37,7 +36,7 @@ type StepExecutor interface {
 }
 
 type stepExecutor struct {
-	job      *JobExecutor
+	job      JobExecutor
 	parent   StepExecutor
 	children map[string]StepExecutor
 	stepRun  StepRun
@@ -51,7 +50,7 @@ func (e *stepExecutor) StepId() string {
 	return e.stepRun.StepId()
 }
 
-func (e *stepExecutor) JobExecutor() *JobExecutor {
+func (e *stepExecutor) JobExecutor() JobExecutor {
 	return e.job
 }
 
@@ -114,9 +113,9 @@ func (e *stepExecutor) RunStep(ctx context.Context, fn func(StepRun) *Task) erro
 
 func (e *stepExecutor) runTask(ctx context.Context, task *Task) error {
 	if e.parent == nil {
-		e.job.Reporter.StartStep(e.StepId())
+		e.job.Reporter().StartStep(e.StepId())
 		defer func() {
-			e.job.Reporter.EndStep(e.StepId(), e.result.Outcome)
+			e.job.Reporter().EndStep(e.StepId(), e.result.Outcome)
 		}()
 	}
 
@@ -159,10 +158,10 @@ func (e *stepExecutor) runTask(ctx context.Context, task *Task) error {
 	timeoutCtx, cancel := context.WithTimeout(ctx, time.Duration(timeout)*time.Minute)
 	defer cancel()
 
-	if err = e.job.consoleCmdHandler.StartStep(timeoutCtx, e); err != nil {
+	if err = e.job.StartStep(timeoutCtx, e); err != nil {
 		return err
 	}
-	defer e.job.consoleCmdHandler.EndStep()
+	defer e.job.EndStep()
 
 	ch := make(chan error)
 	go func() {
@@ -257,8 +256,7 @@ func (e *stepExecutor) ComposeEnv() map[string]string {
 	m["GITHUB_ACTION_REF"] = gh.ActionRef
 	m["GITHUB_ACTION_REPOSITORY"] = gh.ActionRepository
 
-	path := strings.Join(e.job.paths, ":")
-	m["PATH"] = path
+	m["PATH"] = e.job.ComposePath()
 
 	return m
 }

@@ -50,7 +50,7 @@ func (sr *ScriptStepRun) executeMain(ctx context.Context, exec StepExecutor) err
 	shell := model.Shell(sr.getShell(inputs, exec))
 	workdir, ok := inputs["workdir"]
 	if !ok {
-		workdir = exec.JobExecutor().defaults.Run.WorkingDir
+		workdir = exec.JobExecutor().Defaults().Run.WorkingDir
 	}
 	script, ok := inputs["script"]
 	if !ok {
@@ -87,7 +87,7 @@ func (sr *ScriptStepRun) getShell(inputs map[string]string, exec StepExecutor) s
 	if shell, ok := inputs["shell"]; ok {
 		return shell
 	}
-	return exec.JobExecutor().defaults.Run.Shell
+	return exec.JobExecutor().Defaults().Run.Shell
 }
 
 func (sr *ScriptStepRun) getCommand(shell model.Shell, exec StepExecutor) ([]string, string, error) {

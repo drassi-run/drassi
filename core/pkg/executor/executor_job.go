@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"os"
 	"regexp"
 	"slices"
 	"strconv"
@@ -23,14 +24,67 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-var (
-	setEnvBlockList = sets.New("NODE_OPTIONS")
-)
+type JobExecutor interface {
+	JobId() string
+	Streams() *sandboxer.Streams
+	Sandbox() sandboxer.Sandbox
+	Reporter() reporter.Reporter
+	NewSubDossier() *dossiers.Dossier
 
-type JobExecutor struct {
-	JobRun   *JobRun
-	Reporter reporter.Reporter
-	Dossier  *dossiers.Dossier
+	Initialize(ctx context.Context, runtime sandboxer.SandboxRuntime) error
+	RunJob(ctx context.Context) error
+	Finalize(ctx context.Context, runtime sandboxer.SandboxRuntime) error
+	Defaults() *workflows.Defaults
+	ComposePath() string
+
+	StartStep(ctx context.Context, stepExec StepExecutor) error
+	EndStep()
+
+	Log(tag, format string, a ...any)
+	AddPath(paths []string) error
+	SetEnv(env map[string]string) error
+	AddSecretMask(secret secret.Secret)
+	AddProblemMatcher(owner string, matcher problem.Matcher)
+	RemoveProblemMatcher(owner string)
+}
+
+func NewJobExecutor(run *JobRun, d *dossiers.Dossier, rep reporter.Reporter) JobExecutor {
+	// sanitize dossier
+	gh := d.Github
+	gh.Action = ""
+	gh.ActionPath = ""
+	gh.ActionRef = ""
+	gh.ActionRepository = ""
+	gh.ActionStatus = ""
+
+	d.Job = new(dossiers.Job)
+	if d.Env == nil {
+		d.Env = make(map[string]string)
+	}
+	if d.Steps == nil {
+		d.Steps = make(map[string]*dossiers.Step, len(run.Steps))
+	}
+
+	je := &jobExecutor{
+		jobRun:   run,
+		dossier:  d,
+		reporter: rep,
+
+		secretMasker:    secret.NewMasker(),
+		problemMatchers: make(map[string]problem.Matcher),
+
+		// will be overwritten in initializeJob
+		outWriter: os.Stdout,
+		errWriter: os.Stderr,
+	}
+
+	return je
+}
+
+type jobExecutor struct {
+	jobRun   *JobRun
+	dossier  *dossiers.Dossier
+	reporter reporter.Reporter
 
 	sandbox       sandboxer.Sandbox
 	stepExecutors map[string]StepExecutor
@@ -44,17 +98,16 @@ type JobExecutor struct {
 	consoleCmdMgr     command.ConsoleCommandManager
 	consoleCmdHandler *consoleCommandHandlers
 
-	defaults workflows.Defaults
-	env      map[string]string // ref Dossier.Env
+	defaults *workflows.Defaults
 	paths    []string
 	result   dossiers.Result
 }
 
-func (e *JobExecutor) JobId() string {
-	return e.JobRun.Id
+func (e *jobExecutor) JobId() string {
+	return e.jobRun.Id
 }
 
-func (e *JobExecutor) NewStepExecutor(step StepRun) StepExecutor {
+func (e *jobExecutor) NewStepExecutor(step StepRun) StepExecutor {
 	exec := &stepExecutor{
 		job:      e,
 		parent:   nil,
@@ -69,43 +122,47 @@ func (e *JobExecutor) NewStepExecutor(step StepRun) StepExecutor {
 	return exec
 }
 
-func (e *JobExecutor) StepExecutor(id string) StepExecutor {
+func (e *jobExecutor) StepExecutor(id string) StepExecutor {
 	return e.stepExecutors[id]
 }
 
-func (e *JobExecutor) NewSubDossier() *dossiers.Dossier {
-	// Github context is cloned because `github.action_*` can be set by step
-	gh := *e.Dossier.Github // shallow clone GitHub
+func (e *jobExecutor) NewSubDossier() *dossiers.Dossier {
+	// GitHub context is cloned because `github.action_*` can be set by step
+	gh := *e.dossier.Github // shallow clone GitHub
 
 	// env context is cloned because of step level env
-	env := maps.Clone(e.Dossier.Env)
+	env := maps.Clone(e.dossier.Env)
 
 	return &dossiers.Dossier{
 		Github:    &gh,
 		Env:       env,
-		Variables: e.Dossier.Variables,
-		Job:       e.Dossier.Job,
-		Jobs:      e.Dossier.Jobs,
-		Steps:     e.Dossier.Steps,
-		Runner:    e.Dossier.Runner,
-		Secrets:   e.Dossier.Secrets, // TODO: secrets context is not available for composite actions
-		Strategy:  e.Dossier.Strategy,
-		Matrix:    e.Dossier.Matrix,
-		Needs:     e.Dossier.Needs,
-		Inputs:    e.Dossier.Inputs,
+		Variables: e.dossier.Variables,
+		Job:       e.dossier.Job,
+		Jobs:      e.dossier.Jobs,
+		Steps:     e.dossier.Steps,
+		Runner:    e.dossier.Runner,
+		Secrets:   e.dossier.Secrets, // TODO: secrets context is not available for composite actions
+		Strategy:  e.dossier.Strategy,
+		Matrix:    e.dossier.Matrix,
+		Needs:     e.dossier.Needs,
+		Inputs:    e.dossier.Inputs,
 	}
 }
 
-func (e *JobExecutor) Streams() *sandboxer.Streams {
+func (e *jobExecutor) Streams() *sandboxer.Streams {
 	return e.streams
 }
 
-func (e *JobExecutor) Sandbox() sandboxer.Sandbox {
+func (e *jobExecutor) Sandbox() sandboxer.Sandbox {
 	return e.sandbox
 }
 
-func (e *JobExecutor) Initialize(ctx context.Context, runtime sandboxer.SandboxRuntime) error {
-	e.Reporter.StartJob()
+func (e *jobExecutor) Reporter() reporter.Reporter {
+	return e.reporter
+}
+
+func (e *jobExecutor) Initialize(ctx context.Context, runtime sandboxer.SandboxRuntime) error {
+	e.reporter.StartJob()
 
 	if err := e.initializeJob(ctx); err != nil {
 		return err
@@ -118,33 +175,37 @@ func (e *JobExecutor) Initialize(ctx context.Context, runtime sandboxer.SandboxR
 	return e.initializeSteps(ctx)
 }
 
-func (e *JobExecutor) RunJob(ctx context.Context) error {
+func (e *jobExecutor) RunJob(ctx context.Context) error {
 	if err := e.consoleCmdHandler.StartJob(ctx, e); err != nil {
 		return err
 	}
 	defer e.consoleCmdHandler.EndJob()
 
 	if err := e.runStage(ctx, StagePre, StepRun.PreTask); err != nil {
+		e.result = dossiers.ResultFailure
 		return err
 	}
 	if err := e.runStage(ctx, StageMain, StepRun.MainTask); err != nil {
+		e.result = dossiers.ResultFailure
 		return err
 	}
 	if err := e.runStage(ctx, StagePost, StepRun.PostTask); err != nil {
+		e.result = dossiers.ResultFailure
 		return err
 	}
+	e.result = dossiers.ResultSuccess
 	return nil
 }
 
-func (e *JobExecutor) Finalize(ctx context.Context, runtime sandboxer.SandboxRuntime) (err error) {
-	evalSupplier := &evaluationSupplier{dossier: e.Dossier}
+func (e *jobExecutor) Finalize(ctx context.Context, runtime sandboxer.SandboxRuntime) (err error) {
+	evalSupplier := &evaluationSupplier{dossier: e.dossier}
 	defer func() {
-		output, ex := e.JobRun.Outputs.Evaluate("job.output", evalSupplier)
+		output, ex := e.jobRun.Outputs.Evaluate("job.output", evalSupplier)
 		if err != nil && ex != nil {
 			err = ex
 		}
 
-		e.Reporter.EndJob(e.result, output)
+		e.reporter.EndJob(e.result, output)
 	}()
 
 	if e.sandbox == nil {
@@ -165,26 +226,24 @@ func (e *JobExecutor) Finalize(ctx context.Context, runtime sandboxer.SandboxRun
 	return
 }
 
-func (e *JobExecutor) initializeJob(ctx context.Context) error {
-	e.outWriter = secret.NewWriter(e.Reporter.Stdout(), e.secretMasker)
-	e.errWriter = secret.NewWriter(e.Reporter.Stderr(), e.secretMasker)
+func (e *jobExecutor) initializeJob(ctx context.Context) error {
+	e.outWriter = secret.NewWriter(e.reporter.Stdout(), e.secretMasker)
+	e.errWriter = secret.NewWriter(e.reporter.Stderr(), e.secretMasker)
 
 	lineOutWriter := reporter.NewLineWriter(e.lineHandler(e.outWriter))
 	lineErrWriter := reporter.NewLineWriter(e.lineHandler(e.errWriter))
 
 	e.streams = &sandboxer.Streams{
-		In:  e.Reporter.Stdin(),
+		In:  e.reporter.Stdin(),
 		Out: lineOutWriter,
 		Err: lineErrWriter,
 	}
 
 	e.consoleCmdMgr = command.NewConsoleCommandManager(e.outWriter)
 	e.consoleCmdHandler = &consoleCommandHandlers{cmdMgr: e.consoleCmdMgr}
-	evalSupplier := &evaluationSupplier{dossier: e.Dossier}
+	evalSupplier := &evaluationSupplier{dossier: e.dossier}
 
-	e.sanitizeDossier()
-	e.env = e.Dossier.Env
-	if env, err := e.JobRun.Env.Evaluate("job.env", evalSupplier); err != nil {
+	if env, err := e.jobRun.Env.Evaluate("job.env", evalSupplier); err != nil {
 		return err
 	} else {
 		if err = e.SetEnv(env); err != nil {
@@ -192,18 +251,18 @@ func (e *JobExecutor) initializeJob(ctx context.Context) error {
 		}
 	}
 
-	if defaults, err := e.JobRun.Defaults.Evaluate("job.defaults", evalSupplier); err != nil {
+	if defaults, err := e.jobRun.Defaults.Evaluate("job.defaults", evalSupplier); err != nil {
 		return err
 	} else {
-		e.defaults = defaults
+		e.defaults = &defaults
 	}
 	return nil
 }
 
-func (e *JobExecutor) initializeSandbox(ctx context.Context, runtime sandboxer.SandboxRuntime) error {
-	evalSupplier := &evaluationSupplier{dossier: e.Dossier}
+func (e *jobExecutor) initializeSandbox(ctx context.Context, runtime sandboxer.SandboxRuntime) error {
+	evalSupplier := &evaluationSupplier{dossier: e.dossier}
 	var jobContainer *container.ContainerConfig
-	if con, err := e.JobRun.Container.Evaluate("job.container", evalSupplier); err != nil {
+	if con, err := e.jobRun.Container.Evaluate("job.container", evalSupplier); err != nil {
 		return err
 	} else {
 		jobContainer, err = e.toContainerConfig(ctx, con)
@@ -213,7 +272,7 @@ func (e *JobExecutor) initializeSandbox(ctx context.Context, runtime sandboxer.S
 	}
 
 	var serviceContainers = make(map[string]*container.ContainerConfig)
-	if sers, err := e.JobRun.Services.Evaluate("job.services", evalSupplier); err != nil {
+	if sers, err := e.jobRun.Services.Evaluate("job.services", evalSupplier); err != nil {
 		return err
 	} else {
 		for name, ser := range sers {
@@ -226,7 +285,7 @@ func (e *JobExecutor) initializeSandbox(ctx context.Context, runtime sandboxer.S
 	}
 
 	req := sandboxer.LaunchSandboxRequest{
-		JobId:             e.JobRun.Id,
+		JobId:             e.jobRun.Id,
 		JobEnv:            e.ciEnv(),
 		JobContainer:      jobContainer,
 		ServiceContainers: serviceContainers,
@@ -235,18 +294,18 @@ func (e *JobExecutor) initializeSandbox(ctx context.Context, runtime sandboxer.S
 		return err
 	} else {
 		e.sandbox = resp.Sandbox
-		e.Dossier.Job.Container = resp.Container
-		e.Dossier.Job.Services = resp.Services
+		e.dossier.Job.Container = resp.Container
+		e.dossier.Job.Services = resp.Services
 
 		e.processSandboxEnv(resp.Env)
 	}
 	return nil
 }
 
-func (e *JobExecutor) initializeSteps(ctx context.Context) error {
-	e.stepExecutors = make(map[string]StepExecutor, len(e.JobRun.Steps))
+func (e *jobExecutor) initializeSteps(ctx context.Context) error {
+	e.stepExecutors = make(map[string]StepExecutor, len(e.jobRun.Steps))
 	g, ctx := errgroup.WithContext(ctx)
-	for _, step := range e.JobRun.Steps {
+	for _, step := range e.jobRun.Steps {
 		exec := e.NewStepExecutor(step)
 		g.Go(func() error {
 			return exec.Initialize(ctx)
@@ -255,9 +314,9 @@ func (e *JobExecutor) initializeSteps(ctx context.Context) error {
 	return g.Wait()
 }
 
-func (e *JobExecutor) runStage(ctx context.Context, stage Stage, fn func(StepRun) *Task) error {
-	ids := make([]string, len(e.JobRun.Steps))
-	for i, step := range e.JobRun.Steps {
+func (e *jobExecutor) runStage(ctx context.Context, stage Stage, fn func(StepRun) *Task) error {
+	ids := make([]string, len(e.jobRun.Steps))
+	for i, step := range e.jobRun.Steps {
 		ids[i] = step.StepId()
 	}
 	if stage == StagePost {
@@ -273,10 +332,26 @@ func (e *JobExecutor) runStage(ctx context.Context, stage Stage, fn func(StepRun
 	return nil
 }
 
+func (e *jobExecutor) StartStep(ctx context.Context, stepExec StepExecutor) error {
+	return e.consoleCmdHandler.StartStep(ctx, stepExec)
+}
+
+func (e *jobExecutor) EndStep() {
+	e.consoleCmdHandler.EndStep()
+}
+
+func (e *jobExecutor) Defaults() *workflows.Defaults {
+	return e.defaults
+}
+
+func (e *jobExecutor) ComposePath() string {
+	return strings.Join(e.paths, ":")
+}
+
 // Add paths to the context and remove duplicates
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L107
 // https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#adding-a-system-path
-func (e *JobExecutor) AddPath(paths []string) error {
+func (e *jobExecutor) AddPath(paths []string) error {
 	if len(paths) == 0 {
 		return nil
 	}
@@ -302,38 +377,37 @@ func (e *JobExecutor) AddPath(paths []string) error {
 	return nil
 }
 
+var setEnvBlockList = sets.New("NODE_OPTIONS")
+
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L132
 // https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#setting-an-environment-variable
-func (e *JobExecutor) SetEnv(env map[string]string) error {
+func (e *jobExecutor) SetEnv(env map[string]string) error {
 	for k, v := range env {
 		if setEnvBlockList.Has(k) {
 			// TODO context.AddIssue
 			continue
 		}
-		e.env[k] = v
+		e.dossier.Env[k] = v
 	}
 	return nil
 }
 
-func (e *JobExecutor) AddSecretMask(secret secret.Secret) {
+func (e *jobExecutor) AddSecretMask(secret secret.Secret) {
 	e.secretMasker.AddSecret(secret)
 }
 
-func (e *JobExecutor) AddProblemMatcher(owner string, matcher problem.Matcher) {
-	if e.problemMatchers == nil {
-		e.problemMatchers = make(map[string]problem.Matcher)
-	}
+func (e *jobExecutor) AddProblemMatcher(owner string, matcher problem.Matcher) {
 	e.problemMatchers[owner] = matcher
 }
 
-func (e *JobExecutor) RemoveProblemMatcher(owner string) {
+func (e *jobExecutor) RemoveProblemMatcher(owner string) {
 	delete(e.problemMatchers, owner)
 }
 
 // https://en.wikipedia.org/wiki/ANSI_escape_code
 var colorCodeRegex = regexp.MustCompile(`\033\[[\d;]*m`)
 
-func (e *JobExecutor) scanProblem(line string) error {
+func (e *jobExecutor) scanProblem(line string) error {
 	line = colorCodeRegex.ReplaceAllLiteralString(line, "")
 	var owner string
 	var pbl *problem.Problem
@@ -364,11 +438,11 @@ func (e *JobExecutor) scanProblem(line string) error {
 		return err
 	} else {
 		// 3. Report the issue
-		return e.Reporter.AddIssue(issue)
+		return e.reporter.AddIssue(issue)
 	}
 }
 
-func (e *JobExecutor) lineHandler(w io.Writer) reporter.LineHandler {
+func (e *jobExecutor) lineHandler(w io.Writer) reporter.LineHandler {
 	return func(line string) error {
 		if cmd := e.consoleCmdMgr.ParseCommand(line); cmd != nil {
 			if err := e.consoleCmdMgr.Process(line, cmd); err != nil {
@@ -395,7 +469,7 @@ const (
 	TagDebug    = "##[debug]"
 )
 
-func (e *JobExecutor) Log(tag, format string, a ...any) {
+func (e *jobExecutor) Log(tag, format string, a ...any) {
 	message := format
 	if len(a) > 0 {
 		message = fmt.Sprintf(format, a...)
@@ -409,30 +483,10 @@ func (e *JobExecutor) Log(tag, format string, a ...any) {
 	_, _ = io.WriteString(e.outWriter, message)
 }
 
-func (e *JobExecutor) sanitizeDossier() {
-	d := e.Dossier
-	gh := d.Github
-
-	gh.Action = ""
-	gh.ActionPath = ""
-	gh.ActionRef = ""
-	gh.ActionRepository = ""
-	gh.ActionStatus = ""
-
-	d.Job = new(dossiers.Job)
-
-	if d.Env == nil {
-		e.Dossier.Env = make(map[string]string)
-	}
-	if d.Steps == nil {
-		d.Steps = make(map[string]*dossiers.Step, len(e.JobRun.Steps))
-	}
-}
-
 // https://docs.github.com/en/actions/learn-github-actions/variables#default-environment-variables
-func (e *JobExecutor) ciEnv() map[string]string {
-	gh := e.Dossier.Github
-	r := e.Dossier.Runner
+func (e *jobExecutor) ciEnv() map[string]string {
+	gh := e.dossier.Github
+	r := e.dossier.Runner
 
 	m := map[string]string{
 		"CI":             "true",
@@ -477,12 +531,12 @@ func (e *JobExecutor) ciEnv() map[string]string {
 	return m
 }
 
-func (e *JobExecutor) processSandboxEnv(env map[string]string) {
-	gh := e.Dossier.Github
+func (e *jobExecutor) processSandboxEnv(env map[string]string) {
+	gh := e.dossier.Github
 	gh.Workspace = env["GITHUB_WORKSPACE"]
 	gh.EventPath = env["GITHUB_EVENT_PATH"]
 
-	r := e.Dossier.Runner
+	r := e.dossier.Runner
 	r.Temp = env["RUNNER_TEMP"]
 	r.ToolCache = env["RUNNER_TOOL_CACHE"]
 	r.Workspace = env["RUNNER_WORKSPACE"]
