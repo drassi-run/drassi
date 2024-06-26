@@ -56,13 +56,14 @@ func (e *JobExecutor) JobId() string {
 
 func (e *JobExecutor) NewStepExecutor(step StepRun) StepExecutor {
 	exec := &stepExecutor{
-		job:         e,
-		parent:      nil,
-		children:    make(map[string]StepExecutor),
-		stepRun:     step,
-		envOverride: make(map[string]string),
-		input:       make(map[string]string),
-		result:      &dossiers.Step{},
+		job:      e,
+		parent:   nil,
+		children: make(map[string]StepExecutor),
+		stepRun:  step,
+		state:    make(map[string]string),
+		result: &dossiers.Step{
+			Outputs: make(map[string]string),
+		},
 	}
 	e.stepExecutors[step.StepId()] = exec
 	return exec
@@ -181,6 +182,8 @@ func (e *JobExecutor) initializeJob(ctx context.Context) error {
 	e.consoleCmdHandler = &consoleCommandHandlers{cmdMgr: e.consoleCmdMgr}
 	evalSupplier := &evaluationSupplier{dossier: e.Dossier}
 
+	e.sanitizeDossier()
+	e.env = e.Dossier.Env
 	if env, err := e.JobRun.Env.Evaluate("job.env", evalSupplier); err != nil {
 		return err
 	} else {
@@ -406,6 +409,26 @@ func (e *JobExecutor) Log(tag, format string, a ...any) {
 	_, _ = io.WriteString(e.outWriter, message)
 }
 
+func (e *JobExecutor) sanitizeDossier() {
+	d := e.Dossier
+	gh := d.Github
+
+	gh.Action = ""
+	gh.ActionPath = ""
+	gh.ActionRef = ""
+	gh.ActionRepository = ""
+	gh.ActionStatus = ""
+
+	d.Job = new(dossiers.Job)
+
+	if d.Env == nil {
+		e.Dossier.Env = make(map[string]string)
+	}
+	if d.Steps == nil {
+		d.Steps = make(map[string]*dossiers.Step, len(e.JobRun.Steps))
+	}
+}
+
 // https://docs.github.com/en/actions/learn-github-actions/variables#default-environment-variables
 func (e *JobExecutor) ciEnv() map[string]string {
 	gh := e.Dossier.Github
@@ -465,6 +488,8 @@ func (e *JobExecutor) processSandboxEnv(env map[string]string) {
 	r.Workspace = env["RUNNER_WORKSPACE"]
 	// env.RUNNER_USER
 	// env.RUNNER_PERFLOG
+
+	e.paths = strings.Split(env["PATH"], ":")
 }
 
 //// File commands env

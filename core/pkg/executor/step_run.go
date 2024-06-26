@@ -7,11 +7,20 @@ import (
 	"strings"
 
 	"drassi.run/core/pkg/model"
+	"drassi.run/core/pkg/model/dossiers"
 	utilreader "drassi.run/core/pkg/util/reader"
 )
 
 type ScriptStepRun struct {
 	BaseStepRun
+}
+
+func (sr *ScriptStepRun) SetContextInfo(dossier *dossiers.Dossier) {
+	gh := dossier.Github
+
+	gh.Action = sr.Id
+	gh.ActionRepository = ""
+	gh.ActionRef = ""
 }
 
 func (sr *ScriptStepRun) Initialize(_ context.Context, _ StepExecutor) error {
@@ -65,7 +74,9 @@ func (sr *ScriptStepRun) executeMain(ctx context.Context, exec StepExecutor) err
 	if err = exec.Sandbox().CopyIn(ctx, reader, scriptPath); err != nil {
 		return err
 	}
-	return exec.Sandbox().Execute(ctx, cmd, nil, workdir, exec.Streams())
+
+	env := exec.ComposeEnv()
+	return exec.Sandbox().Execute(ctx, cmd, env, workdir, exec.Streams())
 }
 
 func (sr *ScriptStepRun) PostTask() *Task {

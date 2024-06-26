@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"drassi.run/core/pkg/model"
+	"drassi.run/core/pkg/model/dossiers"
 	"drassi.run/core/pkg/model/workflows"
 )
 
@@ -17,6 +18,14 @@ type RepositoryStepRun struct {
 
 	rev    string
 	action ActionRun
+}
+
+func (sr *RepositoryStepRun) SetContextInfo(dossier *dossiers.Dossier) {
+	gh := dossier.Github
+
+	gh.Action = sr.Id
+	gh.ActionRepository = sr.Repo.Repo
+	gh.ActionRef = sr.Repo.Ref
 }
 
 func (sr *RepositoryStepRun) Initialize(ctx context.Context, exec StepExecutor) error {

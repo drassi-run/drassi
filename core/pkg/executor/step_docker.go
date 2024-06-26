@@ -2,6 +2,8 @@ package executor
 
 import (
 	"context"
+
+	"drassi.run/core/pkg/model/dossiers"
 )
 
 // Example:
@@ -10,6 +12,14 @@ import (
 type DockerStepRun struct {
 	BaseStepRun
 	Image string
+}
+
+func (sr *DockerStepRun) SetContextInfo(dossier *dossiers.Dossier) {
+	gh := dossier.Github
+
+	gh.Action = sr.Id
+	gh.ActionRepository = ""
+	gh.ActionRef = ""
 }
 
 func (sr *DockerStepRun) Initialize(ctx context.Context, exec StepExecutor) error {
