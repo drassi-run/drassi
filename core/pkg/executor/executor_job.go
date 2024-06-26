@@ -166,8 +166,8 @@ func (e *JobExecutor) Finalize(ctx context.Context, runtime sandboxer.SandboxRun
 }
 
 func (e *JobExecutor) initializeJob(ctx context.Context) error {
-	e.outWriter = secret.NewWriter(e.Reporter.Stdout(), &e.secretMasker)
-	e.errWriter = secret.NewWriter(e.Reporter.Stderr(), &e.secretMasker)
+	e.outWriter = secret.NewWriter(e.Reporter.Stdout(), e.secretMasker)
+	e.errWriter = secret.NewWriter(e.Reporter.Stderr(), e.secretMasker)
 
 	lineOutWriter := reporter.NewLineWriter(e.lineHandler(e.outWriter))
 	lineErrWriter := reporter.NewLineWriter(e.lineHandler(e.errWriter))
