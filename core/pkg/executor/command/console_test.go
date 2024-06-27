@@ -5,11 +5,11 @@ import (
 	"testing"
 )
 
-func setupCmdMgr() *consoleCommandManager {
+func setupConsoleCmdMgr() *consoleCommandManager {
 	return NewConsoleCommandManager(nil).(*consoleCommandManager)
 }
 
-func TestParseCommandV1(t *testing.T) {
+func TestConsoleCommandManager_ParseCommandV1(t *testing.T) {
 	tests := map[string]*Command{
 		"##[do-something k1=v1;]msg": {
 			Name: "do-something",
@@ -47,7 +47,7 @@ func TestParseCommandV1(t *testing.T) {
 		},
 	}
 
-	mgr := setupCmdMgr()
+	mgr := setupConsoleCmdMgr()
 	_ = mgr.RegisterCommand("do-something", true, func(cmd *Command) error { return nil })
 
 	for input, expected := range tests {
@@ -58,7 +58,7 @@ func TestParseCommandV1(t *testing.T) {
 	}
 }
 
-func TestParseCommandV2(t *testing.T) {
+func TestConsoleCommandManager_ParseCommandV2(t *testing.T) {
 	tests := map[string]*Command{
 		"::do-something k1=v1,::msg": {
 			Name: "do-something",
@@ -103,7 +103,7 @@ func TestParseCommandV2(t *testing.T) {
 		"   >>>   ::do-something k1=v1,::msg": nil,
 	}
 
-	mgr := setupCmdMgr()
+	mgr := setupConsoleCmdMgr()
 	_ = mgr.RegisterCommand("do-something", true, func(cmd *Command) error { return nil })
 
 	for input, expected := range tests {
@@ -114,8 +114,8 @@ func TestParseCommandV2(t *testing.T) {
 	}
 }
 
-func TestIsProcessingCommand(t *testing.T) {
-	mgr := setupCmdMgr()
+func TestConsoleCommandManager_IsProcessingCommand(t *testing.T) {
+	mgr := setupConsoleCmdMgr()
 	_ = mgr.RegisterCommand("foobar", true, func(cmd *Command) error { return nil })
 
 	assert.DeepEqual(t, true, mgr.isProcessingCommand("foobar"))
@@ -126,8 +126,8 @@ func TestIsProcessingCommand(t *testing.T) {
 	assert.DeepEqual(t, true, mgr.isProcessingCommand("xxx"))
 }
 
-func TestStopCommands(t *testing.T) {
-	mgr := setupCmdMgr()
+func TestConsoleCommandManager_StopCommands(t *testing.T) {
+	mgr := setupConsoleCmdMgr()
 	_ = mgr.RegisterCommand("do-something", true, func(cmd *Command) error { return nil })
 	v1line := "##[do-something k1=v1;]msg"
 	v2line := "::do-something k1=v1,::msg"
