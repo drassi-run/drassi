@@ -3,14 +3,16 @@ package executor
 import (
 	"context"
 
+	"drassi.run/core/pkg/model/dossiers"
 	"drassi.run/core/pkg/model/workflows"
 )
 
 type StepRun interface {
 	StepId() string
 	Base() *BaseStepRun
+	SetContextInfo(dossier *dossiers.Dossier)
 
-	Initialize(ctx context.Context, exec *StepExecutor) error
+	Initialize(ctx context.Context, exec StepExecutor) error
 	PreTask() *Task
 	MainTask() *Task
 	PostTask() *Task

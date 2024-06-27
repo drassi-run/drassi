@@ -11,7 +11,7 @@ import (
 	"drassi.run/core/pkg/expression/ast/functions"
 	"drassi.run/core/pkg/expression/evaluator"
 	"drassi.run/core/pkg/expression/parser"
-	"drassi.run/core/pkg/model/contexts"
+	"drassi.run/core/pkg/model/dossiers"
 	"gotest.tools/v3/assert"
 )
 
@@ -652,7 +652,7 @@ func TestFunctionToJson(t *testing.T) {
 		{"toJSON(env)", "{\n  \"key\": \"value\"\n}", "toJSON"},
 		{"toJSON(null)", "null", "toJSON-null"},
 	}
-	ctx := &contexts.Expr{State: &contexts.Context{Env: map[string]string{
+	ctx := &dossiers.Expr{State: &dossiers.Dossier{Env: map[string]string{
 		"key": "value",
 	}}}
 	for _, tt := range table {
@@ -719,7 +719,7 @@ func TestStatusCheckFunctions(t *testing.T) {
 		name        string
 		expr        string
 		expected    any
-		templateCtx func() *contexts.Expr
+		templateCtx func() *dossiers.Expr
 	}
 	var namedVals []ast.INamedValueInfo[ast.INamedValue]
 	var fns []functions.IFnInfo[ast_ifaces.Fn]
@@ -727,27 +727,27 @@ func TestStatusCheckFunctions(t *testing.T) {
 	// testcase cases
 	tcs := []testcase{
 		// always()
-		{"always()", "always()", true, func() *contexts.Expr {
-			return &contexts.Expr{}
+		{"always()", "always()", true, func() *dossiers.Expr {
+			return &dossiers.Expr{}
 		}},
 		// cancelled()
 		{
-			"invoke cancelled() evaluated to true", "cancelled()", true, func() *contexts.Expr {
-				return &contexts.Expr{
-					State: &contexts.Context{
-						Job: contexts.Job{
-							Status: contexts.ActionResultCancelled,
+			"invoke cancelled() evaluated to true", "cancelled()", true, func() *dossiers.Expr {
+				return &dossiers.Expr{
+					State: &dossiers.Dossier{
+						Job: &dossiers.Job{
+							Status: dossiers.ResultCancelled,
 						},
 					},
 				}
 			},
 		},
 		{
-			"invoke cancelled() evaluated to false", "cancelled()", false, func() *contexts.Expr {
-				return &contexts.Expr{
-					State: &contexts.Context{
-						Job: contexts.Job{
-							Status: contexts.ActionResultSuccess,
+			"invoke cancelled() evaluated to false", "cancelled()", false, func() *dossiers.Expr {
+				return &dossiers.Expr{
+					State: &dossiers.Dossier{
+						Job: &dossiers.Job{
+							Status: dossiers.ResultSuccess,
 						},
 					},
 				}
@@ -756,10 +756,10 @@ func TestStatusCheckFunctions(t *testing.T) {
 		// success()
 		{
 			"invoke success() evaluated to true - pre, post and job-level steps", "success()", true,
-			func() *contexts.Expr {
-				return &contexts.Expr{State: &contexts.Context{
-					Job: contexts.Job{
-						Status: contexts.ActionResultSuccess,
+			func() *dossiers.Expr {
+				return &dossiers.Expr{State: &dossiers.Dossier{
+					Job: &dossiers.Job{
+						Status: dossiers.ResultSuccess,
 					},
 				},
 				}
@@ -767,10 +767,10 @@ func TestStatusCheckFunctions(t *testing.T) {
 		},
 		{
 			"invoke success() evaluated to false - pre, post and job-level steps", "success()", false,
-			func() *contexts.Expr {
-				return &contexts.Expr{State: &contexts.Context{
-					Job: contexts.Job{
-						Status: contexts.ActionResultCancelled,
+			func() *dossiers.Expr {
+				return &dossiers.Expr{State: &dossiers.Dossier{
+					Job: &dossiers.Job{
+						Status: dossiers.ResultCancelled,
 					},
 				},
 				}
@@ -778,10 +778,10 @@ func TestStatusCheckFunctions(t *testing.T) {
 		},
 		// failure
 		{
-			"invoke failure() evaluated to true - pre, post and job-level steps", "failure()", true, func() *contexts.Expr {
-				return &contexts.Expr{State: &contexts.Context{
-					Job: contexts.Job{
-						Status: contexts.ActionResultFailure,
+			"invoke failure() evaluated to true - pre, post and job-level steps", "failure()", true, func() *dossiers.Expr {
+				return &dossiers.Expr{State: &dossiers.Dossier{
+					Job: &dossiers.Job{
+						Status: dossiers.ResultFailure,
 					},
 				},
 				}
@@ -789,10 +789,10 @@ func TestStatusCheckFunctions(t *testing.T) {
 		},
 		{
 			"invoke failure() evaluated to false - pre, post and job-level steps", "failure()", false,
-			func() *contexts.Expr {
-				return &contexts.Expr{State: &contexts.Context{
-					Job: contexts.Job{
-						Status: contexts.ActionResultSuccess,
+			func() *dossiers.Expr {
+				return &dossiers.Expr{State: &dossiers.Dossier{
+					Job: &dossiers.Job{
+						Status: dossiers.ResultSuccess,
 					},
 				},
 				}
@@ -816,7 +816,7 @@ func TestContexts(t *testing.T) {
 		name     string
 		expr     string
 		expected any
-		exprCtx  func() *contexts.Expr
+		exprCtx  func() *dossiers.Expr
 	}
 	namedVals := []ast.INamedValueInfo[ast.INamedValue]{
 		ast.NewNamedValueInfo[ast.ContextValueNode]("github"),
@@ -826,10 +826,10 @@ func TestContexts(t *testing.T) {
 	// testcases
 	tcs := []testCase{
 		{
-			"with format", "format('github.actor: {0}', github.actor)", "github.actor: foo", func() *contexts.Expr {
-				return &contexts.Expr{
-					State: &contexts.Context{
-						Github: contexts.Github{
+			"with format", "format('github.actor: {0}', github.actor)", "github.actor: foo", func() *dossiers.Expr {
+				return &dossiers.Expr{
+					State: &dossiers.Dossier{
+						Github: &dossiers.Github{
 							Actor: "foo",
 						},
 					},
@@ -840,10 +840,10 @@ func TestContexts(t *testing.T) {
 			"simple",
 			"github.actor",
 			"foo",
-			func() *contexts.Expr {
-				return &contexts.Expr{
-					State: &contexts.Context{
-						Github: contexts.Github{
+			func() *dossiers.Expr {
+				return &dossiers.Expr{
+					State: &dossiers.Dossier{
+						Github: &dossiers.Github{
 							Actor: "foo",
 						},
 					},

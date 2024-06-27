@@ -2,6 +2,8 @@ package executor
 
 import (
 	"context"
+
+	"drassi.run/core/pkg/model/dossiers"
 )
 
 // Example:
@@ -12,7 +14,15 @@ type DockerStepRun struct {
 	Image string
 }
 
-func (sr *DockerStepRun) Initialize(ctx context.Context, exec *StepExecutor) error {
+func (sr *DockerStepRun) SetContextInfo(dossier *dossiers.Dossier) {
+	gh := dossier.Github
+
+	gh.Action = sr.Id
+	gh.ActionRepository = ""
+	gh.ActionRef = ""
+}
+
+func (sr *DockerStepRun) Initialize(ctx context.Context, exec StepExecutor) error {
 	return exec.Sandbox().PullImage(ctx, sr.Image)
 }
 
@@ -29,8 +39,9 @@ func (sr *DockerStepRun) MainTask() *Task {
 	}
 }
 
-func (sr *DockerStepRun) executeMain(ctx context.Context, exec *StepExecutor) error {
-	inputs, err := sr.Inputs.Evaluate("job.step", exec)
+func (sr *DockerStepRun) executeMain(ctx context.Context, exec StepExecutor) error {
+	evalSupplier := &evaluationSupplier{dossier: exec.Dossier()}
+	inputs, err := sr.Inputs.Evaluate("job.step", evalSupplier)
 	if err != nil {
 		return err
 	}

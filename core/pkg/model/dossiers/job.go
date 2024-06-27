@@ -1,12 +1,12 @@
-package contexts
+package dossiers
 
 // The job context contains information about the currently running job.
 // https://docs.github.com/en/actions/learn-github-actions/contexts#job-context
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/JobContext.cs
 type Job struct {
-	Container Container            `json:"container" yaml:"container"`
-	Services  map[string]Container `json:"services" yaml:"services"`
-	Status    ActionResult         `json:"status" yaml:"status"`
+	Container *Container            `json:"container" yaml:"container"`
+	Services  map[string]*Container `json:"services" yaml:"services"`
+	Status    Result                `json:"status" yaml:"status"`
 }
 
 type Container struct {
@@ -18,7 +18,7 @@ type Container struct {
 // The `jobs` context is only available in reusable workflows, and can only be used to set outputs for a reusable workflow.
 // https://docs.github.com/en/actions/learn-github-actions/contexts#jobs-context
 type JobReusableWorkflow struct {
-	Result  ActionResult      `json:"result" yaml:"result"`
+	Result  Result            `json:"result" yaml:"result"`
 	Outputs map[string]string `json:"outputs" yaml:"outputs"`
 }
 
@@ -27,16 +27,16 @@ type JobReusableWorkflow struct {
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/StepsContext.cs
 type Step struct {
 	Outputs    map[string]string `json:"outputs" yaml:"outputs" mapstructure:"outputs"`
-	Conclusion ActionResult      `json:"conclusion" yaml:"conclusion" mapstructure:"conclusion"`
-	Outcome    ActionResult      `json:"outcome" yaml:"outcome" mapstructure:"outcome"`
+	Conclusion Result            `json:"conclusion" yaml:"conclusion" mapstructure:"conclusion"`
+	Outcome    Result            `json:"outcome" yaml:"outcome" mapstructure:"outcome"`
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Common/ActionResult.cs
-type ActionResult string
+type Result string
 
 const (
-	ActionResultSuccess   ActionResult = "success"
-	ActionResultFailure   ActionResult = "failure"
-	ActionResultCancelled ActionResult = "cancelled"
-	ActionResultSkipped   ActionResult = "skipped"
+	ResultSuccess   Result = "success"
+	ResultFailure   Result = "failure"
+	ResultCancelled Result = "cancelled"
+	ResultSkipped   Result = "skipped"
 )

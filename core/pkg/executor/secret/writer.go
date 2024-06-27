@@ -5,11 +5,11 @@ import (
 )
 
 type writer struct {
-	masker *Masker
+	masker Masker
 	writer io.Writer
 }
 
-func NewWriter(w io.Writer, masker *Masker) io.Writer {
+func NewWriter(w io.Writer, masker Masker) io.Writer {
 	return &writer{
 		masker: masker,
 		writer: w,

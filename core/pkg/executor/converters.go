@@ -15,7 +15,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func (e *JobExecutor) toContainerConfig(ctx context.Context, container *workflows.Container) (*container.ContainerConfig, error) {
+func (e *jobExecutor) toContainerConfig(ctx context.Context, container *workflows.Container) (*container.ContainerConfig, error) {
 	return nil, nil
 }
 
@@ -24,7 +24,7 @@ const skippedIssueMsg = "skipped logging an issue for the matched line because o
 var numberRegex = regexp.MustCompile(`^[+\-]?\d+$`)
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/Handlers/OutputManager.cs#L200
-func (e *JobExecutor) toIssuer(pbl *problem.Problem) (*reporter.Issue, error) {
+func (e *jobExecutor) toIssuer(pbl *problem.Problem) (*reporter.Issue, error) {
 	if pbl.Message == "" {
 		return nil, fmt.Errorf("%s empty message", skippedIssueMsg)
 	}

@@ -16,7 +16,9 @@ import (
 	runnerv1 "code.gitea.io/actions-proto-go/runner/v1"
 	"connectrpc.com/connect"
 	"drassi.run/core/pkg/executor"
+	"drassi.run/core/pkg/executor/secret"
 	"drassi.run/core/pkg/model"
+	"drassi.run/core/pkg/model/dossiers"
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/sandboxer/incus"
@@ -24,6 +26,7 @@ import (
 	"github.com/lxc/incus/shared/api"
 	"github.com/spf13/cobra"
 	"golang.org/x/time/rate"
+	"google.golang.org/protobuf/types/known/structpb"
 	"gopkg.in/yaml.v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -152,12 +155,42 @@ func (c *launchCommand) runTask(ctx context.Context, task *runnerv1.Task) error 
 		return err
 	}
 
+	gh, err := c.decodeContext(task.Context)
+	if err != nil {
+		return err
+	}
+
+	if gh.Token == "" {
+		if t := task.Secrets["GITEA_TOKEN"]; t != "" {
+			gh.Token = t
+		} else if t = task.Secrets["GITHUB_TOKEN"]; t != "" {
+			gh.Token = t
+		}
+	}
+
+	needs := c.convertJobNeeds(task.Needs)
+	runner := &dossiers.Runner{
+		Name:        c.runnerInfo.Name,
+		Os:          model.Linux,
+		Arch:        model.X64,
+		Environment: "self-hosted",
+	}
+
+	d := &dossiers.Dossier{
+		Github:    gh,
+		Secrets:   task.Secrets,
+		Variables: task.Vars,
+		Needs:     needs,
+		Runner:    runner,
+	}
+
 	reporter := service.NewReporter(ctx, task.Id, jr, c.client)
 	defer reporter.Close()
 
-	je := executor.JobExecutor{
-		JobRun:   jr,
-		Reporter: reporter,
+	je := executor.NewJobExecutor(jr, d, reporter)
+
+	for _, v := range task.Secrets {
+		je.AddSecretMask(secret.NewValueSecret(v))
 	}
 
 	if err = je.Initialize(ctx, c.runtime); err != nil {
@@ -185,6 +218,21 @@ func (c *launchCommand) convertJobRun(wf *workflows.Workflow) (*executor.JobRun,
 	return nil, fmt.Errorf("empty job")
 }
 
+func (c *launchCommand) convertJobNeeds(taskNeeds map[string]*runnerv1.TaskNeed) map[string]*dossiers.Need {
+	if len(taskNeeds) == 0 {
+		return nil
+	}
+
+	needs := make(map[string]*dossiers.Need, len(taskNeeds))
+	for k, n := range taskNeeds {
+		needs[k] = &dossiers.Need{
+			Outputs: n.Outputs,
+			Result:  resultMap[n.Result],
+		}
+	}
+	return needs
+}
+
 func (c *launchCommand) decodeWorkflow(payload []byte) (*workflows.Workflow, error) {
 	var raw any
 	reader := bytes.NewReader(payload)
@@ -197,6 +245,16 @@ func (c *launchCommand) decodeWorkflow(payload []byte) (*workflows.Workflow, err
 		return nil, err
 	}
 	return workflow, nil
+}
+
+func (c *launchCommand) decodeContext(s *structpb.Struct) (*dossiers.Github, error) {
+	m := s.AsMap()
+	gh := new(dossiers.Github)
+
+	if err := model.Decode(m, gh); err != nil {
+		return nil, err
+	}
+	return gh, nil
 }
 
 func (c *launchCommand) finalize(ctx context.Context) {
@@ -233,4 +291,12 @@ func loadJson(file string, object any) error {
 		return err
 	}
 	return json.NewDecoder(f).Decode(object)
+}
+
+var resultMap = map[runnerv1.Result]dossiers.Result{
+	runnerv1.Result_RESULT_UNSPECIFIED: "",
+	runnerv1.Result_RESULT_SUCCESS:     dossiers.ResultSuccess,
+	runnerv1.Result_RESULT_FAILURE:     dossiers.ResultFailure,
+	runnerv1.Result_RESULT_CANCELLED:   dossiers.ResultCancelled,
+	runnerv1.Result_RESULT_SKIPPED:     dossiers.ResultSkipped,
 }

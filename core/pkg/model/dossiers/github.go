@@ -1,4 +1,4 @@
-package contexts
+package dossiers
 
 // The github context contains information about the workflow run and the event that triggered the run.
 // https://docs.github.com/en/actions/learn-github-actions/contexts#github-context
@@ -12,14 +12,12 @@ type Github struct {
 	ActorId           string       `json:"actor_id" yaml:"actor_id" mapstructure:"actor_id"`
 	ApiUrl            string       `json:"api_url" yaml:"api_url" mapstructure:"api_url"`
 	BaseRef           string       `json:"base_ref" yaml:"base_ref" mapstructure:"base_ref"`
-	Env               string       `json:"env" yaml:"env" mapstructure:"env"`
 	Event             any          `json:"event" yaml:"event" mapstructure:"event"` // TODO data type
 	EventName         string       `json:"event_name" yaml:"event_name" mapstructure:"event_name"`
 	EventPath         string       `json:"event_path" yaml:"event_path" mapstructure:"event_path"`
 	GraphqlUrl        string       `json:"graphql_url" yaml:"graphql_url" mapstructure:"graphql_url"`
 	HeadRef           string       `json:"head_ref" yaml:"head_ref" mapstructure:"head_ref"`
 	Job               string       `json:"job" yaml:"job" mapstructure:"job"`
-	Path              string       `json:"path" yaml:"path" mapstructure:"path"`
 	Ref               string       `json:"ref" yaml:"ref" mapstructure:"ref"`
 	RefName           string       `json:"ref_name" yaml:"ref_name" mapstructure:"ref_name"`
 	RefProtected      bool         `json:"ref_protected" yaml:"ref_protected" mapstructure:"ref_protected"`
@@ -42,6 +40,13 @@ type Github struct {
 	WorkflowRef       string       `json:"workflow_ref" yaml:"workflow_ref" mapstructure:"workflow_ref"`
 	WorkflowSha       string       `json:"workflow_sha" yaml:"workflow_sha" mapstructure:"workflow_sha"`
 	Workspace         string       `json:"workspace" yaml:"workspace" mapstructure:"workspace"`
+
+	// File commands env
+	Path        string `json:"path" yaml:"path" mapstructure:"path"`
+	Env         string `json:"env" yaml:"env" mapstructure:"env"`
+	Output      string `json:"output" yaml:"output" mapstructure:"output"`
+	State       string `json:"state" yaml:"state" mapstructure:"state"`
+	StepSummary string `json:"step_summary" yaml:"step_summary" mapstructure:"step_summary"`
 }
 
 type RefType string

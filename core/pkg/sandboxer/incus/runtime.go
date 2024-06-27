@@ -67,6 +67,13 @@ func (i *incusSandboxRuntime) LaunchSandbox(ctx context.Context, request sandbox
 	}
 
 	res.Sandbox = sandbox
+	res.Env = map[string]string{
+		"PATH":              "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+		"RUNNER_TEMP":       sandbox.tempDir,
+		"RUNNER_TOOL_CACHE": sandbox.toolsDir,
+		"RUNNER_WORKSPACE":  sandbox.workspaceDir,
+		"GITHUB_WORKSPACE":  sandbox.workspaceDir, // TODO
+	}
 	return res, nil
 }
 

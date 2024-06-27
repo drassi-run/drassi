@@ -15,17 +15,17 @@ import (
 
 type handlerInfo[E any] struct {
 	ctx  context.Context
-	exec *E
+	exec E
 }
 
 type consoleCommandHandlers struct {
-	cmdMgr *command.ConsoleCommandManager
+	cmdMgr command.ConsoleCommandManager
 
 	job   handlerInfo[JobExecutor]
 	steps []handlerInfo[StepExecutor]
 }
 
-func (h *consoleCommandHandlers) StartJob(ctx context.Context, jobExec *JobExecutor) error {
+func (h *consoleCommandHandlers) StartJob(ctx context.Context, jobExec JobExecutor) error {
 	if h.job.exec != nil {
 		return fmt.Errorf("job %s still running, it need to be end first", h.job.exec.JobId())
 	}
@@ -81,7 +81,7 @@ func (h *consoleCommandHandlers) clearSteps() {
 	h.steps = nil
 }
 
-func (h *consoleCommandHandlers) StartStep(ctx context.Context, stepExec *StepExecutor) error {
+func (h *consoleCommandHandlers) StartStep(ctx context.Context, stepExec StepExecutor) error {
 	if h.job.exec == nil {
 		return errors.New("job need to be started before starting a step")
 	}
@@ -108,7 +108,7 @@ func (h *consoleCommandHandlers) EndStep() {
 	}
 }
 
-func (h *consoleCommandHandlers) stepHandle(fn func(ctx context.Context, exec *StepExecutor) error) error {
+func (h *consoleCommandHandlers) stepHandle(fn func(ctx context.Context, exec StepExecutor) error) error {
 	if len(h.steps) == 0 {
 		return errors.New("no step found")
 	}
@@ -119,7 +119,7 @@ func (h *consoleCommandHandlers) stepHandle(fn func(ctx context.Context, exec *S
 	return fn(ctx, exec)
 }
 
-func (h *consoleCommandHandlers) jobHandle(fn func(ctx context.Context, exec *JobExecutor) error) error {
+func (h *consoleCommandHandlers) jobHandle(fn func(ctx context.Context, exec JobExecutor) error) error {
 	exec := h.job.exec
 	if exec == nil {
 		return errors.New("no job found")
@@ -135,7 +135,7 @@ func (h *consoleCommandHandlers) jobHandle(fn func(ctx context.Context, exec *Jo
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L384
 func (h *consoleCommandHandlers) addSecretMask(cmd *command.Command) error {
-	return h.jobHandle(func(ctx context.Context, e *JobExecutor) error {
+	return h.jobHandle(func(ctx context.Context, e JobExecutor) error {
 		if cmd.Value == "" {
 			return errors.New("can't add secret mask for empty string in ##[add-mask] command")
 		}
@@ -155,7 +155,7 @@ func (h *consoleCommandHandlers) addSecretMask(cmd *command.Command) error {
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L451
 func (h *consoleCommandHandlers) addProblemMatcher(cmd *command.Command) error {
-	return h.jobHandle(func(ctx context.Context, e *JobExecutor) error {
+	return h.jobHandle(func(ctx context.Context, e JobExecutor) error {
 		file := cmd.Value
 		if file == "" {
 			return errors.New("file path must be specified in ##[add-matcher] command")
@@ -185,7 +185,7 @@ func (h *consoleCommandHandlers) addProblemMatcher(cmd *command.Command) error {
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L498
 func (h *consoleCommandHandlers) removeProblemMatcher(cmd *command.Command) error {
-	return h.jobHandle(func(ctx context.Context, e *JobExecutor) error {
+	return h.jobHandle(func(ctx context.Context, e JobExecutor) error {
 		file := cmd.Value
 		owner := cmd.Params["owner"]
 		if (file == "") == (owner == "") {
@@ -214,7 +214,7 @@ func (h *consoleCommandHandlers) removeProblemMatcher(cmd *command.Command) erro
 	})
 }
 
-func (h *consoleCommandHandlers) readProblemMatcherFile(ctx context.Context, e *JobExecutor, file string) (*problem.MatcherConfigs, error) {
+func (h *consoleCommandHandlers) readProblemMatcherFile(ctx context.Context, e JobExecutor, file string) (*problem.MatcherConfigs, error) {
 	if filepath.IsLocal(file) {
 		ws := e.Sandbox().GetWorkspaceDir()
 		file = filepath.Join(ws, file)
@@ -234,7 +234,7 @@ func (h *consoleCommandHandlers) readProblemMatcherFile(ctx context.Context, e *
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L751
 func (h *consoleCommandHandlers) groupingLog(cmd *command.Command) error {
-	return h.jobHandle(func(ctx context.Context, e *JobExecutor) error {
+	return h.jobHandle(func(ctx context.Context, e JobExecutor) error {
 		e.Log(TagGroup, cmd.Value)
 		return nil
 	})
@@ -242,7 +242,7 @@ func (h *consoleCommandHandlers) groupingLog(cmd *command.Command) error {
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L751
 func (h *consoleCommandHandlers) endGroupingLog(cmd *command.Command) error {
-	return h.jobHandle(func(ctx context.Context, e *JobExecutor) error {
+	return h.jobHandle(func(ctx context.Context, e JobExecutor) error {
 		e.Log(TagEndGroup, "")
 		return nil
 	})
@@ -251,7 +251,7 @@ func (h *consoleCommandHandlers) endGroupingLog(cmd *command.Command) error {
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L566
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L600
 func (h *consoleCommandHandlers) logMessage(cmd *command.Command) error {
-	return h.jobHandle(func(ctx context.Context, e *JobExecutor) error {
+	return h.jobHandle(func(ctx context.Context, e JobExecutor) error {
 		// TODO
 		return nil
 	})
@@ -259,7 +259,7 @@ func (h *consoleCommandHandlers) logMessage(cmd *command.Command) error {
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L417
 func (h *consoleCommandHandlers) addPath(cmd *command.Command) error {
-	return h.jobHandle(func(ctx context.Context, e *JobExecutor) error {
+	return h.jobHandle(func(ctx context.Context, e JobExecutor) error {
 		paths := []string{cmd.Value}
 		return e.AddPath(paths)
 	})
@@ -267,7 +267,7 @@ func (h *consoleCommandHandlers) addPath(cmd *command.Command) error {
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L234
 func (h *consoleCommandHandlers) setEnv(cmd *command.Command) error {
-	return h.jobHandle(func(ctx context.Context, e *JobExecutor) error {
+	return h.jobHandle(func(ctx context.Context, e JobExecutor) error {
 		name, ok := cmd.Params["name"]
 		if !ok || name == "" {
 			return errors.New("required field 'name' is missing in ##[set-output] command")
@@ -282,7 +282,7 @@ func (h *consoleCommandHandlers) setEnv(cmd *command.Command) error {
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L301
 func (h *consoleCommandHandlers) setOutput(cmd *command.Command) error {
-	return h.stepHandle(func(ctx context.Context, e *StepExecutor) error {
+	return h.stepHandle(func(ctx context.Context, e StepExecutor) error {
 		name, ok := cmd.Params["name"]
 		if !ok || name == "" {
 			return fmt.Errorf("required field 'name' in ##[set-output] command")
@@ -297,7 +297,7 @@ func (h *consoleCommandHandlers) setOutput(cmd *command.Command) error {
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L336
 func (h *consoleCommandHandlers) saveState(cmd *command.Command) error {
-	return h.stepHandle(func(ctx context.Context, e *StepExecutor) error {
+	return h.stepHandle(func(ctx context.Context, e StepExecutor) error {
 		name, ok := cmd.Params["name"]
 		if !ok || name == "" {
 			return fmt.Errorf("required field 'name' in ##[save-state] command")

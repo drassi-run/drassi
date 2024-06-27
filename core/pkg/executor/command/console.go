@@ -45,21 +45,14 @@ type Command struct {
 
 type ConsoleCommandHandler = func(cmd *Command) error
 
-type regCmd struct {
-	echo    bool
-	handler ConsoleCommandHandler
+type ConsoleCommandManager interface {
+	RegisterCommand(name string, echo bool, handler ConsoleCommandHandler) error
+	ParseCommand(line string) *Command
+	Process(line string, cmd *Command) error
 }
 
-type ConsoleCommandManager struct {
-	writer             io.Writer
-	registeredCommands map[string]regCmd
-
-	echo           bool
-	resumeCmdToken string
-}
-
-func NewConsoleCommandManager(w io.Writer) *ConsoleCommandManager {
-	mgr := &ConsoleCommandManager{
+func NewConsoleCommandManager(w io.Writer) ConsoleCommandManager {
+	mgr := &consoleCommandManager{
 		writer:             w,
 		registeredCommands: make(map[string]regCmd),
 		echo:               true,
@@ -71,7 +64,20 @@ func NewConsoleCommandManager(w io.Writer) *ConsoleCommandManager {
 	return mgr
 }
 
-func (mgr *ConsoleCommandManager) RegisterCommand(name string, echo bool, handler ConsoleCommandHandler) error {
+type consoleCommandManager struct {
+	writer             io.Writer
+	registeredCommands map[string]regCmd
+
+	echo           bool
+	resumeCmdToken string
+}
+
+type regCmd struct {
+	echo    bool
+	handler ConsoleCommandHandler
+}
+
+func (mgr *consoleCommandManager) RegisterCommand(name string, echo bool, handler ConsoleCommandHandler) error {
 	if slices.Contains(builtinCommands, name) {
 		if _, ok := mgr.registeredCommands[name]; ok {
 			return fmt.Errorf("can't overwrite built-in command %s", name)
@@ -90,7 +96,7 @@ func (mgr *ConsoleCommandManager) RegisterCommand(name string, echo bool, handle
 	return nil
 }
 
-func (mgr *ConsoleCommandManager) ParseCommand(line string) *Command {
+func (mgr *consoleCommandManager) ParseCommand(line string) *Command {
 	if cmd := mgr.parseCommandV2(line); cmd != nil {
 		return cmd
 	}
@@ -100,7 +106,7 @@ func (mgr *ConsoleCommandManager) ParseCommand(line string) *Command {
 var cmdV2Regex = regexp.MustCompile(`^::([^\s:]+)( .*)?::(.*)$`)
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Common/ActionCommand.cs#L51
-func (mgr *ConsoleCommandManager) parseCommandV2(line string) *Command {
+func (mgr *consoleCommandManager) parseCommandV2(line string) *Command {
 	line = strings.TrimSpace(line)
 	if !strings.HasPrefix(line, "::") {
 		return nil
@@ -130,7 +136,7 @@ func (mgr *ConsoleCommandManager) parseCommandV2(line string) *Command {
 var cmdV1Regex = regexp.MustCompile(`##\[([^\s\]]+)( .*)?\](.*)$`)
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Common/ActionCommand.cs#L121
-func (mgr *ConsoleCommandManager) parseCommandV1(line string) *Command {
+func (mgr *consoleCommandManager) parseCommandV1(line string) *Command {
 	matches := cmdV1Regex.FindStringSubmatch(line)
 	if matches == nil {
 		return nil
@@ -152,7 +158,7 @@ func (mgr *ConsoleCommandManager) parseCommandV1(line string) *Command {
 	return cmd
 }
 
-func (mgr *ConsoleCommandManager) isProcessingCommand(cmd string) bool {
+func (mgr *consoleCommandManager) isProcessingCommand(cmd string) bool {
 	if mgr.resumeCmdToken != "" {
 		return cmd == mgr.resumeCmdToken
 	}
@@ -160,7 +166,7 @@ func (mgr *ConsoleCommandManager) isProcessingCommand(cmd string) bool {
 	return ok
 }
 
-func (mgr *ConsoleCommandManager) parseCommandParams(params, sep string, replacer *strings.Replacer) map[string]string {
+func (mgr *consoleCommandManager) parseCommandParams(params, sep string, replacer *strings.Replacer) map[string]string {
 	params = strings.TrimSpace(params)
 	if params == "" {
 		return nil
@@ -192,7 +198,7 @@ func (mgr *ConsoleCommandManager) parseCommandParams(params, sep string, replace
 	return m
 }
 
-func (mgr *ConsoleCommandManager) Process(line string, cmd *Command) error {
+func (mgr *consoleCommandManager) Process(line string, cmd *Command) error {
 	var cmdEcho bool
 	var handler func(cmd *Command) error
 
@@ -213,7 +219,7 @@ func (mgr *ConsoleCommandManager) Process(line string, cmd *Command) error {
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L765
-func (mgr *ConsoleCommandManager) setEcho(cmd *Command) error {
+func (mgr *consoleCommandManager) setEcho(cmd *Command) error {
 	mod := strings.TrimSpace(cmd.Value)
 	mod = strings.ToUpper(mod)
 	switch mod {
@@ -227,7 +233,7 @@ func (mgr *ConsoleCommandManager) setEcho(cmd *Command) error {
 	return nil
 }
 
-func (mgr *ConsoleCommandManager) stopCommands(cmd *Command) error {
+func (mgr *consoleCommandManager) stopCommands(cmd *Command) error {
 	token := cmd.Value
 	if !mgr.validStopCommandToken(token) {
 		return fmt.Errorf("invalid stop-command token %s", token)
@@ -237,13 +243,13 @@ func (mgr *ConsoleCommandManager) stopCommands(cmd *Command) error {
 	return mgr.RegisterCommand(token, true, mgr.resumeCommands)
 }
 
-func (mgr *ConsoleCommandManager) resumeCommands(cmd *Command) error {
+func (mgr *consoleCommandManager) resumeCommands(cmd *Command) error {
 	mgr.resumeCmdToken = ""
 	return mgr.RegisterCommand(cmd.Name, true, nil)
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L156
-func (mgr *ConsoleCommandManager) validStopCommandToken(token string) bool {
+func (mgr *consoleCommandManager) validStopCommandToken(token string) bool {
 	if token == "" || strings.EqualFold(token, "pause-logging") {
 		return false
 	}

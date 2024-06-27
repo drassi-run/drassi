@@ -5,6 +5,7 @@ import (
 	"io"
 
 	"drassi.run/core/pkg/container"
+	"drassi.run/core/pkg/model/dossiers"
 )
 
 type Streams struct {
@@ -55,7 +56,11 @@ type LaunchSandboxRequest struct {
 }
 
 type LaunchSandboxResponse struct {
-	Sandbox Sandbox
+	Sandbox   Sandbox
+	Container *dossiers.Container
+	Services  map[string]*dossiers.Container
+
+	Env map[string]string
 }
 
 type TerminateSandboxRequest struct {

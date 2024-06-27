@@ -15,7 +15,7 @@ type compositeActionRun struct {
 	stepRuns []StepRun
 }
 
-func (ar *compositeActionRun) Initialize(ctx context.Context, exec *StepExecutor) (err error) {
+func (ar *compositeActionRun) Initialize(ctx context.Context, exec StepExecutor) (err error) {
 	g, ctx := errgroup.WithContext(ctx)
 	for _, step := range ar.stepRuns {
 		cExec := exec.NewChildExecutor(step)
@@ -53,7 +53,7 @@ func (ar *compositeActionRun) createStageTask(stage Stage, fn func(StepRun) *Tas
 
 	return &Task{
 		Stage: stage,
-		Run: func(ctx context.Context, exec *StepExecutor) error {
+		Run: func(ctx context.Context, exec StepExecutor) error {
 			for _, id := range taskIds {
 				cExec := exec.ChildExecutor(id)
 				if cExec == nil {

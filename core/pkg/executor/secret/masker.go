@@ -5,15 +5,24 @@ import (
 	"strings"
 )
 
-type Masker struct {
+type Masker interface {
+	AddSecret(secret Secret)
+	Mask(input string) string
+}
+
+func NewMasker() Masker {
+	return &masker{}
+}
+
+type masker struct {
 	secrets []Secret
 }
 
-func (m *Masker) AddSecret(secret Secret) {
+func (m *masker) AddSecret(secret Secret) {
 	m.secrets = append(m.secrets, secret)
 }
 
-func (m *Masker) Mask(input string) string {
+func (m *masker) Mask(input string) string {
 	pos := make([]*Position, 0)
 	for _, secret := range m.secrets {
 		pos = append(pos, secret.At(input)...)
