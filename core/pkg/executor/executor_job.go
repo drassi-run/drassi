@@ -92,11 +92,12 @@ type jobExecutor struct {
 	secretMasker    secret.Masker
 	problemMatchers map[string]problem.Matcher
 
-	outWriter         io.Writer
-	errWriter         io.Writer
-	streams           *sandboxer.Streams
-	consoleCmdMgr     command.ConsoleCommandManager
-	consoleCmdHandler *consoleCommandHandlers
+	outWriter     io.Writer
+	errWriter     io.Writer
+	streams       *sandboxer.Streams
+	consoleCmdMgr command.ConsoleCommandManager
+	fileCmdMgr    command.FileCommandManager
+	cmdHandlers   *commandHandlers
 
 	defaults *workflows.Defaults
 	paths    []string
@@ -176,10 +177,10 @@ func (e *jobExecutor) Initialize(ctx context.Context, runtime sandboxer.SandboxR
 }
 
 func (e *jobExecutor) RunJob(ctx context.Context) error {
-	if err := e.consoleCmdHandler.StartJob(ctx, e); err != nil {
+	if err := e.cmdHandlers.StartJob(ctx, e); err != nil {
 		return err
 	}
-	defer e.consoleCmdHandler.EndJob()
+	defer e.cmdHandlers.EndJob()
 
 	if err := e.runStage(ctx, StagePre, StepRun.PreTask); err != nil {
 		e.result = dossiers.ResultFailure
@@ -229,18 +230,20 @@ func (e *jobExecutor) Finalize(ctx context.Context, runtime sandboxer.SandboxRun
 func (e *jobExecutor) initializeJob(ctx context.Context) error {
 	e.outWriter = secret.NewWriter(e.reporter.Stdout(), e.secretMasker)
 	e.errWriter = secret.NewWriter(e.reporter.Stderr(), e.secretMasker)
-
-	lineOutWriter := reporter.NewLineWriter(e.lineHandler(e.outWriter))
-	lineErrWriter := reporter.NewLineWriter(e.lineHandler(e.errWriter))
-
 	e.streams = &sandboxer.Streams{
 		In:  e.reporter.Stdin(),
-		Out: lineOutWriter,
-		Err: lineErrWriter,
+		Out: reporter.NewLineWriter(e.lineHandler(e.outWriter)),
+		Err: reporter.NewLineWriter(e.lineHandler(e.errWriter)),
 	}
 
 	e.consoleCmdMgr = command.NewConsoleCommandManager(e.outWriter)
-	e.consoleCmdHandler = &consoleCommandHandlers{cmdMgr: e.consoleCmdMgr}
+	e.fileCmdMgr = command.NewFileCommandManager(e.jobRun.Uid)
+	e.cmdHandlers = &commandHandlers{
+		consoleMgr: e.consoleCmdMgr,
+		fileMgr:    e.fileCmdMgr,
+	}
+
+	// Evaluate expressions
 	evalSupplier := &evaluationSupplier{dossier: e.dossier}
 
 	if env, err := e.jobRun.Env.Evaluate("job.env", evalSupplier); err != nil {
@@ -333,11 +336,11 @@ func (e *jobExecutor) runStage(ctx context.Context, stage Stage, fn func(StepRun
 }
 
 func (e *jobExecutor) StartStep(ctx context.Context, stepExec StepExecutor) error {
-	return e.consoleCmdHandler.StartStep(ctx, stepExec)
+	return e.cmdHandlers.StartStep(ctx, stepExec)
 }
 
 func (e *jobExecutor) EndStep() {
-	e.consoleCmdHandler.EndStep()
+	e.cmdHandlers.EndStep()
 }
 
 func (e *jobExecutor) Defaults() *workflows.Defaults {

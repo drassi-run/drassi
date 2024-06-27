@@ -1,16 +1,19 @@
 package executor
 
 import (
+	"archive/tar"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"path/filepath"
 	"strings"
 
 	"drassi.run/core/pkg/executor/command"
 	"drassi.run/core/pkg/executor/problem"
 	"drassi.run/core/pkg/executor/secret"
+	utilreader "drassi.run/core/pkg/util/reader"
 )
 
 type handlerInfo[E any] struct {
@@ -18,14 +21,15 @@ type handlerInfo[E any] struct {
 	exec E
 }
 
-type consoleCommandHandlers struct {
-	cmdMgr command.ConsoleCommandManager
+type commandHandlers struct {
+	consoleMgr command.ConsoleCommandManager
+	fileMgr    command.FileCommandManager
 
 	job   handlerInfo[JobExecutor]
 	steps []handlerInfo[StepExecutor]
 }
 
-func (h *consoleCommandHandlers) StartJob(ctx context.Context, jobExec JobExecutor) error {
+func (h *commandHandlers) StartJob(ctx context.Context, jobExec JobExecutor) error {
 	if h.job.exec != nil {
 		return fmt.Errorf("job %s still running, it need to be end first", h.job.exec.JobId())
 	}
@@ -33,55 +37,55 @@ func (h *consoleCommandHandlers) StartJob(ctx context.Context, jobExec JobExecut
 	h.job.ctx = ctx
 	h.job.exec = jobExec
 
-	_ = h.cmdMgr.RegisterCommand("add-mask", false, h.addSecretMask)
-	_ = h.cmdMgr.RegisterCommand("add-matcher", true, h.addProblemMatcher)
-	_ = h.cmdMgr.RegisterCommand("remove-matcher", true, h.removeProblemMatcher)
+	_ = h.consoleMgr.RegisterCommand("add-mask", false, h.addSecretMask)
+	_ = h.consoleMgr.RegisterCommand("add-matcher", true, h.addProblemMatcher)
+	_ = h.consoleMgr.RegisterCommand("remove-matcher", true, h.removeProblemMatcher)
 
-	_ = h.cmdMgr.RegisterCommand("group", true, h.groupingLog)
-	_ = h.cmdMgr.RegisterCommand("endgroup", true, h.endGroupingLog)
-	_ = h.cmdMgr.RegisterCommand("debug", false, h.logMessage)
-	_ = h.cmdMgr.RegisterCommand("notice", false, h.logMessage)
-	_ = h.cmdMgr.RegisterCommand("warning", false, h.logMessage)
-	_ = h.cmdMgr.RegisterCommand("error", false, h.logMessage)
+	_ = h.consoleMgr.RegisterCommand("group", true, h.groupingLog)
+	_ = h.consoleMgr.RegisterCommand("endgroup", true, h.endGroupingLog)
+	_ = h.consoleMgr.RegisterCommand("debug", false, h.logMessage)
+	_ = h.consoleMgr.RegisterCommand("notice", false, h.logMessage)
+	_ = h.consoleMgr.RegisterCommand("warning", false, h.logMessage)
+	_ = h.consoleMgr.RegisterCommand("error", false, h.logMessage)
 
-	_ = h.cmdMgr.RegisterCommand("add-path", true, h.addPath)
-	_ = h.cmdMgr.RegisterCommand("set-env", true, h.setEnv)
+	_ = h.consoleMgr.RegisterCommand("add-path", true, h.consoleAddPath)
+	_ = h.consoleMgr.RegisterCommand("set-env", true, h.consoleSetEnv)
 
 	h.clearSteps()
 	return nil
 }
 
-func (h *consoleCommandHandlers) EndJob() {
+func (h *commandHandlers) EndJob() {
 	h.clearSteps()
 
 	// un-register commands
-	_ = h.cmdMgr.RegisterCommand("add-mask", false, nil)
-	_ = h.cmdMgr.RegisterCommand("add-matcher", true, nil)
-	_ = h.cmdMgr.RegisterCommand("remove-matcher", true, nil)
+	_ = h.consoleMgr.RegisterCommand("add-mask", false, nil)
+	_ = h.consoleMgr.RegisterCommand("add-matcher", true, nil)
+	_ = h.consoleMgr.RegisterCommand("remove-matcher", true, nil)
 
-	_ = h.cmdMgr.RegisterCommand("group", true, nil)
-	_ = h.cmdMgr.RegisterCommand("endgroup", true, nil)
-	_ = h.cmdMgr.RegisterCommand("debug", false, nil)
-	_ = h.cmdMgr.RegisterCommand("notice", false, nil)
-	_ = h.cmdMgr.RegisterCommand("warning", false, nil)
-	_ = h.cmdMgr.RegisterCommand("error", false, nil)
+	_ = h.consoleMgr.RegisterCommand("group", true, nil)
+	_ = h.consoleMgr.RegisterCommand("endgroup", true, nil)
+	_ = h.consoleMgr.RegisterCommand("debug", false, nil)
+	_ = h.consoleMgr.RegisterCommand("notice", false, nil)
+	_ = h.consoleMgr.RegisterCommand("warning", false, nil)
+	_ = h.consoleMgr.RegisterCommand("error", false, nil)
 
-	_ = h.cmdMgr.RegisterCommand("add-path", true, nil)
-	_ = h.cmdMgr.RegisterCommand("set-env", true, nil)
+	_ = h.consoleMgr.RegisterCommand("add-path", true, nil)
+	_ = h.consoleMgr.RegisterCommand("set-env", true, nil)
 
 	h.job.ctx = nil
 	h.job.exec = nil
 }
 
-func (h *consoleCommandHandlers) clearSteps() {
+func (h *commandHandlers) clearSteps() {
 	// un-register commands
-	_ = h.cmdMgr.RegisterCommand("set-output", true, nil)
-	_ = h.cmdMgr.RegisterCommand("save-state", true, nil)
+	_ = h.consoleMgr.RegisterCommand("set-output", true, nil)
+	_ = h.consoleMgr.RegisterCommand("save-state", true, nil)
 
 	h.steps = nil
 }
 
-func (h *consoleCommandHandlers) StartStep(ctx context.Context, stepExec StepExecutor) error {
+func (h *commandHandlers) StartStep(ctx context.Context, stepExec StepExecutor) error {
 	if h.job.exec == nil {
 		return errors.New("job need to be started before starting a step")
 	}
@@ -91,24 +95,24 @@ func (h *consoleCommandHandlers) StartStep(ctx context.Context, stepExec StepExe
 		exec: stepExec,
 	})
 	if len(h.steps) == 1 {
-		_ = h.cmdMgr.RegisterCommand("set-output", true, h.setOutput)
-		_ = h.cmdMgr.RegisterCommand("save-state", true, h.saveState)
+		_ = h.consoleMgr.RegisterCommand("set-output", true, h.consoleSetOutput)
+		_ = h.consoleMgr.RegisterCommand("save-state", true, h.consoleSaveState)
 	}
 	return nil
 }
 
-func (h *consoleCommandHandlers) EndStep() {
+func (h *commandHandlers) EndStep() {
 	if len(h.steps) == 1 {
 		// un-register commands
-		_ = h.cmdMgr.RegisterCommand("set-output", true, nil)
-		_ = h.cmdMgr.RegisterCommand("save-state", true, nil)
+		_ = h.consoleMgr.RegisterCommand("set-output", true, nil)
+		_ = h.consoleMgr.RegisterCommand("save-state", true, nil)
 	}
 	if len(h.steps) > 0 {
 		h.steps = h.steps[:len(h.steps)-1]
 	}
 }
 
-func (h *consoleCommandHandlers) stepHandle(fn func(ctx context.Context, exec StepExecutor) error) error {
+func (h *commandHandlers) stepHandle(fn func(ctx context.Context, exec StepExecutor) error) error {
 	if len(h.steps) == 0 {
 		return errors.New("no step found")
 	}
@@ -119,7 +123,7 @@ func (h *consoleCommandHandlers) stepHandle(fn func(ctx context.Context, exec St
 	return fn(ctx, exec)
 }
 
-func (h *consoleCommandHandlers) jobHandle(fn func(ctx context.Context, exec JobExecutor) error) error {
+func (h *commandHandlers) jobHandle(fn func(ctx context.Context, exec JobExecutor) error) error {
 	exec := h.job.exec
 	if exec == nil {
 		return errors.New("no job found")
@@ -134,7 +138,7 @@ func (h *consoleCommandHandlers) jobHandle(fn func(ctx context.Context, exec Job
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L384
-func (h *consoleCommandHandlers) addSecretMask(cmd *command.Command) error {
+func (h *commandHandlers) addSecretMask(cmd *command.Command) error {
 	return h.jobHandle(func(ctx context.Context, e JobExecutor) error {
 		if cmd.Value == "" {
 			return errors.New("can't add secret mask for empty string in ##[add-mask] command")
@@ -154,7 +158,7 @@ func (h *consoleCommandHandlers) addSecretMask(cmd *command.Command) error {
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L451
-func (h *consoleCommandHandlers) addProblemMatcher(cmd *command.Command) error {
+func (h *commandHandlers) addProblemMatcher(cmd *command.Command) error {
 	return h.jobHandle(func(ctx context.Context, e JobExecutor) error {
 		file := cmd.Value
 		if file == "" {
@@ -184,7 +188,7 @@ func (h *consoleCommandHandlers) addProblemMatcher(cmd *command.Command) error {
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L498
-func (h *consoleCommandHandlers) removeProblemMatcher(cmd *command.Command) error {
+func (h *commandHandlers) removeProblemMatcher(cmd *command.Command) error {
 	return h.jobHandle(func(ctx context.Context, e JobExecutor) error {
 		file := cmd.Value
 		owner := cmd.Params["owner"]
@@ -214,7 +218,7 @@ func (h *consoleCommandHandlers) removeProblemMatcher(cmd *command.Command) erro
 	})
 }
 
-func (h *consoleCommandHandlers) readProblemMatcherFile(ctx context.Context, e JobExecutor, file string) (*problem.MatcherConfigs, error) {
+func (h *commandHandlers) readProblemMatcherFile(ctx context.Context, e JobExecutor, file string) (*problem.MatcherConfigs, error) {
 	if filepath.IsLocal(file) {
 		ws := e.Sandbox().GetWorkspaceDir()
 		file = filepath.Join(ws, file)
@@ -233,7 +237,7 @@ func (h *consoleCommandHandlers) readProblemMatcherFile(ctx context.Context, e J
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L751
-func (h *consoleCommandHandlers) groupingLog(cmd *command.Command) error {
+func (h *commandHandlers) groupingLog(cmd *command.Command) error {
 	return h.jobHandle(func(ctx context.Context, e JobExecutor) error {
 		e.Log(TagGroup, cmd.Value)
 		return nil
@@ -241,7 +245,7 @@ func (h *consoleCommandHandlers) groupingLog(cmd *command.Command) error {
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L751
-func (h *consoleCommandHandlers) endGroupingLog(cmd *command.Command) error {
+func (h *commandHandlers) endGroupingLog(cmd *command.Command) error {
 	return h.jobHandle(func(ctx context.Context, e JobExecutor) error {
 		e.Log(TagEndGroup, "")
 		return nil
@@ -250,7 +254,7 @@ func (h *consoleCommandHandlers) endGroupingLog(cmd *command.Command) error {
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L566
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L600
-func (h *consoleCommandHandlers) logMessage(cmd *command.Command) error {
+func (h *commandHandlers) logMessage(cmd *command.Command) error {
 	return h.jobHandle(func(ctx context.Context, e JobExecutor) error {
 		// TODO
 		return nil
@@ -258,7 +262,7 @@ func (h *consoleCommandHandlers) logMessage(cmd *command.Command) error {
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L417
-func (h *consoleCommandHandlers) addPath(cmd *command.Command) error {
+func (h *commandHandlers) consoleAddPath(cmd *command.Command) error {
 	return h.jobHandle(func(ctx context.Context, e JobExecutor) error {
 		paths := []string{cmd.Value}
 		return e.AddPath(paths)
@@ -266,7 +270,7 @@ func (h *consoleCommandHandlers) addPath(cmd *command.Command) error {
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L234
-func (h *consoleCommandHandlers) setEnv(cmd *command.Command) error {
+func (h *commandHandlers) consoleSetEnv(cmd *command.Command) error {
 	return h.jobHandle(func(ctx context.Context, e JobExecutor) error {
 		name, ok := cmd.Params["name"]
 		if !ok || name == "" {
@@ -281,7 +285,7 @@ func (h *consoleCommandHandlers) setEnv(cmd *command.Command) error {
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L301
-func (h *consoleCommandHandlers) setOutput(cmd *command.Command) error {
+func (h *commandHandlers) consoleSetOutput(cmd *command.Command) error {
 	return h.stepHandle(func(ctx context.Context, e StepExecutor) error {
 		name, ok := cmd.Params["name"]
 		if !ok || name == "" {
@@ -296,7 +300,7 @@ func (h *consoleCommandHandlers) setOutput(cmd *command.Command) error {
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L336
-func (h *consoleCommandHandlers) saveState(cmd *command.Command) error {
+func (h *commandHandlers) consoleSaveState(cmd *command.Command) error {
 	return h.stepHandle(func(ctx context.Context, e StepExecutor) error {
 		name, ok := cmd.Params["name"]
 		if !ok || name == "" {
@@ -308,4 +312,73 @@ func (h *consoleCommandHandlers) saveState(cmd *command.Command) error {
 		}
 		return e.SaveState(state)
 	})
+}
+
+func (h *commandHandlers) fileAddPath(r io.Reader) error {
+	return h.jobHandle(func(ctx context.Context, e JobExecutor) error {
+		return utilreader.Untar(r, func(hdr *tar.Header, reader io.Reader) error {
+			if hdr.Name != "" {
+				return fmt.Errorf("expected read single file with empty name, got %s", hdr.Name)
+			}
+
+			if paths, err := utilreader.ReadLine(reader); err != nil {
+				return err
+			} else {
+				return e.AddPath(paths)
+			}
+		})
+	})
+}
+
+func (h *commandHandlers) fileSetEnv(r io.Reader) error {
+	return h.jobHandle(func(ctx context.Context, e JobExecutor) error {
+		return utilreader.Untar(r, func(hdr *tar.Header, reader io.Reader) error {
+			if hdr.Name != "" {
+				return fmt.Errorf("expected read single file with empty name, got %s", hdr.Name)
+			}
+
+			if env, err := utilreader.ParseEnvVars(reader); err != nil {
+				return err
+			} else {
+				return e.SetEnv(env)
+			}
+		})
+	})
+}
+
+func (h *commandHandlers) fileSetOutput(r io.Reader) error {
+	return h.stepHandle(func(ctx context.Context, e StepExecutor) error {
+		return utilreader.Untar(r, func(hdr *tar.Header, reader io.Reader) error {
+			if hdr.Name != "" {
+				return fmt.Errorf("expected read single file with empty name, got %s", hdr.Name)
+			}
+
+			if output, err := utilreader.ParseEnvVars(reader); err != nil {
+				return err
+			} else {
+				return e.SetOutput(output)
+			}
+		})
+	})
+}
+
+func (h *commandHandlers) fileSaveState(r io.Reader) error {
+	return h.stepHandle(func(ctx context.Context, e StepExecutor) error {
+		return utilreader.Untar(r, func(hdr *tar.Header, reader io.Reader) error {
+			if hdr.Name != "" {
+				return fmt.Errorf("expected read single file with empty name, got %s", hdr.Name)
+			}
+
+			if state, err := utilreader.ParseEnvVars(reader); err != nil {
+				return err
+			} else {
+				return e.SaveState(state)
+			}
+		})
+	})
+}
+
+func (h *commandHandlers) createStepSummary(r io.Reader) error {
+	// TODO: implement GITHUB_STEP_SUMMARY file command
+	return nil
 }
