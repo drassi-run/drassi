@@ -40,7 +40,6 @@ type JobExecutor interface {
 	JobId() string
 	Streams() *sandboxer.Streams
 	Sandbox() sandboxer.Sandbox
-	Reporter() reporter.Reporter
 	NewSubDossier() *dossiers.Dossier
 
 	Initialize(ctx context.Context, runtime sandboxer.SandboxRuntime) error
@@ -115,14 +114,13 @@ func (e *jobExecutor) JobRun() *JobRun {
 
 func (e *jobExecutor) NewStepExecutor(step StepRun) StepExecutor {
 	exec := &stepExecutor{
-		job:      e,
-		parent:   nil,
-		children: make(map[string]StepExecutor),
-		stepRun:  step,
-		state:    make(map[string]string),
-		result: &dossiers.Step{
-			Outputs: make(map[string]string),
-		},
+		job:         e,
+		parent:      nil,
+		children:    make(map[string]StepExecutor),
+		stepRun:     step,
+		reporter:    e.reporter,
+		cmdHandlers: e.cmdHandlers,
+		state:       make(map[string]string),
 	}
 	e.stepExecutors[step.StepId()] = exec
 	return exec
@@ -163,10 +161,6 @@ func (e *jobExecutor) Sandbox() sandboxer.Sandbox {
 	return e.sandbox
 }
 
-func (e *jobExecutor) Reporter() reporter.Reporter {
-	return e.reporter
-}
-
 func (e *jobExecutor) Initialize(ctx context.Context, runtime sandboxer.SandboxRuntime) error {
 	e.reporter.StartJob()
 
@@ -204,7 +198,7 @@ func (e *jobExecutor) Finalize(ctx context.Context, runtime sandboxer.SandboxRun
 	evalSupplier := &evaluationSupplier{dossier: e.dossier}
 	defer func() {
 		output, ex := e.jobRun.Outputs.Evaluate("job.output", evalSupplier)
-		if err != nil && ex != nil {
+		if err == nil && ex != nil {
 			err = ex
 		}
 
@@ -336,8 +330,13 @@ func (e *jobExecutor) runStage(ctx context.Context, stage Stage, fn func(StepRun
 	}
 	for _, id := range ids {
 		exec := e.StepExecutor(id)
-		if err := exec.RunStep(ctx, fn); err != nil {
-			return err
+		res := exec.RunStep(ctx, fn)
+		if res == nil {
+			continue
+		}
+		e.dossier.Steps[id] = res
+		if res.Conclusion == dossiers.ResultFailure {
+			return fmt.Errorf(`step "%s" (%s) failed`, id, stage)
 		}
 	}
 

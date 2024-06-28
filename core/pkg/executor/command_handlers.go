@@ -86,10 +86,19 @@ func (h *commandHandlers) lineHandler(w io.Writer, handlers ...reporter.LineHand
 		if cmd := h.consoleMgr.ParseCommand(line); cmd != nil {
 			if err := h.consoleMgr.Process(line, cmd); err != nil {
 				jh.Log(TagError, err.Error())
+
+				// set step outcome = failure
+				_ = h.stepHandle(func(ctx context.Context, handler StepCommandHandler) error {
+					if exec, ok := handler.(StepExecutor); ok {
+						exec.SetOutcome(dossiers.ResultFailure)
+					}
+					return nil
+				})
 			}
 			return nil
 		}
 
+		// run additional handlers, any errors will be ignored
 		for _, hdl := range handlers {
 			if err := hdl(line); err != nil {
 				jh.Log(TagError, err.Error())

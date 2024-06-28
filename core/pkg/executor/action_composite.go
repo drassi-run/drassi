@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"drassi.run/core/pkg/model/actions"
+	"drassi.run/core/pkg/model/dossiers"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -59,8 +60,9 @@ func (ar *compositeActionRun) createStageTask(stage Stage, fn func(StepRun) *Tas
 				if cExec == nil {
 					return fmt.Errorf(`task "%s" has no child context`, id)
 				}
-				if err := cExec.RunStep(ctx, fn); err != nil {
-					return err
+				res := cExec.RunStep(ctx, fn)
+				if res != nil && res.Conclusion == dossiers.ResultFailure {
+					return fmt.Errorf(`step "%s" (%s) failed`, id, stage)
 				}
 			}
 			return nil

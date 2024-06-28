@@ -1,17 +1,13 @@
 package executor
 
 import (
-	"archive/tar"
 	"context"
-	"fmt"
-	"io"
 	"maps"
-	"path/filepath"
 	"time"
 
+	"drassi.run/core/pkg/executor/reporter"
 	"drassi.run/core/pkg/model/dossiers"
 	"drassi.run/core/pkg/sandboxer"
-	utilreader "drassi.run/core/pkg/util/reader"
 )
 
 type StepCommandHandler interface {
@@ -36,19 +32,25 @@ type StepExecutor interface {
 	Dossier() *dossiers.Dossier
 
 	Initialize(ctx context.Context) error
-	RunStep(ctx context.Context, fn func(StepRun) *Task) error
+	RunStep(ctx context.Context, fn func(StepRun) *Task) *dossiers.Step
 	ComposeEnv() map[string]string
+	SetOutcome(outcome dossiers.Result)
 }
 
 type stepExecutor struct {
-	job      JobExecutor
-	parent   StepExecutor
-	children map[string]StepExecutor
-	stepRun  StepRun
+	job         JobExecutor
+	parent      StepExecutor
+	children    map[string]StepExecutor
+	stepRun     StepRun
+	reporter    reporter.Reporter
+	cmdHandlers *commandHandlers
 
-	state   map[string]string
-	result  *dossiers.Step
-	dossier *dossiers.Dossier
+	// Intra action state
+	state map[string]string
+
+	dossier  *dossiers.Dossier
+	result   *dossiers.Step
+	extraEnv map[string]string
 }
 
 func (e *stepExecutor) StepId() string {
@@ -65,14 +67,13 @@ func (e *stepExecutor) JobExecutor() JobExecutor {
 
 func (e *stepExecutor) NewChildExecutor(stepRun StepRun) StepExecutor {
 	cExec := &stepExecutor{
-		job:      e.job,
-		parent:   e,
-		children: make(map[string]StepExecutor),
-		stepRun:  stepRun,
-		state:    make(map[string]string),
-		result: &dossiers.Step{
-			Outputs: make(map[string]string),
-		},
+		job:         e.job,
+		parent:      e,
+		children:    make(map[string]StepExecutor),
+		stepRun:     stepRun,
+		reporter:    e.reporter,
+		cmdHandlers: e.cmdHandlers,
+		state:       make(map[string]string),
 	}
 
 	e.children[stepRun.StepId()] = cExec
@@ -111,72 +112,88 @@ func (e *stepExecutor) Initialize(ctx context.Context) error {
 	return e.stepRun.Initialize(ctx, e)
 }
 
-func (e *stepExecutor) RunStep(ctx context.Context, fn func(StepRun) *Task) error {
+func (e *stepExecutor) RunStep(ctx context.Context, fn func(StepRun) *Task) *dossiers.Step {
 	task := fn(e.stepRun)
 	if task == nil {
 		return nil
 	}
 
-	return e.runTask(ctx, task)
+	e.initTask()
+	defer e.endTask(ctx, task)
+	e.beginTask(ctx, task)
+	if e.result.Outcome == "" {
+		e.runTask(ctx, task)
+	}
+
+	return e.result
 }
 
-func (e *stepExecutor) runTask(ctx context.Context, task *Task) error {
-	if e.parent == nil {
-		e.job.Reporter().StartStep(e.StepId())
-		defer func() {
-			e.job.Reporter().EndStep(e.StepId(), e.result.Outcome)
-		}()
-	}
-
-	base := e.stepRun.Base()
+func (e *stepExecutor) initTask() {
 	e.dossier = e.job.NewSubDossier()
 	e.stepRun.SetContextInfo(e.dossier)
-	evalSupplier := &evaluationSupplier{dossier: e.dossier}
+	e.result = &dossiers.Step{
+		Outputs: make(map[string]string),
+	}
+	e.extraEnv = make(map[string]string)
+}
 
-	if env, err := base.Env.Evaluate("job.step.env", evalSupplier); err != nil {
-		return err
-	} else {
-		maps.Copy(e.dossier.Env, env)
+func (e *stepExecutor) beginTask(ctx context.Context, task *Task) {
+	if e.parent == nil { // root step
+		e.reporter.StartStep(e.StepId())
 	}
 
+	evalSupplier := &evaluationSupplier{dossier: e.dossier}
 	if task.Condition != nil {
 		if meet, err := task.Condition.Meet("job.step", evalSupplier); err != nil {
 			e.result.Conclusion = dossiers.ResultFailure
 			e.result.Outcome = dossiers.ResultFailure
-			return err
+			return
 		} else if !meet {
 			e.result.Conclusion = dossiers.ResultSkipped
 			e.result.Outcome = dossiers.ResultSkipped
 			// TODO logging
-			return nil
+			return
 		}
 	}
 
-	if err := e.initializeRunStep(ctx); err != nil {
-		return err
+	if env, err := e.cmdHandlers.StartStep(ctx, e); err != nil {
+		// TODO logging
+		e.result.Outcome = dossiers.ResultFailure
+	} else {
+		maps.Copy(e.extraEnv, env)
+	}
+}
+
+func (e *stepExecutor) runTask(ctx context.Context, task *Task) {
+	base := e.stepRun.Base()
+	evalSupplier := &evaluationSupplier{dossier: e.dossier}
+
+	if env, err := base.Env.Evaluate("job.step.env", evalSupplier); err != nil {
+		// TODO logging
+		e.result.Outcome = dossiers.ResultFailure
+		return
+	} else {
+		maps.Copy(e.dossier.Env, env)
 	}
 
-	timeout, err := base.TimeoutInMinutes.Evaluate("job.step.timeout-minutes", evalSupplier)
-	if err != nil {
-		return err
+	if !base.TimeoutInMinutes.IsNil() {
+		if timeout, err := base.TimeoutInMinutes.Evaluate("job.step.timeout-minutes", evalSupplier); err != nil {
+			// TODO logging
+			e.result.Outcome = dossiers.ResultFailure
+			return
+		} else if timeout > 0 {
+			var cancel context.CancelFunc
+			ctx, cancel = context.WithTimeout(ctx, time.Duration(timeout)*time.Minute)
+			defer cancel()
+		}
 	}
-	if timeout <= 0 {
-		timeout = 360
-	}
-
-	timeoutCtx, cancel := context.WithTimeout(ctx, time.Duration(timeout)*time.Minute)
-	defer cancel()
-
-	if err = e.job.StartStep(timeoutCtx, e); err != nil {
-		return err
-	}
-	defer e.job.EndStep()
 
 	ch := make(chan error)
 	go func() {
-		ch <- task.Run(timeoutCtx, e)
+		ch <- task.Run(ctx, e)
 	}()
 
+	var err error
 	select {
 	case <-ctx.Done():
 		err = ctx.Err()
@@ -185,63 +202,37 @@ func (e *stepExecutor) runTask(ctx context.Context, task *Task) error {
 
 	if err != nil {
 		e.result.Outcome = dossiers.ResultFailure
-
-		if continueOnError, parseErr := base.ContinueOnError.Evaluate("job.step.continue-on-error", evalSupplier); parseErr != nil {
-			e.result.Conclusion = dossiers.ResultFailure
-			return parseErr
-		} else if continueOnError {
-			e.result.Conclusion = dossiers.ResultSuccess
-			//logger.Infof("Failed but continue next step")
-			err = nil
-		} else {
-			e.result.Conclusion = dossiers.ResultFailure
-		}
-
 		//logger.WithField("stepResult", stepResult.Outcome).Errorf("  \u274C  Failure - %s %s", stage, stepString)
 	} else {
 		e.result.Conclusion = dossiers.ResultSuccess
 		e.result.Outcome = dossiers.ResultSuccess
 	}
-
-	if err = e.finalizeRunStep(ctx); err != nil {
-		return err
-	}
-	return nil
 }
 
-func (e *stepExecutor) initializeRunStep(ctx context.Context) error {
-	files := []*utilreader.FileEntry{
-		{Name: "GITHUB_OUTPUT", Mode: 0o666},
-		{Name: "GITHUB_STATE", Mode: 0o666},
-		{Name: "GITHUB_PATH", Mode: 0o666},
-		{Name: "GITHUB_ENV", Mode: 0o666},
-		{Name: "GITHUB_STEP_SUMMARY", Mode: 0o666},
+func (e *stepExecutor) endTask(ctx context.Context, task *Task) {
+	if err := e.cmdHandlers.EndStep(e.result.Outcome); err != nil {
+		// TODO logging
+		e.result.Outcome = dossiers.ResultFailure
 	}
-	if r, err := utilreader.FromFileEntries(ctx, files...); err != nil {
-		return err
-	} else {
-		fileCommandsDir := filepath.Join(e.Sandbox().GetTempDir(), "file_commands")
-		return e.Sandbox().CopyIn(ctx, r, fileCommandsDir)
-	}
-}
 
-func (e *stepExecutor) finalizeRunStep(ctx context.Context) error {
-	fileCommandsDir := filepath.Join(e.Sandbox().GetTempDir(), "file_commands")
+	if e.result.Outcome == dossiers.ResultFailure {
+		base := e.stepRun.Base()
+		evalSupplier := &evaluationSupplier{dossier: e.dossier}
+		if continueOnError, err := base.ContinueOnError.Evaluate("job.step.continue-on-error", evalSupplier); err != nil {
+			//logger.Infof("Failed but continue next step")
+			//return err
+			e.result.Conclusion = dossiers.ResultFailure
+		} else if continueOnError {
+			//logger.Infof("Failed but continue next step")
+			e.result.Conclusion = dossiers.ResultSuccess
+		} else {
+			e.result.Conclusion = dossiers.ResultFailure
+		}
+	}
 
-	if err := updateRunContext(ctx, e, filepath.Join(fileCommandsDir, "GITHUB_OUTPUT"), utilreader.ParseEnvVars, e.SetOutput); err != nil {
-		return err
+	if e.parent == nil { // root step
+		e.reporter.EndStep(e.StepId(), e.result.Outcome)
 	}
-	if err := updateRunContext(ctx, e, filepath.Join(fileCommandsDir, "GITHUB_STATE"), utilreader.ParseEnvVars, e.SaveState); err != nil {
-		return err
-	}
-	if err := updateRunContext(ctx, e, filepath.Join(fileCommandsDir, "GITHUB_PATH"), utilreader.ReadLine, e.job.AddPath); err != nil {
-		return err
-	}
-	if err := updateRunContext(ctx, e, filepath.Join(fileCommandsDir, "GITHUB_ENV"), utilreader.ParseEnvVars, e.job.SetEnv); err != nil {
-		return err
-	}
-	// TODO update GITHUB_STEP_SUMMARY
-	return nil
 }
 
 func (e *stepExecutor) ComposeEnv() map[string]string {
@@ -265,9 +256,16 @@ func (e *stepExecutor) ComposeEnv() map[string]string {
 	m["GITHUB_ACTION_REF"] = gh.ActionRef
 	m["GITHUB_ACTION_REPOSITORY"] = gh.ActionRepository
 
+	// set file commands env
+	maps.Copy(m, e.extraEnv)
+
 	m["PATH"] = e.job.ComposePath()
 
 	return m
+}
+
+func (e *stepExecutor) SetOutcome(outcome dossiers.Result) {
+	e.result.Outcome = outcome
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L186
@@ -293,29 +291,4 @@ func (e *stepExecutor) SaveState(state map[string]string) error {
 func (e *stepExecutor) SetOutput(output map[string]string) error {
 	maps.Copy(e.result.Outputs, output)
 	return nil
-}
-
-func updateRunContext[R any](
-	ctx context.Context, exe StepExecutor,
-	path string,
-	parser func(reader io.Reader) (R, error),
-	updater func(data R) error,
-) error {
-	r, err := exe.Sandbox().CopyOut(ctx, path)
-	if err != nil {
-		return err
-	}
-	defer r.Close()
-
-	return utilreader.Untar(r, func(hdr *tar.Header, reader io.Reader) error {
-		if hdr.Name != "" {
-			return fmt.Errorf("expected read single file with empty name, got %s", hdr.Name)
-		}
-
-		if data, err := parser(reader); err != nil {
-			return err
-		} else {
-			return updater(data)
-		}
-	})
 }
