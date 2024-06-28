@@ -24,6 +24,18 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
+type JobCommandHandler interface {
+	JobRun() *JobRun
+	Sandbox() sandboxer.Sandbox
+
+	Log(tag, format string, a ...any)
+	AddPath(paths []string) error
+	SetEnv(env map[string]string) error
+	AddSecretMask(secret secret.Secret)
+	AddProblemMatcher(owner string, matcher problem.Matcher)
+	RemoveProblemMatcher(owner string)
+}
+
 type JobExecutor interface {
 	JobId() string
 	Streams() *sandboxer.Streams
@@ -34,18 +46,9 @@ type JobExecutor interface {
 	Initialize(ctx context.Context, runtime sandboxer.SandboxRuntime) error
 	RunJob(ctx context.Context) error
 	Finalize(ctx context.Context, runtime sandboxer.SandboxRuntime) error
+
 	Defaults() *workflows.Defaults
 	ComposePath() string
-
-	StartStep(ctx context.Context, stepExec StepExecutor) error
-	EndStep()
-
-	Log(tag, format string, a ...any)
-	AddPath(paths []string) error
-	SetEnv(env map[string]string) error
-	AddSecretMask(secret secret.Secret)
-	AddProblemMatcher(owner string, matcher problem.Matcher)
-	RemoveProblemMatcher(owner string)
 }
 
 func NewJobExecutor(run *JobRun, d *dossiers.Dossier, rep reporter.Reporter) JobExecutor {
@@ -92,12 +95,10 @@ type jobExecutor struct {
 	secretMasker    secret.Masker
 	problemMatchers map[string]problem.Matcher
 
-	outWriter     io.Writer
-	errWriter     io.Writer
-	streams       *sandboxer.Streams
-	consoleCmdMgr command.ConsoleCommandManager
-	fileCmdMgr    command.FileCommandManager
-	cmdHandlers   *commandHandlers
+	outWriter   io.Writer
+	errWriter   io.Writer
+	streams     *sandboxer.Streams
+	cmdHandlers *commandHandlers
 
 	defaults *workflows.Defaults
 	paths    []string
@@ -106,6 +107,10 @@ type jobExecutor struct {
 
 func (e *jobExecutor) JobId() string {
 	return e.jobRun.Id
+}
+
+func (e *jobExecutor) JobRun() *JobRun {
+	return e.jobRun
 }
 
 func (e *jobExecutor) NewStepExecutor(step StepRun) StepExecutor {
@@ -177,10 +182,7 @@ func (e *jobExecutor) Initialize(ctx context.Context, runtime sandboxer.SandboxR
 }
 
 func (e *jobExecutor) RunJob(ctx context.Context) error {
-	if err := e.cmdHandlers.StartJob(ctx, e); err != nil {
-		return err
-	}
-	defer e.cmdHandlers.EndJob()
+	e.cmdHandlers.Register()
 
 	if err := e.runStage(ctx, StagePre, StepRun.PreTask); err != nil {
 		e.result = dossiers.ResultFailure
@@ -230,17 +232,24 @@ func (e *jobExecutor) Finalize(ctx context.Context, runtime sandboxer.SandboxRun
 func (e *jobExecutor) initializeJob(ctx context.Context) error {
 	e.outWriter = secret.NewWriter(e.reporter.Stdout(), e.secretMasker)
 	e.errWriter = secret.NewWriter(e.reporter.Stderr(), e.secretMasker)
-	e.streams = &sandboxer.Streams{
-		In:  e.reporter.Stdin(),
-		Out: reporter.NewLineWriter(e.lineHandler(e.outWriter)),
-		Err: reporter.NewLineWriter(e.lineHandler(e.errWriter)),
+
+	e.cmdHandlers = &commandHandlers{
+		consoleMgr: command.NewConsoleCommandManager(e.outWriter),
+		fileMgr:    command.NewFileCommandManager(e.jobRun.Uid),
+		job: handlerInfo[JobCommandHandler]{
+			ctx:     ctx,
+			handler: e,
+		},
 	}
 
-	e.consoleCmdMgr = command.NewConsoleCommandManager(e.outWriter)
-	e.fileCmdMgr = command.NewFileCommandManager(e.jobRun.Uid)
-	e.cmdHandlers = &commandHandlers{
-		consoleMgr: e.consoleCmdMgr,
-		fileMgr:    e.fileCmdMgr,
+	e.streams = &sandboxer.Streams{
+		In: e.reporter.Stdin(),
+		Out: reporter.NewLineWriter(
+			e.cmdHandlers.lineHandler(e.outWriter, e.scanProblem),
+		),
+		Err: reporter.NewLineWriter(
+			e.cmdHandlers.lineHandler(e.errWriter, e.scanProblem),
+		),
 	}
 
 	// Evaluate expressions
@@ -333,14 +342,6 @@ func (e *jobExecutor) runStage(ctx context.Context, stage Stage, fn func(StepRun
 	}
 
 	return nil
-}
-
-func (e *jobExecutor) StartStep(ctx context.Context, stepExec StepExecutor) error {
-	return e.cmdHandlers.StartStep(ctx, stepExec)
-}
-
-func (e *jobExecutor) EndStep() {
-	e.cmdHandlers.EndStep()
 }
 
 func (e *jobExecutor) Defaults() *workflows.Defaults {
@@ -442,22 +443,6 @@ func (e *jobExecutor) scanProblem(line string) error {
 	} else {
 		// 3. Report the issue
 		return e.reporter.AddIssue(issue)
-	}
-}
-
-func (e *jobExecutor) lineHandler(w io.Writer) reporter.LineHandler {
-	return func(line string) error {
-		if cmd := e.consoleCmdMgr.ParseCommand(line); cmd != nil {
-			if err := e.consoleCmdMgr.Process(line, cmd); err != nil {
-				e.Log(TagError, err.Error())
-			}
-			return nil
-		}
-		if err := e.scanProblem(line); err != nil {
-			e.Log(TagError, err.Error())
-		}
-		_, err := io.WriteString(w, line)
-		return err
 	}
 }
 

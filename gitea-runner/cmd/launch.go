@@ -189,8 +189,10 @@ func (c *launchCommand) runTask(ctx context.Context, task *runnerv1.Task) error 
 
 	je := executor.NewJobExecutor(jr, d, reporter)
 
-	for _, v := range task.Secrets {
-		je.AddSecretMask(secret.NewValueSecret(v))
+	if jh, ok := je.(executor.JobCommandHandler); ok {
+		for _, v := range task.Secrets {
+			jh.AddSecretMask(secret.NewValueSecret(v))
+		}
 	}
 
 	if err = je.Initialize(ctx, c.runtime); err != nil {

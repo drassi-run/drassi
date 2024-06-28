@@ -14,6 +14,15 @@ import (
 	utilreader "drassi.run/core/pkg/util/reader"
 )
 
+type StepCommandHandler interface {
+	StepRun() StepRun
+	Sandbox() sandboxer.Sandbox
+
+	CreateStepSummary() error
+	SaveState(state map[string]string) error
+	SetOutput(output map[string]string) error
+}
+
 type StepExecutor interface {
 	JobExecutor() JobExecutor
 	NewChildExecutor(stepRun StepRun) StepExecutor
@@ -29,10 +38,6 @@ type StepExecutor interface {
 	Initialize(ctx context.Context) error
 	RunStep(ctx context.Context, fn func(StepRun) *Task) error
 	ComposeEnv() map[string]string
-
-	CreateStepSummary() error
-	SaveState(state map[string]string) error
-	SetOutput(output map[string]string) error
 }
 
 type stepExecutor struct {
@@ -48,6 +53,10 @@ type stepExecutor struct {
 
 func (e *stepExecutor) StepId() string {
 	return e.stepRun.StepId()
+}
+
+func (e *stepExecutor) StepRun() StepRun {
+	return e.stepRun
 }
 
 func (e *stepExecutor) JobExecutor() JobExecutor {
@@ -271,7 +280,9 @@ func (e *stepExecutor) CreateStepSummary() error {
 // https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#sending-values-to-the-pre-and-post-actions
 func (e *stepExecutor) SaveState(state map[string]string) error {
 	if e.parent != nil {
-		return e.RootExecutor().SaveState(state)
+		if root, ok := e.RootExecutor().(StepCommandHandler); ok {
+			return root.SaveState(state)
+		}
 	}
 	maps.Copy(e.state, state)
 	return nil
