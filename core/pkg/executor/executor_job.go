@@ -94,10 +94,10 @@ type jobExecutor struct {
 	secretMasker    secret.Masker
 	problemMatchers map[string]problem.Matcher
 
-	outWriter   io.Writer
-	errWriter   io.Writer
-	streams     *sandboxer.Streams
-	cmdHandlers *commandHandlers
+	outWriter io.Writer
+	errWriter io.Writer
+	streams   *sandboxer.Streams
+	cmdCtrl   CommandController
 
 	defaults *workflows.Defaults
 	paths    []string
@@ -114,13 +114,13 @@ func (e *jobExecutor) JobRun() *JobRun {
 
 func (e *jobExecutor) NewStepExecutor(step StepRun) StepExecutor {
 	exec := &stepExecutor{
-		job:         e,
-		parent:      nil,
-		children:    make(map[string]StepExecutor),
-		stepRun:     step,
-		reporter:    e.reporter,
-		cmdHandlers: e.cmdHandlers,
-		state:       make(map[string]string),
+		job:      e,
+		parent:   nil,
+		children: make(map[string]StepExecutor),
+		stepRun:  step,
+		reporter: e.reporter,
+		cmdCtrl:  e.cmdCtrl,
+		state:    make(map[string]string),
 	}
 	e.stepExecutors[step.StepId()] = exec
 	return exec
@@ -176,7 +176,7 @@ func (e *jobExecutor) Initialize(ctx context.Context, runtime sandboxer.SandboxR
 }
 
 func (e *jobExecutor) RunJob(ctx context.Context) error {
-	e.cmdHandlers.Register()
+	e.cmdCtrl.Register()
 
 	if err := e.runStage(ctx, StagePre, StepRun.PreTask); err != nil {
 		e.result = dossiers.ResultFailure
@@ -227,7 +227,7 @@ func (e *jobExecutor) initializeJob(ctx context.Context) error {
 	e.outWriter = secret.NewWriter(e.reporter.Stdout(), e.secretMasker)
 	e.errWriter = secret.NewWriter(e.reporter.Stderr(), e.secretMasker)
 
-	e.cmdHandlers = &commandHandlers{
+	e.cmdCtrl = &commandController{
 		consoleMgr: command.NewConsoleCommandManager(e.outWriter),
 		fileMgr:    command.NewFileCommandManager(e.jobRun.Uid),
 		job: handlerInfo[JobCommandHandler]{
@@ -239,10 +239,10 @@ func (e *jobExecutor) initializeJob(ctx context.Context) error {
 	e.streams = &sandboxer.Streams{
 		In: e.reporter.Stdin(),
 		Out: reporter.NewLineWriter(
-			e.cmdHandlers.lineHandler(e.outWriter, e.scanProblem),
+			e.cmdCtrl.LineHandler(e.outWriter, e.scanProblem),
 		),
 		Err: reporter.NewLineWriter(
-			e.cmdHandlers.lineHandler(e.errWriter, e.scanProblem),
+			e.cmdCtrl.LineHandler(e.errWriter, e.scanProblem),
 		),
 	}
 

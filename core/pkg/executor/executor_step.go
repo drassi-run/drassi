@@ -38,12 +38,12 @@ type StepExecutor interface {
 }
 
 type stepExecutor struct {
-	job         JobExecutor
-	parent      StepExecutor
-	children    map[string]StepExecutor
-	stepRun     StepRun
-	reporter    reporter.Reporter
-	cmdHandlers *commandHandlers
+	job      JobExecutor
+	parent   StepExecutor
+	children map[string]StepExecutor
+	stepRun  StepRun
+	reporter reporter.Reporter
+	cmdCtrl  CommandController
 
 	// Intra action state
 	state map[string]string
@@ -67,13 +67,13 @@ func (e *stepExecutor) JobExecutor() JobExecutor {
 
 func (e *stepExecutor) NewChildExecutor(stepRun StepRun) StepExecutor {
 	cExec := &stepExecutor{
-		job:         e.job,
-		parent:      e,
-		children:    make(map[string]StepExecutor),
-		stepRun:     stepRun,
-		reporter:    e.reporter,
-		cmdHandlers: e.cmdHandlers,
-		state:       make(map[string]string),
+		job:      e.job,
+		parent:   e,
+		children: make(map[string]StepExecutor),
+		stepRun:  stepRun,
+		reporter: e.reporter,
+		cmdCtrl:  e.cmdCtrl,
+		state:    make(map[string]string),
 	}
 
 	e.children[stepRun.StepId()] = cExec
@@ -156,7 +156,7 @@ func (e *stepExecutor) beginTask(ctx context.Context, task *Task) {
 		}
 	}
 
-	if env, err := e.cmdHandlers.StartStep(ctx, e); err != nil {
+	if env, err := e.cmdCtrl.StartStep(ctx, e); err != nil {
 		// TODO logging
 		e.result.Outcome = dossiers.ResultFailure
 	} else {
@@ -210,7 +210,7 @@ func (e *stepExecutor) runTask(ctx context.Context, task *Task) {
 }
 
 func (e *stepExecutor) endTask(ctx context.Context, task *Task) {
-	if err := e.cmdHandlers.EndStep(e.result.Outcome); err != nil {
+	if err := e.cmdCtrl.EndStep(e.result.Outcome); err != nil {
 		// TODO logging
 		e.result.Outcome = dossiers.ResultFailure
 	}
