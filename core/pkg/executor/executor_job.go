@@ -24,21 +24,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-type JobExecutor interface {
-	JobId() string
-	Streams() *sandboxer.Streams
+type JobCommandHandler interface {
+	JobRun() *JobRun
 	Sandbox() sandboxer.Sandbox
-	Reporter() reporter.Reporter
-	NewSubDossier() *dossiers.Dossier
-
-	Initialize(ctx context.Context, runtime sandboxer.SandboxRuntime) error
-	RunJob(ctx context.Context) error
-	Finalize(ctx context.Context, runtime sandboxer.SandboxRuntime) error
-	Defaults() *workflows.Defaults
-	ComposePath() string
-
-	StartStep(ctx context.Context, stepExec StepExecutor) error
-	EndStep()
 
 	Log(tag, format string, a ...any)
 	AddPath(paths []string) error
@@ -46,6 +34,20 @@ type JobExecutor interface {
 	AddSecretMask(secret secret.Secret)
 	AddProblemMatcher(owner string, matcher problem.Matcher)
 	RemoveProblemMatcher(owner string)
+}
+
+type JobExecutor interface {
+	JobId() string
+	Streams() *sandboxer.Streams
+	Sandbox() sandboxer.Sandbox
+	NewSubDossier() *dossiers.Dossier
+
+	Initialize(ctx context.Context, runtime sandboxer.SandboxRuntime) error
+	RunJob(ctx context.Context) error
+	Finalize(ctx context.Context, runtime sandboxer.SandboxRuntime) error
+
+	Defaults() *workflows.Defaults
+	ComposePath() string
 }
 
 func NewJobExecutor(run *JobRun, d *dossiers.Dossier, rep reporter.Reporter) JobExecutor {
@@ -92,11 +94,10 @@ type jobExecutor struct {
 	secretMasker    secret.Masker
 	problemMatchers map[string]problem.Matcher
 
-	outWriter         io.Writer
-	errWriter         io.Writer
-	streams           *sandboxer.Streams
-	consoleCmdMgr     command.ConsoleCommandManager
-	consoleCmdHandler *consoleCommandHandlers
+	outWriter io.Writer
+	errWriter io.Writer
+	streams   *sandboxer.Streams
+	cmdCtrl   CommandController
 
 	defaults *workflows.Defaults
 	paths    []string
@@ -107,16 +108,19 @@ func (e *jobExecutor) JobId() string {
 	return e.jobRun.Id
 }
 
+func (e *jobExecutor) JobRun() *JobRun {
+	return e.jobRun
+}
+
 func (e *jobExecutor) NewStepExecutor(step StepRun) StepExecutor {
 	exec := &stepExecutor{
 		job:      e,
 		parent:   nil,
 		children: make(map[string]StepExecutor),
 		stepRun:  step,
+		reporter: e.reporter,
+		cmdCtrl:  e.cmdCtrl,
 		state:    make(map[string]string),
-		result: &dossiers.Step{
-			Outputs: make(map[string]string),
-		},
 	}
 	e.stepExecutors[step.StepId()] = exec
 	return exec
@@ -157,10 +161,6 @@ func (e *jobExecutor) Sandbox() sandboxer.Sandbox {
 	return e.sandbox
 }
 
-func (e *jobExecutor) Reporter() reporter.Reporter {
-	return e.reporter
-}
-
 func (e *jobExecutor) Initialize(ctx context.Context, runtime sandboxer.SandboxRuntime) error {
 	e.reporter.StartJob()
 
@@ -176,10 +176,7 @@ func (e *jobExecutor) Initialize(ctx context.Context, runtime sandboxer.SandboxR
 }
 
 func (e *jobExecutor) RunJob(ctx context.Context) error {
-	if err := e.consoleCmdHandler.StartJob(ctx, e); err != nil {
-		return err
-	}
-	defer e.consoleCmdHandler.EndJob()
+	e.cmdCtrl.Register()
 
 	if err := e.runStage(ctx, StagePre, StepRun.PreTask); err != nil {
 		e.result = dossiers.ResultFailure
@@ -201,7 +198,7 @@ func (e *jobExecutor) Finalize(ctx context.Context, runtime sandboxer.SandboxRun
 	evalSupplier := &evaluationSupplier{dossier: e.dossier}
 	defer func() {
 		output, ex := e.jobRun.Outputs.Evaluate("job.output", evalSupplier)
-		if err != nil && ex != nil {
+		if err == nil && ex != nil {
 			err = ex
 		}
 
@@ -230,17 +227,26 @@ func (e *jobExecutor) initializeJob(ctx context.Context) error {
 	e.outWriter = secret.NewWriter(e.reporter.Stdout(), e.secretMasker)
 	e.errWriter = secret.NewWriter(e.reporter.Stderr(), e.secretMasker)
 
-	lineOutWriter := reporter.NewLineWriter(e.lineHandler(e.outWriter))
-	lineErrWriter := reporter.NewLineWriter(e.lineHandler(e.errWriter))
-
-	e.streams = &sandboxer.Streams{
-		In:  e.reporter.Stdin(),
-		Out: lineOutWriter,
-		Err: lineErrWriter,
+	e.cmdCtrl = &commandController{
+		consoleMgr: command.NewConsoleCommandManager(e.outWriter),
+		fileMgr:    command.NewFileCommandManager(e.jobRun.Uid),
+		job: handlerInfo[JobCommandHandler]{
+			ctx:     ctx,
+			handler: e,
+		},
 	}
 
-	e.consoleCmdMgr = command.NewConsoleCommandManager(e.outWriter)
-	e.consoleCmdHandler = &consoleCommandHandlers{cmdMgr: e.consoleCmdMgr}
+	e.streams = &sandboxer.Streams{
+		In: e.reporter.Stdin(),
+		Out: reporter.NewLineWriter(
+			e.cmdCtrl.LineHandler(e.outWriter, e.scanProblem),
+		),
+		Err: reporter.NewLineWriter(
+			e.cmdCtrl.LineHandler(e.errWriter, e.scanProblem),
+		),
+	}
+
+	// Evaluate expressions
 	evalSupplier := &evaluationSupplier{dossier: e.dossier}
 
 	if env, err := e.jobRun.Env.Evaluate("job.env", evalSupplier); err != nil {
@@ -324,20 +330,17 @@ func (e *jobExecutor) runStage(ctx context.Context, stage Stage, fn func(StepRun
 	}
 	for _, id := range ids {
 		exec := e.StepExecutor(id)
-		if err := exec.RunStep(ctx, fn); err != nil {
-			return err
+		res := exec.RunStep(ctx, fn)
+		if res == nil {
+			continue
+		}
+		e.dossier.Steps[id] = res
+		if res.Conclusion == dossiers.ResultFailure {
+			return fmt.Errorf(`step "%s" (%s) failed`, id, stage)
 		}
 	}
 
 	return nil
-}
-
-func (e *jobExecutor) StartStep(ctx context.Context, stepExec StepExecutor) error {
-	return e.consoleCmdHandler.StartStep(ctx, stepExec)
-}
-
-func (e *jobExecutor) EndStep() {
-	e.consoleCmdHandler.EndStep()
 }
 
 func (e *jobExecutor) Defaults() *workflows.Defaults {
@@ -439,22 +442,6 @@ func (e *jobExecutor) scanProblem(line string) error {
 	} else {
 		// 3. Report the issue
 		return e.reporter.AddIssue(issue)
-	}
-}
-
-func (e *jobExecutor) lineHandler(w io.Writer) reporter.LineHandler {
-	return func(line string) error {
-		if cmd := e.consoleCmdMgr.ParseCommand(line); cmd != nil {
-			if err := e.consoleCmdMgr.Process(line, cmd); err != nil {
-				e.Log(TagError, err.Error())
-			}
-			return nil
-		}
-		if err := e.scanProblem(line); err != nil {
-			e.Log(TagError, err.Error())
-		}
-		_, err := io.WriteString(w, line)
-		return err
 	}
 }
 
