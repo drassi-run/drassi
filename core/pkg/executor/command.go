@@ -97,7 +97,7 @@ func (cc *commandController) LineHandler(w io.Writer, handlers ...reporter.LineH
 				// set step outcome = failure
 				_ = cc.stepHandle(func(ctx context.Context, handler StepCommandHandler) error {
 					if exec, ok := handler.(StepExecutor); ok {
-						exec.SetOutcome(dossiers.ResultFailure)
+						exec.SetResult(dossiers.ResultFailure)
 					}
 					return nil
 				})

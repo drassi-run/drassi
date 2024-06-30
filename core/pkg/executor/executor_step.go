@@ -35,7 +35,7 @@ type StepExecutor interface {
 	Initialize(ctx context.Context) error
 	RunStep(ctx context.Context, fn func(StepRun) *Task) *dossiers.Step
 	ComposeEnv() map[string]string
-	SetOutcome(outcome dossiers.Result)
+	SetResult(outcome dossiers.Result)
 }
 
 type stepExecutor struct {
@@ -143,29 +143,6 @@ func (e *stepExecutor) beginTask(ctx context.Context, task *Task) {
 		e.reporter.StartStep(e.StepId())
 	}
 
-	evalSupplier := &evaluationSupplier{dossier: e.dossier}
-	if task.Condition != nil {
-		if meet, err := task.Condition.Meet("job.step", evalSupplier); err != nil {
-			e.result.Conclusion = dossiers.ResultFailure
-			e.result.Outcome = dossiers.ResultFailure
-			return
-		} else if !meet {
-			e.result.Conclusion = dossiers.ResultSkipped
-			e.result.Outcome = dossiers.ResultSkipped
-			// TODO logging
-			return
-		}
-	}
-
-	if env, err := e.cmdCtrl.StartStep(ctx, e); err != nil {
-		// TODO logging
-		e.result.Outcome = dossiers.ResultFailure
-	} else {
-		maps.Copy(e.extraEnv, env)
-	}
-}
-
-func (e *stepExecutor) runTask(ctx context.Context, task *Task) {
 	base := e.stepRun.Base()
 	evalSupplier := &evaluationSupplier{dossier: e.dossier}
 
@@ -177,6 +154,22 @@ func (e *stepExecutor) runTask(ctx context.Context, task *Task) {
 		maps.Copy(e.dossier.Env, env)
 	}
 
+	if task.Condition != nil {
+		if meet, err := task.Condition.Meet("job.step", evalSupplier); err != nil {
+			e.result.Conclusion = dossiers.ResultFailure
+			e.result.Outcome = dossiers.ResultFailure
+		} else if !meet {
+			e.result.Conclusion = dossiers.ResultSkipped
+			e.result.Outcome = dossiers.ResultSkipped
+			// TODO logging
+		}
+	}
+}
+
+func (e *stepExecutor) runTask(ctx context.Context, task *Task) {
+	base := e.stepRun.Base()
+	evalSupplier := &evaluationSupplier{dossier: e.dossier}
+
 	if !base.TimeoutInMinutes.IsNil() {
 		if timeout, err := base.TimeoutInMinutes.Evaluate("job.step.timeout-minutes", evalSupplier); err != nil {
 			// TODO logging
@@ -187,6 +180,14 @@ func (e *stepExecutor) runTask(ctx context.Context, task *Task) {
 			ctx, cancel = context.WithTimeout(ctx, time.Duration(timeout)*time.Minute)
 			defer cancel()
 		}
+	}
+
+	if env, err := e.cmdCtrl.StartStep(ctx, e); err != nil {
+		// TODO logging
+		e.result.Outcome = dossiers.ResultFailure
+		return
+	} else {
+		maps.Copy(e.extraEnv, env)
 	}
 
 	ch := make(chan error)
@@ -208,14 +209,14 @@ func (e *stepExecutor) runTask(ctx context.Context, task *Task) {
 		e.result.Conclusion = dossiers.ResultSuccess
 		e.result.Outcome = dossiers.ResultSuccess
 	}
-}
 
-func (e *stepExecutor) endTask(ctx context.Context, task *Task) {
-	if err := e.cmdCtrl.EndStep(e.result.Outcome); err != nil {
+	if err = e.cmdCtrl.EndStep(e.result.Outcome); err != nil {
 		// TODO logging
 		e.result.Outcome = dossiers.ResultFailure
 	}
+}
 
+func (e *stepExecutor) endTask(ctx context.Context, task *Task) {
 	if e.result.Outcome == dossiers.ResultFailure {
 		base := e.stepRun.Base()
 		evalSupplier := &evaluationSupplier{dossier: e.dossier}
@@ -265,7 +266,7 @@ func (e *stepExecutor) ComposeEnv() map[string]string {
 	return m
 }
 
-func (e *stepExecutor) SetOutcome(outcome dossiers.Result) {
+func (e *stepExecutor) SetResult(outcome dossiers.Result) {
 	e.result.Outcome = outcome
 }
 
