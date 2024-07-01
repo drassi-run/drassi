@@ -11,11 +11,11 @@ type multiMapToken struct {
 	tokens []workflows.Token
 }
 
-func (t *multiMapToken) Appraise(name string, supplier workflows.EvaluationSupplier) (any, error) {
+func (t *multiMapToken) Unravel(name string, supplier workflows.EvaluationSupplier) (any, error) {
 	r := make(map[string]any)
 
 	for _, token := range t.tokens {
-		res, err := token.Appraise(name, supplier)
+		res, err := token.Unravel(name, supplier)
 		if err != nil {
 			return nil, err
 		}
