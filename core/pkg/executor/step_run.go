@@ -48,31 +48,20 @@ func (sr *ScriptStepRun) executeMain(ctx context.Context, exec StepExecutor) err
 	}
 
 	shell := model.Shell(sr.getShell(inputs, exec))
-	workdir, ok := inputs["workdir"]
-	if !ok {
-		workdir = exec.JobExecutor().Defaults().Run.WorkingDir
-	}
+	workdir := sr.getWorkdir(inputs, exec)
 	script, ok := inputs["script"]
 	if !ok {
 		return fmt.Errorf("script not found")
 	}
 	script = shell.FixupScript(script)
 
-	cmd, scriptPath, err := sr.getCommand(shell, exec)
+	cmd, path, err := sr.getCommand(shell, exec)
 	if err != nil {
 		return err
 	}
 
-	reader, err := utilreader.FromFileEntries(ctx, &utilreader.FileEntry{
-		Name:    "",
-		Content: script,
-	})
-	if err != nil {
-		return err
-	}
-
-	if err = exec.Sandbox().CopyIn(ctx, reader, scriptPath); err != nil {
-		return err
+	if err = sr.copyScriptIn(ctx, exec, script, path); err != nil {
+		return nil
 	}
 
 	env := exec.ComposeEnv()
@@ -90,24 +79,47 @@ func (sr *ScriptStepRun) getShell(inputs map[string]string, exec StepExecutor) s
 	return exec.JobExecutor().Defaults().Run.Shell
 }
 
+func (sr *ScriptStepRun) getWorkdir(inputs map[string]string, exec StepExecutor) string {
+	if workdir, ok := inputs["workdir"]; ok {
+		return workdir
+	}
+	return exec.JobExecutor().Defaults().Run.WorkingDir
+}
+
 func (sr *ScriptStepRun) getCommand(shell model.Shell, exec StepExecutor) ([]string, string, error) {
-	scriptPath := sr.getScriptPath(exec, shell, sr.Id)
-	cmds, err := shell.Command()
+	scriptPath := sr.computeScriptPath(exec, shell.Extension())
+	command, err := shell.Command()
 	if err != nil {
 		return nil, "", err
 	}
 
-	c := make([]string, len(cmds))
-	for i, cmd := range cmds {
-		c[i] = strings.Replace(cmd, `{0}`, scriptPath, 1)
+	cmd := make([]string, len(command))
+	for i, c := range command {
+		cmd[i] = strings.Replace(c, `{0}`, scriptPath, 1)
 	}
-	return c, scriptPath, nil
+	return cmd, scriptPath, nil
 }
 
-func (sr *ScriptStepRun) getScriptPath(exec StepExecutor, shell model.Shell, name string) string {
-	scriptName := name
-	//for stepInfo := &rc.StepInfo; stepInfo.Parent != nil; stepInfo = stepInfo.Parent {
-	//	scriptName = fmt.Sprintf("%s-composite-%s", stepInfo.Parent.StepId, scriptName)
-	//}
-	return filepath.Join(exec.Sandbox().GetTempDir(), "scripts", scriptName+shell.Extension())
+func (sr *ScriptStepRun) computeScriptPath(exec StepExecutor, ex string) string {
+	path := sr.Id
+	for parent := exec.ParentExecutor(); parent != nil; parent = parent.ParentExecutor() {
+		path = fmt.Sprintf("%s-composite-%s", parent.StepId(), path)
+	}
+	if !strings.HasPrefix(ex, ".") {
+		path += "."
+	}
+	path += ex
+	return filepath.Join(exec.Sandbox().GetTempDir(), "scripts", ex)
+}
+
+func (sr *ScriptStepRun) copyScriptIn(ctx context.Context, exec StepExecutor, script, path string) error {
+	entry := &utilreader.FileEntry{
+		Name:    "",
+		Content: script,
+	}
+	if reader, err := utilreader.FromFileEntries(ctx, entry); err != nil {
+		return err
+	} else {
+		return exec.Sandbox().CopyIn(ctx, reader, path)
+	}
 }
