@@ -182,12 +182,10 @@ func (e *stepExecutor) runTask(ctx context.Context, task *Task) {
 		}
 	}
 
-	if env, err := e.cmdCtrl.StartStep(ctx, e); err != nil {
+	if err := e.cmdCtrl.StartStep(ctx, e); err != nil {
 		// TODO logging
 		e.result.Outcome = dossiers.ResultFailure
 		return
-	} else {
-		maps.Copy(e.extraEnv, env)
 	}
 
 	ch := make(chan error)

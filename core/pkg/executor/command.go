@@ -21,7 +21,7 @@ import (
 type CommandController interface {
 	Register()
 	LineHandler(w io.Writer, handlers ...reporter.LineHandler) reporter.LineHandler
-	StartStep(ctx context.Context, stepHandler StepCommandHandler) (map[string]string, error)
+	StartStep(ctx context.Context, stepHandler StepCommandHandler) error
 	EndStep(outcome dossiers.Result) (err error)
 }
 
@@ -62,16 +62,20 @@ func (cc *commandController) Register() {
 	_ = cc.fileMgr.RegisterCommand("GITHUB_STEP_SUMMARY", cc.createStepSummary)
 }
 
-func (cc *commandController) StartStep(ctx context.Context, stepHandler StepCommandHandler) (map[string]string, error) {
-	env, err := cc.fileMgr.Initialize(ctx, stepHandler.Sandbox())
-	if err != nil {
-		return nil, err
+func (cc *commandController) StartStep(ctx context.Context, stepHandler StepCommandHandler) error {
+	if env, err := cc.fileMgr.Initialize(ctx, stepHandler.Sandbox()); err != nil {
+		return err
+	} else {
+		if err = stepHandler.SetEnv(env, false); err != nil {
+			return err
+		}
 	}
+
 	cc.steps = append(cc.steps, handlerInfo[StepCommandHandler]{
 		ctx:     ctx,
 		handler: stepHandler,
 	})
-	return env, nil
+	return nil
 }
 
 func (cc *commandController) EndStep(outcome dossiers.Result) (err error) {
