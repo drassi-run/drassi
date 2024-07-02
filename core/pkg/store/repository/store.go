@@ -34,6 +34,7 @@ type Repository interface {
 type Store interface {
 	Fetch(ctx context.Context, repo Repository, token string) (rev string, err error)
 	Read(ctx context.Context, repo Repository, rev string) (io.ReadCloser, error)
+	File(ctx context.Context, repo Repository, rev, path string) (io.ReadCloser, error)
 }
 
 func NewStore(rootDir string) (Store, error) {
@@ -114,6 +115,33 @@ func (s *store) Read(ctx context.Context, repo Repository, rev string) (io.ReadC
 		_ = writer.CloseWithError(err)
 	}()
 	return reader, nil
+}
+
+func (s *store) File(ctx context.Context, repo Repository, rev, path string) (io.ReadCloser, error) {
+	gitRepo, ok := s.repos[repo.Name()]
+	if !ok {
+		return nil, fmt.Errorf("repo %s not found", repo.Name())
+	}
+
+	commit, err := gitRepo.CommitObject(plumbing.NewHash(rev))
+	if err != nil {
+		return nil, err
+	}
+
+	tree, err := commit.Tree()
+	if err != nil {
+		return nil, err
+	}
+
+	file, err := tree.File(path)
+	if err != nil {
+		return nil, err
+	}
+	if !file.Mode.IsFile() {
+		return nil, fmt.Errorf("%s is not a (regular) file", path)
+	}
+
+	return file.Reader()
 }
 
 func (s *store) fetch(ctx context.Context, repo Repository, token, branch string) error {
