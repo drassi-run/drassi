@@ -28,37 +28,37 @@ type Repository interface {
 	Url() string
 
 	// The reference of the repository. It cound be a branch, a tag or a commit SHA
-	Ref() string
+	Reference() string
 }
 
-type RepositoryManager interface {
+type Store interface {
 	Fetch(ctx context.Context, repo Repository, token string) (rev string, err error)
 	Read(ctx context.Context, repo Repository, rev string) (io.ReadCloser, error)
 }
 
-func NewRepositoryManager(rootDir string) (RepositoryManager, error) {
+func NewStore(rootDir string) (Store, error) {
 	if err := os.MkdirAll(rootDir, 0x755); err != nil {
 		return nil, err
 	}
 
-	rm := &repositoryManager{
+	rs := &store{
 		rootDir: rootDir,
 	}
-	return rm, nil
+	return rs, nil
 }
 
-type repositoryManager struct {
+type store struct {
 	rootDir string
 	repos   map[string]*git.Repository
 }
 
-func (m *repositoryManager) Fetch(ctx context.Context, repo Repository, token string) (string, error) {
-	path, err := m.ensureDir(repo)
+func (s *store) Fetch(ctx context.Context, repo Repository, token string) (string, error) {
+	path, err := s.ensureDir(repo)
 	if err != nil {
 		return "", err
 	}
 
-	gitRepo, err := m.ensureRepo(path, repo)
+	gitRepo, err := s.ensureRepo(path, repo)
 	if err != nil {
 		return "", err
 	}
@@ -66,7 +66,7 @@ func (m *repositoryManager) Fetch(ctx context.Context, repo Repository, token st
 	tmpBranch := rand.String(12)
 	defer gitRepo.DeleteBranch(tmpBranch)
 
-	err = m.fetch(ctx, repo, token, tmpBranch)
+	err = s.fetch(ctx, repo, token, tmpBranch)
 	if err != nil {
 		return "", err
 	}
@@ -78,8 +78,8 @@ func (m *repositoryManager) Fetch(ctx context.Context, repo Repository, token st
 	return hash.String(), nil
 }
 
-func (m *repositoryManager) Read(ctx context.Context, repo Repository, rev string) (io.ReadCloser, error) {
-	gitRepo, ok := m.repos[repo.Name()]
+func (s *store) Read(ctx context.Context, repo Repository, rev string) (io.ReadCloser, error) {
+	gitRepo, ok := s.repos[repo.Name()]
 	if !ok {
 		return nil, fmt.Errorf("repo %s not found", repo.Name())
 	}
@@ -116,8 +116,8 @@ func (m *repositoryManager) Read(ctx context.Context, repo Repository, rev strin
 	return reader, nil
 }
 
-func (m *repositoryManager) fetch(ctx context.Context, repo Repository, token, branch string) error {
-	gitRepo := m.repos[repo.Name()]
+func (s *store) fetch(ctx context.Context, repo Repository, token, branch string) error {
+	gitRepo := s.repos[repo.Name()]
 
 	var auth transport.AuthMethod
 	if token != "" {
@@ -132,7 +132,7 @@ func (m *repositoryManager) fetch(ctx context.Context, repo Repository, token, b
 		RemoteName: "anonymous",
 		RemoteURL:  repo.Url(),
 		RefSpecs: []config.RefSpec{
-			config.RefSpec(fmt.Sprintf("+%s:%s", repo.Ref(), branch)),
+			config.RefSpec(fmt.Sprintf("+%s:%s", repo.Reference(), branch)),
 		},
 
 		Auth:  auth,
@@ -142,8 +142,8 @@ func (m *repositoryManager) fetch(ctx context.Context, repo Repository, token, b
 	})
 }
 
-func (m *repositoryManager) ensureDir(repo Repository) (string, error) {
-	path := filepath.Join(m.rootDir, ensureSuffix(repo.Name(), ".git"))
+func (s *store) ensureDir(repo Repository) (string, error) {
+	path := filepath.Join(s.rootDir, ensureSuffix(repo.Name(), ".git"))
 	fileInfo, err := os.Stat(path)
 
 	if err != nil {
@@ -163,9 +163,9 @@ func (m *repositoryManager) ensureDir(repo Repository) (string, error) {
 	return path, nil
 }
 
-func (m *repositoryManager) ensureRepo(path string, repo Repository) (*git.Repository, error) {
+func (s *store) ensureRepo(path string, repo Repository) (*git.Repository, error) {
 	id := repo.Name()
-	gitRepo, ok := m.repos[id]
+	gitRepo, ok := s.repos[id]
 	if ok {
 		return gitRepo, nil
 	}
@@ -189,7 +189,7 @@ func (m *repositoryManager) ensureRepo(path string, repo Repository) (*git.Repos
 		}
 	}
 
-	m.repos[id] = gitRepo
+	s.repos[id] = gitRepo
 	return gitRepo, nil
 }
 
