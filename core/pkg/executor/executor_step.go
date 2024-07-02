@@ -14,6 +14,7 @@ type StepCommandHandler interface {
 	StepRun() StepRun
 	Sandbox() sandboxer.Sandbox
 
+	SetEnv(env map[string]string, inExprValue bool) error
 	CreateStepSummary() error
 	SaveState(state map[string]string) error
 	SetOutput(output map[string]string) error
@@ -266,6 +267,28 @@ func (e *stepExecutor) ComposeEnv() map[string]string {
 
 func (e *stepExecutor) SetOutcome(outcome dossiers.Result) {
 	e.result.Outcome = outcome
+}
+
+// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L132
+// https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#setting-an-environment-variable
+func (e *stepExecutor) SetEnv(env map[string]string, inExprValue bool) error {
+	for k := range env {
+		if setEnvBlockList.Has(k) {
+			// TODO context.AddIssue
+			delete(env, k)
+		}
+	}
+	// env not added to the expr evaluation context
+	if !inExprValue {
+		maps.Copy(e.extraEnv, env)
+	} else {
+		// add env to both step-level and job-level context
+		maps.Copy(e.dossier.Env, env)
+		if jh, ok := e.job.(JobCommandHandler); ok {
+			return jh.SetEnv(env)
+		}
+	}
+	return nil
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L186

@@ -272,7 +272,7 @@ func (cc *commandController) consoleAddPath(cmd *command.Command) error {
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L234
 func (cc *commandController) consoleSetEnv(cmd *command.Command) error {
-	return cc.jobHandle(func(ctx context.Context, jh JobCommandHandler) error {
+	return cc.stepHandle(func(ctx context.Context, sh StepCommandHandler) error {
 		name, ok := cmd.Params["name"]
 		if !ok || name == "" {
 			return errors.New("required field 'name' is missing in ##[set-output] command")
@@ -281,7 +281,7 @@ func (cc *commandController) consoleSetEnv(cmd *command.Command) error {
 		env := map[string]string{
 			name: cmd.Value,
 		}
-		return jh.SetEnv(env)
+		return sh.SetEnv(env, true)
 	})
 }
 
@@ -332,7 +332,7 @@ func (cc *commandController) fileAddPath(r io.Reader) error {
 }
 
 func (cc *commandController) fileSetEnv(r io.Reader) error {
-	return cc.jobHandle(func(ctx context.Context, jh JobCommandHandler) error {
+	return cc.stepHandle(func(ctx context.Context, sh StepCommandHandler) error {
 		return utilreader.Untar(r, func(hdr *tar.Header, reader io.Reader) error {
 			if hdr.Name != "" {
 				return fmt.Errorf("expected read single file with empty name, got %s", hdr.Name)
@@ -341,7 +341,7 @@ func (cc *commandController) fileSetEnv(r io.Reader) error {
 			if env, err := utilreader.ParseEnvVars(reader); err != nil {
 				return err
 			} else {
-				return jh.SetEnv(env)
+				return sh.SetEnv(env, true)
 			}
 		})
 	})
