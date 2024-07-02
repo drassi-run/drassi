@@ -20,6 +20,18 @@ type Repository struct {
 	Ref      string // e.g. v3
 }
 
+func (r *Repository) Name() string {
+	return fmt.Sprintf("%s/%s", r.Endpoint, r.Repo)
+}
+
+func (r *Repository) Url() string {
+	return fmt.Sprintf("%s://%s/%s", r.Protocol, r.Endpoint, r.Repo)
+}
+
+func (r *Repository) Reference() string {
+	return r.Ref
+}
+
 func ParseRepository(s string) (*Repository, error) {
 	match := useRegex.FindStringSubmatch(s)
 	if match == nil {

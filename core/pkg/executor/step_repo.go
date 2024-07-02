@@ -2,9 +2,13 @@ package executor
 
 import (
 	"context"
+	"path/filepath"
 
 	"drassi.run/core/pkg/model"
+	"drassi.run/core/pkg/model/actions"
 	"drassi.run/core/pkg/model/dossiers"
+	"drassi.run/core/pkg/store/repository"
+	"gopkg.in/yaml.v3"
 )
 
 // Example:
@@ -13,10 +17,13 @@ import (
 // + Using a local action: `uses: ./.github/actions/hello-world-action`
 type RepositoryStepRun struct {
 	BaseStepRun
-	Repo model.Repository
+	Repo *model.Repository
 
-	rev    string
-	action ActionRun
+	Store repository.Store
+
+	rev       string
+	action    *actions.Action
+	actionRun ActionRun
 }
 
 func (sr *RepositoryStepRun) SetContextInfo(dossier *dossiers.Dossier) {
@@ -28,22 +35,59 @@ func (sr *RepositoryStepRun) SetContextInfo(dossier *dossiers.Dossier) {
 }
 
 func (sr *RepositoryStepRun) Initialize(ctx context.Context, exec StepExecutor) error {
-	//TODO implement me
-	panic("implement me")
+	if rev, err := sr.Store.Fetch(ctx, sr.Repo, ""); err != nil {
+		return err
+	} else {
+		sr.rev = rev
+	}
+
+	path := filepath.Join(sr.Repo.Path, "action.yml")
+	r, err := sr.Store.File(ctx, sr.Repo, sr.rev, path)
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+
+	m := make(map[string]any)
+	if err = yaml.NewDecoder(r).Decode(m); err != nil {
+		return err
+	}
+	if err = model.Decode(m, sr.action); err != nil {
+		return err
+	}
+
+	switch runs := sr.action.Runs.(type) {
+	case *actions.JavaScriptRuns:
+		sr.actionRun = &javaScriptActionRun{
+			action: runs,
+			repo:   sr.Repo,
+			rev:    sr.rev,
+		}
+	case *actions.DockerRuns:
+		sr.actionRun = &dockerActionRun{
+			action: runs,
+		}
+	case *actions.CompositeRuns:
+		sr.actionRun = &compositeActionRun{
+			action: runs,
+		}
+	}
+
+	return sr.actionRun.Initialize(ctx, exec)
 }
 
 func (sr *RepositoryStepRun) PreTask() *Task {
-	t := sr.action.PreTask()
+	t := sr.actionRun.PreTask()
 	return sr.fixupTask(t)
 }
 
 func (sr *RepositoryStepRun) MainTask() *Task {
-	t := sr.action.MainTask()
+	t := sr.actionRun.MainTask()
 	return sr.fixupTask(t)
 }
 
 func (sr *RepositoryStepRun) PostTask() *Task {
-	t := sr.action.PostTask()
+	t := sr.actionRun.PostTask()
 	return sr.fixupTask(t)
 }
 

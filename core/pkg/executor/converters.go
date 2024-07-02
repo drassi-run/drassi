@@ -169,7 +169,7 @@ func toRepositoryStepRun(s *workflows.UsesStep, bsr *BaseStepRun) StepRun {
 	repo, _ := model.ParseRepository(s.Uses)
 	return &RepositoryStepRun{
 		BaseStepRun: *bsr,
-		Repo:        *repo,
+		Repo:        repo,
 	}
 }
 
