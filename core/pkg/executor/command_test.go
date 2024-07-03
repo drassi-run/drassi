@@ -1,4 +1,4 @@
-package utilreader
+package executor
 
 import (
 	"gotest.tools/v3/assert"
@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestParseEnvFile(t *testing.T) {
+func TestCommandController_ParseEnvFile(t *testing.T) {
 	t.Run("simple", func(tt *testing.T) {
 		data := "NODE_OPTIONS=asdf"
 		env := map[string]string{
@@ -94,7 +94,8 @@ EOF
 
 func testParseEnvFile(tt *testing.T, data string, expected map[string]string) {
 	reader := strings.NewReader(data)
-	actual, err := ParseEnvVars(reader)
+	cc := &commandController{}
+	actual, err := cc.parseEnvVars(reader)
 	assert.NilError(tt, err)
 	assert.DeepEqual(tt, expected, actual)
 }

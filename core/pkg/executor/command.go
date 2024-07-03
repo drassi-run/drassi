@@ -2,6 +2,7 @@ package executor
 
 import (
 	"archive/tar"
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
@@ -326,7 +327,7 @@ func (cc *commandController) fileAddPath(r io.Reader) error {
 				return fmt.Errorf("expected read single file with empty name, got %s", hdr.Name)
 			}
 
-			if paths, err := utilreader.ReadLine(reader); err != nil {
+			if paths, err := cc.readLine(reader); err != nil {
 				return err
 			} else {
 				return jh.AddPath(paths)
@@ -342,7 +343,7 @@ func (cc *commandController) fileSetEnv(r io.Reader) error {
 				return fmt.Errorf("expected read single file with empty name, got %s", hdr.Name)
 			}
 
-			if env, err := utilreader.ParseEnvVars(reader); err != nil {
+			if env, err := cc.parseEnvVars(reader); err != nil {
 				return err
 			} else {
 				return sh.SetEnv(env, true)
@@ -358,7 +359,7 @@ func (cc *commandController) fileSetOutput(r io.Reader) error {
 				return fmt.Errorf("expected read single file with empty name, got %s", hdr.Name)
 			}
 
-			if output, err := utilreader.ParseEnvVars(reader); err != nil {
+			if output, err := cc.parseEnvVars(reader); err != nil {
 				return err
 			} else {
 				return sh.SetOutput(output)
@@ -374,7 +375,7 @@ func (cc *commandController) fileSaveState(r io.Reader) error {
 				return fmt.Errorf("expected read single file with empty name, got %s", hdr.Name)
 			}
 
-			if state, err := utilreader.ParseEnvVars(reader); err != nil {
+			if state, err := cc.parseEnvVars(reader); err != nil {
 				return err
 			} else {
 				return sh.SaveState(state)
@@ -386,4 +387,80 @@ func (cc *commandController) fileSaveState(r io.Reader) error {
 func (cc *commandController) createStepSummary(r io.Reader) error {
 	// TODO: implement GITHUB_STEP_SUMMARY file command
 	return nil
+}
+
+func (cc *commandController) readLine(reader io.Reader) ([]string, error) {
+	var lines []string
+	scanner := bufio.NewScanner(reader)
+
+	for scanner.Scan() {
+		l := scanner.Text()
+		if l != "" && !strings.HasPrefix(l, "#") {
+			lines = append(lines, l)
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+	return lines, nil
+}
+
+// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L342-L403
+func (cc *commandController) parseEnvVars(reader io.Reader) (map[string]string, error) {
+	env := make(map[string]string)
+	scanner := bufio.NewScanner(reader)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		equalsIndex := strings.Index(line, "=")
+		heredocIndex := strings.Index(line, "<<")
+
+		// Normal style NAME=VALUE
+		if 0 <= equalsIndex && (heredocIndex < 0 || equalsIndex < heredocIndex) {
+			key, value := line[:equalsIndex], line[equalsIndex+1:]
+			if key == "" {
+				return nil, fmt.Errorf("invalid nil key in line: %s", line)
+			}
+			env[key] = value
+			continue
+		}
+
+		// Heredoc style NAME<<EOF
+		if 0 <= heredocIndex && (equalsIndex < 0 || heredocIndex < equalsIndex) {
+			key, delimiter := line[:heredocIndex], line[heredocIndex+2:]
+			if key == "" || delimiter == "" {
+				return nil, fmt.Errorf("invalid format '%s'. key and delimiter MUST NOT be empty", line)
+			}
+			value, finish := make([]string, 0), false
+			for scanner.Scan() {
+				doc := scanner.Text()
+				if doc == delimiter {
+					finish = true
+					break
+				}
+				value = append(value, doc)
+			}
+			if err := scanner.Err(); err != nil {
+				return nil, err
+			}
+			if !finish {
+				return nil, fmt.Errorf("invalid value. EOF marker missing new line")
+			}
+
+			env[key] = strings.Join(value, "\n")
+			continue
+		}
+
+		return nil, fmt.Errorf("invalid format: %s", line)
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+	return env, nil
 }
