@@ -60,7 +60,7 @@ func FromFilesystem(fs billy.Filesystem, path string, matcher gitignore.Matcher)
 
 type UntarHandler = func(*tar.Header, io.Reader) error
 
-func Untar(r io.Reader, h UntarHandler) error {
+func Untar(ctx context.Context, r io.Reader, h UntarHandler) error {
 	xr, err := archive.DecompressStream(r)
 	if err != nil {
 		return err
@@ -69,15 +69,16 @@ func Untar(r io.Reader, h UntarHandler) error {
 
 	tr := tar.NewReader(xr)
 	for {
-		hdr, err := tr.Next()
-		if err != nil {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
+		if hdr, err := tr.Next(); err != nil {
 			if err == io.EOF {
 				break // end of tar archive
 			}
 			return err
-		}
-
-		if err := h(hdr, tr); err != nil {
+		} else if err = h(hdr, tr); err != nil {
 			return err
 		}
 	}

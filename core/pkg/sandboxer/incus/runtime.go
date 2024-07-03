@@ -273,7 +273,7 @@ func (i *incusSandboxRuntime) CopyToSandbox(ctx context.Context, request sandbox
 	res := sandboxer.CopyToSandboxResponse{}
 
 	handler := newUntarHandler(i.client, request.SandboxId, request.DestinationPath)
-	err := utilreader.Untar(request.Content, handler)
+	err := utilreader.Untar(ctx, request.Content, handler)
 	return res, err
 }
 

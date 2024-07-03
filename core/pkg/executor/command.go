@@ -322,7 +322,7 @@ func (cc *commandController) consoleSaveState(cmd *command.Command) error {
 
 func (cc *commandController) fileAddPath(r io.Reader) error {
 	return cc.jobHandle(func(ctx context.Context, jh JobCommandHandler) error {
-		return utilreader.Untar(r, func(hdr *tar.Header, reader io.Reader) error {
+		return utilreader.Untar(ctx, r, func(hdr *tar.Header, reader io.Reader) error {
 			if hdr.Name != "" {
 				return fmt.Errorf("expected read single file with empty name, got %s", hdr.Name)
 			}
@@ -338,7 +338,7 @@ func (cc *commandController) fileAddPath(r io.Reader) error {
 
 func (cc *commandController) fileSetEnv(r io.Reader) error {
 	return cc.stepHandle(func(ctx context.Context, sh StepCommandHandler) error {
-		return utilreader.Untar(r, func(hdr *tar.Header, reader io.Reader) error {
+		return utilreader.Untar(ctx, r, func(hdr *tar.Header, reader io.Reader) error {
 			if hdr.Name != "" {
 				return fmt.Errorf("expected read single file with empty name, got %s", hdr.Name)
 			}
@@ -354,7 +354,7 @@ func (cc *commandController) fileSetEnv(r io.Reader) error {
 
 func (cc *commandController) fileSetOutput(r io.Reader) error {
 	return cc.stepHandle(func(ctx context.Context, sh StepCommandHandler) error {
-		return utilreader.Untar(r, func(hdr *tar.Header, reader io.Reader) error {
+		return utilreader.Untar(ctx, r, func(hdr *tar.Header, reader io.Reader) error {
 			if hdr.Name != "" {
 				return fmt.Errorf("expected read single file with empty name, got %s", hdr.Name)
 			}
@@ -370,7 +370,7 @@ func (cc *commandController) fileSetOutput(r io.Reader) error {
 
 func (cc *commandController) fileSaveState(r io.Reader) error {
 	return cc.stepHandle(func(ctx context.Context, sh StepCommandHandler) error {
-		return utilreader.Untar(r, func(hdr *tar.Header, reader io.Reader) error {
+		return utilreader.Untar(ctx, r, func(hdr *tar.Header, reader io.Reader) error {
 			if hdr.Name != "" {
 				return fmt.Errorf("expected read single file with empty name, got %s", hdr.Name)
 			}
