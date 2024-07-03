@@ -47,20 +47,22 @@ func (sr *ScriptStepRun) executeMain(ctx context.Context, exec StepExecutor) err
 		return err
 	}
 
-	shell := model.Shell(sr.getShell(inputs, exec))
-	workdir := sr.getWorkdir(inputs, exec)
+	shell := sr.getShell(exec, inputs)
+	workdir := sr.getWorkdir(exec, inputs)
+
 	script, ok := inputs["script"]
 	if !ok {
 		return fmt.Errorf("script not found")
 	}
 	script = shell.FixupScript(script)
+	path := sr.computeScriptPath(exec, shell.Extension())
 
-	cmd, path, err := sr.getCommand(shell, exec)
+	cmd, err := sr.expandCommand(shell, path)
 	if err != nil {
 		return err
 	}
 
-	if err = sr.copyScriptIn(ctx, exec, script, path); err != nil {
+	if err = sr.transferScriptIn(ctx, exec, script, path); err != nil {
 		return nil
 	}
 
@@ -72,32 +74,31 @@ func (sr *ScriptStepRun) PostTask() *Task {
 	return nil
 }
 
-func (sr *ScriptStepRun) getShell(inputs map[string]string, exec StepExecutor) string {
+func (sr *ScriptStepRun) getShell(exec StepExecutor, inputs map[string]string) model.Shell {
 	if shell, ok := inputs["shell"]; ok {
-		return shell
+		return model.Shell(shell)
 	}
-	return exec.JobExecutor().Defaults().Run.Shell
+	return model.Shell(exec.JobExecutor().Defaults().Run.Shell)
 }
 
-func (sr *ScriptStepRun) getWorkdir(inputs map[string]string, exec StepExecutor) string {
+func (sr *ScriptStepRun) getWorkdir(exec StepExecutor, inputs map[string]string) string {
 	if workdir, ok := inputs["workdir"]; ok {
 		return workdir
 	}
 	return exec.JobExecutor().Defaults().Run.WorkingDir
 }
 
-func (sr *ScriptStepRun) getCommand(shell model.Shell, exec StepExecutor) ([]string, string, error) {
-	scriptPath := sr.computeScriptPath(exec, shell.Extension())
+func (sr *ScriptStepRun) expandCommand(shell model.Shell, scriptPath string) ([]string, error) {
 	command, err := shell.Command()
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 
 	cmd := make([]string, len(command))
 	for i, c := range command {
 		cmd[i] = strings.Replace(c, `{0}`, scriptPath, 1)
 	}
-	return cmd, scriptPath, nil
+	return cmd, nil
 }
 
 func (sr *ScriptStepRun) computeScriptPath(exec StepExecutor, ex string) string {
@@ -109,13 +110,14 @@ func (sr *ScriptStepRun) computeScriptPath(exec StepExecutor, ex string) string 
 		path += "."
 	}
 	path += ex
-	return filepath.Join(exec.Sandbox().GetTempDir(), "scripts", ex)
+	return filepath.Join(exec.Sandbox().GetTempDir(), "scripts", path)
 }
 
-func (sr *ScriptStepRun) copyScriptIn(ctx context.Context, exec StepExecutor, script, path string) error {
+func (sr *ScriptStepRun) transferScriptIn(ctx context.Context, exec StepExecutor, script, path string) error {
 	entry := &utilreader.FileEntry{
 		Name:    "",
 		Content: script,
+		Mode:    0o755,
 	}
 	if reader, err := utilreader.FromFileEntries(ctx, entry); err != nil {
 		return err
