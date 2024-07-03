@@ -21,9 +21,8 @@ import (
 	"drassi.run/core/pkg/model/dossiers"
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
-	"drassi.run/core/pkg/sandboxer/incus"
+	"drassi.run/core/pkg/sandboxer/host"
 	"drassi.run/gitea-runner/pkg/service"
-	"github.com/lxc/incus/shared/api"
 	"github.com/spf13/cobra"
 	"golang.org/x/time/rate"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -85,7 +84,7 @@ func (c *launchCommand) initialize(ctx context.Context) error {
 		return err
 	}
 
-	c.runtime = incus.NewSandboxRuntime(newDefaultConfig())
+	c.runtime = getRuntime()
 	return c.runtime.Connect(ctx)
 }
 
@@ -262,29 +261,44 @@ func (c *launchCommand) decodeContext(s *structpb.Struct) (*dossiers.Github, err
 func (c *launchCommand) finalize(ctx context.Context) {
 }
 
-func newDefaultConfig() *incus.Incus {
-	return &incus.Incus{
+func getRuntime() sandboxer.SandboxRuntime {
+	//config := &incus.Incus{
+	//	TypeMeta: metav1.TypeMeta{
+	//		APIVersion: "sandboxer.drasi.run/v1",
+	//		Kind:       "Incus",
+	//	},
+	//	ObjectMeta: metav1.ObjectMeta{
+	//		Name: "default",
+	//	},
+	//	Spec: incus.IncusSpec{
+	//		Endpoint: "unix://",
+	//		Template: incus.IncusTemplateSpec{
+	//			Source: api.InstanceSource{
+	//				Type:     "image",
+	//				Alias:    "ubuntu/22.04",
+	//				Server:   "https://images.linuxcontainers.org",
+	//				Protocol: "simplestreams",
+	//				//Mode:     "pull",
+	//			},
+	//			Type: "container",
+	//		},
+	//	},
+	//}
+	//return incus.NewSandboxRuntime(config)
+
+	config := &host.Host{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "sandboxer.drasi.run/v1",
-			Kind:       "Incus",
+			Kind:       "Host",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "default",
 		},
-		Spec: incus.IncusSpec{
-			Endpoint: "unix://",
-			Template: incus.IncusTemplateSpec{
-				Source: api.InstanceSource{
-					Type:     "image",
-					Alias:    "ubuntu/22.04",
-					Server:   "https://images.linuxcontainers.org",
-					Protocol: "simplestreams",
-					//Mode:     "pull",
-				},
-				Type: "container",
-			},
+		Spec: host.HostSpec{
+			RootDir: "/tmp/gitea-runner",
 		},
 	}
+	return host.NewSandboxRuntime(config)
 }
 
 func loadJson(file string, object any) error {
