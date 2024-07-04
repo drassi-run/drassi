@@ -15,3 +15,25 @@ const (
 	MacOS   Machine = "macos"
 	Windows Machine = "windows"
 )
+
+func (m *Machine) FileSeparator() rune {
+	switch *m {
+	case Linux, MacOS:
+		return '/'
+	case Windows:
+		return '\\'
+	default:
+		panic("Unknown machine")
+	}
+}
+
+func (m *Machine) PathSeparator() rune {
+	switch *m {
+	case Linux, MacOS:
+		return ':'
+	case Windows:
+		return ';'
+	default:
+		panic("Unknown machine")
+	}
+}
