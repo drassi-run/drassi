@@ -135,33 +135,19 @@ func ToStepRun(step workflows.Step) StepRun {
 }
 
 func toScriptStepRun(s *workflows.RunStep, bsr *BaseStepRun) StepRun {
-	inputs := make([][2]workflows.Token, 0)
-	inputs = append(inputs, [2]workflows.Token{
-		workflows.NewLiteralToken("script"),
-		s.Run,
-	})
-	if s.Shell != "" {
-		inputs = append(inputs, [2]workflows.Token{
-			workflows.NewLiteralToken("shell"),
-			workflows.NewLiteralToken(s.Shell),
-		})
-	}
-	if s.WorkingDir != nil {
-		inputs = append(inputs, [2]workflows.Token{
-			workflows.NewLiteralToken("workingDirectory"),
-			s.WorkingDir,
-		})
-	}
-	bsr.Inputs = workflows.NewMappingToken(inputs)
 	return &ScriptStepRun{
 		BaseStepRun: *bsr,
+
+		Run:        s.Run,
+		Shell:      s.Shell,
+		WorkingDir: s.WorkingDir,
 	}
 }
 
 func toDockerStepRun(s *workflows.UsesStep, bsr *BaseStepRun) StepRun {
 	return &DockerStepRun{
 		BaseStepRun: *bsr,
-		Image:       strings.TrimPrefix(s.Uses, "docker://"),
+		Image:       s.Uses,
 	}
 }
 
@@ -175,10 +161,12 @@ func toRepositoryStepRun(s *workflows.UsesStep, bsr *BaseStepRun) StepRun {
 
 // normalize string by remove all special characters
 func normalize(s string) string {
-	return strings.Map(func(r rune) rune {
-		if ('0' <= r && r <= '9') || ('A' <= r && r <= 'Z') || ('a' <= r && r <= 'z') {
-			return r
-		}
-		return '_'
-	}, s)
+	return strings.Map(normalizeReplacer, s)
+}
+
+func normalizeReplacer(r rune) rune {
+	if ('0' <= r && r <= '9') || ('A' <= r && r <= 'Z') || ('a' <= r && r <= 'z') {
+		return r
+	}
+	return '_'
 }
