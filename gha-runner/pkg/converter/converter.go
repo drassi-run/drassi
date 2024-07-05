@@ -74,12 +74,19 @@ func ToStepRun(step *message.JobStep) (executor.StepRun, error) {
 		Env:              ToToken(step.Env),
 		Inputs:           ToToken(step.Inputs),
 	}
+	// for Script step, extract run, shell and workingDir from inputs
+	if step.Reference.Type != message.SourceTypeScript {
+		sr.Inputs = ToToken(step.Inputs)
+	}
 
 	ref := &step.Reference
 	switch ref.Type {
 	case message.SourceTypeScript:
 		ssr := &executor.ScriptStepRun{
 			BaseStepRun: sr,
+		}
+		if err := extractScriptStepInputs(ssr, step.Inputs); err != nil {
+			return nil, err
 		}
 		return ssr, nil
 	case message.SourceTypeContainerRegistry:
@@ -136,4 +143,9 @@ func ToJobRun(job *message.PipelineAgentJobRequest) (*executor.JobRun, error) {
 		Outputs:  ToToken(job.JobOutputs),
 	}
 	return jr, nil
+}
+
+func extractScriptStepInputs(ssr *executor.ScriptStepRun, inputs *message.TemplateToken) error {
+	// TODO
+	return nil
 }
