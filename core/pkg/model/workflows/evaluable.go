@@ -1,5 +1,10 @@
 package workflows
 
+import (
+	"fmt"
+	"maps"
+)
+
 const (
 	OpenExpression  = "${{"
 	CloseExpression = "}}"
@@ -66,6 +71,32 @@ func (m mappingToken) Unravel(u Unraveler) (any, error) {
 func NewMappingToken(pairs [][2]Token) Token {
 	e := mappingToken(pairs)
 	return e
+}
+
+type squashMappingToken []Token
+
+func (t squashMappingToken) Unravel(u Unraveler) (any, error) {
+	r := make(map[string]any)
+
+	for _, token := range t {
+		res, err := token.Unravel(u)
+		if err != nil {
+			return nil, err
+		}
+		if m, ok := res.(map[string]any); ok {
+			maps.Copy(r, m)
+		}
+		return nil, fmt.Errorf("expected token return a map[string]any, got %T", res)
+	}
+
+	return r, nil
+}
+
+func NewSquashMappingToken(tokens []Token) Token {
+	if len(tokens) == 0 {
+		return nil
+	}
+	return squashMappingToken(tokens)
 }
 
 func Expression(token Token) (string, bool) {

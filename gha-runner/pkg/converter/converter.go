@@ -59,7 +59,7 @@ func squashTokens(tokens []message.TemplateToken) workflows.Token {
 		for i, token := range tokens {
 			ts[i] = ToToken(&token)
 		}
-		return &multiMapToken{tokens: ts}
+		return workflows.NewSquashMappingToken(ts)
 	}
 }
 
