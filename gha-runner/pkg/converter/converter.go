@@ -146,6 +146,30 @@ func ToJobRun(job *message.PipelineAgentJobRequest) (*executor.JobRun, error) {
 }
 
 func extractScriptStepInputs(ssr *executor.ScriptStepRun, inputs *message.TemplateToken) error {
-	// TODO
+	if inputs.Type != message.TokenTypeMapping {
+		return fmt.Errorf("exptect step inputs is a map, got %d", inputs.Type)
+	}
+
+	for _, pair := range inputs.Map {
+		k := pair.Key
+		v := pair.Value
+		if k.Type != message.TokenTypeString {
+			return fmt.Errorf("exptect step inputs key is a string, got %d", k.Type)
+		}
+		switch k.String {
+		case "script":
+			ssr.Run = ToToken(v)
+		case "workingDirectory":
+			ssr.WorkingDir = ToToken(v)
+		case "shell":
+			if v.Type != message.TokenTypeString {
+				return fmt.Errorf("exptect step shell is a string, got %d", k.Type)
+			}
+			ssr.Shell = v.String
+		default:
+			return fmt.Errorf("unexppected step inputs key %s", k.String)
+		}
+	}
+
 	return nil
 }
