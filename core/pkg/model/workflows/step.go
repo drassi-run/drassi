@@ -35,15 +35,6 @@ type BaseStep struct {
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
 	If Conditional `json:"if,omitempty" yaml:"if,omitempty" actions:"if,omitempty"`
 
-	// A map of the input parameters defined by the action. Each input parameter is a key/value pair.
-	// Input parameters are set as environment variables. The variable is prefixed with INPUT_ and converted to upper case.
-	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepswith
-	//
-	// Context available: `github`, `needs`, `strategy`, `matrix`, `job`, `runner`, `env`, `vars`, `secrets`, `steps`, `inputs`
-	// Special functions: `hashFiles`
-	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
-	With Evaluable[map[string]string] `json:"with,omitempty" yaml:"with,omitempty" actions:"with,omitempty"`
-
 	// Sets environment variables for steps to use in the virtual environment. You can also set environment variables for the entire workflow or a job.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsenv
 	//
@@ -93,6 +84,15 @@ type UsesStep struct {
 	// For more details, see https://help.github.com/en/articles/virtual-environments-for-github-actions.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsuses
 	Uses string `json:"uses,omitempty" yaml:"uses,omitempty" actions:"uses,omitempty" validate:"required"`
+
+	// A map of the input parameters defined by the action. Each input parameter is a key/value pair.
+	// Input parameters are set as environment variables. The variable is prefixed with INPUT_ and converted to upper case.
+	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepswith
+	//
+	// Context available: `github`, `needs`, `strategy`, `matrix`, `job`, `runner`, `env`, `vars`, `secrets`, `steps`, `inputs`
+	// Special functions: `hashFiles`
+	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
+	With Evaluable[map[string]string] `json:"with,omitempty" yaml:"with,omitempty" actions:"with,omitempty"`
 }
 
 type RunStep struct {

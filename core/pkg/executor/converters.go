@@ -11,6 +11,7 @@ import (
 	"drassi.run/core/pkg/executor/problem"
 	"drassi.run/core/pkg/executor/reporter"
 	"drassi.run/core/pkg/model"
+	"drassi.run/core/pkg/model/actions"
 	"drassi.run/core/pkg/model/workflows"
 	"github.com/google/uuid"
 )
@@ -64,10 +65,27 @@ func (e *jobExecutor) toIssuer(pbl *problem.Problem) (*reporter.Issue, error) {
 }
 
 func ToJobRun(jobId string, job *workflows.NormalJob) *JobRun {
-	idMap := make(map[string]int)
-	stepRuns := make([]StepRun, len(job.Steps))
+	stepRuns := FromSteps(job.Steps)
 
-	for i, step := range job.Steps {
+	uid, _ := uuid.NewRandom()
+	return &JobRun{
+		Id:        jobId,
+		Uid:       uid.String(),
+		Name:      job.Name,
+		Container: job.Container,
+		Services:  job.Services,
+		Env:       job.Env,
+		Steps:     stepRuns,
+		Outputs:   job.Outputs,
+		Defaults:  job.Defaults,
+	}
+}
+
+func FromSteps(steps []workflows.Step) []StepRun {
+	idMap := make(map[string]int)
+	stepRuns := make([]StepRun, len(steps))
+
+	for i, step := range steps {
 		sr := ToStepRun(step)
 
 		// generate StepId if empty
@@ -94,18 +112,7 @@ func ToJobRun(jobId string, job *workflows.NormalJob) *JobRun {
 		stepRuns[i] = sr
 	}
 
-	uid, _ := uuid.NewRandom()
-	return &JobRun{
-		Id:        jobId,
-		Uid:       uid.String(),
-		Name:      job.Name,
-		Container: job.Container,
-		Services:  job.Services,
-		Env:       job.Env,
-		Steps:     stepRuns,
-		Outputs:   job.Outputs,
-		Defaults:  job.Defaults,
-	}
+	return stepRuns
 }
 
 func ToStepRun(step workflows.Step) StepRun {
@@ -157,6 +164,76 @@ func toActionStepRun(s *workflows.UsesStep, bsr *BaseStepRun) StepRun {
 		BaseStepRun: *bsr,
 		Repo:        repo,
 	}
+}
+
+func FromAction(action *actions.Action) (StepRun, error) {
+	var sr StepRun
+	switch r := action.Runs.(type) {
+	case *actions.JavaScriptRuns:
+		sr = &NodeStepRun{
+			Runtime: r.Using,
+			Main:    r.Main,
+			Pre:     r.Pre,
+			PreIf:   r.PreIf,
+			Post:    r.Post,
+			PostIf:  r.PostIf,
+		}
+	case *actions.DockerRuns:
+		sr = &DockerStepRun{
+			Entrypoint:     r.Entrypoint,
+			PreEntrypoint:  r.PreEntrypoint,
+			PreIf:          r.PreIf,
+			PostEntrypoint: r.PostEntrypoint,
+			PostIf:         r.PostIf,
+		}
+	case *actions.CompositeRuns:
+		stepRuns := FromSteps(r.Steps)
+
+		sr = &CompositeStepRun{
+			StepRuns: stepRuns,
+		}
+	default:
+		return nil, fmt.Errorf("unknown action.runs %T", action.Runs)
+	}
+
+	bsr := sr.Base()
+
+	uid, _ := uuid.NewRandom()
+	bsr.Uid = uid.String()
+
+	inputTokens := make([][2]workflows.Token, 0)
+	for name, input := range action.Inputs {
+		if input.Default != nil {
+			inputTokens = append(inputTokens, [2]workflows.Token{
+				workflows.NewLiteralToken(name),
+				input.Default,
+			})
+		} else if input.Required {
+			inputTokens = append(inputTokens, [2]workflows.Token{
+				workflows.NewLiteralToken(name),
+				// nil value to be override
+			})
+		}
+	}
+
+	if len(inputTokens) > 0 {
+		bsr.Inputs = workflows.NewMappingToken(inputTokens)
+	}
+
+	outputTokens := make([][2]workflows.Token, 0)
+	for name, output := range action.Outputs {
+		if output.Value != nil {
+			outputTokens = append(outputTokens, [2]workflows.Token{
+				workflows.NewLiteralToken(name),
+				output.Value,
+			})
+		}
+	}
+	if len(inputTokens) > 0 {
+		bsr.Outputs = workflows.NewMappingToken(outputTokens)
+	}
+
+	return sr, nil
 }
 
 // normalize string by remove all special characters

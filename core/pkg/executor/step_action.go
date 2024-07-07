@@ -2,12 +2,16 @@ package executor
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"io"
 	"path/filepath"
 
 	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/actions"
 	"drassi.run/core/pkg/model/dossiers"
 	"drassi.run/core/pkg/store/repository"
+	"github.com/go-git/go-git/v5/plumbing/object"
 	"gopkg.in/yaml.v3"
 )
 
@@ -34,42 +38,15 @@ func (sr *ActionStepRun) SetContextInfo(dossier *dossiers.Dossier) {
 }
 
 func (sr *ActionStepRun) Initialize(ctx context.Context, exec StepExecutor) error {
-	if rev, err := sr.Store.Fetch(ctx, sr.Repo, ""); err != nil {
+	gh := exec.Dossier().Github
+	if rev, err := sr.Store.Fetch(ctx, sr.Repo, gh.Token); err != nil {
 		return err
 	} else {
 		sr.rev = rev
 	}
 
-	path := filepath.Join(sr.Repo.Path, "action.yml")
-	r, err := sr.Store.File(ctx, sr.Repo, sr.rev, path)
-	if err != nil {
+	if err := sr.loadAction(ctx); err != nil {
 		return err
-	}
-	defer r.Close()
-
-	m := make(map[string]any)
-	if err = yaml.NewDecoder(r).Decode(m); err != nil {
-		return err
-	}
-	if err = model.Decode(m, sr.action); err != nil {
-		return err
-	}
-
-	switch runs := sr.action.Runs.(type) {
-	case *actions.JavaScriptRuns:
-		sr.actionRun = &javaScriptActionRun{
-			action: runs,
-			repo:   sr.Repo,
-			rev:    sr.rev,
-		}
-	case *actions.DockerRuns:
-		sr.actionRun = &dockerActionRun{
-			action: runs,
-		}
-	case *actions.CompositeRuns:
-		sr.actionRun = &CompositeStepRun{
-			action: runs,
-		}
 	}
 
 	return sr.actionRun.Initialize(ctx, exec)
@@ -85,4 +62,57 @@ func (sr *ActionStepRun) MainTask() *Task {
 
 func (sr *ActionStepRun) PostTask() *Task {
 	return sr.actionRun.PostTask()
+}
+
+func (sr *ActionStepRun) loadAction(ctx context.Context) error {
+	// 1. First, try reading "action.yml" or "action.yaml" file
+	for _, f := range []string{"action.yml", "action.yaml"} {
+		path := filepath.Join(sr.Repo.Path, f)
+		if r, err := sr.Store.File(ctx, sr.Repo, sr.rev, path); err == nil {
+			return sr.loadActionManifest(r)
+		} else if !errors.Is(err, object.ErrFileNotFound) {
+			return err
+		}
+	}
+
+	// 2. Second, try reading "Dockerfile" or "dockerfile"
+	for _, f := range []string{"Dockerfile", "dockerfile"} {
+		path := filepath.Join(sr.Repo.Path, f)
+		if r, err := sr.Store.File(ctx, sr.Repo, sr.rev, path); err == nil {
+			r.Close()
+			return sr.createDockerfileAction(path)
+		} else if !errors.Is(err, object.ErrFileNotFound) {
+			return err
+		}
+	}
+
+	return fmt.Errorf(`unable to file "action.yml", "action.yaml" or "Dockerfile" in your given path`)
+}
+
+func (sr *ActionStepRun) loadActionManifest(r io.ReadCloser) error {
+	defer r.Close()
+
+	m := make(map[string]any)
+	if err := yaml.NewDecoder(r).Decode(m); err != nil {
+		return err
+	}
+	action := new(actions.Action)
+	if err := model.Decode(m, action); err != nil {
+		return err
+	}
+
+	if actionRun, err := FromAction(action); err != nil {
+		return err
+	} else {
+		sr.actionRun = actionRun
+	}
+
+	return nil
+}
+
+func (sr *ActionStepRun) createDockerfileAction(dockerfile string) error {
+	sr.actionRun = &DockerStepRun{
+		Image: dockerfile,
+	}
+	return nil
 }

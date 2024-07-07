@@ -36,6 +36,7 @@ type BaseStepRun struct {
 	TimeoutInMinutes workflows.Evaluable[int64]
 	Env              workflows.Evaluable[map[string]string]
 	Inputs           workflows.Evaluable[map[string]string]
+	Outputs          workflows.Evaluable[map[string]string]
 }
 
 func (s *BaseStepRun) StepId() string {
