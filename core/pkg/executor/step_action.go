@@ -15,18 +15,17 @@ import (
 // + Using a public action: `uses: actions/aws@v2.0.1`
 // + Using a public action in a subdirectory: `uses: actions/aws/ec2@main`
 // + Using a local action: `uses: ./.github/actions/hello-world-action`
-type RepositoryStepRun struct {
+type ActionStepRun struct {
 	BaseStepRun
 	Repo *model.Repository
 
 	Store repository.Store
 
 	rev       string
-	action    *actions.Action
-	actionRun ActionRun
+	actionRun StepRun
 }
 
-func (sr *RepositoryStepRun) SetContextInfo(dossier *dossiers.Dossier) {
+func (sr *ActionStepRun) SetContextInfo(dossier *dossiers.Dossier) {
 	gh := dossier.Github
 
 	gh.Action = sr.Id
@@ -34,7 +33,7 @@ func (sr *RepositoryStepRun) SetContextInfo(dossier *dossiers.Dossier) {
 	gh.ActionRef = sr.Repo.Ref
 }
 
-func (sr *RepositoryStepRun) Initialize(ctx context.Context, exec StepExecutor) error {
+func (sr *ActionStepRun) Initialize(ctx context.Context, exec StepExecutor) error {
 	if rev, err := sr.Store.Fetch(ctx, sr.Repo, ""); err != nil {
 		return err
 	} else {
@@ -68,7 +67,7 @@ func (sr *RepositoryStepRun) Initialize(ctx context.Context, exec StepExecutor) 
 			action: runs,
 		}
 	case *actions.CompositeRuns:
-		sr.actionRun = &compositeActionRun{
+		sr.actionRun = &CompositeStepRun{
 			action: runs,
 		}
 	}
@@ -76,32 +75,14 @@ func (sr *RepositoryStepRun) Initialize(ctx context.Context, exec StepExecutor) 
 	return sr.actionRun.Initialize(ctx, exec)
 }
 
-func (sr *RepositoryStepRun) PreTask() *Task {
-	t := sr.actionRun.PreTask()
-	return sr.fixupTask(t)
+func (sr *ActionStepRun) PreTask() *Task {
+	return sr.actionRun.PreTask()
 }
 
-func (sr *RepositoryStepRun) MainTask() *Task {
-	t := sr.actionRun.MainTask()
-	return sr.fixupTask(t)
+func (sr *ActionStepRun) MainTask() *Task {
+	return sr.actionRun.MainTask()
 }
 
-func (sr *RepositoryStepRun) PostTask() *Task {
-	t := sr.actionRun.PostTask()
-	return sr.fixupTask(t)
-}
-
-func (sr *RepositoryStepRun) fixupTask(t *Task) *Task {
-	if t == nil {
-		return nil
-	}
-	//if sr.Condition != nil {
-	//	if t.Condition != nil {
-	//		t.Condition = workflows.NewConditionalAnd(sr.Condition, t.Condition)
-	//	} else {
-	//		t.Condition = sr.Condition
-	//	}
-	//}
-	t.StepId = sr.Id
-	return t
+func (sr *ActionStepRun) PostTask() *Task {
+	return sr.actionRun.PostTask()
 }

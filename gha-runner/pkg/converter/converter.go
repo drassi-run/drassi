@@ -109,11 +109,11 @@ func ToStepRun(step *message.JobStep) (executor.StepRun, error) {
 			Path:     ref.Path,
 			Ref:      ref.Ref,
 		}
-		rsr := &executor.RepositoryStepRun{
+		asr := &executor.ActionStepRun{
 			BaseStepRun: sr,
 			Repo:        repo,
 		}
-		return rsr, nil
+		return asr, nil
 	default:
 		return nil, fmt.Errorf("unsupported step %s reference type %s", step.ContextName, ref.Type)
 	}

@@ -78,7 +78,7 @@ func ToJobRun(jobId string, job *workflows.NormalJob) *JobRun {
 				id = "run"
 			case *DockerStepRun:
 				id = normalize(s.Image)
-			case *RepositoryStepRun:
+			case *ActionStepRun:
 				id = normalize(s.Repo.Repo)
 			}
 
@@ -128,7 +128,7 @@ func ToStepRun(step workflows.Step) StepRun {
 		if strings.HasPrefix(s.Uses, "docker://") {
 			return toDockerStepRun(s, bsr)
 		} else {
-			return toRepositoryStepRun(s, bsr)
+			return toActionStepRun(s, bsr)
 		}
 	}
 	return nil
@@ -151,9 +151,9 @@ func toDockerStepRun(s *workflows.UsesStep, bsr *BaseStepRun) StepRun {
 	}
 }
 
-func toRepositoryStepRun(s *workflows.UsesStep, bsr *BaseStepRun) StepRun {
+func toActionStepRun(s *workflows.UsesStep, bsr *BaseStepRun) StepRun {
 	repo, _ := model.ParseRepository(s.Uses)
-	return &RepositoryStepRun{
+	return &ActionStepRun{
 		BaseStepRun: *bsr,
 		Repo:        repo,
 	}

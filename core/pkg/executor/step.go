@@ -20,9 +20,11 @@ type StepRun interface {
 
 // ensure StepRun implementations
 var (
+	_ StepRun = (*ActionStepRun)(nil)
 	_ StepRun = (*ScriptStepRun)(nil)
 	_ StepRun = (*DockerStepRun)(nil)
-	_ StepRun = (*RepositoryStepRun)(nil)
+	_ StepRun = (*NodeStepRun)(nil)
+	_ StepRun = (*CompositeStepRun)(nil)
 )
 
 type BaseStepRun struct {
