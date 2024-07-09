@@ -3,6 +3,7 @@ module drassi.run/core
 go 1.22.1
 
 require (
+	github.com/antlr4-go/antlr/v4 v4.13.1
 	github.com/compose-spec/compose-go/v2 v2.1.0
 	github.com/docker/cli v26.1.3+incompatible
 	github.com/docker/docker v26.1.3+incompatible
@@ -18,7 +19,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/pflag v1.0.5
 	go.uber.org/mock v0.4.0
-	golang.org/x/exp v0.0.0-20240325151524-a685a6edb6d8
+	golang.org/x/exp v0.0.0-20240506185415-9bf2ced13842
 	golang.org/x/oauth2 v0.20.0
 	golang.org/x/sync v0.7.0
 	gotest.tools/v3 v3.5.1
