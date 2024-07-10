@@ -11,7 +11,8 @@ docker run --rm -v "$DIR:/work" -u "$(id -u):$(id -g)" "$IMAGE" \
   -Dlanguage=Go \
   -package grammar \
   -visitor \
-  GHALexer.g4
+  GHALexer.g4 GHAParser.g4
 
+sed -i 's/interface{}/any/g' *.go
 go fmt .
 popd
