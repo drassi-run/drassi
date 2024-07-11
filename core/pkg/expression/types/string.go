@@ -1,6 +1,7 @@
 package types
 
 import (
+	"fmt"
 	"math"
 	"strconv"
 	"strings"
@@ -41,4 +42,16 @@ func (s String) ToNumber() float64 {
 
 func (s String) ToString() string {
 	return string(s)
+}
+
+func (s String) Compare(other ref.Val) (int, error) {
+	o, ok := other.(String)
+	if !ok {
+		return 0, fmt.Errorf("cannot compare non-string types")
+	}
+
+	// GitHub ignores case when comparing strings.
+	ls := strings.ToLower(string(s))
+	lo := strings.ToLower(string(o))
+	return strings.Compare(ls, lo), nil
 }

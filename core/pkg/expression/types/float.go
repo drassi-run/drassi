@@ -1,6 +1,7 @@
 package types
 
 import (
+	"fmt"
 	"math"
 	"strconv"
 
@@ -28,4 +29,19 @@ func (f Float) ToNumber() float64 {
 
 func (f Float) ToString() string {
 	return strconv.FormatFloat(float64(f), 'g', -1, 64)
+}
+
+func (f Float) Compare(other ref.Val) (int, error) {
+	o, ok := other.(Float)
+	if !ok {
+		return 0, fmt.Errorf("cannot compare non-float types")
+	}
+
+	if f < o {
+		return -1, nil
+	} else if f > o {
+		return 1, nil
+	} else {
+		return 0, nil
+	}
 }

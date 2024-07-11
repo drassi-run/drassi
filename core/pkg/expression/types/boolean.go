@@ -1,6 +1,8 @@
 package types
 
 import (
+	"fmt"
+
 	"drassi.run/core/pkg/expression/types/ref"
 )
 
@@ -31,4 +33,21 @@ func (b Boolean) ToString() string {
 		return "true"
 	}
 	return "false"
+}
+
+// https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTExpressions2/Expressions2/EvaluationResult.cs#L309
+// https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTExpressions2/Expressions2/EvaluationResult.cs#L351
+func (b Boolean) Compare(other ref.Val) (int, error) {
+	o, ok := other.(Boolean)
+	if !ok {
+		return 0, fmt.Errorf("cannot compare non-boolean types")
+	}
+
+	if !b && o {
+		return -1, nil
+	} else if b && !o {
+		return 1, nil
+	} else {
+		return 0, nil
+	}
 }
