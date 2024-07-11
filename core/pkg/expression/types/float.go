@@ -10,6 +10,10 @@ import (
 
 type Float float64
 
+func (f Float) Type() ref.Type {
+	return ref.TypeFloat
+}
+
 func (f Float) Value() any {
 	return float64(f)
 }

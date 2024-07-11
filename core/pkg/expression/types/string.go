@@ -11,6 +11,10 @@ import (
 
 type String string
 
+func (s String) Type() ref.Type {
+	return ref.TypeString
+}
+
 func (s String) Value() any {
 	return string(s)
 }

@@ -9,6 +9,10 @@ import (
 
 type Integer int64
 
+func (i Integer) Type() ref.Type {
+	return ref.TypeInteger
+}
+
 func (i Integer) Value() any {
 	return int64(i)
 }

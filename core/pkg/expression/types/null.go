@@ -8,6 +8,10 @@ type Null struct{}
 
 var NULL = Null{}
 
+func (n Null) Type() ref.Type {
+	return ref.TypeNull
+}
+
 func (n Null) Value() any {
 	return nil
 }

@@ -8,6 +8,15 @@ import (
 
 type Boolean bool
 
+const (
+	TRUE  = Boolean(true)
+	FALSE = Boolean(false)
+)
+
+func (b Boolean) Type() ref.Type {
+	return ref.TypeBoolean
+}
+
 func (b Boolean) Value() any {
 	return bool(b)
 }
