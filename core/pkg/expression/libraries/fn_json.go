@@ -1,4 +1,4 @@
-package functions
+package libraries
 
 import (
 	"encoding/json"

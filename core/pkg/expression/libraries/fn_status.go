@@ -1,4 +1,4 @@
-package functions
+package libraries
 
 import "drassi.run/core/pkg/model/dossiers"
 

@@ -1,4 +1,4 @@
-package operators
+package libraries
 
 import (
 	"drassi.run/core/pkg/expression/types"
