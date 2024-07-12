@@ -23,7 +23,7 @@ func (m *Machine) FileSeparator() rune {
 	case Windows:
 		return '\\'
 	default:
-		panic("Unknown machine")
+		return 0 // null character
 	}
 }
 
@@ -34,6 +34,17 @@ func (m *Machine) PathSeparator() rune {
 	case Windows:
 		return ';'
 	default:
-		panic("Unknown machine")
+		return 0 // null character
+	}
+}
+
+func (m *Machine) LineSeparator() string {
+	switch *m {
+	case Linux, MacOS:
+		return "\n"
+	case Windows:
+		return "\r\n"
+	default:
+		return "\x00" // string of a null character
 	}
 }
