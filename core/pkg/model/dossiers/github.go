@@ -7,7 +7,7 @@ type Github struct {
 	ActionPath        string       `json:"action_path" yaml:"action_path" mapstructure:"action_path"`
 	ActionRef         string       `json:"action_ref" yaml:"action_ref" mapstructure:"action_ref"`
 	ActionRepository  string       `json:"action_repository" yaml:"action_repository" mapstructure:"action_repository"`
-	ActionStatus      string       `json:"action_status" yaml:"action_status" mapstructure:"action_status"`
+	ActionStatus      Result       `json:"action_status" yaml:"action_status" mapstructure:"action_status"`
 	Actor             string       `json:"actor" yaml:"actor" mapstructure:"actor"`
 	ActorId           string       `json:"actor_id" yaml:"actor_id" mapstructure:"actor_id"`
 	ApiUrl            string       `json:"api_url" yaml:"api_url" mapstructure:"api_url"`
