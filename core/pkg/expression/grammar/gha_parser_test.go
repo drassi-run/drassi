@@ -14,6 +14,7 @@ func TestGHAParser(t *testing.T) {
 	t.Run("comparison-operator", testGHAParserComparisonOperator)
 	t.Run("member", testGHAParserMember)
 	t.Run("function", testGHAParserFunction)
+	t.Run("error", testGHAParserError)
 }
 
 func testGHAParserLiteral(t *testing.T) {
@@ -141,6 +142,42 @@ func testGHAParserFunction(t *testing.T) {
 
 		`func(a.b, c['d'], (true))`: `(F:func (O:. V:a P:b) (O:[] V:c L:'d') (W: L:true))`,
 		`func(10 == a.b && c['d'])`: `(F:func (O:&& (O:== L:10 (O:. V:a P:b)) (O:[] V:c L:'d')))`,
+	}
+
+	for input, expected := range testcases {
+		t.Run(input, testGHAParser(input, expected))
+	}
+}
+
+func testGHAParserError(t *testing.T) {
+	testcases := map[string]string{
+		// Literal error
+		`-0x123`: `L:-0 E:x123`, // hex is not accept sign (+/-)
+		`'abc`:   ``,            // TODO: missing tail quote
+		`4abc`:   `L:4 E:abc`,   // variable can't start by a number
+		`a:b`:    `V:a E:b`,     // variable is not accept special char
+
+		// Unknown operator
+		`a + b`: `V:a E:b`,
+		`a = b`: `V:a E:b`,
+		`a & b`: `V:a E:b`,
+		`a ! b`: `V:a E:! E:b`,
+
+		// Property & Index
+		`a.`:     `(O:. V:a P:<missing '*'>)`, // missing property
+		`a.[b]`:  `(O:. V:a E:[ P:b) E:]`,     // redundant '.' char
+		`a.true`: `(O:. V:a P:nil) E:true`,    // property MUST not be keyword
+		`a.'b'`:  `(O:. V:a P:nil) E:'b'`,     // property MUST not be literal
+		`a.0123`: `V:a E:.0123`,               // property MUST not valid identifier
+		`a.a%v`:  `(O:. V:a P:a) E:v`,         // property MUST not contain special char
+		`a[.b]`:  `(O:[] V:a E:. V:b)`,        // redundant '.' char
+
+		`123.a`:    `L:123. E:a`,          // obj can't be literal (we can't define array/object inline)
+		`123['a']`: `L:123 E:[ E:'a' E:]`, // obj can't be literal (we can't define array/object inline)
+
+		// Function call
+		`str.len()`: `(O:. V:str P:len) E:( E:)`,      // No method concept
+		`(a.b)(x)`:  `(W: (O:. V:a P:b)) E:( E:x E:)`, // missing operator
 	}
 
 	for input, expected := range testcases {

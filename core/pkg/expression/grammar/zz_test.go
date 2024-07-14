@@ -89,7 +89,11 @@ func (l *printListener) EnterPropertyAccess(c *PropertyAccessContext) {
 func (l *printListener) ExitPropertyAccess(c *PropertyAccessContext) {
 	for _, p := range c.props {
 		l.b.WriteString(" P:")
-		l.b.WriteString(p.GetText())
+		if p != nil {
+			l.b.WriteString(p.GetText())
+		} else {
+			l.b.WriteString("nil")
+		}
 	}
 	l.b.WriteString(")")
 }
