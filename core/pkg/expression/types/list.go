@@ -14,6 +14,25 @@ type List struct {
 	getter func(int) any
 }
 
+func NewListGeneric[L ~[]E, E any](elems L) *List {
+	return &List{
+		value:  elems,
+		size:   len(elems),
+		getter: func(i int) any { return elems[i] },
+	}
+}
+
+func NewListDynamic(value any) *List {
+	refVal := reflect.ValueOf(value)
+	return &List{
+		value: value,
+		size:  refVal.Len(),
+		getter: func(i int) any {
+			return refVal.Index(i).Interface()
+		},
+	}
+}
+
 func (l *List) Type() ref.Type {
 	return ref.TypeList
 }
@@ -72,20 +91,6 @@ func (l *List) Get(index any) (ref.Val, error) {
 func (l *List) get(idx int) ref.Val {
 	e := l.getter(idx)
 	return NativeToVal(e)
-}
-
-func (l *List) Contains(value ref.Val, fn func(x ref.Val, y ref.Val) bool) bool {
-	if fn == nil {
-		fn = ref.Val.Equal
-	}
-	it := l.Iterator()
-	for it.HasNext() {
-		e := it.Next()
-		if fn(e, value) {
-			return true
-		}
-	}
-	return false
 }
 
 func (l *List) Iterator() traits.Iterator {
