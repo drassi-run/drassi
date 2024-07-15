@@ -111,11 +111,11 @@ func (it *listIterator) HasNext() bool {
 	return it.cursor < it.len
 }
 
-func (it *listIterator) Next() ref.Val {
+func (it *listIterator) Next() (ref.Val, ref.Val) {
 	if it.HasNext() {
-		index := it.cursor
+		idx := it.cursor
 		it.cursor++
-		return it.list.get(index)
+		return Integer(idx), it.list.get(idx)
 	}
-	return nil
+	return nil, nil
 }

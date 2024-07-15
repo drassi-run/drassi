@@ -14,5 +14,5 @@ type Iterator interface {
 	HasNext() bool
 
 	// Next returns the next element.
-	Next() ref.Val
+	Next() (ref.Val, ref.Val)
 }
