@@ -10,6 +10,13 @@ import (
 
 type Float float64
 
+//goland:noinspection GoSnakeCaseUsage
+var (
+	NAN          = Float(math.NaN())
+	POSITIVE_INF = Float(math.Inf(1))
+	NEGATIVE_INF = Float(math.Inf(-1))
+)
+
 func (f Float) Type() ref.Type {
 	return ref.TypeFloat
 }
@@ -32,13 +39,24 @@ func (f Float) ToNumber() float64 {
 }
 
 func (f Float) ToString() string {
-	return strconv.FormatFloat(float64(f), 'g', -1, 64)
+	// strconv.FormatFloat returns "+Inf" and "-Inf"
+	if math.IsInf(float64(f), 1) {
+		return "Infinity"
+	} else if math.IsInf(float64(f), -1) {
+		return "-Infinity"
+	}
+
+	// https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTExpressions2/Expressions2/ExpressionConstants.cs#L34
+	return strconv.FormatFloat(float64(f), 'G', 15, 64)
 }
 
 func (f Float) Compare(other ref.Val) (int, error) {
 	o, ok := other.(Float)
 	if !ok {
 		return 0, fmt.Errorf("%s vs. %s: %w", f.Type(), other.Type(), errUncomparable)
+	}
+	if math.IsNaN(float64(f)) || math.IsNaN(float64(o)) {
+		return 0, errNaNCompare
 	}
 
 	if f < o {
