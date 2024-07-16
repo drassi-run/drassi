@@ -49,7 +49,7 @@ func (b Boolean) ToString() string {
 func (b Boolean) Compare(other ref.Val) (int, error) {
 	o, ok := other.(Boolean)
 	if !ok {
-		return 0, fmt.Errorf("cannot compare non-boolean types")
+		return 0, fmt.Errorf("%s vs. %s: %w", b.Type(), other.Type(), errUncomparable)
 	}
 
 	if !b && o {

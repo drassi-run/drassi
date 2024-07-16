@@ -38,7 +38,7 @@ func (f Float) ToString() string {
 func (f Float) Compare(other ref.Val) (int, error) {
 	o, ok := other.(Float)
 	if !ok {
-		return 0, fmt.Errorf("cannot compare non-float types")
+		return 0, fmt.Errorf("%s vs. %s: %w", f.Type(), other.Type(), errUncomparable)
 	}
 
 	if f < o {

@@ -51,7 +51,7 @@ func (s String) ToString() string {
 func (s String) Compare(other ref.Val) (int, error) {
 	o, ok := other.(String)
 	if !ok {
-		return 0, fmt.Errorf("cannot compare non-string types")
+		return 0, fmt.Errorf("%s vs. %s: %w", s.Type(), other.Type(), errUncomparable)
 	}
 
 	// GitHub ignores case when comparing strings.
