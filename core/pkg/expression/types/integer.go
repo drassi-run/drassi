@@ -9,6 +9,11 @@ import (
 
 type Integer int64
 
+const (
+	ZERO = Integer(0)
+	ONE  = Integer(1)
+)
+
 func (i Integer) Type() ref.Type {
 	return ref.TypeInteger
 }
