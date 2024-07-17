@@ -48,6 +48,10 @@ func (m *Map) Equal(other ref.Val) bool {
 	return false
 }
 
+func (m *Map) Size() int {
+	return m.size
+}
+
 type mapIterator[K any] struct {
 	getter func(K) ref.Val
 	keys   []K
