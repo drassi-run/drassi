@@ -14,7 +14,7 @@ type mapAccessor interface {
 
 type Map struct {
 	mapAccessor
-	value any
+	value any // MUST be a map
 	size  int
 }
 
@@ -38,10 +38,7 @@ func (m *Map) Equal(other ref.Val) bool {
 
 	mv := reflect.ValueOf(m.value)
 	ov := reflect.ValueOf(o.value)
-	if mv.Kind() != ov.Kind() {
-		return false
-	}
-	if mv.Kind() == reflect.Map {
+	if mv.Kind() == reflect.Map && ov.Kind() == reflect.Map {
 		// Objects and arrays are only considered equal when they are the same instance.
 		return mv.UnsafePointer() == ov.UnsafePointer()
 	}

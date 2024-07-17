@@ -12,26 +12,34 @@ func TestList(t *testing.T) {
 	t.Run("iterator", testListIterator)
 }
 
-var array = []string{"first", "second", "third"}
+var array = [...]string{"first", "second", "third"}
+var slice = array[:]
 
 func testListVal(t *testing.T) {
 	for _, l := range []*List{
-		NewListGeneric(array),
-		NewListDynamic(array),
+		NewListGeneric(slice),
+		NewListDynamic(slice),
 	} {
 		assert.Equal(t, 3, l.Size())
-		assert.Equal(t, array, l.Value())
-		assert.True(t, l.Equal(NewListGeneric(array)))
+		assert.Equal(t, slice, l.Value())
+		assert.True(t, l.Equal(NewListGeneric(slice)))
 
 		for _, v := range valByType {
 			assert.False(t, l.Equal(v))
 		}
 	}
+
+	l := NewListDynamic(array)
+	assert.False(t, l.Equal(NewListDynamic(array)))
+	for _, v := range valByType {
+		assert.False(t, l.Equal(v))
+	}
 }
 
 func testListIndex(t *testing.T) {
 	for _, l := range []*List{
-		NewListGeneric(array),
+		NewListGeneric(slice),
+		NewListDynamic(slice),
 		NewListDynamic(array),
 	} {
 		assert.Equal(t, ref.TypeInteger, l.IndexType())
@@ -39,14 +47,15 @@ func testListIndex(t *testing.T) {
 			e, err := l.Get(i)
 			assert.NoError(t, err, "error while get index '%d'", i)
 			assert.Equal(t, ref.TypeString, e.Type(), "value of index '%d' should be a string", i)
-			assert.Equal(t, array[i], e.Value(), "value for index '%d' is not equal", i)
+			assert.Equal(t, slice[i], e.Value(), "value for index '%d' is not equal", i)
 		}
 	}
 }
 
 func testListIterator(t *testing.T) {
 	for _, l := range []*List{
-		NewListGeneric(array),
+		NewListGeneric(slice),
+		NewListDynamic(slice),
 		NewListDynamic(array),
 	} {
 		assert.Equal(t, ref.TypeInteger, l.IndexType())
@@ -57,9 +66,9 @@ func testListIterator(t *testing.T) {
 			assert.Equal(t, ref.TypeInteger, k.Type(), "index '%s' should be an integer", k)
 			assert.Equal(t, i, k.Value(), "expect get value in order")
 			assert.Equal(t, ref.TypeString, v.Type(), "value of index '%d' should be a string", i)
-			assert.Equal(t, array[i], v.Value(), "value for index '%d' is not equal", i)
+			assert.Equal(t, slice[i], v.Value(), "value for index '%d' is not equal", i)
 			i++
 		}
-		assert.EqualValues(t, len(array), i, "all values should be accessed")
+		assert.EqualValues(t, len(slice), i, "all values should be accessed")
 	}
 }

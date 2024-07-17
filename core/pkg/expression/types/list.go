@@ -9,7 +9,7 @@ import (
 )
 
 type List struct {
-	value  any
+	value  any // MUST be a slice or array
 	size   int
 	getter func(int) any
 }
@@ -24,6 +24,12 @@ func NewListGeneric[L ~[]E, E any](elems L) *List {
 
 func NewListDynamic(value any) *List {
 	refVal := reflect.ValueOf(value)
+
+	if kind := refVal.Kind(); kind != reflect.Slice && kind != reflect.Array {
+		err := fmt.Errorf("expect a slice or array, got %T: %w", value, errInvalidType)
+		panic(err)
+	}
+
 	return &List{
 		value: value,
 		size:  refVal.Len(),
@@ -53,20 +59,12 @@ func (l *List) Equal(other ref.Val) bool {
 
 	lv := reflect.ValueOf(l.value)
 	ov := reflect.ValueOf(o.value)
-	if lv.Kind() != ov.Kind() {
-		return false
-	}
-	switch lv.Kind() {
-	case reflect.Slice:
+	if lv.Kind() == reflect.Slice && ov.Kind() == reflect.Slice {
 		// Objects and arrays are only considered equal when they are the same instance.
 		// NOTE: an exception in Go is empty slice (len = 0 && cap = 0) always point to a same instance.
 		return lv.UnsafePointer() == ov.UnsafePointer()
-	case reflect.Array:
-		// TODO: find a way to compare array pointer in golang
-		return false
-	default:
-		return false
 	}
+	return false
 }
 
 func (l *List) Size() int {

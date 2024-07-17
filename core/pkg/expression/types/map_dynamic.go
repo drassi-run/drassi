@@ -1,17 +1,32 @@
 package types
 
 import (
+	"fmt"
+	"reflect"
+
 	"drassi.run/core/pkg/expression/types/ref"
 	"drassi.run/core/pkg/expression/types/traits"
-	"reflect"
 )
 
 func NewMapDynamic(value any) *Map {
 	instance := reflect.ValueOf(value)
+
+	if instance.Kind() != reflect.Map {
+		err := fmt.Errorf("expect a map, got %T: %w", value, errInvalidType)
+		panic(err)
+	}
+
 	keyType := instance.Type().Key()
+	indexType := reflectToType(keyType)
+
+	if indexType == ref.TypeInvalid {
+		err := fmt.Errorf("unsupported map key %s: %w", keyType, errUnsupportedType)
+		panic(err)
+	}
+
 	return &Map{
 		mapAccessor: &dynamicMapAccessor{
-			indexType: reflectToType(keyType),
+			indexType: indexType,
 			keyType:   keyType,
 			instance:  instance,
 		},
@@ -39,7 +54,7 @@ func reflectToType(t reflect.Type) ref.Type {
 	case reflect.Array, reflect.Slice:
 		return ref.TypeList
 	default:
-		return -1
+		return ref.TypeInvalid
 	}
 }
 
