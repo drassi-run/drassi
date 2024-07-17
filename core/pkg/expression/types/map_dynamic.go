@@ -3,7 +3,6 @@ package types
 import (
 	"drassi.run/core/pkg/expression/types/ref"
 	"drassi.run/core/pkg/expression/types/traits"
-	"fmt"
 	"reflect"
 )
 
@@ -57,7 +56,7 @@ func (a *dynamicMapAccessor) IndexType() ref.Type {
 func (a *dynamicMapAccessor) Get(index any) (ref.Val, error) {
 	idx := reflect.ValueOf(index)
 	if !idx.Type().ConvertibleTo(a.keyType) {
-		return nil, fmt.Errorf("invalid index type")
+		return nil, errInvalidType
 	}
 
 	idx = idx.Convert(a.keyType)

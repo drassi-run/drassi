@@ -9,6 +9,7 @@ import (
 
 var errUncomparable = errors.New("uncomparable data types")
 var errNaNCompare = errors.New("NaN values cannot be ordered")
+var errInvalidType = errors.New("invalid data type")
 
 func NativeToVal(val any) ref.Val {
 	if val == nil {

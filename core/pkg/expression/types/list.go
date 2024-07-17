@@ -80,7 +80,7 @@ func (l *List) IndexType() ref.Type {
 func (l *List) Get(index any) (ref.Val, error) {
 	idx, ok := index.(int)
 	if !ok {
-		return nil, fmt.Errorf("index must be an integer")
+		return nil, fmt.Errorf("index must be an integer, got %s (%[1]T): %w", index, errInvalidType)
 	}
 	if 0 > idx || idx >= l.size {
 		return nil, fmt.Errorf("list index out-of-range, size %d", l.size)

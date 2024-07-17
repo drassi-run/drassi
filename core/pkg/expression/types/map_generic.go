@@ -1,7 +1,6 @@
 package types
 
 import (
-	"fmt"
 	"reflect"
 
 	"drassi.run/core/pkg/expression/types/ref"
@@ -37,7 +36,7 @@ func (a *genericMapAccessor[M, K, V]) IndexType() ref.Type {
 func (a *genericMapAccessor[M, K, V]) Get(index any) (ref.Val, error) {
 	idx, ok := index.(K)
 	if !ok {
-		return nil, fmt.Errorf("invalid index type")
+		return nil, errInvalidType
 	}
 	return a.get(idx), nil
 }
