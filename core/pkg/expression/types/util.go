@@ -33,12 +33,6 @@ func NativeToVal(val any) ref.Val {
 	} else {
 		refVal = reflect.ValueOf(val)
 	}
-	if refVal.Kind() == reflect.Ptr {
-		if refVal.IsNil() {
-			return NULL
-		}
-		refVal = refVal.Elem()
-	}
 
 	// rawVal & refVal both non-null & is not ref.Val
 	switch v := rawVal.(type) {
@@ -70,36 +64,6 @@ func NativeToVal(val any) ref.Val {
 		return Float(v)
 	case string:
 		return String(v)
-
-	case *bool:
-		return Boolean(*v)
-	case *int:
-		return Integer(*v)
-	case *int8:
-		return Integer(*v)
-	case *int16:
-		return Integer(*v)
-	case *int32:
-		return Integer(*v)
-	case *int64:
-		return Integer(*v)
-	case *uint:
-		return Integer(*v)
-	case *uint8:
-		return Integer(*v)
-	case *uint16:
-		return Integer(*v)
-	case *uint32:
-		return Integer(*v)
-	case *uint64:
-		return Integer(*v)
-	case *float32:
-		return Float(*v)
-	case *float64:
-		return Float(*v)
-	case *string:
-		return String(*v)
-
 	case []byte:
 		return String(v)
 
@@ -130,7 +94,7 @@ func NativeToVal(val any) ref.Val {
 
 	// use reflect to also check primitive types (bool, int, float, string,...)
 	// because above "switch rawVal.(type)" is not working on new type definition, e.g: `type A int`
-	switch refVal.Kind() {
+	switch kind := refVal.Kind(); kind {
 	case reflect.Bool:
 		b := refVal.Bool()
 		return Boolean(b)
@@ -146,11 +110,12 @@ func NativeToVal(val any) ref.Val {
 	case reflect.String:
 		s := refVal.String()
 		return String(s)
-	case reflect.Struct:
-		return nil // TODO
 
 	case reflect.Map:
+		// handle underlay datatype, e.g: `type M map[string]any`
 		switch {
+		case refVal.IsNil():
+			return NULL
 		case refVal.CanConvert(typeMapString):
 			m := refVal.Convert(typeMapString).Interface().(map[string]string)
 			return NewMapGeneric(m)
@@ -171,7 +136,10 @@ func NativeToVal(val any) ref.Val {
 		}
 
 	case reflect.Slice, reflect.Array:
+		// handle underlay datatype, e.g: `type L []string`
 		switch {
+		case kind == reflect.Slice && refVal.IsNil():
+			return NULL
 		case refVal.CanConvert(typeListString):
 			l := refVal.Convert(typeListString).Interface().([]string)
 			return NewListGeneric(l)
@@ -189,6 +157,21 @@ func NativeToVal(val any) ref.Val {
 			return NewListGeneric(l)
 		default:
 			return NewListDynamic(refVal.Interface())
+		}
+
+	case reflect.Struct:
+		return NewStruct(rawVal)
+
+	case reflect.Pointer, reflect.Interface:
+		if refVal.IsNil() {
+			return NULL
+		}
+
+		switch elem := refVal.Elem(); elem.Kind() {
+		case reflect.Struct:
+			return NewStruct(rawVal) // keep rawVal as a pointer
+		default:
+			return NativeToVal(elem)
 		}
 
 	default:
