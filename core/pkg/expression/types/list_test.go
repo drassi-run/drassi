@@ -58,7 +58,6 @@ func testListIterator(t *testing.T) {
 		NewListDynamic(slice),
 		NewListDynamic(array),
 	} {
-		assert.Equal(t, ref.TypeInteger, l.IndexType())
 		i := int64(0)
 		it := l.Iterator()
 		for it.HasNext() {

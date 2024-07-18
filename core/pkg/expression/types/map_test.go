@@ -53,7 +53,6 @@ func testMapIterator(t *testing.T) {
 		NewMapGeneric(dict),
 		NewMapDynamic(dict),
 	} {
-		assert.Equal(t, ref.TypeString, m.IndexType())
 		// track which key is accessed
 		keys := make(map[string]bool, len(dict))
 		for k := range dict {

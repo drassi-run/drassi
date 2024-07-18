@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-	"unsafe"
 
 	"drassi.run/core/pkg/expression/types/ref"
 	"drassi.run/core/pkg/expression/types/traits"
@@ -14,31 +13,36 @@ import (
 var fieldIndex = make(map[reflect.Type]map[string]int)
 
 type Struct struct {
-	object any
+	object any // MUST be a struct or pointer to struct
 
-	ptr unsafe.Pointer
+	// Kind() MUST be reflect.Struct
 	val reflect.Value
 	typ reflect.Type
 }
 
-func NewStruct(object any) *Struct {
-	_value := reflect.ValueOf(object)
-	var _pointer unsafe.Pointer
-	if _value.Kind() == reflect.Pointer {
-		_pointer = _value.UnsafePointer()
-		_value = _value.Elem()
-	} else if _value.Kind() == reflect.Struct {
-		r := reflect.ValueOf(&object)
-		_pointer = r.UnsafePointer()
+func NewStruct(value any) *Struct {
+	refVal := reflect.ValueOf(value)
+	switch refVal.Kind() {
+	case reflect.Struct:
+		// does nothing
+	case reflect.Pointer:
+		elem := refVal.Elem()
+		if elem.Kind() == reflect.Struct {
+			refVal = elem
+			break
+		}
+		fallthrough // error
+	default:
+		err := fmt.Errorf("expect a struct or pointer to struct, got %T: %w", value, errInvalidType)
+		panic(err)
 	}
-	_type := _value.Type()
-	buildFieldIndex(_type)
+	refTyp := refVal.Type()
 
+	buildFieldIndex(refTyp)
 	return &Struct{
-		object: object,
-		ptr:    _pointer,
-		val:    _value,
-		typ:    _type,
+		object: value,
+		val:    refVal,
+		typ:    refTyp,
 	}
 }
 
@@ -82,12 +86,13 @@ func (s *Struct) Equal(other ref.Val) bool {
 		return false
 	}
 
-	if s.val.Kind() != o.val.Kind() {
-		return false
+	so := reflect.ValueOf(s.object)
+	oo := reflect.ValueOf(o.object)
+	if so.Kind() == reflect.Pointer && oo.Kind() == reflect.Pointer {
+		// Objects and arrays are only considered equal when they are the same instance.
+		return so.UnsafePointer() == oo.UnsafePointer()
 	}
-
-	// Objects and arrays are only considered equal when they are the same instance.
-	return s.ptr != nil && s.ptr == o.ptr
+	return false
 }
 
 func (s *Struct) Size() int {
