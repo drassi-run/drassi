@@ -1,13 +1,12 @@
 package types
 
 import (
-	"drassi.run/core/pkg/model/workflows"
 	"github.com/stretchr/testify/assert"
 	"math"
 	"testing"
 )
 
-var unicodeWords = []workflows.KVPair[String, String]{
+var unicodeWords = [][2]String{
 	{"ΔΡΆΣΗ", "δράση"},           // drassi
 	{"ΚΥΒΕΡΝΉΤΗΣ", "κυβερνήτησ"}, // kubernetes
 	//{"ΚΥΒΕΡΝΉΤΗΣ", "κυβερνήτης"}, // Uppercase(Σ) = Lowercase(σ,ς)
@@ -38,7 +37,8 @@ func testStringEqual(t *testing.T) {
 
 	t.Run("unicode", func(t *testing.T) {
 		for _, p := range unicodeWords {
-			assert.True(t, p.Key.Equal(p.Value))
+			x, y := p[0], p[1]
+			assert.True(t, x.Equal(y))
 		}
 	})
 
@@ -197,9 +197,10 @@ func testStringCompare(t *testing.T) {
 
 	t.Run("ignore-case", func(t *testing.T) {
 		for _, p := range unicodeWords {
-			r, err := p.Key.Compare(p.Value)
+			x, y := p[0], p[1]
+			r, err := x.Compare(y)
 			assert.NoError(t, err)
-			assert.Equal(t, 0, r, "compare '%s' vs '%s'", p.Key, p.Value)
+			assert.Equal(t, 0, r, "compare '%s' vs '%s'", x, y)
 		}
 	})
 

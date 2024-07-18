@@ -2,7 +2,6 @@ package types
 
 import (
 	"drassi.run/core/pkg/expression/types/ref"
-	"drassi.run/core/pkg/model/workflows"
 	"github.com/stretchr/testify/assert"
 	"reflect"
 	"runtime"
@@ -127,7 +126,7 @@ func testNativeToValStruct(t *testing.T) {
 	i1 := valueOf[I](&S{}) // Kind() = reflect.Interface, Interface() = *S{...}
 	i2 := valueOf[I](SV{}) // Kind() = reflect.Interface, Interface() = SV{...}
 
-	for _, p := range []workflows.KVPair[any, reflect.Kind]{
+	for _, p := range [][2]any{
 		{s, reflect.Struct},
 		{&s, reflect.Pointer},
 		{reflect.ValueOf(s), reflect.Struct},
@@ -135,7 +134,7 @@ func testNativeToValStruct(t *testing.T) {
 		{i1, reflect.Pointer},
 		{i2, reflect.Struct},
 	} {
-		v, kind := p.Key, p.Value
+		v, kind := p[0], p[1].(reflect.Kind)
 		val := NativeToVal(v)
 		assert.Equal(t, ref.TypeStruct, val.Type(), "convert from %#v (%[1]T)", v)
 		assert.Equal(t, kind, reflect.ValueOf(val.Value()).Kind(), "convert from %#v (%[1]T)", v)
