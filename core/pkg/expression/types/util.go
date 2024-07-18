@@ -133,13 +133,13 @@ func NativeToVal(val any) ref.Val {
 			m := refVal.Convert(typeMapAny).Interface().(map[string]any)
 			return NewMapGeneric(m)
 		default:
-			return NewMapDynamic(refVal.Interface())
+			return NewMapDynamic(rawVal)
 		}
 
-	case reflect.Slice, reflect.Array:
+	case reflect.Slice:
 		// handle underlay datatype, e.g: `type L []string`
 		switch {
-		case kind == reflect.Slice && refVal.IsNil():
+		case refVal.IsNil():
 			return NULL
 		case refVal.CanConvert(typeListString):
 			l := refVal.Convert(typeListString).Interface().([]string)
@@ -157,10 +157,33 @@ func NativeToVal(val any) ref.Val {
 			l := refVal.Convert(typeListAny).Interface().([]any)
 			return NewListGeneric(l)
 		default:
-			return NewListDynamic(refVal.Interface())
+			return NewListDynamic(rawVal)
 		}
 
+	case reflect.Array:
+		// storing slice is prefer to array
+		// So, convert from array to slice when possible, e.g:
+		// ```
+		// arr := [...]int{0, 1, 2, 3, 4, 5, 6}
+		// refArr := reflect.ValueOf(&arr).Elem()
+		// ```
+		if refVal.CanAddr() {
+			refSlice := refVal.Slice(0, refVal.Len())
+			return NativeToVal(refSlice)
+		}
+		return NewListDynamic(rawVal)
+
 	case reflect.Struct:
+		// storing pointer to struct is prefer to struct
+		// So, get struct instance pointer when possible, e.g:
+		// ```
+		// s := MyStruct{}
+		// refS := reflect.ValueOf(&s).Elem()
+		// ```
+		if refVal.CanAddr() {
+			refStruct := refVal.Addr() // convert from Struct to *Struct
+			rawVal = refStruct.Interface()
+		}
 		return NewStruct(rawVal)
 
 	case reflect.Pointer, reflect.Interface:

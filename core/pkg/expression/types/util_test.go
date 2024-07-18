@@ -56,6 +56,7 @@ func TestNativeToVal(t *testing.T) {
 	t.Run("dynamic", testNativeToValDynamic)
 	t.Run("struct", testNativeToValStruct)
 	t.Run("null", testNativeToValNull)
+	t.Run("escalate", testNativeToValEscalate)
 }
 
 func testNativeToValScala(t *testing.T) {
@@ -155,6 +156,29 @@ func testNativeToValNull(t *testing.T) {
 		val := NativeToVal(v)
 		assert.Equal(t, ref.TypeNull, val.Type(), "convert from %#v (%[1]T)", v)
 	}
+}
+
+func testNativeToValEscalate(t *testing.T) {
+	t.Run("array", func(t *testing.T) {
+		arr := [...]int{0, 1, 2, 3, 4, 5, 6}
+		refArr := reflect.ValueOf(&arr).Elem()
+		val := NativeToVal(refArr)
+		assert.Equal(t, ref.TypeList, val.Type())
+		// Value changed from array to slice
+		assert.Equal(t, reflect.Slice, reflect.TypeOf(val.Value()).Kind())
+	})
+
+	t.Run("struct", func(t *testing.T) {
+		str := S{}
+		refS := reflect.ValueOf(&str).Elem()
+		val := NativeToVal(refS)
+		assert.Equal(t, ref.TypeStruct, val.Type())
+
+		// Value changed from object to pointer
+		refVal := reflect.ValueOf(val.Value())
+		assert.Equal(t, reflect.Pointer, refVal.Kind())
+		assert.Equal(t, reflect.Struct, refVal.Elem().Kind())
+	})
 }
 
 func functionName(f any) string {
