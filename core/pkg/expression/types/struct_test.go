@@ -81,8 +81,8 @@ func testStructIndex(t *testing.T) {
 		for k, v := range m {
 			e := s.Get(k)
 			err, _ := e.(error)
-			assert.NoError(t, err, "error while get key '%s'", k)
-			assert.Equal(t, v, e.Value(), "value for key '%s' is not equal", k)
+			assert.NoError(t, err, "error while get key %q", k)
+			assert.Equal(t, v, e.Value(), "value for key %q is not equal", k)
 		}
 	}
 }
@@ -103,16 +103,16 @@ func testStructIterator(t *testing.T) {
 		it := s.Iterator()
 		for it.HasNext() {
 			k, v := it.Next()
-			assert.Equal(t, ref.TypeString, k.Type(), "key '%s' should be a string", k)
+			assert.Equal(t, ref.TypeString, k.Type(), "key %q should be a string", k)
 			nk := k.Value().(string)
 			nv := m[nk]
-			assert.EqualValues(t, nv, v.Value(), "value for key '%s' is not equal", nk)
+			assert.EqualValues(t, nv, v.Value(), "value for key %q is not equal", nk)
 
 			keys[nk] = true
 		}
 
 		for k, v := range keys {
-			assert.True(t, v, "key '%s' is not accessed", k) // All keys are accessed
+			assert.True(t, v, "key %q is not accessed", k) // All keys are accessed
 		}
 	}
 }

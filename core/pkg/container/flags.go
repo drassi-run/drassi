@@ -517,7 +517,7 @@ func validateDeviceCgroupRule(val string) (string, error) {
 		return val, nil
 	}
 
-	return val, fmt.Errorf("invalid device cgroup format '%s'", val)
+	return val, fmt.Errorf("invalid device cgroup format %q", val)
 }
 
 // validateAttach validates that the specified string is a valid attach option.

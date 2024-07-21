@@ -42,9 +42,9 @@ func testMapIndex(t *testing.T) {
 		for k, v := range dict {
 			e := m.Get(k)
 			err, _ := e.(error)
-			assert.NoError(t, err, "error while get key '%s'", k)
-			assert.Equal(t, ref.TypeInteger, e.Type(), "value of key '%s' should be an integer", k)
-			assert.EqualValues(t, v, e.Value(), "value for key '%s' is not equal", k)
+			assert.NoError(t, err, "error while get key %q", k)
+			assert.Equal(t, ref.TypeInteger, e.Type(), "value of key %q should be an integer", k)
+			assert.EqualValues(t, v, e.Value(), "value for key %q is not equal", k)
 		}
 	}
 }
@@ -63,17 +63,17 @@ func testMapIterator(t *testing.T) {
 		it := m.Iterator()
 		for it.HasNext() {
 			k, v := it.Next()
-			assert.Equal(t, ref.TypeString, k.Type(), "key '%s' should be a string", k)
-			assert.Equal(t, ref.TypeInteger, v.Type(), "value of key '%s' should be an integer", k)
+			assert.Equal(t, ref.TypeString, k.Type(), "key %q should be a string", k)
+			assert.Equal(t, ref.TypeInteger, v.Type(), "value of key %q should be an integer", k)
 			nk := k.Value().(string)
 			nv := dict[nk]
-			assert.EqualValues(t, nv, v.Value(), "value for key '%s' is not equal", nk)
+			assert.EqualValues(t, nv, v.Value(), "value for key %q is not equal", nk)
 
 			keys[nk] = true
 		}
 
 		for k, v := range keys {
-			assert.True(t, v, "key '%s' is not accessed", k) // All keys are accessed
+			assert.True(t, v, "key %q is not accessed", k) // All keys are accessed
 		}
 	}
 }

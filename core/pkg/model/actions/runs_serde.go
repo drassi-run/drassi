@@ -32,19 +32,19 @@ func DecodeRunsHook(from reflect.Value, to reflect.Value) (any, error) {
 		if t == nil {
 			to.Set(reflect.ValueOf(&CompositeRuns{}))
 		} else if _, ok := t.(*CompositeRuns); !ok {
-			return nil, fmt.Errorf(`map with using="%s" CAN'T be decode to %T`, using, t)
+			return nil, fmt.Errorf(`map with using=%q CAN'T be decode to %T`, using, t)
 		}
 	} else if using == "docker" {
 		if t == nil {
 			to.Set(reflect.ValueOf(&DockerRuns{}))
 		} else if _, ok := t.(*DockerRuns); !ok {
-			return nil, fmt.Errorf(`map with using="%s" CAN'T be decode to %T`, using, t)
+			return nil, fmt.Errorf(`map with using=%q CAN'T be decode to %T`, using, t)
 		}
 	} else if strings.HasPrefix(using, "node") {
 		if t == nil {
 			to.Set(reflect.ValueOf(&JavaScriptRuns{}))
 		} else if _, ok := t.(*JavaScriptRuns); !ok {
-			return nil, fmt.Errorf(`map with using="%s" CAN'T be decode to %T`, using, t)
+			return nil, fmt.Errorf(`map with using=%q CAN'T be decode to %T`, using, t)
 		}
 	}
 	return m, nil

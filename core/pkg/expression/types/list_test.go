@@ -63,7 +63,7 @@ func testListIterator(t *testing.T) {
 		it := l.Iterator()
 		for it.HasNext() {
 			k, v := it.Next()
-			assert.Equal(t, ref.TypeInteger, k.Type(), "index '%s' should be an integer", k)
+			assert.Equal(t, ref.TypeInteger, k.Type(), "index %q should be an integer", k)
 			assert.Equal(t, i, k.Value(), "expect get value in order")
 			assert.Equal(t, ref.TypeString, v.Type(), "value of index '%d' should be a string", i)
 			assert.Equal(t, slice[i], v.Value(), "value for index '%d' is not equal", i)

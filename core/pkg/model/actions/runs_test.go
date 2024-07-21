@@ -78,21 +78,21 @@ func TestDecodeRuns(t *testing.T) {
 		var runs Runs = &DockerRuns{}
 		err := model.Decode(jsInput, &runs)
 
-		assert.ErrorContains(tt, err, fmt.Sprintf(`map with using="%s" CAN'T be decode to %T`, jsInput["using"], runs))
+		assert.ErrorContains(tt, err, fmt.Sprintf(`map with using=%q CAN'T be decode to %T`, jsInput["using"], runs))
 	})
 
 	t.Run("conflict/wrong-map-type/2", func(tt *testing.T) {
 		var runs Runs = &CompositeRuns{}
 		err := model.Decode(dockerInput, &runs)
 
-		assert.ErrorContains(tt, err, fmt.Sprintf(`map with using="%s" CAN'T be decode to %T`, dockerInput["using"], runs))
+		assert.ErrorContains(tt, err, fmt.Sprintf(`map with using=%q CAN'T be decode to %T`, dockerInput["using"], runs))
 	})
 
 	t.Run("conflict/wrong-map-type/3", func(tt *testing.T) {
 		var runs Runs = &JavaScriptRuns{}
 		err := model.Decode(compositeInput, &runs)
 
-		assert.ErrorContains(tt, err, fmt.Sprintf(`map with using="%s" CAN'T be decode to %T`, compositeInput["using"], runs))
+		assert.ErrorContains(tt, err, fmt.Sprintf(`map with using=%q CAN'T be decode to %T`, compositeInput["using"], runs))
 	})
 
 	t.Run("absent", func(tt *testing.T) {

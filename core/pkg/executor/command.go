@@ -434,7 +434,7 @@ func (cc *commandController) parseEnvVars(reader io.Reader) (map[string]string, 
 		if 0 <= heredocIndex && (equalsIndex < 0 || heredocIndex < equalsIndex) {
 			key, delimiter := line[:heredocIndex], line[heredocIndex+2:]
 			if key == "" || delimiter == "" {
-				return nil, fmt.Errorf("invalid format '%s'. key and delimiter MUST NOT be empty", line)
+				return nil, fmt.Errorf("invalid format %q. key and delimiter MUST NOT be empty", line)
 			}
 			value, finish := make([]string, 0), false
 			for scanner.Scan() {
@@ -456,7 +456,7 @@ func (cc *commandController) parseEnvVars(reader io.Reader) (map[string]string, 
 			continue
 		}
 
-		return nil, fmt.Errorf("invalid format: %s", line)
+		return nil, fmt.Errorf("invalid format: %q", line)
 	}
 
 	if err := scanner.Err(); err != nil {

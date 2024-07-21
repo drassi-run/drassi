@@ -336,7 +336,7 @@ func (e *jobExecutor) runStage(ctx context.Context, stage Stage, fn func(StepRun
 		}
 		e.dossier.Steps[id] = res
 		if res.Conclusion == dossiers.ResultFailure {
-			return fmt.Errorf(`step "%s" (%s) failed`, id, stage)
+			return fmt.Errorf(`step %q (%s) failed`, id, stage)
 		}
 	}
 
