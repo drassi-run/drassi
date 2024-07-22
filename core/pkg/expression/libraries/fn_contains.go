@@ -1,57 +1,45 @@
 package libraries
 
 import (
-	"math"
 	"strings"
 
+	"drassi.run/core/pkg/expression/types"
 	"drassi.run/core/pkg/expression/types/ref"
 	"drassi.run/core/pkg/expression/types/traits"
 )
 
-func Contains(search ref.Val, item ref.Val) bool {
+func Contains(search ref.Val, item ref.Val) ref.Val {
 	// search is an array, check it contains item element
 	if search.Type() == ref.TypeList {
 		if list, ok := search.(traits.Iterable); ok {
-			it := list.Iterator()
-			for it.HasNext() {
-				_, e := it.Next()
-				if EqualWeak(e, item) {
-					return true
-				}
-			}
-			return false
+			return contains(list, item)
 		}
 	}
 
 	s, ok := search.(traits.Stringable)
 	if !ok {
-		return false
+		return types.FALSE
 	}
 	i, ok := item.(traits.Stringable)
 	if !ok {
-		return false
+		return types.FALSE
 	}
 
 	// Both search, item are convertable to string, check if item is a substring of search.
 	// GitHub ignores case when comparing strings.
 	ss := strings.ToLower(s.ToString())
 	si := strings.ToLower(i.ToString())
-	return strings.Contains(ss, si)
+	r := strings.Contains(ss, si)
+	return types.Boolean(r)
 }
 
-func EqualWeak(x, y ref.Val) bool {
-	if x.Type() == y.Type() {
-		return x.Equal(y)
+func contains(list traits.Iterable, item ref.Val) ref.Val {
+	it := list.Iterator()
+	for it.HasNext() {
+		_, e := it.Next()
+		if equalWeak(e, item) {
+			return types.TRUE
+		}
 	}
-
-	fx := coerce(x)
-	fy := coerce(y)
-	return fx == fy
-}
-
-func coerce(x ref.Val) float64 {
-	if f, ok := x.(traits.Numerical); ok {
-		return f.ToNumber()
-	}
-	return math.NaN()
+	return types.FALSE
 }

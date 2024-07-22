@@ -1,28 +1,29 @@
 package libraries
 
 import (
+	"drassi.run/core/pkg/expression/types"
 	"drassi.run/core/pkg/expression/types/ref"
 	"drassi.run/core/pkg/expression/types/traits"
 )
 
-func Less(lhs ref.LazyVal, rhs ref.LazyVal) bool {
-	l, r := lhs(), rhs()
-	return lessThan(l, r)
+func Less(left, right ref.Val) ref.Val {
+	r := lessThan(left, right)
+	return types.Boolean(r)
 }
 
-func LessEquals(lhs ref.LazyVal, rhs ref.LazyVal) bool {
-	l, r := lhs(), rhs()
-	return EqualWeak(l, r) || lessThan(l, r)
+func LessEquals(left, right ref.Val) ref.Val {
+	r := equalWeak(left, right) || lessThan(left, right)
+	return types.Boolean(r)
 }
 
-func Greater(lhs ref.LazyVal, rhs ref.LazyVal) bool {
-	l, r := lhs(), rhs()
-	return lessThan(l, r)
+func Greater(left, right ref.Val) ref.Val {
+	r := lessThan(left, right)
+	return types.Boolean(r)
 }
 
-func GreaterEquals(lhs ref.LazyVal, rhs ref.LazyVal) bool {
-	l, r := lhs(), rhs()
-	return EqualWeak(l, r) || greaterThan(l, r)
+func GreaterEquals(left, right ref.Val) ref.Val {
+	r := equalWeak(left, right) || greaterThan(left, right)
+	return types.Boolean(r)
 }
 
 func lessThan(lhs ref.Val, rhs ref.Val) bool {

@@ -2,34 +2,34 @@ package libraries
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"drassi.run/core/pkg/expression/types"
 	"drassi.run/core/pkg/expression/types/ref"
 	"drassi.run/core/pkg/expression/types/traits"
 )
 
-func ToJSON(v ref.Val) (string, error) {
+func ToJSON(v ref.Val) ref.Val {
 	if b, err := json.MarshalIndent(v.Value(), "", "  "); err != nil {
-		return "", err
+		return types.WrapError(err)
 	} else {
-		return string(b), nil
+		s := string(b)
+		return types.String(s)
 	}
 }
 
-func FromJson(v ref.Val) (ref.Val, error) {
+func FromJson(v ref.Val) ref.Val {
 	s, ok := v.(traits.Stringable)
 	if !ok {
-		return nil, fmt.Errorf("unable to convert %v to traits.Stringable", v)
+		return types.NewError("unable to convert %v to traits.Stringable", v)
 	}
 
 	b := []byte(s.ToString())
 	var o any
 
 	if err := json.Unmarshal(b, &o); err != nil {
-		return nil, err
+		return types.WrapError(err)
 	} else {
 		val := types.NativeToVal(o)
-		return val, nil
+		return val
 	}
 }
