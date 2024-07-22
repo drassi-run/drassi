@@ -2,12 +2,11 @@ package workflows
 
 func (o *On) DecodeMapstructure(input any) (any, error) {
 	var events []string
-	switch input.(type) {
+	switch e := input.(type) {
 	case string:
-		e := input.(string)
 		events = []string{e}
 	case []string:
-		events = input.([]string)
+		events = e
 	default:
 		// process On normal way
 		return input, nil

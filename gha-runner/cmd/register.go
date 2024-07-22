@@ -73,7 +73,7 @@ func runRegister(ctx context.Context, opts *registerOptions) error {
 	if opts.token == "" {
 		err := huh.NewInput().
 			Title("What is your runner register token?").
-			Password(true).
+			EchoMode(huh.EchoModePassword).
 			Value(&opts.token).
 			Validate(IsNotEmpty).
 			Run()

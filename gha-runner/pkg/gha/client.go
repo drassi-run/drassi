@@ -32,7 +32,7 @@ type Client struct {
 	h *http.Client
 
 	serverUrl *url.URL
-	token     string
+	//token     string
 	UserAgent UserAgentInfo
 }
 
