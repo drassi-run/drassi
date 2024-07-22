@@ -20,8 +20,8 @@ var dict = map[string]any{
 
 func testMapVal(t *testing.T) {
 	for _, m := range []*Map{
-		NewMapGeneric(dict),
-		NewMapDynamic(dict),
+		NewMapGeneric(dict).(*Map),
+		NewMapDynamic(dict).(*Map),
 	} {
 		assert.Equal(t, 3, m.Size())
 		assert.Equal(t, dict, m.Value())
@@ -35,12 +35,13 @@ func testMapVal(t *testing.T) {
 
 func testMapIndex(t *testing.T) {
 	for _, m := range []*Map{
-		NewMapGeneric(dict),
-		NewMapDynamic(dict),
+		NewMapGeneric(dict).(*Map),
+		NewMapDynamic(dict).(*Map),
 	} {
 		assert.Equal(t, ref.TypeString, m.IndexType())
 		for k, v := range dict {
-			e, err := m.Get(k)
+			e := m.Get(k)
+			err, _ := e.(error)
 			assert.NoError(t, err, "error while get key '%s'", k)
 			assert.Equal(t, ref.TypeInteger, e.Type(), "value of key '%s' should be an integer", k)
 			assert.EqualValues(t, v, e.Value(), "value for key '%s' is not equal", k)
@@ -50,8 +51,8 @@ func testMapIndex(t *testing.T) {
 
 func testMapIterator(t *testing.T) {
 	for _, m := range []*Map{
-		NewMapGeneric(dict),
-		NewMapDynamic(dict),
+		NewMapGeneric(dict).(*Map),
+		NewMapDynamic(dict).(*Map),
 	} {
 		// track which key is accessed
 		keys := make(map[string]bool, len(dict))

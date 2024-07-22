@@ -91,6 +91,10 @@ func NativeToVal(val any) ref.Val {
 		return NewMapGeneric(v)
 	case map[string]any:
 		return NewMapGeneric(v)
+
+	// Error
+	case error:
+		return WrapError(v)
 	}
 
 	// use reflect to also check primitive types (bool, int, float, string,...)
@@ -199,7 +203,7 @@ func NativeToVal(val any) ref.Val {
 		}
 
 	default:
-		return nil // Not supported data type
+		return NewError("un-supported value type %T", rawVal)
 	}
 }
 

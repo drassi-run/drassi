@@ -1,7 +1,6 @@
 package types
 
 import (
-	"fmt"
 	"reflect"
 	"strings"
 
@@ -20,7 +19,7 @@ type Struct struct {
 	typ reflect.Type
 }
 
-func NewStruct(value any) *Struct {
+func NewStruct(value any) ref.Val {
 	refVal := reflect.ValueOf(value)
 	switch refVal.Kind() {
 	case reflect.Struct:
@@ -33,8 +32,7 @@ func NewStruct(value any) *Struct {
 		}
 		fallthrough // error
 	default:
-		err := fmt.Errorf("expect a struct or pointer to struct, got %T: %w", value, errInvalidType)
-		panic(err)
+		return NewError("expect a struct or pointer to struct, got %T: %w", value, errInvalidType)
 	}
 	refTyp := refVal.Type()
 
@@ -103,13 +101,13 @@ func (s *Struct) IndexType() ref.Type {
 	return ref.TypeString
 }
 
-func (s *Struct) Get(index any) (ref.Val, error) {
+func (s *Struct) Get(index any) ref.Val {
 	idx, ok := index.(string)
 	if !ok {
-		return nil, fmt.Errorf("index must be a string, got %s (%[1]T): %w", index, errInvalidType)
+		return NewError("index must be a string, got %s (%[1]T): %w", index, errInvalidType)
 	}
 
-	return s.get(idx), nil
+	return s.get(idx)
 }
 
 func (s *Struct) get(idx string) ref.Val {

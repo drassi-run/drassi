@@ -15,7 +15,7 @@ func TestStruct(t *testing.T) {
 func testStructVal(t *testing.T) {
 	t.Run("value", func(t *testing.T) {
 		obj := S{}
-		s := NewStruct(obj)
+		s := NewStruct(obj).(*Struct)
 
 		assert.Equal(t, 6, s.Size())
 		assert.Equal(t, obj, s.Value()) // compare object value
@@ -28,7 +28,7 @@ func testStructVal(t *testing.T) {
 
 	t.Run("pointer", func(t *testing.T) {
 		obj := &S{}
-		s := NewStruct(obj)
+		s := NewStruct(obj).(*Struct)
 
 		assert.Equal(t, 6, s.Size())
 		assert.Equal(t, obj, s.Value()) // compare object value
@@ -74,12 +74,13 @@ func testStructIndex(t *testing.T) {
 	obj, m := fixtureTestStruct()
 
 	for _, s := range []*Struct{
-		NewStruct(obj),
-		NewStruct(&obj),
+		NewStruct(obj).(*Struct),
+		NewStruct(&obj).(*Struct),
 	} {
 		assert.EqualValues(t, ref.TypeString, s.IndexType())
 		for k, v := range m {
-			e, err := s.Get(k)
+			e := s.Get(k)
+			err, _ := e.(error)
 			assert.NoError(t, err, "error while get key '%s'", k)
 			assert.Equal(t, v, e.Value(), "value for key '%s' is not equal", k)
 		}
@@ -90,8 +91,8 @@ func testStructIterator(t *testing.T) {
 	obj, m := fixtureTestStruct()
 
 	for _, s := range []*Struct{
-		NewStruct(obj),
-		NewStruct(&obj),
+		NewStruct(obj).(*Struct),
+		NewStruct(&obj).(*Struct),
 	} {
 		// track which key is accessed
 		keys := make(map[string]bool, len(m))

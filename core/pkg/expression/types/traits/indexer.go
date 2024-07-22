@@ -8,5 +8,5 @@ type Indexer interface {
 	IndexType() ref.Type
 
 	// Get the value at the specified index or error.
-	Get(index any) (ref.Val, error)
+	Get(index any) ref.Val
 }

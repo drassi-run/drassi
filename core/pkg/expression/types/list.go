@@ -1,7 +1,6 @@
 package types
 
 import (
-	"fmt"
 	"reflect"
 
 	"drassi.run/core/pkg/expression/types/ref"
@@ -14,7 +13,7 @@ type List struct {
 	getter func(int) any
 }
 
-func NewListGeneric[L ~[]E, E any](elems L) *List {
+func NewListGeneric[L ~[]E, E any](elems L) ref.Val {
 	return &List{
 		value:  elems,
 		size:   len(elems),
@@ -22,12 +21,11 @@ func NewListGeneric[L ~[]E, E any](elems L) *List {
 	}
 }
 
-func NewListDynamic(value any) *List {
+func NewListDynamic(value any) ref.Val {
 	refVal := reflect.ValueOf(value)
 
 	if kind := refVal.Kind(); kind != reflect.Slice && kind != reflect.Array {
-		err := fmt.Errorf("expect a slice or array, got %T: %w", value, errInvalidType)
-		panic(err)
+		return NewError("expect a slice or array, got %T: %w", value, errInvalidType)
 	}
 
 	return &List{
@@ -75,15 +73,15 @@ func (l *List) IndexType() ref.Type {
 	return ref.TypeInteger
 }
 
-func (l *List) Get(index any) (ref.Val, error) {
+func (l *List) Get(index any) ref.Val {
 	idx, ok := index.(int)
 	if !ok {
-		return nil, fmt.Errorf("index must be an integer, got %s (%[1]T): %w", index, errInvalidType)
+		return NewError("index must be an integer, got %s (%[1]T): %w", index, errInvalidType)
 	}
 	if 0 > idx || idx >= l.size {
-		return nil, fmt.Errorf("list index out-of-range, size %d", l.size)
+		return NewError("list index out-of-range, size %d", l.size)
 	}
-	return l.get(idx), nil
+	return l.get(idx)
 }
 
 func (l *List) get(idx int) ref.Val {
