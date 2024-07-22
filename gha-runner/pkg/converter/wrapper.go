@@ -21,6 +21,7 @@ func (t *multiMapToken) Unravel(name string, supplier workflows.EvaluationSuppli
 		}
 		if m, ok := res.(map[string]any); ok {
 			maps.Copy(r, m)
+			continue
 		}
 		return nil, fmt.Errorf("expected token return a map[string]any, got %T", res)
 	}
