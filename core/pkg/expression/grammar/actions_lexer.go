@@ -1,4 +1,4 @@
-// Code generated from GHALexer.g4 by ANTLR 4.13.1. DO NOT EDIT.
+// Code generated from Actions.g4 by ANTLR 4.13.1. DO NOT EDIT.
 
 package grammar
 
@@ -14,14 +14,14 @@ var _ = fmt.Printf
 var _ = sync.Once{}
 var _ = unicode.IsLetter
 
-type GHALexer struct {
+type ActionsLexer struct {
 	*antlr.BaseLexer
 	channelNames []string
 	modeNames    []string
 	// TODO: EOF string
 }
 
-var GHALexerLexerStaticData struct {
+var ActionsLexerLexerStaticData struct {
 	once                   sync.Once
 	serializedATN          []int32
 	ChannelNames           []string
@@ -34,8 +34,8 @@ var GHALexerLexerStaticData struct {
 	decisionToDFA          []*antlr.DFA
 }
 
-func ghalexerLexerInit() {
-	staticData := &GHALexerLexerStaticData
+func actionslexerLexerInit() {
+	staticData := &ActionsLexerLexerStaticData
 	staticData.ChannelNames = []string{
 		"DEFAULT_TOKEN_CHANNEL", "HIDDEN",
 	}
@@ -188,56 +188,56 @@ func ghalexerLexerInit() {
 	}
 }
 
-// GHALexerInit initializes any static state used to implement GHALexer. By default the
+// ActionsLexerInit initializes any static state used to implement ActionsLexer. By default the
 // static state used to implement the lexer is lazily initialized during the first call to
-// NewGHALexer(). You can call this function if you wish to initialize the static state ahead
+// NewActionsLexer(). You can call this function if you wish to initialize the static state ahead
 // of time.
-func GHALexerInit() {
-	staticData := &GHALexerLexerStaticData
-	staticData.once.Do(ghalexerLexerInit)
+func ActionsLexerInit() {
+	staticData := &ActionsLexerLexerStaticData
+	staticData.once.Do(actionslexerLexerInit)
 }
 
-// NewGHALexer produces a new lexer instance for the optional input antlr.CharStream.
-func NewGHALexer(input antlr.CharStream) *GHALexer {
-	GHALexerInit()
-	l := new(GHALexer)
+// NewActionsLexer produces a new lexer instance for the optional input antlr.CharStream.
+func NewActionsLexer(input antlr.CharStream) *ActionsLexer {
+	ActionsLexerInit()
+	l := new(ActionsLexer)
 	l.BaseLexer = antlr.NewBaseLexer(input)
-	staticData := &GHALexerLexerStaticData
+	staticData := &ActionsLexerLexerStaticData
 	l.Interpreter = antlr.NewLexerATNSimulator(l, staticData.atn, staticData.decisionToDFA, staticData.PredictionContextCache)
 	l.channelNames = staticData.ChannelNames
 	l.modeNames = staticData.ModeNames
 	l.RuleNames = staticData.RuleNames
 	l.LiteralNames = staticData.LiteralNames
 	l.SymbolicNames = staticData.SymbolicNames
-	l.GrammarFileName = "GHALexer.g4"
+	l.GrammarFileName = "Actions.g4"
 	// TODO: l.EOF = antlr.TokenEOF
 
 	return l
 }
 
-// GHALexer tokens.
+// ActionsLexer tokens.
 const (
-	GHALexerWS         = 1
-	GHALexerLPAREN     = 2
-	GHALexerRPAREN     = 3
-	GHALexerLBRACK     = 4
-	GHALexerRBRACK     = 5
-	GHALexerCOMMA      = 6
-	GHALexerDOT        = 7
-	GHALexerEQUAL      = 8
-	GHALexerNOTEQUAL   = 9
-	GHALexerLT         = 10
-	GHALexerLTEQ       = 11
-	GHALexerGT         = 12
-	GHALexerGTEQ       = 13
-	GHALexerAND        = 14
-	GHALexerOR         = 15
-	GHALexerNOT        = 16
-	GHALexerWILDCARD   = 17
-	GHALexerNULL       = 18
-	GHALexerBOOLEAN    = 19
-	GHALexerINTEGER    = 20
-	GHALexerFLOAT      = 21
-	GHALexerSTRING     = 22
-	GHALexerIDENTIFIER = 23
+	ActionsLexerWS         = 1
+	ActionsLexerLPAREN     = 2
+	ActionsLexerRPAREN     = 3
+	ActionsLexerLBRACK     = 4
+	ActionsLexerRBRACK     = 5
+	ActionsLexerCOMMA      = 6
+	ActionsLexerDOT        = 7
+	ActionsLexerEQUAL      = 8
+	ActionsLexerNOTEQUAL   = 9
+	ActionsLexerLT         = 10
+	ActionsLexerLTEQ       = 11
+	ActionsLexerGT         = 12
+	ActionsLexerGTEQ       = 13
+	ActionsLexerAND        = 14
+	ActionsLexerOR         = 15
+	ActionsLexerNOT        = 16
+	ActionsLexerWILDCARD   = 17
+	ActionsLexerNULL       = 18
+	ActionsLexerBOOLEAN    = 19
+	ActionsLexerINTEGER    = 20
+	ActionsLexerFLOAT      = 21
+	ActionsLexerSTRING     = 22
+	ActionsLexerIDENTIFIER = 23
 )

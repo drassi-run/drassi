@@ -6,18 +6,18 @@ import (
 	"testing"
 )
 
-func TestGHAParser(t *testing.T) {
-	t.Run("literal", testGHAParserLiteral)
-	t.Run("identifier", testGHAParserIdentifier)
-	t.Run("wrap", testGHAParserWrap)
-	t.Run("logical-operator", testGHAParserLogicalOperator)
-	t.Run("comparison-operator", testGHAParserComparisonOperator)
-	t.Run("member", testGHAParserMember)
-	t.Run("function", testGHAParserFunction)
-	t.Run("error", testGHAParserError)
+func TestActionsParser(t *testing.T) {
+	t.Run("literal", testActionsParserLiteral)
+	t.Run("identifier", testActionsParserIdentifier)
+	t.Run("wrap", testActionsParserWrap)
+	t.Run("logical-operator", testActionsParserLogicalOperator)
+	t.Run("comparison-operator", testActionsParserComparisonOperator)
+	t.Run("member", testActionsParserMember)
+	t.Run("function", testActionsParserFunction)
+	t.Run("error", testActionsParserError)
 }
 
-func testGHAParserLiteral(t *testing.T) {
+func testActionsParserLiteral(t *testing.T) {
 	testcases := map[string]string{
 		`null`:     `L:null`,
 		`true`:     `L:true`,
@@ -27,11 +27,11 @@ func testGHAParserLiteral(t *testing.T) {
 	}
 
 	for input, expected := range testcases {
-		t.Run(input, testGHAParser(input, expected))
+		t.Run(input, testActionsParser(input, expected))
 	}
 }
 
-func testGHAParserIdentifier(t *testing.T) {
+func testActionsParserIdentifier(t *testing.T) {
 	testcases := map[string]string{
 		`abc123`:     `V:abc123`,
 		`_abc123`:    `V:_abc123`,
@@ -40,11 +40,11 @@ func testGHAParserIdentifier(t *testing.T) {
 	}
 
 	for input, expected := range testcases {
-		t.Run(input, testGHAParser(input, expected))
+		t.Run(input, testActionsParser(input, expected))
 	}
 }
 
-func testGHAParserWrap(t *testing.T) {
+func testActionsParserWrap(t *testing.T) {
 	testcases := map[string]string{
 		`(true)`:        `(W: L:true)`,
 		`(abc)`:         `(W: V:abc)`,
@@ -54,11 +54,11 @@ func testGHAParserWrap(t *testing.T) {
 	}
 
 	for input, expected := range testcases {
-		t.Run(input, testGHAParser(input, expected))
+		t.Run(input, testActionsParser(input, expected))
 	}
 }
 
-func testGHAParserLogicalOperator(t *testing.T) {
+func testActionsParserLogicalOperator(t *testing.T) {
 	testcases := map[string]string{
 		`!a`:          `(O:! V:a)`,
 		`a && b`:      `(O:&& V:a V:b)`,
@@ -75,11 +75,11 @@ func testGHAParserLogicalOperator(t *testing.T) {
 	}
 
 	for input, expected := range testcases {
-		t.Run(input, testGHAParser(input, expected))
+		t.Run(input, testActionsParser(input, expected))
 	}
 }
 
-func testGHAParserComparisonOperator(t *testing.T) {
+func testActionsParserComparisonOperator(t *testing.T) {
 	testcases := map[string]string{
 		`a < b`:  `(O:< V:a V:b)`,
 		`a <= b`: `(O:<= V:a V:b)`,
@@ -96,11 +96,11 @@ func testGHAParserComparisonOperator(t *testing.T) {
 	}
 
 	for input, expected := range testcases {
-		t.Run(input, testGHAParser(input, expected))
+		t.Run(input, testActionsParser(input, expected))
 	}
 }
 
-func testGHAParserMember(t *testing.T) {
+func testActionsParserMember(t *testing.T) {
 	testcases := map[string]string{
 		// PropertyAccess
 		`a.b`:   `(O:. V:a P:b)`,
@@ -129,11 +129,11 @@ func testGHAParserMember(t *testing.T) {
 	}
 
 	for input, expected := range testcases {
-		t.Run(input, testGHAParser(input, expected))
+		t.Run(input, testActionsParser(input, expected))
 	}
 }
 
-func testGHAParserFunction(t *testing.T) {
+func testActionsParserFunction(t *testing.T) {
 	testcases := map[string]string{
 		`func()`:       `(F:func)`,
 		`func(a)`:      `(F:func V:a)`,
@@ -145,11 +145,11 @@ func testGHAParserFunction(t *testing.T) {
 	}
 
 	for input, expected := range testcases {
-		t.Run(input, testGHAParser(input, expected))
+		t.Run(input, testActionsParser(input, expected))
 	}
 }
 
-func testGHAParserError(t *testing.T) {
+func testActionsParserError(t *testing.T) {
 	testcases := map[string]string{
 		// Literal error
 		`-0x123`: `L:-0 E:x123`, // hex is not accept sign (+/-)
@@ -181,16 +181,16 @@ func testGHAParserError(t *testing.T) {
 	}
 
 	for input, expected := range testcases {
-		t.Run(input, testGHAParser(input, expected))
+		t.Run(input, testActionsParser(input, expected))
 	}
 }
 
-func testGHAParser(input, expected string) func(t *testing.T) {
+func testActionsParser(input, expected string) func(t *testing.T) {
 	return func(t *testing.T) {
 		is := antlr.NewInputStream(input)
-		lexer := NewGHALexer(is)
+		lexer := NewActionsLexer(is)
 		tokens := antlr.NewCommonTokenStream(lexer, antlr.TokenDefaultChannel)
-		parser := NewGHAParser(tokens)
+		parser := NewActionsParser(tokens)
 		tree := parser.Expression()
 
 		//// ToStringTree print out a whole tree, not just a node, in LISP format

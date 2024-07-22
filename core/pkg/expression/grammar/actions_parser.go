@@ -1,6 +1,6 @@
-// Code generated from GHAParser.g4 by ANTLR 4.13.1. DO NOT EDIT.
+// Code generated from Actions.g4 by ANTLR 4.13.1. DO NOT EDIT.
 
-package grammar // GHAParser
+package grammar // Actions
 import (
 	"fmt"
 	"strconv"
@@ -14,11 +14,11 @@ var _ = fmt.Printf
 var _ = strconv.Itoa
 var _ = sync.Once{}
 
-type GHAParser struct {
+type ActionsParser struct {
 	*antlr.BaseParser
 }
 
-var GHAParserParserStaticData struct {
+var ActionsParserStaticData struct {
 	once                   sync.Once
 	serializedATN          []int32
 	LiteralNames           []string
@@ -29,8 +29,8 @@ var GHAParserParserStaticData struct {
 	decisionToDFA          []*antlr.DFA
 }
 
-func ghaparserParserInit() {
-	staticData := &GHAParserParserStaticData
+func actionsParserInit() {
+	staticData := &ActionsParserStaticData
 	staticData.LiteralNames = []string{
 		"", "", "'('", "')'", "'['", "']'", "','", "'.'", "'=='", "'!='", "'<'",
 		"'<='", "'>'", "'>='", "'&&'", "'||'", "'!'", "'*'", "'null'",
@@ -92,65 +92,65 @@ func ghaparserParserInit() {
 	}
 }
 
-// GHAParserInit initializes any static state used to implement GHAParser. By default the
+// ActionsParserInit initializes any static state used to implement ActionsParser. By default the
 // static state used to implement the parser is lazily initialized during the first call to
-// NewGHAParser(). You can call this function if you wish to initialize the static state ahead
+// NewActionsParser(). You can call this function if you wish to initialize the static state ahead
 // of time.
-func GHAParserInit() {
-	staticData := &GHAParserParserStaticData
-	staticData.once.Do(ghaparserParserInit)
+func ActionsParserInit() {
+	staticData := &ActionsParserStaticData
+	staticData.once.Do(actionsParserInit)
 }
 
-// NewGHAParser produces a new parser instance for the optional input antlr.TokenStream.
-func NewGHAParser(input antlr.TokenStream) *GHAParser {
-	GHAParserInit()
-	this := new(GHAParser)
+// NewActionsParser produces a new parser instance for the optional input antlr.TokenStream.
+func NewActionsParser(input antlr.TokenStream) *ActionsParser {
+	ActionsParserInit()
+	this := new(ActionsParser)
 	this.BaseParser = antlr.NewBaseParser(input)
-	staticData := &GHAParserParserStaticData
+	staticData := &ActionsParserStaticData
 	this.Interpreter = antlr.NewParserATNSimulator(this, staticData.atn, staticData.decisionToDFA, staticData.PredictionContextCache)
 	this.RuleNames = staticData.RuleNames
 	this.LiteralNames = staticData.LiteralNames
 	this.SymbolicNames = staticData.SymbolicNames
-	this.GrammarFileName = "GHAParser.g4"
+	this.GrammarFileName = "Actions.g4"
 
 	return this
 }
 
-// GHAParser tokens.
+// ActionsParser tokens.
 const (
-	GHAParserEOF        = antlr.TokenEOF
-	GHAParserWS         = 1
-	GHAParserLPAREN     = 2
-	GHAParserRPAREN     = 3
-	GHAParserLBRACK     = 4
-	GHAParserRBRACK     = 5
-	GHAParserCOMMA      = 6
-	GHAParserDOT        = 7
-	GHAParserEQUAL      = 8
-	GHAParserNOTEQUAL   = 9
-	GHAParserLT         = 10
-	GHAParserLTEQ       = 11
-	GHAParserGT         = 12
-	GHAParserGTEQ       = 13
-	GHAParserAND        = 14
-	GHAParserOR         = 15
-	GHAParserNOT        = 16
-	GHAParserWILDCARD   = 17
-	GHAParserNULL       = 18
-	GHAParserBOOLEAN    = 19
-	GHAParserINTEGER    = 20
-	GHAParserFLOAT      = 21
-	GHAParserSTRING     = 22
-	GHAParserIDENTIFIER = 23
+	ActionsParserEOF        = antlr.TokenEOF
+	ActionsParserWS         = 1
+	ActionsParserLPAREN     = 2
+	ActionsParserRPAREN     = 3
+	ActionsParserLBRACK     = 4
+	ActionsParserRBRACK     = 5
+	ActionsParserCOMMA      = 6
+	ActionsParserDOT        = 7
+	ActionsParserEQUAL      = 8
+	ActionsParserNOTEQUAL   = 9
+	ActionsParserLT         = 10
+	ActionsParserLTEQ       = 11
+	ActionsParserGT         = 12
+	ActionsParserGTEQ       = 13
+	ActionsParserAND        = 14
+	ActionsParserOR         = 15
+	ActionsParserNOT        = 16
+	ActionsParserWILDCARD   = 17
+	ActionsParserNULL       = 18
+	ActionsParserBOOLEAN    = 19
+	ActionsParserINTEGER    = 20
+	ActionsParserFLOAT      = 21
+	ActionsParserSTRING     = 22
+	ActionsParserIDENTIFIER = 23
 )
 
-// GHAParser rules.
+// ActionsParser rules.
 const (
-	GHAParserRULE_expression = 0
-	GHAParserRULE_expr       = 1
-	GHAParserRULE_exprAccess = 2
-	GHAParserRULE_identifier = 3
-	GHAParserRULE_literal    = 4
+	ActionsParserRULE_expression = 0
+	ActionsParserRULE_expr       = 1
+	ActionsParserRULE_exprAccess = 2
+	ActionsParserRULE_identifier = 3
+	ActionsParserRULE_literal    = 4
 )
 
 // IExpressionContext is an interface to support dynamic dispatch.
@@ -183,13 +183,13 @@ type ExpressionContext struct {
 func NewEmptyExpressionContext() *ExpressionContext {
 	var p = new(ExpressionContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = GHAParserRULE_expression
+	p.RuleIndex = ActionsParserRULE_expression
 	return p
 }
 
 func InitEmptyExpressionContext(p *ExpressionContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = GHAParserRULE_expression
+	p.RuleIndex = ActionsParserRULE_expression
 }
 
 func (*ExpressionContext) IsExpressionContext() {}
@@ -200,7 +200,7 @@ func NewExpressionContext(parser antlr.Parser, parent antlr.ParserRuleContext, i
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = GHAParserRULE_expression
+	p.RuleIndex = ActionsParserRULE_expression
 
 	return p
 }
@@ -212,7 +212,7 @@ func (s *ExpressionContext) GetE() IExprContext { return s.e }
 func (s *ExpressionContext) SetE(v IExprContext) { s.e = v }
 
 func (s *ExpressionContext) EOF() antlr.TerminalNode {
-	return s.GetToken(GHAParserEOF, 0)
+	return s.GetToken(ActionsParserEOF, 0)
 }
 
 func (s *ExpressionContext) Expr() IExprContext {
@@ -240,20 +240,20 @@ func (s *ExpressionContext) ToStringTree(ruleNames []string, recog antlr.Recogni
 }
 
 func (s *ExpressionContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(GHAParserListener); ok {
+	if listenerT, ok := listener.(ActionsListener); ok {
 		listenerT.EnterExpression(s)
 	}
 }
 
 func (s *ExpressionContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(GHAParserListener); ok {
+	if listenerT, ok := listener.(ActionsListener); ok {
 		listenerT.ExitExpression(s)
 	}
 }
 
 func (s *ExpressionContext) Accept(visitor antlr.ParseTreeVisitor) any {
 	switch t := visitor.(type) {
-	case GHAParserVisitor:
+	case ActionsVisitor:
 		return t.VisitExpression(s)
 
 	default:
@@ -261,9 +261,9 @@ func (s *ExpressionContext) Accept(visitor antlr.ParseTreeVisitor) any {
 	}
 }
 
-func (p *GHAParser) Expression() (localctx IExpressionContext) {
+func (p *ActionsParser) Expression() (localctx IExpressionContext) {
 	localctx = NewExpressionContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 0, GHAParserRULE_expression)
+	p.EnterRule(localctx, 0, ActionsParserRULE_expression)
 	p.EnterOuterAlt(localctx, 1)
 	{
 		p.SetState(10)
@@ -274,7 +274,7 @@ func (p *GHAParser) Expression() (localctx IExpressionContext) {
 	}
 	{
 		p.SetState(11)
-		p.Match(GHAParserEOF)
+		p.Match(ActionsParserEOF)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -335,13 +335,13 @@ type ExprContext struct {
 func NewEmptyExprContext() *ExprContext {
 	var p = new(ExprContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = GHAParserRULE_expr
+	p.RuleIndex = ActionsParserRULE_expr
 	return p
 }
 
 func InitEmptyExprContext(p *ExprContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = GHAParserRULE_expr
+	p.RuleIndex = ActionsParserRULE_expr
 }
 
 func (*ExprContext) IsExprContext() {}
@@ -352,7 +352,7 @@ func NewExprContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokin
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = GHAParserRULE_expr
+	p.RuleIndex = ActionsParserRULE_expr
 
 	return p
 }
@@ -421,7 +421,7 @@ func (s *ExprContext) Expr(i int) IExprContext {
 }
 
 func (s *ExprContext) NOT() antlr.TerminalNode {
-	return s.GetToken(GHAParserNOT, 0)
+	return s.GetToken(ActionsParserNOT, 0)
 }
 
 func (s *ExprContext) Literal() ILiteralContext {
@@ -441,35 +441,35 @@ func (s *ExprContext) Literal() ILiteralContext {
 }
 
 func (s *ExprContext) LT() antlr.TerminalNode {
-	return s.GetToken(GHAParserLT, 0)
+	return s.GetToken(ActionsParserLT, 0)
 }
 
 func (s *ExprContext) LTEQ() antlr.TerminalNode {
-	return s.GetToken(GHAParserLTEQ, 0)
+	return s.GetToken(ActionsParserLTEQ, 0)
 }
 
 func (s *ExprContext) GTEQ() antlr.TerminalNode {
-	return s.GetToken(GHAParserGTEQ, 0)
+	return s.GetToken(ActionsParserGTEQ, 0)
 }
 
 func (s *ExprContext) GT() antlr.TerminalNode {
-	return s.GetToken(GHAParserGT, 0)
+	return s.GetToken(ActionsParserGT, 0)
 }
 
 func (s *ExprContext) EQUAL() antlr.TerminalNode {
-	return s.GetToken(GHAParserEQUAL, 0)
+	return s.GetToken(ActionsParserEQUAL, 0)
 }
 
 func (s *ExprContext) NOTEQUAL() antlr.TerminalNode {
-	return s.GetToken(GHAParserNOTEQUAL, 0)
+	return s.GetToken(ActionsParserNOTEQUAL, 0)
 }
 
 func (s *ExprContext) AND() antlr.TerminalNode {
-	return s.GetToken(GHAParserAND, 0)
+	return s.GetToken(ActionsParserAND, 0)
 }
 
 func (s *ExprContext) OR() antlr.TerminalNode {
-	return s.GetToken(GHAParserOR, 0)
+	return s.GetToken(ActionsParserOR, 0)
 }
 
 func (s *ExprContext) GetRuleContext() antlr.RuleContext {
@@ -481,20 +481,20 @@ func (s *ExprContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) s
 }
 
 func (s *ExprContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(GHAParserListener); ok {
+	if listenerT, ok := listener.(ActionsListener); ok {
 		listenerT.EnterExpr(s)
 	}
 }
 
 func (s *ExprContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(GHAParserListener); ok {
+	if listenerT, ok := listener.(ActionsListener); ok {
 		listenerT.ExitExpr(s)
 	}
 }
 
 func (s *ExprContext) Accept(visitor antlr.ParseTreeVisitor) any {
 	switch t := visitor.(type) {
-	case GHAParserVisitor:
+	case ActionsVisitor:
 		return t.VisitExpr(s)
 
 	default:
@@ -502,11 +502,11 @@ func (s *ExprContext) Accept(visitor antlr.ParseTreeVisitor) any {
 	}
 }
 
-func (p *GHAParser) Expr() (localctx IExprContext) {
+func (p *ActionsParser) Expr() (localctx IExprContext) {
 	return p.expr(0)
 }
 
-func (p *GHAParser) expr(_p int) (localctx IExprContext) {
+func (p *ActionsParser) expr(_p int) (localctx IExprContext) {
 	var _parentctx antlr.ParserRuleContext = p.GetParserRuleContext()
 
 	_parentState := p.GetState()
@@ -514,7 +514,7 @@ func (p *GHAParser) expr(_p int) (localctx IExprContext) {
 	var _prevctx IExprContext = localctx
 	var _ antlr.ParserRuleContext = _prevctx // TODO: To prevent unused variable warning.
 	_startState := 2
-	p.EnterRecursionRule(localctx, 2, GHAParserRULE_expr, _p)
+	p.EnterRecursionRule(localctx, 2, ActionsParserRULE_expr, _p)
 	var _la int
 
 	var _alt int
@@ -527,17 +527,17 @@ func (p *GHAParser) expr(_p int) (localctx IExprContext) {
 	}
 
 	switch p.GetTokenStream().LA(1) {
-	case GHAParserLPAREN, GHAParserIDENTIFIER:
+	case ActionsParserLPAREN, ActionsParserIDENTIFIER:
 		{
 			p.SetState(14)
 			p.exprAccess(0)
 		}
 
-	case GHAParserNOT:
+	case ActionsParserNOT:
 		{
 			p.SetState(15)
 
-			var _m = p.Match(GHAParserNOT)
+			var _m = p.Match(ActionsParserNOT)
 
 			localctx.(*ExprContext).op = _m
 			if p.HasError() {
@@ -550,7 +550,7 @@ func (p *GHAParser) expr(_p int) (localctx IExprContext) {
 			p.expr(6)
 		}
 
-	case GHAParserNULL, GHAParserBOOLEAN, GHAParserINTEGER, GHAParserFLOAT, GHAParserSTRING:
+	case ActionsParserNULL, ActionsParserBOOLEAN, ActionsParserINTEGER, ActionsParserFLOAT, ActionsParserSTRING:
 		{
 			p.SetState(17)
 			p.Literal()
@@ -585,7 +585,7 @@ func (p *GHAParser) expr(_p int) (localctx IExprContext) {
 			switch p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 1, p.GetParserRuleContext()) {
 			case 1:
 				localctx = NewExprContext(p, _parentctx, _parentState)
-				p.PushNewRecursionContext(localctx, _startState, GHAParserRULE_expr)
+				p.PushNewRecursionContext(localctx, _startState, ActionsParserRULE_expr)
 				p.SetState(20)
 
 				if !(p.Precpred(p.GetParserRuleContext(), 5)) {
@@ -617,7 +617,7 @@ func (p *GHAParser) expr(_p int) (localctx IExprContext) {
 
 			case 2:
 				localctx = NewExprContext(p, _parentctx, _parentState)
-				p.PushNewRecursionContext(localctx, _startState, GHAParserRULE_expr)
+				p.PushNewRecursionContext(localctx, _startState, ActionsParserRULE_expr)
 				p.SetState(23)
 
 				if !(p.Precpred(p.GetParserRuleContext(), 4)) {
@@ -633,7 +633,7 @@ func (p *GHAParser) expr(_p int) (localctx IExprContext) {
 
 					_la = p.GetTokenStream().LA(1)
 
-					if !(_la == GHAParserEQUAL || _la == GHAParserNOTEQUAL) {
+					if !(_la == ActionsParserEQUAL || _la == ActionsParserNOTEQUAL) {
 						var _ri = p.GetErrorHandler().RecoverInline(p)
 
 						localctx.(*ExprContext).op = _ri
@@ -649,7 +649,7 @@ func (p *GHAParser) expr(_p int) (localctx IExprContext) {
 
 			case 3:
 				localctx = NewExprContext(p, _parentctx, _parentState)
-				p.PushNewRecursionContext(localctx, _startState, GHAParserRULE_expr)
+				p.PushNewRecursionContext(localctx, _startState, ActionsParserRULE_expr)
 				p.SetState(26)
 
 				if !(p.Precpred(p.GetParserRuleContext(), 3)) {
@@ -659,7 +659,7 @@ func (p *GHAParser) expr(_p int) (localctx IExprContext) {
 				{
 					p.SetState(27)
 
-					var _m = p.Match(GHAParserAND)
+					var _m = p.Match(ActionsParserAND)
 
 					localctx.(*ExprContext).op = _m
 					if p.HasError() {
@@ -674,7 +674,7 @@ func (p *GHAParser) expr(_p int) (localctx IExprContext) {
 
 			case 4:
 				localctx = NewExprContext(p, _parentctx, _parentState)
-				p.PushNewRecursionContext(localctx, _startState, GHAParserRULE_expr)
+				p.PushNewRecursionContext(localctx, _startState, ActionsParserRULE_expr)
 				p.SetState(29)
 
 				if !(p.Precpred(p.GetParserRuleContext(), 2)) {
@@ -684,7 +684,7 @@ func (p *GHAParser) expr(_p int) (localctx IExprContext) {
 				{
 					p.SetState(30)
 
-					var _m = p.Match(GHAParserOR)
+					var _m = p.Match(ActionsParserOR)
 
 					localctx.(*ExprContext).op = _m
 					if p.HasError() {
@@ -744,13 +744,13 @@ type ExprAccessContext struct {
 func NewEmptyExprAccessContext() *ExprAccessContext {
 	var p = new(ExprAccessContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = GHAParserRULE_exprAccess
+	p.RuleIndex = ActionsParserRULE_exprAccess
 	return p
 }
 
 func InitEmptyExprAccessContext(p *ExprAccessContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = GHAParserRULE_exprAccess
+	p.RuleIndex = ActionsParserRULE_exprAccess
 }
 
 func (*ExprAccessContext) IsExprAccessContext() {}
@@ -761,7 +761,7 @@ func NewExprAccessContext(parser antlr.Parser, parent antlr.ParserRuleContext, i
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = GHAParserRULE_exprAccess
+	p.RuleIndex = ActionsParserRULE_exprAccess
 
 	return p
 }
@@ -825,19 +825,19 @@ func (s *IndexAccessContext) ExprAccess() IExprAccessContext {
 }
 
 func (s *IndexAccessContext) AllLBRACK() []antlr.TerminalNode {
-	return s.GetTokens(GHAParserLBRACK)
+	return s.GetTokens(ActionsParserLBRACK)
 }
 
 func (s *IndexAccessContext) LBRACK(i int) antlr.TerminalNode {
-	return s.GetToken(GHAParserLBRACK, i)
+	return s.GetToken(ActionsParserLBRACK, i)
 }
 
 func (s *IndexAccessContext) AllRBRACK() []antlr.TerminalNode {
-	return s.GetTokens(GHAParserRBRACK)
+	return s.GetTokens(ActionsParserRBRACK)
 }
 
 func (s *IndexAccessContext) RBRACK(i int) antlr.TerminalNode {
-	return s.GetToken(GHAParserRBRACK, i)
+	return s.GetToken(ActionsParserRBRACK, i)
 }
 
 func (s *IndexAccessContext) AllExpr() []IExprContext {
@@ -882,20 +882,20 @@ func (s *IndexAccessContext) Expr(i int) IExprContext {
 }
 
 func (s *IndexAccessContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(GHAParserListener); ok {
+	if listenerT, ok := listener.(ActionsListener); ok {
 		listenerT.EnterIndexAccess(s)
 	}
 }
 
 func (s *IndexAccessContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(GHAParserListener); ok {
+	if listenerT, ok := listener.(ActionsListener); ok {
 		listenerT.ExitIndexAccess(s)
 	}
 }
 
 func (s *IndexAccessContext) Accept(visitor antlr.ParseTreeVisitor) any {
 	switch t := visitor.(type) {
-	case GHAParserVisitor:
+	case ActionsVisitor:
 		return t.VisitIndexAccess(s)
 
 	default:
@@ -948,11 +948,11 @@ func (s *FunctionCallContext) Identifier() IIdentifierContext {
 }
 
 func (s *FunctionCallContext) LPAREN() antlr.TerminalNode {
-	return s.GetToken(GHAParserLPAREN, 0)
+	return s.GetToken(ActionsParserLPAREN, 0)
 }
 
 func (s *FunctionCallContext) RPAREN() antlr.TerminalNode {
-	return s.GetToken(GHAParserRPAREN, 0)
+	return s.GetToken(ActionsParserRPAREN, 0)
 }
 
 func (s *FunctionCallContext) AllExpr() []IExprContext {
@@ -997,28 +997,28 @@ func (s *FunctionCallContext) Expr(i int) IExprContext {
 }
 
 func (s *FunctionCallContext) AllCOMMA() []antlr.TerminalNode {
-	return s.GetTokens(GHAParserCOMMA)
+	return s.GetTokens(ActionsParserCOMMA)
 }
 
 func (s *FunctionCallContext) COMMA(i int) antlr.TerminalNode {
-	return s.GetToken(GHAParserCOMMA, i)
+	return s.GetToken(ActionsParserCOMMA, i)
 }
 
 func (s *FunctionCallContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(GHAParserListener); ok {
+	if listenerT, ok := listener.(ActionsListener); ok {
 		listenerT.EnterFunctionCall(s)
 	}
 }
 
 func (s *FunctionCallContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(GHAParserListener); ok {
+	if listenerT, ok := listener.(ActionsListener); ok {
 		listenerT.ExitFunctionCall(s)
 	}
 }
 
 func (s *FunctionCallContext) Accept(visitor antlr.ParseTreeVisitor) any {
 	switch t := visitor.(type) {
-	case GHAParserVisitor:
+	case ActionsVisitor:
 		return t.VisitFunctionCall(s)
 
 	default:
@@ -1061,20 +1061,20 @@ func (s *VariableContext) Identifier() IIdentifierContext {
 }
 
 func (s *VariableContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(GHAParserListener); ok {
+	if listenerT, ok := listener.(ActionsListener); ok {
 		listenerT.EnterVariable(s)
 	}
 }
 
 func (s *VariableContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(GHAParserListener); ok {
+	if listenerT, ok := listener.(ActionsListener); ok {
 		listenerT.ExitVariable(s)
 	}
 }
 
 func (s *VariableContext) Accept(visitor antlr.ParseTreeVisitor) any {
 	switch t := visitor.(type) {
-	case GHAParserVisitor:
+	case ActionsVisitor:
 		return t.VisitVariable(s)
 
 	default:
@@ -1137,44 +1137,44 @@ func (s *PropertyAccessContext) ExprAccess() IExprAccessContext {
 }
 
 func (s *PropertyAccessContext) AllDOT() []antlr.TerminalNode {
-	return s.GetTokens(GHAParserDOT)
+	return s.GetTokens(ActionsParserDOT)
 }
 
 func (s *PropertyAccessContext) DOT(i int) antlr.TerminalNode {
-	return s.GetToken(GHAParserDOT, i)
+	return s.GetToken(ActionsParserDOT, i)
 }
 
 func (s *PropertyAccessContext) AllIDENTIFIER() []antlr.TerminalNode {
-	return s.GetTokens(GHAParserIDENTIFIER)
+	return s.GetTokens(ActionsParserIDENTIFIER)
 }
 
 func (s *PropertyAccessContext) IDENTIFIER(i int) antlr.TerminalNode {
-	return s.GetToken(GHAParserIDENTIFIER, i)
+	return s.GetToken(ActionsParserIDENTIFIER, i)
 }
 
 func (s *PropertyAccessContext) AllWILDCARD() []antlr.TerminalNode {
-	return s.GetTokens(GHAParserWILDCARD)
+	return s.GetTokens(ActionsParserWILDCARD)
 }
 
 func (s *PropertyAccessContext) WILDCARD(i int) antlr.TerminalNode {
-	return s.GetToken(GHAParserWILDCARD, i)
+	return s.GetToken(ActionsParserWILDCARD, i)
 }
 
 func (s *PropertyAccessContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(GHAParserListener); ok {
+	if listenerT, ok := listener.(ActionsListener); ok {
 		listenerT.EnterPropertyAccess(s)
 	}
 }
 
 func (s *PropertyAccessContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(GHAParserListener); ok {
+	if listenerT, ok := listener.(ActionsListener); ok {
 		listenerT.ExitPropertyAccess(s)
 	}
 }
 
 func (s *PropertyAccessContext) Accept(visitor antlr.ParseTreeVisitor) any {
 	switch t := visitor.(type) {
-	case GHAParserVisitor:
+	case ActionsVisitor:
 		return t.VisitPropertyAccess(s)
 
 	default:
@@ -1201,7 +1201,7 @@ func (s *WrapContext) GetRuleContext() antlr.RuleContext {
 }
 
 func (s *WrapContext) LPAREN() antlr.TerminalNode {
-	return s.GetToken(GHAParserLPAREN, 0)
+	return s.GetToken(ActionsParserLPAREN, 0)
 }
 
 func (s *WrapContext) Expr() IExprContext {
@@ -1221,24 +1221,24 @@ func (s *WrapContext) Expr() IExprContext {
 }
 
 func (s *WrapContext) RPAREN() antlr.TerminalNode {
-	return s.GetToken(GHAParserRPAREN, 0)
+	return s.GetToken(ActionsParserRPAREN, 0)
 }
 
 func (s *WrapContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(GHAParserListener); ok {
+	if listenerT, ok := listener.(ActionsListener); ok {
 		listenerT.EnterWrap(s)
 	}
 }
 
 func (s *WrapContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(GHAParserListener); ok {
+	if listenerT, ok := listener.(ActionsListener); ok {
 		listenerT.ExitWrap(s)
 	}
 }
 
 func (s *WrapContext) Accept(visitor antlr.ParseTreeVisitor) any {
 	switch t := visitor.(type) {
-	case GHAParserVisitor:
+	case ActionsVisitor:
 		return t.VisitWrap(s)
 
 	default:
@@ -1246,11 +1246,11 @@ func (s *WrapContext) Accept(visitor antlr.ParseTreeVisitor) any {
 	}
 }
 
-func (p *GHAParser) ExprAccess() (localctx IExprAccessContext) {
+func (p *ActionsParser) ExprAccess() (localctx IExprAccessContext) {
 	return p.exprAccess(0)
 }
 
-func (p *GHAParser) exprAccess(_p int) (localctx IExprAccessContext) {
+func (p *ActionsParser) exprAccess(_p int) (localctx IExprAccessContext) {
 	var _parentctx antlr.ParserRuleContext = p.GetParserRuleContext()
 
 	_parentState := p.GetState()
@@ -1258,7 +1258,7 @@ func (p *GHAParser) exprAccess(_p int) (localctx IExprAccessContext) {
 	var _prevctx IExprAccessContext = localctx
 	var _ antlr.ParserRuleContext = _prevctx // TODO: To prevent unused variable warning.
 	_startState := 4
-	p.EnterRecursionRule(localctx, 4, GHAParserRULE_exprAccess, _p)
+	p.EnterRecursionRule(localctx, 4, ActionsParserRULE_exprAccess, _p)
 	var _la int
 
 	var _alt int
@@ -1282,7 +1282,7 @@ func (p *GHAParser) exprAccess(_p int) (localctx IExprAccessContext) {
 		}
 		{
 			p.SetState(39)
-			p.Match(GHAParserLPAREN)
+			p.Match(ActionsParserLPAREN)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -1311,10 +1311,10 @@ func (p *GHAParser) exprAccess(_p int) (localctx IExprAccessContext) {
 			}
 			_la = p.GetTokenStream().LA(1)
 
-			for _la == GHAParserCOMMA {
+			for _la == ActionsParserCOMMA {
 				{
 					p.SetState(41)
-					p.Match(GHAParserCOMMA)
+					p.Match(ActionsParserCOMMA)
 					if p.HasError() {
 						// Recognition error - abort rule
 						goto errorExit
@@ -1340,7 +1340,7 @@ func (p *GHAParser) exprAccess(_p int) (localctx IExprAccessContext) {
 		}
 		{
 			p.SetState(50)
-			p.Match(GHAParserRPAREN)
+			p.Match(ActionsParserRPAREN)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -1353,7 +1353,7 @@ func (p *GHAParser) exprAccess(_p int) (localctx IExprAccessContext) {
 		_prevctx = localctx
 		{
 			p.SetState(52)
-			p.Match(GHAParserLPAREN)
+			p.Match(ActionsParserLPAREN)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -1365,7 +1365,7 @@ func (p *GHAParser) exprAccess(_p int) (localctx IExprAccessContext) {
 		}
 		{
 			p.SetState(54)
-			p.Match(GHAParserRPAREN)
+			p.Match(ActionsParserRPAREN)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -1409,7 +1409,7 @@ func (p *GHAParser) exprAccess(_p int) (localctx IExprAccessContext) {
 			switch p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 8, p.GetParserRuleContext()) {
 			case 1:
 				localctx = NewPropertyAccessContext(p, NewExprAccessContext(p, _parentctx, _parentState))
-				p.PushNewRecursionContext(localctx, _startState, GHAParserRULE_exprAccess)
+				p.PushNewRecursionContext(localctx, _startState, ActionsParserRULE_exprAccess)
 				p.SetState(59)
 
 				if !(p.Precpred(p.GetParserRuleContext(), 5)) {
@@ -1427,7 +1427,7 @@ func (p *GHAParser) exprAccess(_p int) (localctx IExprAccessContext) {
 					case 1:
 						{
 							p.SetState(60)
-							p.Match(GHAParserDOT)
+							p.Match(ActionsParserDOT)
 							if p.HasError() {
 								// Recognition error - abort rule
 								goto errorExit
@@ -1442,7 +1442,7 @@ func (p *GHAParser) exprAccess(_p int) (localctx IExprAccessContext) {
 
 							_la = p.GetTokenStream().LA(1)
 
-							if !(_la == GHAParserWILDCARD || _la == GHAParserIDENTIFIER) {
+							if !(_la == ActionsParserWILDCARD || _la == ActionsParserIDENTIFIER) {
 								var _ri = p.GetErrorHandler().RecoverInline(p)
 
 								localctx.(*PropertyAccessContext)._tset113 = _ri
@@ -1468,7 +1468,7 @@ func (p *GHAParser) exprAccess(_p int) (localctx IExprAccessContext) {
 
 			case 2:
 				localctx = NewIndexAccessContext(p, NewExprAccessContext(p, _parentctx, _parentState))
-				p.PushNewRecursionContext(localctx, _startState, GHAParserRULE_exprAccess)
+				p.PushNewRecursionContext(localctx, _startState, ActionsParserRULE_exprAccess)
 				p.SetState(66)
 
 				if !(p.Precpred(p.GetParserRuleContext(), 4)) {
@@ -1486,7 +1486,7 @@ func (p *GHAParser) exprAccess(_p int) (localctx IExprAccessContext) {
 					case 1:
 						{
 							p.SetState(67)
-							p.Match(GHAParserLBRACK)
+							p.Match(ActionsParserLBRACK)
 							if p.HasError() {
 								// Recognition error - abort rule
 								goto errorExit
@@ -1502,7 +1502,7 @@ func (p *GHAParser) exprAccess(_p int) (localctx IExprAccessContext) {
 						localctx.(*IndexAccessContext).indexes = append(localctx.(*IndexAccessContext).indexes, localctx.(*IndexAccessContext)._expr)
 						{
 							p.SetState(69)
-							p.Match(GHAParserRBRACK)
+							p.Match(ActionsParserRBRACK)
 							if p.HasError() {
 								// Recognition error - abort rule
 								goto errorExit
@@ -1573,13 +1573,13 @@ type IdentifierContext struct {
 func NewEmptyIdentifierContext() *IdentifierContext {
 	var p = new(IdentifierContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = GHAParserRULE_identifier
+	p.RuleIndex = ActionsParserRULE_identifier
 	return p
 }
 
 func InitEmptyIdentifierContext(p *IdentifierContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = GHAParserRULE_identifier
+	p.RuleIndex = ActionsParserRULE_identifier
 }
 
 func (*IdentifierContext) IsIdentifierContext() {}
@@ -1590,7 +1590,7 @@ func NewIdentifierContext(parser antlr.Parser, parent antlr.ParserRuleContext, i
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = GHAParserRULE_identifier
+	p.RuleIndex = ActionsParserRULE_identifier
 
 	return p
 }
@@ -1598,7 +1598,7 @@ func NewIdentifierContext(parser antlr.Parser, parent antlr.ParserRuleContext, i
 func (s *IdentifierContext) GetParser() antlr.Parser { return s.parser }
 
 func (s *IdentifierContext) IDENTIFIER() antlr.TerminalNode {
-	return s.GetToken(GHAParserIDENTIFIER, 0)
+	return s.GetToken(ActionsParserIDENTIFIER, 0)
 }
 
 func (s *IdentifierContext) GetRuleContext() antlr.RuleContext {
@@ -1610,20 +1610,20 @@ func (s *IdentifierContext) ToStringTree(ruleNames []string, recog antlr.Recogni
 }
 
 func (s *IdentifierContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(GHAParserListener); ok {
+	if listenerT, ok := listener.(ActionsListener); ok {
 		listenerT.EnterIdentifier(s)
 	}
 }
 
 func (s *IdentifierContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(GHAParserListener); ok {
+	if listenerT, ok := listener.(ActionsListener); ok {
 		listenerT.ExitIdentifier(s)
 	}
 }
 
 func (s *IdentifierContext) Accept(visitor antlr.ParseTreeVisitor) any {
 	switch t := visitor.(type) {
-	case GHAParserVisitor:
+	case ActionsVisitor:
 		return t.VisitIdentifier(s)
 
 	default:
@@ -1631,13 +1631,13 @@ func (s *IdentifierContext) Accept(visitor antlr.ParseTreeVisitor) any {
 	}
 }
 
-func (p *GHAParser) Identifier() (localctx IIdentifierContext) {
+func (p *ActionsParser) Identifier() (localctx IIdentifierContext) {
 	localctx = NewIdentifierContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 6, GHAParserRULE_identifier)
+	p.EnterRule(localctx, 6, ActionsParserRULE_identifier)
 	p.EnterOuterAlt(localctx, 1)
 	{
 		p.SetState(80)
-		p.Match(GHAParserIDENTIFIER)
+		p.Match(ActionsParserIDENTIFIER)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -1683,13 +1683,13 @@ type LiteralContext struct {
 func NewEmptyLiteralContext() *LiteralContext {
 	var p = new(LiteralContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = GHAParserRULE_literal
+	p.RuleIndex = ActionsParserRULE_literal
 	return p
 }
 
 func InitEmptyLiteralContext(p *LiteralContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = GHAParserRULE_literal
+	p.RuleIndex = ActionsParserRULE_literal
 }
 
 func (*LiteralContext) IsLiteralContext() {}
@@ -1700,7 +1700,7 @@ func NewLiteralContext(parser antlr.Parser, parent antlr.ParserRuleContext, invo
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = GHAParserRULE_literal
+	p.RuleIndex = ActionsParserRULE_literal
 
 	return p
 }
@@ -1708,23 +1708,23 @@ func NewLiteralContext(parser antlr.Parser, parent antlr.ParserRuleContext, invo
 func (s *LiteralContext) GetParser() antlr.Parser { return s.parser }
 
 func (s *LiteralContext) STRING() antlr.TerminalNode {
-	return s.GetToken(GHAParserSTRING, 0)
+	return s.GetToken(ActionsParserSTRING, 0)
 }
 
 func (s *LiteralContext) INTEGER() antlr.TerminalNode {
-	return s.GetToken(GHAParserINTEGER, 0)
+	return s.GetToken(ActionsParserINTEGER, 0)
 }
 
 func (s *LiteralContext) FLOAT() antlr.TerminalNode {
-	return s.GetToken(GHAParserFLOAT, 0)
+	return s.GetToken(ActionsParserFLOAT, 0)
 }
 
 func (s *LiteralContext) BOOLEAN() antlr.TerminalNode {
-	return s.GetToken(GHAParserBOOLEAN, 0)
+	return s.GetToken(ActionsParserBOOLEAN, 0)
 }
 
 func (s *LiteralContext) NULL() antlr.TerminalNode {
-	return s.GetToken(GHAParserNULL, 0)
+	return s.GetToken(ActionsParserNULL, 0)
 }
 
 func (s *LiteralContext) GetRuleContext() antlr.RuleContext {
@@ -1736,20 +1736,20 @@ func (s *LiteralContext) ToStringTree(ruleNames []string, recog antlr.Recognizer
 }
 
 func (s *LiteralContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(GHAParserListener); ok {
+	if listenerT, ok := listener.(ActionsListener); ok {
 		listenerT.EnterLiteral(s)
 	}
 }
 
 func (s *LiteralContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(GHAParserListener); ok {
+	if listenerT, ok := listener.(ActionsListener); ok {
 		listenerT.ExitLiteral(s)
 	}
 }
 
 func (s *LiteralContext) Accept(visitor antlr.ParseTreeVisitor) any {
 	switch t := visitor.(type) {
-	case GHAParserVisitor:
+	case ActionsVisitor:
 		return t.VisitLiteral(s)
 
 	default:
@@ -1757,9 +1757,9 @@ func (s *LiteralContext) Accept(visitor antlr.ParseTreeVisitor) any {
 	}
 }
 
-func (p *GHAParser) Literal() (localctx ILiteralContext) {
+func (p *ActionsParser) Literal() (localctx ILiteralContext) {
 	localctx = NewLiteralContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 8, GHAParserRULE_literal)
+	p.EnterRule(localctx, 8, ActionsParserRULE_literal)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
@@ -1788,7 +1788,7 @@ errorExit:
 	goto errorExit // Trick to prevent compiler error if the label is not used
 }
 
-func (p *GHAParser) Sempred(localctx antlr.RuleContext, ruleIndex, predIndex int) bool {
+func (p *ActionsParser) Sempred(localctx antlr.RuleContext, ruleIndex, predIndex int) bool {
 	switch ruleIndex {
 	case 1:
 		var t *ExprContext = nil
@@ -1809,7 +1809,7 @@ func (p *GHAParser) Sempred(localctx antlr.RuleContext, ruleIndex, predIndex int
 	}
 }
 
-func (p *GHAParser) Expr_Sempred(localctx antlr.RuleContext, predIndex int) bool {
+func (p *ActionsParser) Expr_Sempred(localctx antlr.RuleContext, predIndex int) bool {
 	switch predIndex {
 	case 0:
 		return p.Precpred(p.GetParserRuleContext(), 5)
@@ -1828,7 +1828,7 @@ func (p *GHAParser) Expr_Sempred(localctx antlr.RuleContext, predIndex int) bool
 	}
 }
 
-func (p *GHAParser) ExprAccess_Sempred(localctx antlr.RuleContext, predIndex int) bool {
+func (p *ActionsParser) ExprAccess_Sempred(localctx antlr.RuleContext, predIndex int) bool {
 	switch predIndex {
 	case 4:
 		return p.Precpred(p.GetParserRuleContext(), 5)

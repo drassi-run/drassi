@@ -1,10 +1,10 @@
-// Code generated from GHAParser.g4 by ANTLR 4.13.1. DO NOT EDIT.
+// Code generated from Actions.g4 by ANTLR 4.13.1. DO NOT EDIT.
 
-package grammar // GHAParser
+package grammar // Actions
 import "github.com/antlr4-go/antlr/v4"
 
-// GHAParserListener is a complete listener for a parse tree produced by GHAParser.
-type GHAParserListener interface {
+// ActionsListener is a complete listener for a parse tree produced by ActionsParser.
+type ActionsListener interface {
 	antlr.ParseTreeListener
 
 	// EnterExpression is called when entering the expression production.

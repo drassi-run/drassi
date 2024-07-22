@@ -11,23 +11,23 @@ type testToken struct {
 	Text string
 }
 
-func TestGHALexer(t *testing.T) {
-	t.Run("null", testGHALexer("null", []testToken{{Type: GHALexerNULL, Text: "null"}}))
-	t.Run("bool", testGHALexerBool)
-	t.Run("integer", testGHALexerInteger)
-	t.Run("float", testGHALexerFloat)
-	t.Run("string", testGHALexerString)
-	t.Run("identifier", testGHALexerIdentifier)
+func TestActionsLexer(t *testing.T) {
+	t.Run("null", testActionsLexer("null", []testToken{{Type: ActionsLexerNULL, Text: "null"}}))
+	t.Run("bool", testActionsLexerBool)
+	t.Run("integer", testActionsLexerInteger)
+	t.Run("float", testActionsLexerFloat)
+	t.Run("string", testActionsLexerString)
+	t.Run("identifier", testActionsLexerIdentifier)
 }
 
-func testGHALexerBool(t *testing.T) {
+func testActionsLexerBool(t *testing.T) {
 	for _, s := range []string{"true", "false"} {
-		token := testToken{Type: GHALexerBOOLEAN, Text: s}
-		t.Run(s, testGHALexer(s, []testToken{token}))
+		token := testToken{Type: ActionsLexerBOOLEAN, Text: s}
+		t.Run(s, testActionsLexer(s, []testToken{token}))
 	}
 }
 
-func testGHALexerInteger(t *testing.T) {
+func testActionsLexerInteger(t *testing.T) {
 	testcases := map[string]string{
 		"normal":    "1234",
 		"sign+":     "+1234",
@@ -38,12 +38,12 @@ func testGHALexerInteger(t *testing.T) {
 		"oct":       "0o126",
 	}
 	for name, input := range testcases {
-		token := testToken{Type: GHALexerINTEGER, Text: input}
-		t.Run(name, testGHALexer(input, []testToken{token}))
+		token := testToken{Type: ActionsLexerINTEGER, Text: input}
+		t.Run(name, testActionsLexer(input, []testToken{token}))
 	}
 }
 
-func testGHALexerString(t *testing.T) {
+func testActionsLexerString(t *testing.T) {
 	testcases := map[string]string{
 		"empty":        "''",
 		"single-quote": "''''",
@@ -52,12 +52,12 @@ func testGHALexerString(t *testing.T) {
 		"raw":          `'foo bar\tbaz\nquz'`,
 	}
 	for name, input := range testcases {
-		token := testToken{Type: GHALexerSTRING, Text: input}
-		t.Run(name, testGHALexer(input, []testToken{token}))
+		token := testToken{Type: ActionsLexerSTRING, Text: input}
+		t.Run(name, testActionsLexer(input, []testToken{token}))
 	}
 }
 
-func testGHALexerIdentifier(t *testing.T) {
+func testActionsLexerIdentifier(t *testing.T) {
 	testcases := map[string]string{
 		"single_letter": "f",
 		"ignore":        "_",
@@ -67,20 +67,20 @@ func testGHALexerIdentifier(t *testing.T) {
 		"hyphen":        "foo-123",
 	}
 	for name, input := range testcases {
-		token := testToken{Type: GHALexerIDENTIFIER, Text: input}
-		t.Run(name, testGHALexer(input, []testToken{token}))
+		token := testToken{Type: ActionsLexerIDENTIFIER, Text: input}
+		t.Run(name, testActionsLexer(input, []testToken{token}))
 	}
 }
 
-func testGHALexerFloat(t *testing.T) {
+func testActionsLexerFloat(t *testing.T) {
 	testcases := map[string]string{
 		"inf":  "Infinity",
 		"-inf": "-Infinity",
 		"NaN":  "NaN",
 	}
 	for name, input := range testcases {
-		token := testToken{Type: GHALexerFLOAT, Text: input}
-		t.Run(name, testGHALexer(input, []testToken{token}))
+		token := testToken{Type: ActionsLexerFLOAT, Text: input}
+		t.Run(name, testActionsLexer(input, []testToken{token}))
 	}
 
 	var numbers []string
@@ -95,15 +95,15 @@ func testGHALexerFloat(t *testing.T) {
 		}
 	}
 	for _, input := range numbers {
-		token := testToken{Type: GHALexerFLOAT, Text: input}
-		t.Run(input, testGHALexer(input, []testToken{token}))
+		token := testToken{Type: ActionsLexerFLOAT, Text: input}
+		t.Run(input, testActionsLexer(input, []testToken{token}))
 	}
 }
 
-func testGHALexer(input string, expected []testToken) func(t *testing.T) {
+func testActionsLexer(input string, expected []testToken) func(t *testing.T) {
 	return func(t *testing.T) {
 		is := antlr.NewInputStream(input)
-		lexer := NewGHALexer(is)
+		lexer := NewActionsLexer(is)
 		cts := antlr.NewCommonTokenStream(lexer, antlr.TokenDefaultChannel)
 		cts.Fill()
 		tokens := cts.GetAllTokens()

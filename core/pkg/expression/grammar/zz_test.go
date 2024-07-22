@@ -17,7 +17,7 @@ import (
 //   - W: Wrap
 //   - E: Error
 type printListener struct {
-	BaseGHAParserListener
+	BaseActionsListener
 	b strings.Builder
 }
 
