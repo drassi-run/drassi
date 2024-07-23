@@ -57,6 +57,7 @@ func Format(fmt ref.LazyVal, args ...ref.LazyVal) ref.Val {
 
 		case placeHolder:
 			if c != '}' {
+				// short-circuit to detect invalid format
 				if !unicode.IsDigit(c) {
 					return types.WrapError(errInvalidFormat)
 				}
@@ -68,7 +69,7 @@ func Format(fmt ref.LazyVal, args ...ref.LazyVal) ref.Val {
 				return types.NewError("%w: %w", errInvalidFormat, err)
 			}
 			if index < 0 || index >= len(args) {
-				return types.NewError("index out of range: [0..%d), got %d", len(args), index)
+				return types.NewError("index out of range: %d in [0..%d)", index, len(args))
 			}
 
 			// compute args & cache result
