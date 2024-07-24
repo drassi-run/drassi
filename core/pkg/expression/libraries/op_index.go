@@ -1,67 +1,127 @@
 package libraries
 
 import (
+	"math"
+
 	"drassi.run/core/pkg/expression/types"
 	"drassi.run/core/pkg/expression/types/ref"
 	"drassi.run/core/pkg/expression/types/traits"
-	"math"
 )
 
 const wildcard = types.String("*")
 
-func Index(args []ref.LazyVal) ref.Val {
-	if len(args) == 0 {
-		return types.NewError("missing args")
-	}
-	value := args[0]()
-	if value.Type() == ref.TypeInvalid {
-		return value
-	}
+func Index(object ref.LazyVal, indexes ...ref.LazyVal) ref.Val {
+	value := object()
 
-	for _, arg := range args[1:] {
-		idx := arg()
-		if value.Type() == ref.TypeInvalid {
+	filterMode := false
+	for _, index := range indexes {
+		if value.Type() == ref.TypeInvalid || value.Type() == ref.TypeNull {
 			return value
 		}
 
-		if wildcard.Equal(idx) {
-			value = wildcardMember(value)
+		idx := index()
+		if idx.Type() == ref.TypeInvalid {
+			return idx
+		}
+
+		if !filterMode {
+			if !wildcard.Equal(idx) {
+				value = selectMember(value, idx)
+			} else {
+				value = wildcardMember(value)
+				filterMode = true
+			}
 		} else {
-			value = indexMember(value, idx)
+			iterable, ok := value.(traits.Iterable)
+			if !ok {
+				return types.NULL // should never be reached here
+			}
+
+			children := make([]any, 0)
+			it := iterable.Iterator()
+			for it.HasNext() {
+				_, item := it.Next()
+				if item.Type() == ref.TypeInvalid {
+					return item
+				}
+
+				err := extractMembers(item, idx, func(v any) {
+					if v != nil {
+						children = append(children, v)
+					}
+				})
+				if err != nil {
+					return err
+				}
+			}
+
+			value = types.NewListGeneric(children)
 		}
 	}
 
 	return value
 }
 
-func indexMember(value ref.Val, index ref.Val) ref.Val {
-	if value.Type() == ref.TypeNull {
-		return value
-	}
+func selectMember(value ref.Val, index ref.Val) ref.Val {
 	if indexer, ok := value.(traits.Indexer); ok {
 		idxType := indexer.IndexType()
 		idx := coerceIndex(index, idxType)
-		if idx == nil {
-			return types.NULL
-		}
 
-		return indexer.Get(idx)
+		if idx != nil {
+			return indexer.Get(idx)
+		}
 	}
 	return types.NULL
 }
 
 func wildcardMember(value ref.Val) ref.Val {
+	if value.Type() == ref.TypeList {
+		return value
+	}
+
 	if iterable, ok := value.(traits.Iterable); ok {
+		list := make([]any, 0)
+
 		it := iterable.Iterator()
 		for it.HasNext() {
-			_, _ = it.Next()
-			// TODO implement it
+			_, v := it.Next()
+			list = append(list, v)
 		}
+
+		return types.NewListGeneric(list)
 	}
 
 	return types.NULL
 }
 
+// TODO use iter.Seq when go1.23 released
+func extractMembers(value, idx ref.Val, fn func(any)) ref.Val {
+	if !wildcard.Equal(idx) {
+		member := selectMember(value, idx)
+		if member.Type() == ref.TypeInvalid {
+			return member
+		}
+		fn(member.Value())
+		return nil
+	}
+
+	// wildcard index on Iterable value
+	if iterable, ok := value.(traits.Iterable); ok {
+		it := iterable.Iterator()
+		for it.HasNext() {
+			_, member := it.Next()
+			if member.Type() == ref.TypeInvalid {
+				return member
+			}
+			fn(member.Value())
+		}
+		return nil
+	}
+
+	return nil
+}
+
+//goland:noinspection GoSwitchMissingCasesForIotaConsts
 func coerceIndex(index ref.Val, typ ref.Type) any {
 	switch typ {
 	case ref.TypeInteger:
