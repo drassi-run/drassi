@@ -1,43 +1,45 @@
 package libraries
 
-import "drassi.run/core/pkg/model/dossiers"
+import (
+	"drassi.run/core/pkg/expression/types"
+	"drassi.run/core/pkg/expression/types/ref"
+	"drassi.run/core/pkg/model/dossiers"
+)
 
-type JobStatus struct {
-	jobInfo *dossiers.Job
+func (lib *jobLib) Always() ref.Val {
+	return types.TRUE
 }
 
-func (s *JobStatus) Always() bool {
-	return true
+func (lib *jobLib) Success() ref.Val {
+	r := lib.info.Status == dossiers.ResultSuccess
+	return types.Boolean(r)
 }
 
-func (s *JobStatus) Success() bool {
-	return s.jobInfo.Status == dossiers.ResultSuccess
+func (lib *jobLib) Failure() ref.Val {
+	r := lib.info.Status == dossiers.ResultFailure
+	return types.Boolean(r)
 }
 
-func (s *JobStatus) Failure() bool {
-	return s.jobInfo.Status == dossiers.ResultFailure
+func (lib *jobLib) Cancelled() ref.Val {
+	r := lib.info.Status == dossiers.ResultCancelled
+	return types.Boolean(r)
 }
 
-func (s *JobStatus) Cancelled() bool {
-	return s.jobInfo.Status == dossiers.ResultCancelled
+func (lib *stepLib) Always() ref.Val {
+	return types.TRUE
 }
 
-type StepStatus struct {
-	gh *dossiers.Github
+func (lib *stepLib) Success() ref.Val {
+	r := lib.info.ActionStatus == dossiers.ResultSuccess
+	return types.Boolean(r)
 }
 
-func (s *StepStatus) Always() bool {
-	return true
+func (lib *stepLib) Failure() ref.Val {
+	r := lib.info.ActionStatus == dossiers.ResultFailure
+	return types.Boolean(r)
 }
 
-func (s *StepStatus) Success() bool {
-	return s.gh.ActionStatus == dossiers.ResultSuccess
-}
-
-func (s *StepStatus) Failure() bool {
-	return s.gh.ActionStatus == dossiers.ResultFailure
-}
-
-func (s *StepStatus) Cancelled() bool {
-	return s.gh.ActionStatus == dossiers.ResultCancelled
+func (lib *stepLib) Cancelled() ref.Val {
+	r := lib.info.ActionStatus == dossiers.ResultCancelled
+	return types.Boolean(r)
 }
