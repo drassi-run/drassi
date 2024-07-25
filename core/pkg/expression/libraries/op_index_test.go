@@ -9,12 +9,18 @@ import (
 	"testing"
 )
 
+type object struct {
+	Name string `json:"name"`
+	Age  int    `json:"age"`
+}
+
 var listString = []string{"zero", "one", "two", "three"}
 var listInt = []int64{10, 11, 12, 13, 14, 15}
 var listUint = []int64{10, 11, 12, 13, 14, 15} // dynamic list (reflection)
 var listFloat = []float64{0.1, 1.7, 3.14}
 var mapSS = map[string]string{"zero": "zeroth", "one": "first", "two": "second", "three": "third"}
 var mapIS = map[int64]string{0: "zeroth", 1: "first", 2: "second", 3: "third"} // dynamic map (reflection)
+var objectX = &object{Name: "drassi", Age: 0}
 
 func TestIndex(t *testing.T) {
 	t.Run("normal", testIndexNormal)

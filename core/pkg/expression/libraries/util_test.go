@@ -35,9 +35,9 @@ var values = []weakTypeConversion{
 	{"-Infinity", true, false, math.Inf(-1), "-Infinity"},
 	{"Infinity", true, false, math.Inf(1), "Infinity"},
 	{"NaN", true, false, math.NaN(), "NaN"},
-	{[]any{}, true, false, math.NaN(), "array"},
-	{map[string]any{}, true, false, math.NaN(), "object"},
-	{&weakTypeConversion{}, true, false, math.NaN(), "object"},
+	{listInt, true, false, math.NaN(), "array"},
+	{mapSS, true, false, math.NaN(), "object"},
+	{objectX, true, false, math.NaN(), "object"},
 }
 
 func TestValue(t *testing.T) {

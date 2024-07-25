@@ -6,7 +6,7 @@ import (
 	"drassi.run/core/pkg/expression/types/traits"
 )
 
-func LogicalAnd(operands []ref.LazyVal) ref.Val {
+func LogicalAnd(operands ...ref.LazyVal) ref.Val {
 	var res ref.Val = types.NULL
 
 	for _, o := range operands {
@@ -21,7 +21,7 @@ func LogicalAnd(operands []ref.LazyVal) ref.Val {
 	return res
 }
 
-func LogicalOr(operands []ref.LazyVal) ref.Val {
+func LogicalOr(operands ...ref.LazyVal) ref.Val {
 	var res ref.Val = types.NULL
 
 	for _, o := range operands {
@@ -43,10 +43,11 @@ func LogicalNot(operand ref.Val) ref.Val {
 
 func isTruthy(v ref.Val) bool {
 	b, ok := v.(traits.Logical)
-	return ok && b.ToBoolean()
+	// non-Logical value e.g. List or Map, it's treated as `true`
+	return !ok || b.ToBoolean()
 }
 
 func isFalsy(v ref.Val) bool {
 	b, ok := v.(traits.Logical)
-	return !ok || !b.ToBoolean()
+	return ok && !b.ToBoolean()
 }
