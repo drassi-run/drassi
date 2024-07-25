@@ -47,7 +47,10 @@ func (a *genericMapAccessor[M, K, V]) Get(index any) ref.Val {
 }
 
 func (a *genericMapAccessor[M, K, V]) get(idx K) ref.Val {
-	e := a.instance[idx]
+	e, ok := a.instance[idx]
+	if !ok {
+		return NULL
+	}
 	return NativeToVal(e)
 }
 

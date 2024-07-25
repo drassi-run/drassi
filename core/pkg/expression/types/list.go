@@ -78,8 +78,8 @@ func (l *List) Get(index any) ref.Val {
 	if !ok {
 		return NewError("index must be an integer, got %s (%[1]T): %w", index, errInvalidType)
 	}
-	if 0 > idx || idx >= l.size {
-		return NewError("list index out-of-range, size %d", l.size)
+	if idx < 0 || idx >= l.size {
+		return NULL
 	}
 	return l.get(idx)
 }

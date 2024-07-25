@@ -73,7 +73,13 @@ func NativeToVal(val any) ref.Val {
 		return NewListGeneric(v)
 	case []string:
 		return NewListGeneric(v)
+	case []int:
+		return NewListGeneric(v)
+	case []int32:
+		return NewListGeneric(v)
 	case []int64:
+		return NewListGeneric(v)
+	case []float32:
 		return NewListGeneric(v)
 	case []float64:
 		return NewListGeneric(v)
@@ -85,7 +91,13 @@ func NativeToVal(val any) ref.Val {
 		return NewMapGeneric(v)
 	case map[string]string:
 		return NewMapGeneric(v)
+	case map[string]int:
+		return NewMapGeneric(v)
+	case map[string]int32:
+		return NewMapGeneric(v)
 	case map[string]int64:
+		return NewMapGeneric(v)
+	case map[string]float32:
 		return NewMapGeneric(v)
 	case map[string]float64:
 		return NewMapGeneric(v)
@@ -124,11 +136,20 @@ func NativeToVal(val any) ref.Val {
 		case refVal.CanConvert(typeMapString):
 			m := refVal.Convert(typeMapString).Interface().(map[string]string)
 			return NewMapGeneric(m)
-		case refVal.CanConvert(typeMapInteger):
-			m := refVal.Convert(typeMapInteger).Interface().(map[string]int64)
+		case refVal.CanConvert(typeMapInt):
+			m := refVal.Convert(typeMapInt).Interface().(map[string]int)
 			return NewMapGeneric(m)
-		case refVal.CanConvert(typeMapFloat):
-			m := refVal.Convert(typeMapFloat).Interface().(map[string]float64)
+		case refVal.CanConvert(typeMapInt32):
+			m := refVal.Convert(typeMapInt32).Interface().(map[string]int32)
+			return NewMapGeneric(m)
+		case refVal.CanConvert(typeMapInt64):
+			m := refVal.Convert(typeMapInt64).Interface().(map[string]int64)
+			return NewMapGeneric(m)
+		case refVal.CanConvert(typeMapFloat32):
+			m := refVal.Convert(typeMapFloat32).Interface().(map[string]float32)
+			return NewMapGeneric(m)
+		case refVal.CanConvert(typeMapFloat64):
+			m := refVal.Convert(typeMapFloat64).Interface().(map[string]float64)
 			return NewMapGeneric(m)
 		case refVal.CanConvert(typeMapBool):
 			m := refVal.Convert(typeMapBool).Interface().(map[string]bool)
@@ -148,11 +169,20 @@ func NativeToVal(val any) ref.Val {
 		case refVal.CanConvert(typeListString):
 			l := refVal.Convert(typeListString).Interface().([]string)
 			return NewListGeneric(l)
-		case refVal.CanConvert(typeListInteger):
-			l := refVal.Convert(typeListInteger).Interface().([]int64)
+		case refVal.CanConvert(typeListInt):
+			l := refVal.Convert(typeListInt).Interface().([]int)
 			return NewListGeneric(l)
-		case refVal.CanConvert(typeListFloat):
-			l := refVal.Convert(typeListFloat).Interface().([]float64)
+		case refVal.CanConvert(typeListInt32):
+			l := refVal.Convert(typeListInt32).Interface().([]int32)
+			return NewListGeneric(l)
+		case refVal.CanConvert(typeListInt64):
+			l := refVal.Convert(typeListInt64).Interface().([]int64)
+			return NewListGeneric(l)
+		case refVal.CanConvert(typeListFloat32):
+			l := refVal.Convert(typeListFloat32).Interface().([]float32)
+			return NewListGeneric(l)
+		case refVal.CanConvert(typeListFloat64):
+			l := refVal.Convert(typeListFloat64).Interface().([]float64)
 			return NewListGeneric(l)
 		case refVal.CanConvert(typeListBool):
 			l := refVal.Convert(typeListBool).Interface().([]bool)
@@ -209,14 +239,20 @@ func NativeToVal(val any) ref.Val {
 
 var (
 	typeListString  = reflect.TypeFor[[]string]()
-	typeListInteger = reflect.TypeFor[[]int64]()
-	typeListFloat   = reflect.TypeFor[[]float64]()
+	typeListInt     = reflect.TypeFor[[]int]()
+	typeListInt32   = reflect.TypeFor[[]int32]()
+	typeListInt64   = reflect.TypeFor[[]int64]()
+	typeListFloat32 = reflect.TypeFor[[]float32]()
+	typeListFloat64 = reflect.TypeFor[[]float64]()
 	typeListBool    = reflect.TypeFor[[]bool]()
 	typeListAny     = reflect.TypeFor[[]any]()
 
 	typeMapBool    = reflect.TypeFor[map[string]bool]()
 	typeMapString  = reflect.TypeFor[map[string]string]()
-	typeMapInteger = reflect.TypeFor[map[string]int64]()
-	typeMapFloat   = reflect.TypeFor[map[string]float64]()
+	typeMapInt     = reflect.TypeFor[map[string]int]()
+	typeMapInt32   = reflect.TypeFor[map[string]int32]()
+	typeMapInt64   = reflect.TypeFor[map[string]int64]()
+	typeMapFloat32 = reflect.TypeFor[map[string]float32]()
+	typeMapFloat64 = reflect.TypeFor[map[string]float64]()
 	typeMapAny     = reflect.TypeFor[map[string]any]()
 )

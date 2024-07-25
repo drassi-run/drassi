@@ -26,7 +26,7 @@ func testFormatSuccess(t *testing.T) {
 		{[]any{"你好 from {0} with {1}, 🚀", "δράση", "❤️"}, "你好 from δράση with ❤️, 🚀"},
 	}
 	for _, tc := range testcases {
-		args := toLazy(tc.inputs...)
+		args := toLazies(tc.inputs...)
 		res := Format(args[0], args[1:]...)
 
 		err, _ := res.(error)
@@ -51,7 +51,7 @@ func testFormatInvalidFormat(t *testing.T) {
 		{"Hello }}} world", "Mona", "the", "Octocat"},
 	}
 	for _, tc := range testcases {
-		args := toLazy(tc...)
+		args := toLazies(tc...)
 		res := Format(args[0], args[1:]...)
 
 		err, _ := res.(error)
@@ -60,14 +60,21 @@ func testFormatInvalidFormat(t *testing.T) {
 }
 
 func testFormatLazyEval(t *testing.T) {
-	format := toLazy("Hello {0} {2}")[0]
-	args, tracker := toLazyWithTracker("Mona", "the", "Octocat", "<3")
+	format := toLazies("Hello {0} {2}")[0]
+	args, tracker := toLaziesWithTracker("Mona", "the", "Octocat", "<3")
 	_ = Format(format, args...)
 
 	assert.Equal(t, tracker, []bool{true, false, true, false})
 }
 
-func toLazy(vals ...any) []ref.LazyVal {
+func toLazy[V any](val V) ref.LazyVal {
+	v := types.NativeToVal(val)
+	return func() ref.Val {
+		return v
+	}
+}
+
+func toLazies[V any](vals ...V) []ref.LazyVal {
 	res := make([]ref.LazyVal, len(vals))
 	for i, v := range vals {
 		val := types.NativeToVal(v)
@@ -79,7 +86,7 @@ func toLazy(vals ...any) []ref.LazyVal {
 	return res
 }
 
-func toLazyWithTracker(vals ...any) ([]ref.LazyVal, []bool) {
+func toLaziesWithTracker[V any](vals ...V) ([]ref.LazyVal, []bool) {
 	res := make([]ref.LazyVal, len(vals))
 	tracker := make([]bool, len(vals))
 

@@ -111,8 +111,12 @@ func (s *Struct) Get(index any) ref.Val {
 }
 
 func (s *Struct) get(idx string) ref.Val {
-	fIdx := fieldIndex[s.typ][idx]
-	field := s.val.FieldByIndex([]int{fIdx})
+	fIdx, ok := fieldIndex[s.typ][idx]
+	if !ok {
+		return NULL
+	}
+
+	field := s.val.Field(fIdx)
 	return NativeToVal(field)
 }
 

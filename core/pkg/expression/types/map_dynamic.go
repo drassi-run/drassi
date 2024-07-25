@@ -67,16 +67,21 @@ func (a *dynamicMapAccessor) IndexType() ref.Type {
 
 func (a *dynamicMapAccessor) Get(index any) ref.Val {
 	idx := reflect.ValueOf(index)
-	if !idx.Type().ConvertibleTo(a.keyType) {
-		return WrapError(errInvalidType)
+	if idx.Type() != a.keyType {
+		if !idx.Type().ConvertibleTo(a.keyType) {
+			return WrapError(errInvalidType)
+		}
+		idx = idx.Convert(a.keyType)
 	}
 
-	idx = idx.Convert(a.keyType)
 	return a.get(idx)
 }
 
 func (a *dynamicMapAccessor) get(idx reflect.Value) ref.Val {
 	value := a.instance.MapIndex(idx)
+	if !value.IsValid() {
+		return NULL
+	}
 	v := value.Interface()
 	return NativeToVal(v)
 }
