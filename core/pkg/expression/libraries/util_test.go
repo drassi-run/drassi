@@ -36,6 +36,7 @@ var values = []weakTypeConversion{
 	{"-Infinity", true, false, math.Inf(-1), "-Infinity", true},
 	{"Infinity", true, false, math.Inf(1), "Infinity", true},
 	{"NaN", true, false, math.NaN(), "NaN", true},
+	{"foobar", true, false, math.NaN(), "foobar", true},
 	{listInt, true, false, math.NaN(), "array", false},
 	{mapSS, true, false, math.NaN(), "object", false},
 	{objectX, true, false, math.NaN(), "object", false},

@@ -20,6 +20,7 @@ var listFloat = []float64{0.1, 1.7, 3.14}
 var mapSS = map[string]string{"zero": "zeroth", "one": "first", "two": "second", "three": "third"}
 var mapIS = map[int64]string{0: "zeroth", 1: "first", 2: "second", 3: "third"} // dynamic map (reflection)
 var objectX = &object{Name: "drassi", Age: 0}
+var objectY = &object{Name: "action", Age: 10}
 
 func TestIndex(t *testing.T) {
 	t.Run("normal", testIndexNormal)

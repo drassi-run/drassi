@@ -17,7 +17,7 @@ func LessEquals(left, right ref.Val) ref.Val {
 }
 
 func Greater(left, right ref.Val) ref.Val {
-	r := lessThan(left, right)
+	r := greaterThan(left, right)
 	return types.Boolean(r)
 }
 
