@@ -29,9 +29,7 @@ func testFormatSuccess(t *testing.T) {
 		args := toLazies(tc.inputs...)
 		res := Format(args[0], args[1:]...)
 
-		err, _ := res.(error)
-		assert.NoError(t, err)
-		assert.EqualValues(t, tc.expected, res)
+		verify(t, tc.expected, res, "format(%#q)", tc.inputs)
 	}
 }
 

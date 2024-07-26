@@ -1,7 +1,6 @@
 package libraries
 
 import (
-	"drassi.run/core/pkg/expression/types"
 	"encoding/json"
 	"github.com/stretchr/testify/assert"
 	"math"
@@ -46,14 +45,11 @@ func testIndexNormal(t *testing.T) {
 		{mapIS, "2", "second"}, // str to int
 	}
 	for _, tc := range testcases {
-		object := toLazy(tc.object)
+		target := toLazy(tc.object)
 		index := toLazy(tc.inputs)
-		expected := types.NativeToVal(tc.expected)
 
-		actual := Index(object, index)
-		err, _ := actual.(error)
-		assert.NoError(t, err, "object=%v | index=%v", tc.object, tc.inputs)
-		assert.EqualValues(t, expected, actual, "object=%v | index=%v", tc.object, tc.inputs)
+		actual := Index(target, index)
+		verify(t, tc.expected, actual, "index(%v, %v)", tc.object, tc.inputs)
 	}
 }
 
@@ -90,13 +86,11 @@ func testIndexNotExisted(t *testing.T) {
 		{mapIS, empty{}},
 	}
 	for _, tc := range testcases {
-		object := toLazy(tc.object)
+		target := toLazy(tc.object)
 		index := toLazy(tc.inputs)
 
-		actual := Index(object, index)
-		err, _ := actual.(error)
-		assert.NoError(t, err, "object=%v | index=%v", tc.object, tc.inputs)
-		assert.EqualValues(t, types.NULL, actual, "object=%v | index=%v", tc.object, tc.inputs)
+		actual := Index(target, index)
+		verify(t, nil, actual, "index(%v, %v)", tc.object, tc.inputs)
 	}
 }
 
