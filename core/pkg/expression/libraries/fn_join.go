@@ -59,14 +59,14 @@ func join(list traits.Iterable, sep string) ref.Val {
 		if i > 1 {
 			builder.WriteString(sep)
 		}
-		builder.WriteString(display(e))
+		builder.WriteString(stringify(e))
 	}
 
 	s := builder.String()
 	return types.String(s)
 }
 
-func display(v ref.Val) string {
+func stringify(v ref.Val) string {
 	if s, ok := v.(traits.Stringable); ok {
 		return s.ToString()
 	}

@@ -24,7 +24,7 @@ func Format(fmt ref.LazyVal, args ...ref.LazyVal) ref.Val {
 	if v.Type() == ref.TypeInvalid {
 		return v
 	}
-	format := display(v)
+	format := stringify(v)
 	argsCache := make([]*string, len(args))
 
 	output := new(strings.Builder)
@@ -79,7 +79,7 @@ func Format(fmt ref.LazyVal, args ...ref.LazyVal) ref.Val {
 				if v.Type() == ref.TypeInvalid {
 					return v
 				}
-				s := display(v)
+				s := stringify(v)
 				rep = &s
 				argsCache[index] = rep
 			}
