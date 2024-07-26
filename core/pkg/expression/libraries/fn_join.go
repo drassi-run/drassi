@@ -8,33 +8,25 @@ import (
 	"drassi.run/core/pkg/expression/types/traits"
 )
 
-func Join(args []ref.LazyVal) ref.Val {
-	if l := len(args); l == 0 || l > 2 {
-		return types.NewError("no. of args mismatch, expect [1..2], got %d", l)
-	}
-	array := args[0]()
-	if array.Type() == ref.TypeInvalid {
-		return array
-	}
-
+func Join(array ref.Val, separator ref.LazyVal) ref.Val {
 	if array.Type() == ref.TypeList {
 		list, ok := array.(traits.Iterable)
 		if !ok {
 			goto next
 		}
 
-		sep := ","
-		if len(args) == 2 {
-			separator := args[1]()
-			if separator.Type() == ref.TypeInvalid {
-				return separator
+		dim := ","
+		if separator != nil {
+			delimiter := separator()
+			if delimiter.Type() == ref.TypeInvalid {
+				return delimiter
 			}
-			if s, ok := separator.(traits.Stringable); ok {
-				sep = s.ToString()
+			if s, ok := delimiter.(traits.Stringable); ok {
+				dim = s.ToString()
 			}
 		}
 
-		return join(list, sep)
+		return join(list, dim)
 	}
 
 next:

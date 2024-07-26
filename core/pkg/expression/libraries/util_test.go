@@ -13,31 +13,32 @@ type weakTypeConversion struct {
 	falsy     bool
 	numberify float64
 	stringify string
+	primitive bool
 }
 
 var values = []weakTypeConversion{
-	{nil, false, true, 0, ""},
-	{true, true, false, 1, "true"},
-	{false, false, true, 0, "false"},
-	{0, false, true, 0, "0"},
-	{-1, true, false, -1, "-1"},
-	{1, true, false, 1, "1"},
-	{math.Inf(-1), true, false, math.Inf(-1), "-Infinity"},
-	{math.Inf(1), true, false, math.Inf(1), "Infinity"},
-	{math.NaN(), false, true, math.NaN(), "NaN"},
-	{0.0, false, true, 0.0, "0"},
-	{3.14, true, false, 3.14, "3.14"},
-	{-3.14, true, false, -3.14, "-3.14"},
-	{"", false, true, 0, ""},
-	{"0", true, false, 0, "0"},
-	{"-1", true, false, -1, "-1"},
-	{"1", true, false, 1, "1"},
-	{"-Infinity", true, false, math.Inf(-1), "-Infinity"},
-	{"Infinity", true, false, math.Inf(1), "Infinity"},
-	{"NaN", true, false, math.NaN(), "NaN"},
-	{listInt, true, false, math.NaN(), "array"},
-	{mapSS, true, false, math.NaN(), "object"},
-	{objectX, true, false, math.NaN(), "object"},
+	{nil, false, true, 0, "", true},
+	{true, true, false, 1, "true", true},
+	{false, false, true, 0, "false", true},
+	{0, false, true, 0, "0", true},
+	{-1, true, false, -1, "-1", true},
+	{1, true, false, 1, "1", true},
+	{math.Inf(-1), true, false, math.Inf(-1), "-Infinity", true},
+	{math.Inf(1), true, false, math.Inf(1), "Infinity", true},
+	{math.NaN(), false, true, math.NaN(), "NaN", true},
+	{0.0, false, true, 0.0, "0", true},
+	{3.14, true, false, 3.14, "3.14", true},
+	{-3.14, true, false, -3.14, "-3.14", true},
+	{"", false, true, 0, "", true},
+	{"0", true, false, 0, "0", true},
+	{"-1", true, false, -1, "-1", true},
+	{"1", true, false, 1, "1", true},
+	{"-Infinity", true, false, math.Inf(-1), "-Infinity", true},
+	{"Infinity", true, false, math.Inf(1), "Infinity", true},
+	{"NaN", true, false, math.NaN(), "NaN", true},
+	{listInt, true, false, math.NaN(), "array", false},
+	{mapSS, true, false, math.NaN(), "object", false},
+	{objectX, true, false, math.NaN(), "object", false},
 }
 
 func TestValue(t *testing.T) {
