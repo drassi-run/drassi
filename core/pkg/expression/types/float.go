@@ -17,6 +17,11 @@ var (
 	NEGATIVE_INF = Float(math.Inf(-1))
 )
 
+func IsNaN(v ref.Val) bool {
+	f, ok := v.(Float)
+	return ok && math.IsNaN(float64(f))
+}
+
 func (f Float) Type() ref.Type {
 	return ref.TypeFloat
 }
