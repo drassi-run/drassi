@@ -1,7 +1,6 @@
 package types
 
 import (
-	"fmt"
 	"reflect"
 
 	"drassi.run/core/pkg/expression/types/ref"
@@ -9,11 +8,10 @@ import (
 	"golang.org/x/exp/maps"
 )
 
-func NewMapGeneric[M ~map[K]V, K comparable, V any](value M) *Map {
+func NewMapGeneric[M ~map[K]V, K comparable, V any](value M) ref.Val {
 	indexType := genericToType[K]()
 	if indexType == ref.TypeInvalid {
-		err := fmt.Errorf("unsupported map key %s: %w", reflect.TypeFor[K](), errUnsupportedType)
-		panic(err)
+		return NewError("unsupported map key %s: %w", reflect.TypeFor[K](), errUnsupportedType)
 	}
 
 	return &Map{
@@ -40,16 +38,19 @@ func (a *genericMapAccessor[M, K, V]) IndexType() ref.Type {
 	return a.indexType
 }
 
-func (a *genericMapAccessor[M, K, V]) Get(index any) (ref.Val, error) {
+func (a *genericMapAccessor[M, K, V]) Get(index any) ref.Val {
 	idx, ok := index.(K)
 	if !ok {
-		return nil, errInvalidType
+		return WrapError(errInvalidType)
 	}
-	return a.get(idx), nil
+	return a.get(idx)
 }
 
 func (a *genericMapAccessor[M, K, V]) get(idx K) ref.Val {
-	e := a.instance[idx]
+	e, ok := a.instance[idx]
+	if !ok {
+		return NULL
+	}
 	return NativeToVal(e)
 }
 

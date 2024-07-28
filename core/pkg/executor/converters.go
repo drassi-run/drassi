@@ -41,16 +41,16 @@ func (e *jobExecutor) toIssuer(pbl *problem.Problem) (*reporter.Issue, error) {
 	case "NOTICE":
 		iss.Type = reporter.IssueTypeNotice
 	default:
-		return nil, fmt.Errorf("%s unknown severity '%s'", skippedIssueMsg, pbl.Severity)
+		return nil, fmt.Errorf("%s unknown severity %q", skippedIssueMsg, pbl.Severity)
 	}
 
 	if !numberRegex.MatchString(pbl.Line) {
-		return nil, fmt.Errorf("%s invalid line '%s'", skippedIssueMsg, pbl.Line)
+		return nil, fmt.Errorf("%s invalid line %q", skippedIssueMsg, pbl.Line)
 	} else {
 		iss.Data["line"] = pbl.Line
 	}
 	if !numberRegex.MatchString(pbl.Column) {
-		return nil, fmt.Errorf("%s invalid column '%s'", skippedIssueMsg, pbl.Column)
+		return nil, fmt.Errorf("%s invalid column %q", skippedIssueMsg, pbl.Column)
 	} else {
 		iss.Data["column"] = pbl.Column
 	}

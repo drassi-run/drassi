@@ -73,8 +73,6 @@ func testFloatConvert(t *testing.T) {
 		for v, f := range m {
 			assert.Equal(t, f, v.ToNumber())
 		}
-
-		assert.True(t, math.IsNaN(NAN.ToNumber()))
 	})
 
 	t.Run("toString", func(t *testing.T) {

@@ -120,11 +120,11 @@ func (c *Config) validatePatternField(fieldName string, fieldValue *int, groupCo
 
 	v := *fieldValue
 	if groupCount < v {
-		return fmt.Errorf("the value %d of property '%s' is out of range", v, fieldName)
+		return fmt.Errorf("the value %d of property %q is out of range", v, fieldName)
 	}
 
 	if value != nil && *value >= 0 {
-		return fmt.Errorf("the property %s is set twice", fieldName)
+		return fmt.Errorf("the property %q is set twice", fieldName)
 	}
 
 	*value = v

@@ -17,8 +17,8 @@ var slice = array[:]
 
 func testListVal(t *testing.T) {
 	for _, l := range []*List{
-		NewListGeneric(slice),
-		NewListDynamic(slice),
+		NewListGeneric(slice).(*List),
+		NewListDynamic(slice).(*List),
 	} {
 		assert.Equal(t, 3, l.Size())
 		assert.Equal(t, slice, l.Value())
@@ -38,13 +38,14 @@ func testListVal(t *testing.T) {
 
 func testListIndex(t *testing.T) {
 	for _, l := range []*List{
-		NewListGeneric(slice),
-		NewListDynamic(slice),
-		NewListDynamic(array),
+		NewListGeneric(slice).(*List),
+		NewListDynamic(slice).(*List),
+		NewListDynamic(array).(*List),
 	} {
 		assert.Equal(t, ref.TypeInteger, l.IndexType())
 		for i := 0; i < l.Size(); i++ {
-			e, err := l.Get(i)
+			e := l.Get(i)
+			err, _ := e.(error)
 			assert.NoError(t, err, "error while get index '%d'", i)
 			assert.Equal(t, ref.TypeString, e.Type(), "value of index '%d' should be a string", i)
 			assert.Equal(t, slice[i], e.Value(), "value for index '%d' is not equal", i)
@@ -54,15 +55,15 @@ func testListIndex(t *testing.T) {
 
 func testListIterator(t *testing.T) {
 	for _, l := range []*List{
-		NewListGeneric(slice),
-		NewListDynamic(slice),
-		NewListDynamic(array),
+		NewListGeneric(slice).(*List),
+		NewListDynamic(slice).(*List),
+		NewListDynamic(array).(*List),
 	} {
 		i := int64(0)
 		it := l.Iterator()
 		for it.HasNext() {
 			k, v := it.Next()
-			assert.Equal(t, ref.TypeInteger, k.Type(), "index '%s' should be an integer", k)
+			assert.Equal(t, ref.TypeInteger, k.Type(), "index %q should be an integer", k)
 			assert.Equal(t, i, k.Value(), "expect get value in order")
 			assert.Equal(t, ref.TypeString, v.Type(), "value of index '%d' should be a string", i)
 			assert.Equal(t, slice[i], v.Value(), "value for index '%d' is not equal", i)

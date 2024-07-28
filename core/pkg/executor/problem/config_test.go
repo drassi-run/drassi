@@ -178,7 +178,7 @@ func TestConfig_Validate(t *testing.T) {
 			},
 		}
 		err := config.Validate()
-		assert.Error(tt, err, "the property file is set twice")
+		assert.Error(tt, err, `the property "file" is set twice`)
 
 		config.Patterns[0].File = nil
 		config.Patterns[0].Severity = pointer(1)
@@ -194,7 +194,7 @@ func TestConfig_Validate(t *testing.T) {
 			},
 		}
 		err := config.Validate()
-		assert.Error(tt, err, "the value 2 of property 'message' is out of range")
+		assert.Error(tt, err, `the value 2 of property "message" is out of range`)
 
 		config.Patterns[0].Message = pointer(1)
 		err = config.Validate()

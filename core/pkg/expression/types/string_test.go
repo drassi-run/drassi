@@ -200,7 +200,7 @@ func testStringCompare(t *testing.T) {
 			x, y := p[0], p[1]
 			r, err := x.Compare(y)
 			assert.NoError(t, err)
-			assert.Equal(t, 0, r, "compare '%s' vs '%s'", x, y)
+			assert.Equal(t, 0, r, "compare %q vs %q", x, y)
 		}
 	})
 

@@ -58,11 +58,11 @@ func (ar *compositeActionRun) createStageTask(stage Stage, fn func(StepRun) *Tas
 			for _, id := range taskIds {
 				cExec := exec.ChildExecutor(id)
 				if cExec == nil {
-					return fmt.Errorf(`task "%s" has no child context`, id)
+					return fmt.Errorf(`task %q has no child context`, id)
 				}
 				res := cExec.RunStep(ctx, fn)
 				if res != nil && res.Conclusion == dossiers.ResultFailure {
-					return fmt.Errorf(`step "%s" (%s) failed`, id, stage)
+					return fmt.Errorf(`step %q (%s) failed`, id, stage)
 				}
 			}
 			return nil
