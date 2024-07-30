@@ -3,6 +3,7 @@ package ast
 import (
 	"drassi.run/core/pkg/expression/types"
 	"github.com/stretchr/testify/assert"
+	"strings"
 	"testing"
 )
 
@@ -10,6 +11,7 @@ func TestParse(t *testing.T) {
 	t.Run("simple", testParseSimple)
 	t.Run("ops-order", testParseOperatorOrder)
 	t.Run("error", testParseError)
+	t.Run("options", testParseOptions)
 }
 
 func testParseSimple(t *testing.T) {
@@ -173,4 +175,25 @@ func testParseError(t *testing.T) {
 		assert.Error(t, err)
 		assert.ErrorAs(t, err, &ste, tc)
 	}
+}
+
+func testParseOptions(t *testing.T) {
+	t.Run("max-length", func(t *testing.T) {
+		source := strings.Repeat("x", 101)
+		_, err := Parse(source, WithMaxLength(100))
+		assert.Error(t, err)
+		assert.ErrorContains(t, err, "max length exceeded")
+	})
+	t.Run("max-depth", func(t *testing.T) {
+		source := strings.Repeat("(", 101) + "x" + strings.Repeat(")", 101)
+		_, err := Parse(source, WithMaxDepth(100))
+		assert.Error(t, err)
+		assert.ErrorContains(t, err, "max depth exceeded")
+	})
+	t.Run("max-error", func(t *testing.T) {
+		source := strings.Repeat("str.len() && ", 10) + "str.len()"
+		_, err := Parse(source, WithMaxError(4))
+		assert.Error(t, err)
+		assert.ErrorContains(t, err, "more than 5 errors occurred")
+	})
 }
