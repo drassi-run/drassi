@@ -104,6 +104,7 @@ func testActionsLexer(input string, expected []testToken) func(t *testing.T) {
 	return func(t *testing.T) {
 		is := antlr.NewInputStream(input)
 		lexer := NewActionsLexer(is)
+		lexer.SetMode(ActionsLexerEXPRESSION)
 		cts := antlr.NewCommonTokenStream(lexer, antlr.TokenDefaultChannel)
 		cts.Fill()
 		tokens := cts.GetAllTokens()
