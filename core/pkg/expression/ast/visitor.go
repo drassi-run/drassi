@@ -2,13 +2,13 @@ package ast
 
 import (
 	"fmt"
-	"github.com/antlr4-go/antlr/v4"
 	"strconv"
 	"strings"
 
 	"drassi.run/core/pkg/expression/ast/operators"
 	"drassi.run/core/pkg/expression/grammar"
 	"drassi.run/core/pkg/expression/types"
+	"github.com/antlr4-go/antlr/v4"
 )
 
 var tokenOp = map[int]string{
@@ -148,7 +148,7 @@ func (v *astVisitor) VisitVariable(ctx *grammar.VariableContext) any {
 func (v *astVisitor) VisitLiteral(ctx *grammar.LiteralContext) any {
 	if lit := ctx.STRING(); lit != nil {
 		s := lit.GetText()
-		s = s[1 : len(s)-2]                  // remove begin and end single quote
+		s = s[1 : len(s)-1]                  // remove begin and end single quote
 		s = strings.ReplaceAll(s, `''`, `'`) // unescape single quote chars
 		return &LiteralNode{Value: types.String(s)}
 	}
