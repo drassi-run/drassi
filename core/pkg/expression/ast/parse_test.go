@@ -138,5 +138,39 @@ func testParseOperatorOrder(t *testing.T) {
 }
 
 func testParseError(t *testing.T) {
-	// TODO
+	// copy from grammar.testActionsParserError
+	tests := []string{
+		// Literal error
+		`-0x123`,
+		`'abc`,
+		`4abc`,
+		`a:b`,
+
+		// Unknown operator
+		`a + b`,
+		`a = b`,
+		`a & b`,
+		`a ! b`,
+
+		// Property & Index
+		`a.`,
+		`a.[b]`,
+		`a.true`,
+		`a.'b'`,
+		`a.0123`,
+		`a.a%v`,
+		`a[.b]`,
+		`123.a`,
+		`123['a']`,
+
+		// Function call
+		`str.len()`,
+		`(a.b)(x)`,
+	}
+	ste := new(syntaxError)
+	for _, tc := range tests {
+		_, err := Parse(tc)
+		assert.Error(t, err)
+		assert.ErrorAs(t, err, &ste, tc)
+	}
 }

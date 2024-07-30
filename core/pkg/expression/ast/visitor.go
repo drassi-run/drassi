@@ -2,13 +2,13 @@ package ast
 
 import (
 	"fmt"
-	"github.com/antlr4-go/antlr/v4"
 	"strconv"
 	"strings"
 
 	"drassi.run/core/pkg/expression/ast/operators"
 	"drassi.run/core/pkg/expression/grammar"
 	"drassi.run/core/pkg/expression/types"
+	"github.com/antlr4-go/antlr/v4"
 )
 
 var tokenOp = map[int]string{
