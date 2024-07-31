@@ -1,10 +1,22 @@
-// Code generated from Actions.g4 by ANTLR 4.13.1. DO NOT EDIT.
+// Code generated from ActionsParser.g4 by ANTLR 4.13.1. DO NOT EDIT.
 
-package grammar // Actions
+package grammar // ActionsParser
 import "github.com/antlr4-go/antlr/v4"
 
 type BaseActionsVisitor struct {
 	*antlr.BaseParseTreeVisitor
+}
+
+func (v *BaseActionsVisitor) VisitTemplate(ctx *TemplateContext) any {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseActionsVisitor) VisitText(ctx *TextContext) any {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseActionsVisitor) VisitPlaceholder(ctx *PlaceholderContext) any {
+	return v.VisitChildren(ctx)
 }
 
 func (v *BaseActionsVisitor) VisitExpression(ctx *ExpressionContext) any {

@@ -1,11 +1,20 @@
-// Code generated from Actions.g4 by ANTLR 4.13.1. DO NOT EDIT.
+// Code generated from ActionsParser.g4 by ANTLR 4.13.1. DO NOT EDIT.
 
-package grammar // Actions
+package grammar // ActionsParser
 import "github.com/antlr4-go/antlr/v4"
 
 // ActionsListener is a complete listener for a parse tree produced by ActionsParser.
 type ActionsListener interface {
 	antlr.ParseTreeListener
+
+	// EnterTemplate is called when entering the template production.
+	EnterTemplate(c *TemplateContext)
+
+	// EnterText is called when entering the text production.
+	EnterText(c *TextContext)
+
+	// EnterPlaceholder is called when entering the placeholder production.
+	EnterPlaceholder(c *PlaceholderContext)
 
 	// EnterExpression is called when entering the expression production.
 	EnterExpression(c *ExpressionContext)
@@ -33,6 +42,15 @@ type ActionsListener interface {
 
 	// EnterLiteral is called when entering the literal production.
 	EnterLiteral(c *LiteralContext)
+
+	// ExitTemplate is called when exiting the template production.
+	ExitTemplate(c *TemplateContext)
+
+	// ExitText is called when exiting the text production.
+	ExitText(c *TextContext)
+
+	// ExitPlaceholder is called when exiting the placeholder production.
+	ExitPlaceholder(c *PlaceholderContext)
 
 	// ExitExpression is called when exiting the expression production.
 	ExitExpression(c *ExpressionContext)
