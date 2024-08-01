@@ -1,12 +1,13 @@
 package grammar
 
 import (
+	"fmt"
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
-func TestActionsParser(t *testing.T) {
+func TestActionsParserExpression(t *testing.T) {
 	t.Run("literal", testActionsParserLiteral)
 	t.Run("identifier", testActionsParserIdentifier)
 	t.Run("wrap", testActionsParserWrap)
@@ -27,7 +28,7 @@ func testActionsParserLiteral(t *testing.T) {
 	}
 
 	for input, expected := range testcases {
-		t.Run(input, testActionsParser(input, expected))
+		t.Run(input, testActionsParser(ActionsLexerEXPRESSION, input, expected))
 	}
 }
 
@@ -40,7 +41,7 @@ func testActionsParserIdentifier(t *testing.T) {
 	}
 
 	for input, expected := range testcases {
-		t.Run(input, testActionsParser(input, expected))
+		t.Run(input, testActionsParser(ActionsLexerEXPRESSION, input, expected))
 	}
 }
 
@@ -54,7 +55,7 @@ func testActionsParserWrap(t *testing.T) {
 	}
 
 	for input, expected := range testcases {
-		t.Run(input, testActionsParser(input, expected))
+		t.Run(input, testActionsParser(ActionsLexerEXPRESSION, input, expected))
 	}
 }
 
@@ -75,7 +76,7 @@ func testActionsParserLogicalOperator(t *testing.T) {
 	}
 
 	for input, expected := range testcases {
-		t.Run(input, testActionsParser(input, expected))
+		t.Run(input, testActionsParser(ActionsLexerEXPRESSION, input, expected))
 	}
 }
 
@@ -96,7 +97,7 @@ func testActionsParserComparisonOperator(t *testing.T) {
 	}
 
 	for input, expected := range testcases {
-		t.Run(input, testActionsParser(input, expected))
+		t.Run(input, testActionsParser(ActionsLexerEXPRESSION, input, expected))
 	}
 }
 
@@ -129,7 +130,7 @@ func testActionsParserMember(t *testing.T) {
 	}
 
 	for input, expected := range testcases {
-		t.Run(input, testActionsParser(input, expected))
+		t.Run(input, testActionsParser(ActionsLexerEXPRESSION, input, expected))
 	}
 }
 
@@ -145,7 +146,7 @@ func testActionsParserFunction(t *testing.T) {
 	}
 
 	for input, expected := range testcases {
-		t.Run(input, testActionsParser(input, expected))
+		t.Run(input, testActionsParser(ActionsLexerEXPRESSION, input, expected))
 	}
 }
 
@@ -181,18 +182,28 @@ func testActionsParserError(t *testing.T) {
 	}
 
 	for input, expected := range testcases {
-		t.Run(input, testActionsParser(input, expected))
+		t.Run(input, testActionsParser(ActionsLexerEXPRESSION, input, expected))
 	}
 }
 
-func testActionsParser(input, expected string) func(t *testing.T) {
+func testActionsParser(mode int, input, expected string) func(t *testing.T) {
 	return func(t *testing.T) {
 		is := antlr.NewInputStream(input)
 		lexer := NewActionsLexer(is)
-		lexer.SetMode(ActionsLexerEXPRESSION)
+		lexer.SetMode(mode)
 		tokens := antlr.NewCommonTokenStream(lexer, antlr.TokenDefaultChannel)
 		parser := NewActionsParser(tokens)
-		tree := parser.Expression()
+
+		var tree antlr.ParseTree
+		switch mode {
+		case antlr.LexerDefaultMode:
+			tree = parser.Template()
+		case ActionsLexerEXPRESSION:
+			tree = parser.Expression()
+		default:
+			err := fmt.Errorf("unknown mode: %d", mode)
+			panic(err)
+		}
 
 		//// ToStringTree print out a whole tree, not just a node, in LISP format
 		//// (root child1 .. childN). Print just a node if this is a leaf.
@@ -206,5 +217,49 @@ func testActionsParser(input, expected string) func(t *testing.T) {
 		actual := p.Format(tree)
 
 		assert.Equal(t, expected, actual)
+	}
+}
+
+func TestActionsParserTemplate(t *testing.T) {
+	t.Run("raw-text", testActionsParserRawText)
+	t.Run("with-expr", testActionsParserWithExpr)
+}
+
+func testActionsParserRawText(t *testing.T) {
+	testcases := []string{
+		`foobar`,
+		`$`,
+		`${`,
+		`${xxxxx`,
+		`${x${xxx`,
+		`${we}${❤️}${δράση}`,
+		`$x{xxxx`,
+		`$x{{xxx`,
+		`}}`,
+		`}}}}}}`,
+	}
+	for _, input := range testcases {
+		expected := `T:` + input
+		t.Run(input, testActionsParser(antlr.LexerDefaultMode, input, expected))
+	}
+}
+
+func testActionsParserWithExpr(t *testing.T) {
+	testcases := map[string]string{
+		`abc${{ a }}xyz`:           `T:abc (X: V:a) T:xyz`,
+		`${{ a }}`:                 `(X: V:a)`,
+		`abc${{ '${{' }}xyz`:       `T:abc (X: L:'${{') T:xyz`,
+		`$${{ '${{' }}`:            `T:$ (X: L:'${{')`,
+		`${${{ '${{' }}`:           `T:${ (X: L:'${{')`,
+		`${}${{ '${{' }}`:          `T:${} (X: L:'${{')`,
+		`${x}${{ '${{' }}`:         `T:${x} (X: L:'${{')`,
+		`${{ a }}${{ '${{' }}`:     `(X: V:a) (X: L:'${{')`,
+		`${{ a }}${x}${{ '${{' }}`: `(X: V:a) T:${x} (X: L:'${{')`,
+		`${xx${yy${{ '${{' }}`:     `T:${xx${yy (X: L:'${{')`,
+		"${xx\n${yy${{ '${{' }}":   "T:${xx\n${yy (X: L:'${{')",
+		`${we}${{ '❤️' }}${δράση}`: `T:${we} (X: L:'❤️') T:${δράση}`,
+	}
+	for input, expected := range testcases {
+		t.Run(input, testActionsParser(antlr.LexerDefaultMode, input, expected))
 	}
 }

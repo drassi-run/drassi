@@ -9,6 +9,8 @@ import (
 // https://en.wikipedia.org/wiki/S-expression
 //
 // Notations:
+//   - T: Text
+//   - X: Expression
 //   - V: Variable
 //   - L: Literal
 //   - O: Operator
@@ -95,5 +97,18 @@ func (l *printListener) ExitPropertyAccess(c *PropertyAccessContext) {
 			l.b.WriteString("nil")
 		}
 	}
+	l.b.WriteString(")")
+}
+
+func (l *printListener) EnterText(c *TextContext) {
+	l.b.WriteString(" T:")
+	l.b.WriteString(c.GetText())
+}
+
+func (l *printListener) EnterPlaceholder(c *PlaceholderContext) {
+	l.b.WriteString(" (X:")
+}
+
+func (l *printListener) ExitPlaceholder(c *PlaceholderContext) {
 	l.b.WriteString(")")
 }
