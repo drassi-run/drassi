@@ -48,6 +48,14 @@ func WithMaxLength(length int) Option {
 }
 
 func Parse(source string, opts ...Option) (node Node, err error) {
+	return parse(false, source, opts...)
+}
+
+func ParseTemplate(source string, opts ...Option) (node Node, err error) {
+	return parse(true, source, opts...)
+}
+
+func parse(template bool, source string, opts ...Option) (node Node, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			if e, ok := r.(error); ok {
@@ -80,6 +88,9 @@ func Parse(source string, opts ...Option) (node Node, err error) {
 	lexer := grammar.NewActionsLexer(is)
 	lexer.RemoveErrorListeners()
 	lexer.AddErrorListener(listener)
+	if !template {
+		lexer.SetMode(grammar.ActionsLexerEXPRESSION)
+	}
 
 	tokens := antlr.NewCommonTokenStream(lexer, antlr.TokenDefaultChannel)
 	parser := grammar.NewActionsParser(tokens)
@@ -87,7 +98,13 @@ func Parse(source string, opts ...Option) (node Node, err error) {
 	parser.AddErrorListener(listener)
 	parser.AddParseListener(listener)
 
-	tree := parser.Expression()
+	var tree antlr.ParseTree
+	if !template {
+		tree = parser.Expression()
+	} else {
+		tree = parser.Template()
+	}
+
 	if err = listener.Error(); err != nil {
 		return nil, err
 	}
