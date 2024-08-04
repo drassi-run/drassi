@@ -202,6 +202,7 @@ func TestParseTemplate(t *testing.T) {
 	t.Run("raw-string", testParseTemplateRawString)
 	t.Run("single-expr", testParseTemplateSingleExpr)
 	t.Run("with-expr", testParseTemplateWithExpr)
+	t.Run("error", testParseTemplateError)
 }
 
 func testParseTemplateRawString(t *testing.T) {
@@ -311,5 +312,32 @@ func testParseTemplateWithExpr(t *testing.T) {
 
 		assert.NoError(t, err)
 		assert.EqualValues(t, expected, node, source)
+	}
+}
+
+func testParseTemplateError(t *testing.T) {
+	tests := []string{
+		`${{ a`,
+		`${{ a }`,
+		`${{ a && }}`,
+		`${{ a ${{ b }} }}`,
+		`${{ a }}-${{ b }`,
+	}
+
+	ste := new(syntaxError)
+	for _, tc := range tests {
+		_, err := ParseTemplate(tc)
+		assert.Error(t, err)
+		assert.ErrorAs(t, err, &ste, tc)
+
+		pretc := "pre" + tc
+		_, err = ParseTemplate(pretc)
+		assert.Error(t, err)
+		assert.ErrorAs(t, err, &ste, pretc)
+
+		subtc := tc + "sub"
+		_, err = ParseTemplate(subtc)
+		assert.Error(t, err)
+		assert.ErrorAs(t, err, &ste, subtc)
 	}
 }
