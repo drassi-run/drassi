@@ -23,6 +23,8 @@ var tokenOp = map[int]string{
 	grammar.ActionsLexerNOTEQUAL: operators.NotEquals,
 }
 
+var formatEscaper = strings.NewReplacer(`{`, `{{`, `}`, `}}`)
+
 type astVisitor struct {
 	grammar.BaseActionsVisitor
 }
@@ -40,7 +42,7 @@ func (v *astVisitor) VisitTemplate(ctx *grammar.TemplateContext) any {
 			if err, ok := r.(error); ok {
 				return err
 			}
-			format += r.(string)
+			format += formatEscaper.Replace(r.(string))
 		case *grammar.PlaceholderContext:
 			r := v.Visit(c)
 			if err, ok := r.(error); ok {

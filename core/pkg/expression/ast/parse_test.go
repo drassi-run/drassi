@@ -221,7 +221,7 @@ func testParseTemplateRawString(t *testing.T) {
 	}
 	for _, input := range tests {
 		node, err := ParseTemplate(input)
-		expected := &LiteralNode{types.String(input)}
+		expected := &LiteralNode{types.String(formatEscaper.Replace(input))}
 
 		assert.NoError(t, err)
 		assert.EqualValues(t, expected, node, input)
@@ -254,6 +254,14 @@ func testParseTemplateWithExpr(t *testing.T) {
 			&LiteralNode{types.String("abc{0}xyz")},
 			&VariableNode{"a"},
 		}},
+		`a{0}bc${{ a }}xyz`: &FunctionNode{"format", []Node{
+			&LiteralNode{types.String("a{{0}}bc{0}xyz")},
+			&VariableNode{"a"},
+		}},
+		`a{bc${{ a }}xy}z`: &FunctionNode{"format", []Node{
+			&LiteralNode{types.String("a{{bc{0}xy}}z")},
+			&VariableNode{"a"},
+		}},
 		`abc${{ '${{' }}xyz`: &FunctionNode{"format", []Node{
 			&LiteralNode{types.String("abc{0}xyz")},
 			&LiteralNode{types.String("${{")},
@@ -263,15 +271,15 @@ func testParseTemplateWithExpr(t *testing.T) {
 			&LiteralNode{types.String("${{")},
 		}},
 		`${${{ '${{' }}`: &FunctionNode{"format", []Node{
-			&LiteralNode{types.String("${{0}")},
+			&LiteralNode{types.String("${{{0}")},
 			&LiteralNode{types.String("${{")},
 		}},
 		`${}${{ '${{' }}`: &FunctionNode{"format", []Node{
-			&LiteralNode{types.String("${}{0}")},
+			&LiteralNode{types.String("${{}}{0}")},
 			&LiteralNode{types.String("${{")},
 		}},
 		`${x}${{ '${{' }}`: &FunctionNode{"format", []Node{
-			&LiteralNode{types.String("${x}{0}")},
+			&LiteralNode{types.String("${{x}}{0}")},
 			&LiteralNode{types.String("${{")},
 		}},
 		`${{ a }}${{ '${{' }}`: &FunctionNode{"format", []Node{
@@ -280,20 +288,20 @@ func testParseTemplateWithExpr(t *testing.T) {
 			&LiteralNode{types.String("${{")},
 		}},
 		`${{ a }}${x}${{ '${{' }}`: &FunctionNode{"format", []Node{
-			&LiteralNode{types.String("{0}${x}{1}")},
+			&LiteralNode{types.String("{0}${{x}}{1}")},
 			&VariableNode{"a"},
 			&LiteralNode{types.String("${{")},
 		}},
 		`${xx${yy${{ '${{' }}`: &FunctionNode{"format", []Node{
-			&LiteralNode{types.String("${xx${yy{0}")},
+			&LiteralNode{types.String("${{xx${{yy{0}")},
 			&LiteralNode{types.String("${{")},
 		}},
 		"${xx\n${yy${{ '${{' }}": &FunctionNode{"format", []Node{
-			&LiteralNode{types.String("${xx\n${yy{0}")},
+			&LiteralNode{types.String("${{xx\n${{yy{0}")},
 			&LiteralNode{types.String("${{")},
 		}},
 		`${we}${{ '❤️' }}${δράση}`: &FunctionNode{"format", []Node{
-			&LiteralNode{types.String("${we}{0}${δράση}")},
+			&LiteralNode{types.String("${{we}}{0}${{δράση}}")},
 			&LiteralNode{types.String("❤️")},
 		}},
 	}
