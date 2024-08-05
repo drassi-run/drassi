@@ -23,11 +23,70 @@ var tokenOp = map[int]string{
 	grammar.ActionsLexerNOTEQUAL: operators.NotEquals,
 }
 
+var formatEscaper = strings.NewReplacer(`{`, `{{`, `}`, `}}`)
+
 type astVisitor struct {
 	grammar.BaseActionsVisitor
 }
 
 func (v *astVisitor) Visit(tree antlr.ParseTree) any { return tree.Accept(v) }
+
+func (v *astVisitor) VisitTemplate(ctx *grammar.TemplateContext) any {
+	format := ""
+	exprs := make([]Node, 0)
+	i := 0
+	for _, child := range ctx.GetChildren() {
+		switch c := child.(type) {
+		case *grammar.TextContext:
+			r := v.Visit(c)
+			if err, ok := r.(error); ok {
+				return err
+			}
+			format += formatEscaper.Replace(r.(string))
+		case *grammar.PlaceholderContext:
+			r := v.Visit(c)
+			if err, ok := r.(error); ok {
+				return err
+			}
+			format += fmt.Sprintf("{%d}", i)
+			exprs = append(exprs, r.(Node))
+			i++
+		case antlr.TerminalNode:
+			if c.GetSymbol().GetTokenType() == antlr.TokenEOF {
+				continue
+			}
+			return fmt.Errorf("unexpected token: %q", c.GetText())
+		default:
+			return fmt.Errorf("unknown node type: %T", child)
+		}
+	}
+
+	switch len(exprs) {
+	case 0:
+		return &LiteralNode{Value: types.String(format)}
+	case 1:
+		if format == "{0}" {
+			return exprs[0]
+		}
+		fallthrough
+	default:
+		args := []Node{&LiteralNode{Value: types.String(format)}}
+		args = append(args, exprs...)
+
+		return &FunctionNode{
+			Name:      "format",
+			Arguments: args,
+		}
+	}
+}
+
+func (v *astVisitor) VisitText(ctx *grammar.TextContext) any {
+	return ctx.GetText()
+}
+
+func (v *astVisitor) VisitPlaceholder(ctx *grammar.PlaceholderContext) any {
+	return v.Visit(ctx.Expr())
+}
 
 func (v *astVisitor) VisitExpression(ctx *grammar.ExpressionContext) any {
 	return v.Visit(ctx.GetE())

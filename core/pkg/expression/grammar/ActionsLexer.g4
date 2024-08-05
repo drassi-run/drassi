@@ -1,42 +1,18 @@
-grammar Actions;
+lexer grammar ActionsLexer;
 
-expression
-    : e=expr EOF
+fragment TEXT1: ~'$'+;
+fragment TEXT2: '$' (~[{$] ~'$'*)?;
+fragment TEXT3: '${' (~[{$] ~'$'*)?;
+
+EXPRESSION_OPEN: '${{' -> pushMode(EXPRESSION);
+TEXT
+    : TEXT1
+    | TEXT2
+    | TEXT3
     ;
 
-expr
-    : exprAccess
-    | op=NOT expr
-    | expr op=(LT|LTEQ|GTEQ|GT) expr
-    | expr op=(EQUAL|NOTEQUAL) expr
-    | expr op=AND expr
-    | expr op=OR expr
-    | literal
-    ;
-
-// exprAccess is splitted from expr because lhs of propertyAccess & indexAccess can't be a literal
-// e.g 'foobar'['x'], true.really <= invalid
-exprAccess
-    : exprAccess (DOT props+=(IDENTIFIER | WILDCARD))+              # propertyAccess
-    | exprAccess (LBRACK indexes+=expr RBRACK)+                     # indexAccess
-    | identifier LPAREN (args+=expr (COMMA args+=expr)*)? RPAREN    # functionCall
-    | LPAREN expr RPAREN                                            # wrap
-    | identifier                                                    # variable
-    ;
-
-identifier
-    : IDENTIFIER
-    ;
-
-literal
-    : STRING
-    | INTEGER
-    | FLOAT
-    | BOOLEAN
-    | NULL
-    ;
-
-
+mode EXPRESSION;
+EXPRESSION_CLOSE: '}}' -> popMode;
 WS : [ \t\r\n]+ -> skip ; // skip whitespace
 
 LPAREN   : '(' ;

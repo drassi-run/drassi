@@ -1,6 +1,6 @@
-// Code generated from Actions.g4 by ANTLR 4.13.1. DO NOT EDIT.
+// Code generated from ActionsParser.g4 by ANTLR 4.13.1. DO NOT EDIT.
 
-package grammar // Actions
+package grammar // ActionsParser
 import "github.com/antlr4-go/antlr/v4"
 
 // BaseActionsListener is a complete listener for a parse tree produced by ActionsParser.
@@ -19,6 +19,24 @@ func (s *BaseActionsListener) EnterEveryRule(ctx antlr.ParserRuleContext) {}
 
 // ExitEveryRule is called when any rule is exited.
 func (s *BaseActionsListener) ExitEveryRule(ctx antlr.ParserRuleContext) {}
+
+// EnterTemplate is called when production template is entered.
+func (s *BaseActionsListener) EnterTemplate(ctx *TemplateContext) {}
+
+// ExitTemplate is called when production template is exited.
+func (s *BaseActionsListener) ExitTemplate(ctx *TemplateContext) {}
+
+// EnterText is called when production text is entered.
+func (s *BaseActionsListener) EnterText(ctx *TextContext) {}
+
+// ExitText is called when production text is exited.
+func (s *BaseActionsListener) ExitText(ctx *TextContext) {}
+
+// EnterPlaceholder is called when production placeholder is entered.
+func (s *BaseActionsListener) EnterPlaceholder(ctx *PlaceholderContext) {}
+
+// ExitPlaceholder is called when production placeholder is exited.
+func (s *BaseActionsListener) ExitPlaceholder(ctx *PlaceholderContext) {}
 
 // EnterExpression is called when production expression is entered.
 func (s *BaseActionsListener) EnterExpression(ctx *ExpressionContext) {}

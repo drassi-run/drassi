@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestParse(t *testing.T) {
+func TestParseExpression(t *testing.T) {
 	t.Run("simple", testParseSimple)
 	t.Run("ops-order", testParseOperatorOrder)
 	t.Run("error", testParseError)
@@ -196,4 +196,148 @@ func testParseOptions(t *testing.T) {
 		assert.Error(t, err)
 		assert.ErrorContains(t, err, "more than 5 errors occurred")
 	})
+}
+
+func TestParseTemplate(t *testing.T) {
+	t.Run("raw-string", testParseTemplateRawString)
+	t.Run("single-expr", testParseTemplateSingleExpr)
+	t.Run("with-expr", testParseTemplateWithExpr)
+	t.Run("error", testParseTemplateError)
+}
+
+func testParseTemplateRawString(t *testing.T) {
+	tests := []string{
+		`foobar`,
+		`$`,
+		`${`,
+		`${xxxxx`,
+		`${x${xxx`,
+		`${we}${❤️}${δράση}`,
+		`$x{xxxx`,
+		`$x{{xxx`,
+		`}}`,
+		`}}}}}}`,
+		`'foobar'`,
+		`"foobar"`,
+	}
+	for _, input := range tests {
+		node, err := ParseTemplate(input)
+		expected := &LiteralNode{types.String(formatEscaper.Replace(input))}
+
+		assert.NoError(t, err)
+		assert.EqualValues(t, expected, node, input)
+	}
+}
+
+func testParseTemplateSingleExpr(t *testing.T) {
+	tests := map[string]Node{
+		`${{ a }}`:         &VariableNode{"a"},
+		`${{ null }}`:      &LiteralNode{types.NULL},
+		`${{ true }}`:      &LiteralNode{types.TRUE},
+		`${{ false }}`:     &LiteralNode{types.FALSE},
+		`${{ Infinity }}`:  &LiteralNode{types.POSITIVE_INF},
+		`${{ -Infinity }}`: &LiteralNode{types.NEGATIVE_INF},
+		`${{ 'foobar' }}`:  &LiteralNode{types.String("foobar")},
+		`${{ '${{' }}`:     &LiteralNode{types.String("${{")},
+	}
+
+	for source, expected := range tests {
+		node, err := ParseTemplate(source)
+
+		assert.NoError(t, err)
+		assert.EqualValues(t, expected, node, source)
+	}
+}
+
+func testParseTemplateWithExpr(t *testing.T) {
+	tests := map[string]Node{
+		`abc${{ a }}xyz`: &FunctionNode{"format", []Node{
+			&LiteralNode{types.String("abc{0}xyz")},
+			&VariableNode{"a"},
+		}},
+		`a{0}bc${{ a }}xyz`: &FunctionNode{"format", []Node{
+			&LiteralNode{types.String("a{{0}}bc{0}xyz")},
+			&VariableNode{"a"},
+		}},
+		`a{bc${{ a }}xy}z`: &FunctionNode{"format", []Node{
+			&LiteralNode{types.String("a{{bc{0}xy}}z")},
+			&VariableNode{"a"},
+		}},
+		`abc${{ '${{' }}xyz`: &FunctionNode{"format", []Node{
+			&LiteralNode{types.String("abc{0}xyz")},
+			&LiteralNode{types.String("${{")},
+		}},
+		`$${{ '${{' }}`: &FunctionNode{"format", []Node{
+			&LiteralNode{types.String("${0}")},
+			&LiteralNode{types.String("${{")},
+		}},
+		`${${{ '${{' }}`: &FunctionNode{"format", []Node{
+			&LiteralNode{types.String("${{{0}")},
+			&LiteralNode{types.String("${{")},
+		}},
+		`${}${{ '${{' }}`: &FunctionNode{"format", []Node{
+			&LiteralNode{types.String("${{}}{0}")},
+			&LiteralNode{types.String("${{")},
+		}},
+		`${x}${{ '${{' }}`: &FunctionNode{"format", []Node{
+			&LiteralNode{types.String("${{x}}{0}")},
+			&LiteralNode{types.String("${{")},
+		}},
+		`${{ a }}${{ '${{' }}`: &FunctionNode{"format", []Node{
+			&LiteralNode{types.String("{0}{1}")},
+			&VariableNode{"a"},
+			&LiteralNode{types.String("${{")},
+		}},
+		`${{ a }}${x}${{ '${{' }}`: &FunctionNode{"format", []Node{
+			&LiteralNode{types.String("{0}${{x}}{1}")},
+			&VariableNode{"a"},
+			&LiteralNode{types.String("${{")},
+		}},
+		`${xx${yy${{ '${{' }}`: &FunctionNode{"format", []Node{
+			&LiteralNode{types.String("${{xx${{yy{0}")},
+			&LiteralNode{types.String("${{")},
+		}},
+		"${xx\n${yy${{ '${{' }}": &FunctionNode{"format", []Node{
+			&LiteralNode{types.String("${{xx\n${{yy{0}")},
+			&LiteralNode{types.String("${{")},
+		}},
+		`${we}${{ '❤️' }}${δράση}`: &FunctionNode{"format", []Node{
+			&LiteralNode{types.String("${{we}}{0}${{δράση}}")},
+			&LiteralNode{types.String("❤️")},
+		}},
+	}
+
+	for source, expected := range tests {
+		node, err := ParseTemplate(source)
+
+		assert.NoError(t, err)
+		assert.EqualValues(t, expected, node, source)
+	}
+}
+
+func testParseTemplateError(t *testing.T) {
+	tests := []string{
+		`${{ a`,
+		`${{ a }`,
+		`${{ a && }}`,
+		`${{ a ${{ b }} }}`,
+		`${{ a }}-${{ b }`,
+	}
+
+	ste := new(syntaxError)
+	for _, tc := range tests {
+		_, err := ParseTemplate(tc)
+		assert.Error(t, err)
+		assert.ErrorAs(t, err, &ste, tc)
+
+		pretc := "pre" + tc
+		_, err = ParseTemplate(pretc)
+		assert.Error(t, err)
+		assert.ErrorAs(t, err, &ste, pretc)
+
+		subtc := tc + "sub"
+		_, err = ParseTemplate(subtc)
+		assert.Error(t, err)
+		assert.ErrorAs(t, err, &ste, subtc)
+	}
 }
