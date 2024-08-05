@@ -7,12 +7,12 @@ import (
 )
 
 type concurrencyTestStruct struct {
-	Con          Concurrency             `mapstructure:"con"`
-	ConPtr       *Concurrency            `mapstructure:"conPtr"`
-	ListOfCon    []Concurrency           `mapstructure:"listOfCon"`
-	MapOfCon     map[string]Concurrency  `mapstructure:"mapOfCon"`
-	ListOfConPtr []*Concurrency          `mapstructure:"listOfConPtr"`
-	MapOfConPtr  map[string]*Concurrency `mapstructure:"mapOfConPtr"`
+	Con          Concurrency             `actions:"con"`
+	ConPtr       *Concurrency            `actions:"conPtr"`
+	ListOfCon    []Concurrency           `actions:"listOfCon"`
+	MapOfCon     map[string]Concurrency  `actions:"mapOfCon"`
+	ListOfConPtr []*Concurrency          `actions:"listOfConPtr"`
+	MapOfConPtr  map[string]*Concurrency `actions:"mapOfConPtr"`
 }
 
 func TestDecodeConcurrency(t *testing.T) {
@@ -85,7 +85,7 @@ func testDecodeConcurrency(tt *testing.T, value any, con Concurrency) {
 }
 
 type permissionTestStruct struct {
-	Perm Permissions `mapstructure:"perm"`
+	Perm Permissions `actions:"perm"`
 }
 
 func TestDecodePermissions(t *testing.T) {

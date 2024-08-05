@@ -75,7 +75,7 @@ func DecodeWithOptions(source any, target any, opts ...DecodeOption) error {
 	metadata := mapstructure.Metadata{}
 	config := &mapstructure.DecoderConfig{
 		Result:   target,
-		TagName:  "mapstructure",
+		TagName:  "actions",
 		Metadata: &metadata,
 	}
 	for _, o := range opts {

@@ -7,12 +7,12 @@ import (
 )
 
 type containerTestStruct struct {
-	Con          Container             `mapstructure:"con"`
-	ConPtr       *Container            `mapstructure:"conPtr"`
-	ListOfCon    []Container           `mapstructure:"listOfCon"`
-	MapOfCon     map[string]Container  `mapstructure:"mapOfCon"`
-	ListOfConPtr []*Container          `mapstructure:"listOfConPtr"`
-	MapOfConPtr  map[string]*Container `mapstructure:"mapOfConPtr"`
+	Con          Container             `actions:"con"`
+	ConPtr       *Container            `actions:"conPtr"`
+	ListOfCon    []Container           `actions:"listOfCon"`
+	MapOfCon     map[string]Container  `actions:"mapOfCon"`
+	ListOfConPtr []*Container          `actions:"listOfConPtr"`
+	MapOfConPtr  map[string]*Container `actions:"mapOfConPtr"`
 }
 
 func TestDecodeContainer(t *testing.T) {

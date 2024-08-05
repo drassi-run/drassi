@@ -18,7 +18,7 @@ type EvaluationSupplier interface {
 }
 
 type Evaluable[R any] struct {
-	Token Token `json:"token" yaml:"token" mapstructure:"token"`
+	Token Token `json:"token" yaml:"token" actions:"token"`
 }
 
 func (e *Evaluable[_]) IsNil() bool {
@@ -107,8 +107,8 @@ func NewSequenceToken(seq []Token) Token {
 }
 
 type KVPair[K, V any] struct {
-	Key   K `json:"key,omitempty" yaml:"key,omitempty" mapstructure:"key,omitempty"`
-	Value V `json:"value,omitempty" yaml:"value,omitempty" mapstructure:"value,omitempty"`
+	Key   K `json:"key,omitempty" yaml:"key,omitempty" actions:"key,omitempty"`
+	Value V `json:"value,omitempty" yaml:"value,omitempty" actions:"value,omitempty"`
 }
 
 type mappingToken []KVPair[Token, Token]

@@ -8,7 +8,7 @@ import (
 )
 
 type klass[E any] struct {
-	Event *E `mapstructure:"event,omitempty"`
+	Event *E `actions:"event,omitempty"`
 }
 
 func createMockData(types any) map[string]any {
