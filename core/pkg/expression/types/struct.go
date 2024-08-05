@@ -52,7 +52,7 @@ func buildFieldIndex(t reflect.Type) {
 	m := make(map[string]int)
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
-		tag, ok := f.Tag.Lookup("gha")
+		tag, ok := f.Tag.Lookup("actions")
 		if !ok || len(tag) == 0 {
 			continue
 		}

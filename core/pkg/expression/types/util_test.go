@@ -14,15 +14,15 @@ type L []string
 type M map[int]int
 
 type S struct {
-	Boolean bool              `gha:"boolean"`
-	Integer int64             `gha:"integer"`
-	Float   float64           `gha:"float"`
-	String  string            `gha:"string"`
-	List    []string          `gha:"list"`
-	Map     map[string]string `gha:"map"`
+	Boolean bool              `actions:"boolean"`
+	Integer int64             `actions:"integer"`
+	Float   float64           `actions:"float"`
+	String  string            `actions:"string"`
+	List    []string          `actions:"list"`
+	Map     map[string]string `actions:"map"`
 
 	Ignore   byte
-	EmptyTag rune `gha:""`
+	EmptyTag rune `actions:""`
 }
 
 // Pointer implement interface I
@@ -35,7 +35,7 @@ type FV float64
 type LV []string
 type MV map[int]int
 type SV struct {
-	Name string `gha:"name"`
+	Name string `actions:"name"`
 }
 
 // Value implement interface I
