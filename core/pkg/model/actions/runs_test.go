@@ -21,12 +21,12 @@ func clone[T any](i T) T {
 }
 
 type runsTestStruct struct {
-	Runs          Runs             `mapstructure:"runs"`
-	RunsPtr       *Runs            `mapstructure:"runsPtr"`
-	ListOfRuns    []Runs           `mapstructure:"listOfRuns"`
-	ListOfRunsPtr []*Runs          `mapstructure:"listOfRunsPtr"`
-	MapOfRuns     map[string]Runs  `mapstructure:"mapOfRuns"`
-	MapOfRunsPtr  map[string]*Runs `mapstructure:"mapOfRunsPtr"`
+	Runs          Runs             `actions:"runs"`
+	RunsPtr       *Runs            `actions:"runsPtr"`
+	ListOfRuns    []Runs           `actions:"listOfRuns"`
+	ListOfRunsPtr []*Runs          `actions:"listOfRunsPtr"`
+	MapOfRuns     map[string]Runs  `actions:"mapOfRuns"`
+	MapOfRunsPtr  map[string]*Runs `actions:"mapOfRunsPtr"`
 }
 
 func TestDecodeRuns(t *testing.T) {
@@ -78,28 +78,28 @@ func TestDecodeRuns(t *testing.T) {
 		var runs Runs = &DockerRuns{}
 		err := model.Decode(jsInput, &runs)
 
-		assert.ErrorContains(tt, err, fmt.Sprintf(`map with using="%s" CAN'T be decode to %T`, jsInput["using"], runs))
+		assert.ErrorContains(tt, err, fmt.Sprintf(`map with using=%q CAN'T be decode to %T`, jsInput["using"], runs))
 	})
 
 	t.Run("conflict/wrong-map-type/2", func(tt *testing.T) {
 		var runs Runs = &CompositeRuns{}
 		err := model.Decode(dockerInput, &runs)
 
-		assert.ErrorContains(tt, err, fmt.Sprintf(`map with using="%s" CAN'T be decode to %T`, dockerInput["using"], runs))
+		assert.ErrorContains(tt, err, fmt.Sprintf(`map with using=%q CAN'T be decode to %T`, dockerInput["using"], runs))
 	})
 
 	t.Run("conflict/wrong-map-type/3", func(tt *testing.T) {
 		var runs Runs = &JavaScriptRuns{}
 		err := model.Decode(compositeInput, &runs)
 
-		assert.ErrorContains(tt, err, fmt.Sprintf(`map with using="%s" CAN'T be decode to %T`, compositeInput["using"], runs))
+		assert.ErrorContains(tt, err, fmt.Sprintf(`map with using=%q CAN'T be decode to %T`, compositeInput["using"], runs))
 	})
 
 	t.Run("absent", func(tt *testing.T) {
 		type runsStruct struct {
-			Runs       Runs            `mapstructure:"runs,omitempty"`
-			ListOfRuns []Runs          `mapstructure:"listOfRuns,omitempty"`
-			MapOfRuns  map[string]Runs `mapstructure:"mapOfRuns,omitempty"`
+			Runs       Runs            `actions:"runs,omitempty"`
+			ListOfRuns []Runs          `actions:"listOfRuns,omitempty"`
+			MapOfRuns  map[string]Runs `actions:"mapOfRuns,omitempty"`
 		}
 		runs := runsStruct{}
 		err := model.Decode(map[string]any{}, &runs)
@@ -112,9 +112,9 @@ func TestDecodeRuns(t *testing.T) {
 
 	t.Run("nil", func(tt *testing.T) {
 		type runsStruct struct {
-			Runs       Runs            `mapstructure:"runs,omitempty"`
-			ListOfRuns []Runs          `mapstructure:"listOfRuns,omitempty"`
-			MapOfRuns  map[string]Runs `mapstructure:"mapOfRuns,omitempty"`
+			Runs       Runs            `actions:"runs,omitempty"`
+			ListOfRuns []Runs          `actions:"listOfRuns,omitempty"`
+			MapOfRuns  map[string]Runs `actions:"mapOfRuns,omitempty"`
 		}
 		runs := runsStruct{}
 		err := model.Decode(map[string]any{

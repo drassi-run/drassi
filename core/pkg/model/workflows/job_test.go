@@ -11,12 +11,12 @@ import (
 )
 
 type jobTestStruct struct {
-	Job          Job             `mapstructure:"job"`
-	JobPtr       *Job            `mapstructure:"jobPtr"`
-	ListOfJob    []Job           `mapstructure:"listOfJob"`
-	ListOfJobPtr []*Job          `mapstructure:"listOfJobPtr"`
-	MapOfJob     map[string]Job  `mapstructure:"mapOfJob"`
-	MapOfJobPtr  map[string]*Job `mapstructure:"mapOfJobPtr"`
+	Job          Job             `actions:"job"`
+	JobPtr       *Job            `actions:"jobPtr"`
+	ListOfJob    []Job           `actions:"listOfJob"`
+	ListOfJobPtr []*Job          `actions:"listOfJobPtr"`
+	MapOfJob     map[string]Job  `actions:"mapOfJob"`
+	MapOfJobPtr  map[string]*Job `actions:"mapOfJobPtr"`
 }
 
 func TestDecodeJob(t *testing.T) {
@@ -77,9 +77,9 @@ func TestDecodeJob(t *testing.T) {
 
 	t.Run("absent", func(tt *testing.T) {
 		type jobStruct struct {
-			Job       Job            `mapstructure:"job,omitempty"`
-			ListOfJob []Job          `mapstructure:"listOfJob,omitempty"`
-			MapOfJob  map[string]Job `mapstructure:"mapOfJob,omitempty"`
+			Job       Job            `actions:"job,omitempty"`
+			ListOfJob []Job          `actions:"listOfJob,omitempty"`
+			MapOfJob  map[string]Job `actions:"mapOfJob,omitempty"`
 		}
 		job := jobStruct{}
 		err := model.Decode(map[string]any{}, &job)
@@ -92,9 +92,9 @@ func TestDecodeJob(t *testing.T) {
 
 	t.Run("nil", func(tt *testing.T) {
 		type jobStruct struct {
-			Job       Job            `mapstructure:"job,omitempty"`
-			ListOfJob []Job          `mapstructure:"listOfJob,omitempty"`
-			MapOfJob  map[string]Job `mapstructure:"mapOfJob,omitempty"`
+			Job       Job            `actions:"job,omitempty"`
+			ListOfJob []Job          `actions:"listOfJob,omitempty"`
+			MapOfJob  map[string]Job `actions:"mapOfJob,omitempty"`
 		}
 		job := jobStruct{}
 		err := model.Decode(map[string]any{
@@ -161,12 +161,12 @@ func testDecodeJob[T any](tt *testing.T, value T, job Job) {
 }
 
 type jobNeedsTestStruct struct {
-	JN          JobNeeds             `mapstructure:"jn"`
-	JNPtr       *JobNeeds            `mapstructure:"jnPtr"`
-	ListOfJN    []JobNeeds           `mapstructure:"listOfJn"`
-	MapOfJN     map[string]JobNeeds  `mapstructure:"mapOfJn"`
-	ListOfJNPtr []*JobNeeds          `mapstructure:"listOfJnPtr"`
-	MapOfJNPtr  map[string]*JobNeeds `mapstructure:"mapOfJnPtr"`
+	JN          JobNeeds             `actions:"jn"`
+	JNPtr       *JobNeeds            `actions:"jnPtr"`
+	ListOfJN    []JobNeeds           `actions:"listOfJn"`
+	MapOfJN     map[string]JobNeeds  `actions:"mapOfJn"`
+	ListOfJNPtr []*JobNeeds          `actions:"listOfJnPtr"`
+	MapOfJNPtr  map[string]*JobNeeds `actions:"mapOfJnPtr"`
 }
 
 func TestDecodeJobNeeds(t *testing.T) {
@@ -210,12 +210,12 @@ func testDecodeJobNeeds[T any](tt *testing.T, value T, jn JobNeeds) {
 }
 
 type jobSecretTestStruct struct {
-	JS          JobSecrets             `mapstructure:"js"`
-	JSPtr       *JobSecrets            `mapstructure:"jsPtr"`
-	ListOfJS    []JobSecrets           `mapstructure:"listOfJs"`
-	MapOfJS     map[string]JobSecrets  `mapstructure:"mapOfJs"`
-	ListOfJSPtr []*JobSecrets          `mapstructure:"listOfJsPtr"`
-	MapOfJSPtr  map[string]*JobSecrets `mapstructure:"mapOfJsPtr"`
+	JS          JobSecrets             `actions:"js"`
+	JSPtr       *JobSecrets            `actions:"jsPtr"`
+	ListOfJS    []JobSecrets           `actions:"listOfJs"`
+	MapOfJS     map[string]JobSecrets  `actions:"mapOfJs"`
+	ListOfJSPtr []*JobSecrets          `actions:"listOfJsPtr"`
+	MapOfJSPtr  map[string]*JobSecrets `actions:"mapOfJsPtr"`
 }
 
 func TestDecodeJobSecrets(t *testing.T) {
@@ -284,12 +284,12 @@ func testDecodeJobSecrets[T any](tt *testing.T, value T, js JobSecrets) {
 }
 
 type environmentTestStruct struct {
-	Environment          Environment             `mapstructure:"environment"`
-	EnvironmentPtr       *Environment            `mapstructure:"environmentPtr"`
-	ListOfEnvironment    []Environment           `mapstructure:"listOfEnvironment"`
-	MapOfEnvironment     map[string]Environment  `mapstructure:"mapOfEnvironment"`
-	ListOfEnvironmentPtr []*Environment          `mapstructure:"listOfEnvironmentPtr"`
-	MapOfEnvironmentPtr  map[string]*Environment `mapstructure:"mapOfEnvironmentPtr"`
+	Environment          Environment             `actions:"environment"`
+	EnvironmentPtr       *Environment            `actions:"environmentPtr"`
+	ListOfEnvironment    []Environment           `actions:"listOfEnvironment"`
+	MapOfEnvironment     map[string]Environment  `actions:"mapOfEnvironment"`
+	ListOfEnvironmentPtr []*Environment          `actions:"listOfEnvironmentPtr"`
+	MapOfEnvironmentPtr  map[string]*Environment `actions:"mapOfEnvironmentPtr"`
 }
 
 func TestDecodeEnvironment(t *testing.T) {
@@ -343,12 +343,12 @@ func testDecodeEnvironment[T any](tt *testing.T, value T, env Environment) {
 }
 
 type runOnTestStruct struct {
-	RO          RunsOn             `mapstructure:"ro"`
-	ROPtr       *RunsOn            `mapstructure:"roPtr"`
-	ListOfRO    []RunsOn           `mapstructure:"listOfRo"`
-	MapOfRO     map[string]RunsOn  `mapstructure:"mapOfRo"`
-	ListOfROPtr []*RunsOn          `mapstructure:"listOfRoPtr"`
-	MapOfROPtr  map[string]*RunsOn `mapstructure:"mapOfRoPtr"`
+	RO          RunsOn             `actions:"ro"`
+	ROPtr       *RunsOn            `actions:"roPtr"`
+	ListOfRO    []RunsOn           `actions:"listOfRo"`
+	MapOfRO     map[string]RunsOn  `actions:"mapOfRo"`
+	ListOfROPtr []*RunsOn          `actions:"listOfRoPtr"`
+	MapOfROPtr  map[string]*RunsOn `actions:"mapOfRoPtr"`
 }
 
 func TestDecodeRunsOn(t *testing.T) {

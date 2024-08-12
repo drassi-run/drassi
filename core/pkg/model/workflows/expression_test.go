@@ -50,13 +50,13 @@ func comparerForLiteralToken(opts ...cmp.Option) cmp.Option {
 func TestDecodeEvaluable(t *testing.T) {
 	t.Run("kind", func(tt *testing.T) {
 		type testEvaluable struct {
-			LitBool   Evaluable[bool]           `mapstructure:"litBool"`
-			LitInt    Evaluable[int64]          `mapstructure:"litInt"`
-			LitFloat  Evaluable[float64]        `mapstructure:"litFloat"`
-			LitString Evaluable[string]         `mapstructure:"litString"`
-			Expr      Evaluable[string]         `mapstructure:"expr"`
-			Seq       Evaluable[[]any]          `mapstructure:"seq"`
-			Dict      Evaluable[map[string]any] `mapstructure:"dict"`
+			LitBool   Evaluable[bool]           `actions:"litBool"`
+			LitInt    Evaluable[int64]          `actions:"litInt"`
+			LitFloat  Evaluable[float64]        `actions:"litFloat"`
+			LitString Evaluable[string]         `actions:"litString"`
+			Expr      Evaluable[string]         `actions:"expr"`
+			Seq       Evaluable[[]any]          `actions:"seq"`
+			Dict      Evaluable[map[string]any] `actions:"dict"`
 		}
 
 		scala := map[string]any{

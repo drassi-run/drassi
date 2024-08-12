@@ -11,12 +11,12 @@ import (
 )
 
 type stepTestStruct struct {
-	Step          Step             `mapstructure:"step"`
-	StepPtr       *Step            `mapstructure:"stepPtr"`
-	ListOfStep    []Step           `mapstructure:"listOfStep"`
-	ListOfStepPtr []*Step          `mapstructure:"listOfStepPtr"`
-	MapOfStep     map[string]Step  `mapstructure:"mapOfStep"`
-	MapOfStepPtr  map[string]*Step `mapstructure:"mapOfStepPtr"`
+	Step          Step             `actions:"step"`
+	StepPtr       *Step            `actions:"stepPtr"`
+	ListOfStep    []Step           `actions:"listOfStep"`
+	ListOfStepPtr []*Step          `actions:"listOfStepPtr"`
+	MapOfStep     map[string]Step  `actions:"mapOfStep"`
+	MapOfStepPtr  map[string]*Step `actions:"mapOfStepPtr"`
 }
 
 func TestDecodeStep(t *testing.T) {
@@ -77,9 +77,9 @@ func TestDecodeStep(t *testing.T) {
 
 	t.Run("absent", func(tt *testing.T) {
 		type stepStruct struct {
-			Step       Step            `mapstructure:"step,omitempty"`
-			ListOfStep []Step          `mapstructure:"listOfStep,omitempty"`
-			MapOfStep  map[string]Step `mapstructure:"mapOfStep,omitempty"`
+			Step       Step            `actions:"step,omitempty"`
+			ListOfStep []Step          `actions:"listOfStep,omitempty"`
+			MapOfStep  map[string]Step `actions:"mapOfStep,omitempty"`
 		}
 		step := stepStruct{}
 		err := model.Decode(map[string]any{}, &step)
@@ -92,9 +92,9 @@ func TestDecodeStep(t *testing.T) {
 
 	t.Run("nil", func(tt *testing.T) {
 		type stepStruct struct {
-			Step       Step            `mapstructure:"step,omitempty"`
-			ListOfStep []Step          `mapstructure:"listOfStep,omitempty"`
-			MapOfStep  map[string]Step `mapstructure:"mapOfStep,omitempty"`
+			Step       Step            `actions:"step,omitempty"`
+			ListOfStep []Step          `actions:"listOfStep,omitempty"`
+			MapOfStep  map[string]Step `actions:"mapOfStep,omitempty"`
 		}
 		step := stepStruct{}
 		err := model.Decode(map[string]any{

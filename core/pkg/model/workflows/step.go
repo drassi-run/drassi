@@ -14,7 +14,7 @@ type BaseStep struct {
 	// A unique identifier for the step. You can use the id to reference the step in contexts.
 	// For more information, see https://help.github.com/en/articles/contexts-and-expression-syntax-for-github-actions.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsid
-	Id string `json:"id,omitempty" yaml:"id,omitempty" mapstructure:"id,omitempty"`
+	Id string `json:"id,omitempty" yaml:"id,omitempty" actions:"id,omitempty"`
 
 	// A name for your step to display on GitHub.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsname
@@ -22,7 +22,7 @@ type BaseStep struct {
 	// Context available: `github`, `needs`, `strategy`, `matrix`, `job`, `runner`, `env`, `vars`, `secrets`, `steps`, `inputs`
 	// Special functions: `hashFiles`
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
-	Name Evaluable[string] `json:"name,omitempty" yaml:"name,omitempty" mapstructure:"name,omitempty"`
+	Name Evaluable[string] `json:"name,omitempty" yaml:"name,omitempty" actions:"name,omitempty"`
 
 	// You can use the if conditional to prevent a step from running unless a condition is met.
 	// You can use any supported context and expression to create a conditional.
@@ -33,7 +33,7 @@ type BaseStep struct {
 	// Context available: `github`, `needs`, `strategy`, `matrix`, `job`, `runner`, `env`, `vars`, `steps`, `inputs`
 	// Special functions: `always`, `cancelled`, `success`, `failure`, `hashFiles`
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
-	If Conditional `json:"if,omitempty" yaml:"if,omitempty" mapstructure:"if,omitempty"`
+	If Conditional `json:"if,omitempty" yaml:"if,omitempty" actions:"if,omitempty"`
 
 	// A map of the input parameters defined by the action. Each input parameter is a key/value pair.
 	// Input parameters are set as environment variables. The variable is prefixed with INPUT_ and converted to upper case.
@@ -42,7 +42,7 @@ type BaseStep struct {
 	// Context available: `github`, `needs`, `strategy`, `matrix`, `job`, `runner`, `env`, `vars`, `secrets`, `steps`, `inputs`
 	// Special functions: `hashFiles`
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
-	With Evaluable[map[string]string] `json:"with,omitempty" yaml:"with,omitempty" mapstructure:"with,omitempty"`
+	With Evaluable[map[string]string] `json:"with,omitempty" yaml:"with,omitempty" actions:"with,omitempty"`
 
 	// Sets environment variables for steps to use in the virtual environment. You can also set environment variables for the entire workflow or a job.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsenv
@@ -54,7 +54,7 @@ type BaseStep struct {
 	// Context available: `github`, `needs`, `strategy`, `matrix`, `job`, `runner`, `env`, `vars`, `secrets`, `steps`, `inputs`
 	// Special functions: `hashFiles`
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
-	Env Evaluable[map[string]string] `json:"env,omitempty" yaml:"env,omitempty" mapstructure:"env,omitempty"`
+	Env Evaluable[map[string]string] `json:"env,omitempty" yaml:"env,omitempty" actions:"env,omitempty"`
 
 	// Prevents a job from failing when a step fails. Set to true to allow a job to pass when this step fails.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepscontinue-on-error
@@ -62,7 +62,7 @@ type BaseStep struct {
 	// Context available: `github`, `needs`, `strategy`, `matrix`, `job`, `runner`, `env`, `vars`, `secrets`, `steps`, `inputs`
 	// Special functions: `hashFiles`
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
-	ContinueOnError Evaluable[bool] `json:"continue-on-error,omitempty" yaml:"continue-on-error,omitempty" mapstructure:"continue-on-error,omitempty"`
+	ContinueOnError Evaluable[bool] `json:"continue-on-error,omitempty" yaml:"continue-on-error,omitempty" actions:"continue-on-error,omitempty"`
 
 	// The maximum number of minutes to run the step before killing the process.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepstimeout-minutes
@@ -70,7 +70,7 @@ type BaseStep struct {
 	// Context available: `github`, `needs`, `strategy`, `matrix`, `job`, `runner`, `env`, `vars`, `secrets`, `steps`, `inputs`
 	// Special functions: `hashFiles`
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
-	TimeoutInMinutes Evaluable[int64] `json:"timeout-minutes,omitempty" yaml:"timeout-minutes,omitempty" mapstructure:"timeout-minutes,omitempty"`
+	TimeoutInMinutes Evaluable[int64] `json:"timeout-minutes,omitempty" yaml:"timeout-minutes,omitempty" actions:"timeout-minutes,omitempty"`
 }
 
 func (s *BaseStep) Base() *BaseStep {
@@ -78,7 +78,7 @@ func (s *BaseStep) Base() *BaseStep {
 }
 
 type UsesStep struct {
-	BaseStep `json:",inline" yaml:",inline" mapstructure:",squash"`
+	BaseStep `json:",inline" yaml:",inline" actions:",squash"`
 
 	// Selects an action to run as part of a step in your job. An action is a reusable unit of code.
 	// You can use an action defined in the same repository as the workflow, a public repository, or in a published Docker container image (https://hub.docker.com/).
@@ -92,11 +92,11 @@ type UsesStep struct {
 	// Actions are either JavaScript files or Docker containers. If the action you're using is a Docker container you must run the job in a Linux virtual environment.
 	// For more details, see https://help.github.com/en/articles/virtual-environments-for-github-actions.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsuses
-	Uses string `json:"uses,omitempty" yaml:"uses,omitempty" mapstructure:"uses,omitempty" validate:"required"`
+	Uses string `json:"uses,omitempty" yaml:"uses,omitempty" actions:"uses,omitempty" validate:"required"`
 }
 
 type RunStep struct {
-	BaseStep `yaml:",inline" mapstructure:",squash"`
+	BaseStep `yaml:",inline" actions:",squash"`
 
 	// Runs command-line programs using the operating system's shell. If you do not provide a name, the step name will default to the text specified in the run command.
 	// Commands run using non-login shells by default. You can choose a different shell and customize the shell used to run commands.
@@ -107,12 +107,12 @@ type RunStep struct {
 	// Context available: `github`, `needs`, `strategy`, `matrix`, `job`, `runner`, `env`, `vars`, `secrets`, `steps`, `inputs`
 	// Special functions: `hashFiles`
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
-	Run Evaluable[string] `json:"run,omitempty" yaml:"run,omitempty" mapstructure:"run,omitempty" validate:"required"`
+	Run Evaluable[string] `json:"run,omitempty" yaml:"run,omitempty" actions:"run,omitempty" validate:"required"`
 
-	Shell string `json:"shell,omitempty" yaml:"shell,omitempty" mapstructure:"shell,omitempty"`
+	Shell string `json:"shell,omitempty" yaml:"shell,omitempty" actions:"shell,omitempty"`
 
 	// Context available: `github`, `needs`, `strategy`, `matrix`, `job`, `runner`, `env`, `vars`, `secrets`, `steps`, `inputs`
 	// Special functions: `hashFiles`
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
-	WorkingDir Evaluable[string] `json:"working-directory,omitempty" yaml:"working-directory,omitempty" mapstructure:"working-directory,omitempty"`
+	WorkingDir Evaluable[string] `json:"working-directory,omitempty" yaml:"working-directory,omitempty" actions:"working-directory,omitempty"`
 }

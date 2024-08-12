@@ -234,3 +234,6 @@ GitHub.sublime-settings
 
 # Go workspace file
 # go.work
+
+### ANTLR ###
+.antlr/
