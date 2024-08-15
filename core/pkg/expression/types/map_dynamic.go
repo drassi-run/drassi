@@ -79,17 +79,18 @@ func (a *dynamicMapAccessor) Get(index any) ref.Val {
 
 func (a *dynamicMapAccessor) get(idx reflect.Value) ref.Val {
 	value := a.instance.MapIndex(idx)
-	if !value.IsValid() {
-		return NULL
-	}
-	v := value.Interface()
-	return NativeToVal(v)
+	return NativeToVal(value)
 }
 
 func (a *dynamicMapAccessor) Iterator() traits.Iterator {
-	return &mapIterator[reflect.Value]{
-		getter: a.get,
-		keys:   a.instance.MapKeys(),
-		cursor: 0,
+	return func(yield func(ref.Val, ref.Val) bool) {
+		it := a.instance.MapRange()
+		for it.Next() {
+			k, v := it.Key(), it.Value()
+			key, value := NativeToVal(k), NativeToVal(v)
+			if !yield(key, value) {
+				return
+			}
+		}
 	}
 }

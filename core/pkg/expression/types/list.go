@@ -90,28 +90,13 @@ func (l *List) get(idx int) ref.Val {
 }
 
 func (l *List) Iterator() traits.Iterator {
-	return &listIterator{
-		list:   l,
-		cursor: 0,
-		len:    l.size,
+	return func(yield func(ref.Val, ref.Val) bool) {
+		for i := 0; i < l.size; i++ {
+			idx := Integer(i)
+			elem := l.get(i)
+			if !yield(idx, elem) {
+				return
+			}
+		}
 	}
-}
-
-type listIterator struct {
-	list   *List
-	cursor int
-	len    int
-}
-
-func (it *listIterator) HasNext() bool {
-	return it.cursor < it.len
-}
-
-func (it *listIterator) Next() (ref.Val, ref.Val) {
-	if it.HasNext() {
-		idx := it.cursor
-		it.cursor++
-		return Integer(idx), it.list.get(idx)
-	}
-	return nil, nil
 }

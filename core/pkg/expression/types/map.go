@@ -48,22 +48,3 @@ func (m *Map) Equal(other ref.Val) bool {
 func (m *Map) Size() int {
 	return m.size
 }
-
-type mapIterator[K any] struct {
-	getter func(K) ref.Val
-	keys   []K
-	cursor int
-}
-
-func (it *mapIterator[K]) HasNext() bool {
-	return it.cursor < len(it.keys)
-}
-
-func (it *mapIterator[K]) Next() (ref.Val, ref.Val) {
-	if it.HasNext() {
-		idx := it.keys[it.cursor]
-		it.cursor++
-		return NativeToVal(idx), it.getter(idx)
-	}
-	return nil, nil
-}

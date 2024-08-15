@@ -5,7 +5,6 @@ import (
 
 	"drassi.run/core/pkg/expression/types/ref"
 	"drassi.run/core/pkg/expression/types/traits"
-	"golang.org/x/exp/maps"
 )
 
 func NewMapGeneric[M ~map[K]V, K comparable, V any](value M) ref.Val {
@@ -55,9 +54,12 @@ func (a *genericMapAccessor[M, K, V]) get(idx K) ref.Val {
 }
 
 func (a *genericMapAccessor[M, K, V]) Iterator() traits.Iterator {
-	return &mapIterator[K]{
-		getter: a.get,
-		keys:   maps.Keys(a.instance),
-		cursor: 0,
+	return func(yield func(ref.Val, ref.Val) bool) {
+		for k, v := range a.instance {
+			key, value := NativeToVal(k), NativeToVal(v)
+			if !yield(key, value) {
+				return
+			}
+		}
 	}
 }
