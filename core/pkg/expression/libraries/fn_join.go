@@ -39,16 +39,14 @@ next:
 
 func join(list traits.Iterable, sep string) ref.Val {
 	builder := new(strings.Builder)
-	it := list.Iterator()
+
 	i := 0
-	for it.HasNext() {
-		_, e := it.Next()
+	for _, e := range list.Iterator() {
 		if e.Type() == ref.TypeInvalid {
 			return e
 		}
 
-		i++
-		if i > 1 {
+		if i++; i > 1 {
 			builder.WriteString(sep)
 		}
 		builder.WriteString(stringify(e))

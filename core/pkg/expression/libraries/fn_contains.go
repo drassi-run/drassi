@@ -34,9 +34,7 @@ func Contains(search ref.Val, item ref.Val) ref.Val {
 }
 
 func contains(list traits.Iterable, item ref.Val) ref.Val {
-	it := list.Iterator()
-	for it.HasNext() {
-		_, e := it.Next()
+	for _, e := range list.Iterator() {
 		if equalWeak(e, item) {
 			return types.TRUE
 		}
