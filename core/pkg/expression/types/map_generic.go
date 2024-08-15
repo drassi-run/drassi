@@ -19,7 +19,6 @@ func NewMapGeneric[M ~map[K]V, K comparable, V any](value M) ref.Val {
 			instance:  value,
 		},
 		value: value,
-		size:  len(value),
 	}
 }
 
@@ -31,6 +30,10 @@ func genericToType[K comparable]() ref.Type {
 type genericMapAccessor[M ~map[K]V, K comparable, V any] struct {
 	indexType ref.Type
 	instance  M
+}
+
+func (a *genericMapAccessor[M, K, V]) Size() int {
+	return len(a.instance)
 }
 
 func (a *genericMapAccessor[M, K, V]) IndexType() ref.Type {
@@ -46,11 +49,11 @@ func (a *genericMapAccessor[M, K, V]) Get(index any) ref.Val {
 }
 
 func (a *genericMapAccessor[M, K, V]) get(idx K) ref.Val {
-	e, ok := a.instance[idx]
+	v, ok := a.instance[idx]
 	if !ok {
 		return NULL
 	}
-	return NativeToVal(e)
+	return NativeToVal(v)
 }
 
 func (a *genericMapAccessor[M, K, V]) Iterator() traits.Iterator {

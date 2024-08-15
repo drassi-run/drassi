@@ -28,7 +28,6 @@ func NewMapDynamic(value any) ref.Val {
 			instance:  instance,
 		},
 		value: value,
-		size:  instance.Len(),
 	}
 }
 
@@ -61,6 +60,10 @@ type dynamicMapAccessor struct {
 	instance  reflect.Value
 }
 
+func (a *dynamicMapAccessor) Size() int {
+	return a.instance.Len()
+}
+
 func (a *dynamicMapAccessor) IndexType() ref.Type {
 	return a.indexType
 }
@@ -78,8 +81,8 @@ func (a *dynamicMapAccessor) Get(index any) ref.Val {
 }
 
 func (a *dynamicMapAccessor) get(idx reflect.Value) ref.Val {
-	value := a.instance.MapIndex(idx)
-	return NativeToVal(value)
+	v := a.instance.MapIndex(idx)
+	return NativeToVal(v)
 }
 
 func (a *dynamicMapAccessor) Iterator() traits.Iterator {

@@ -10,12 +10,12 @@ import (
 type mapAccessor interface {
 	traits.Indexer
 	traits.Iterable
+	Size() int
 }
 
 type Map struct {
 	mapAccessor
 	value any // MUST be a map
-	size  int
 }
 
 func (m *Map) Type() ref.Type {
@@ -32,7 +32,7 @@ func (m *Map) Equal(other ref.Val) bool {
 		return false
 	}
 
-	if m.size != o.size {
+	if m.Size() != o.Size() {
 		return false
 	}
 
@@ -43,8 +43,4 @@ func (m *Map) Equal(other ref.Val) bool {
 		return mv.UnsafePointer() == ov.UnsafePointer()
 	}
 	return false
-}
-
-func (m *Map) Size() int {
-	return m.size
 }
