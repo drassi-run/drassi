@@ -9,15 +9,15 @@ import (
 
 type List struct {
 	value  any // MUST be a slice or array
-	size   int
+	sizer  func() int
 	getter func(int) any
 }
 
-func NewListGeneric[L ~[]E, E any](elems L) ref.Val {
+func NewListGeneric[L ~[]E, E any](value L) ref.Val {
 	return &List{
-		value:  elems,
-		size:   len(elems),
-		getter: func(i int) any { return elems[i] },
+		value:  value,
+		sizer:  func() int { return len(value) },
+		getter: func(i int) any { return value[i] },
 	}
 }
 
@@ -30,7 +30,7 @@ func NewListDynamic(value any) ref.Val {
 
 	return &List{
 		value: value,
-		size:  refVal.Len(),
+		sizer: func() int { return refVal.Len() },
 		getter: func(i int) any {
 			return refVal.Index(i).Interface()
 		},
@@ -51,7 +51,7 @@ func (l *List) Equal(other ref.Val) bool {
 		return false
 	}
 
-	if l.size != o.size {
+	if l.Size() != o.Size() {
 		return false
 	}
 
@@ -66,7 +66,7 @@ func (l *List) Equal(other ref.Val) bool {
 }
 
 func (l *List) Size() int {
-	return l.size
+	return l.sizer()
 }
 
 func (l *List) IndexType() ref.Type {
@@ -78,7 +78,7 @@ func (l *List) Get(index any) ref.Val {
 	if !ok {
 		return NewError("index must be an integer, got %s (%[1]T): %w", index, errInvalidType)
 	}
-	if idx < 0 || idx >= l.size {
+	if idx < 0 || idx >= l.Size() {
 		return NULL
 	}
 	return l.get(idx)
@@ -90,28 +90,13 @@ func (l *List) get(idx int) ref.Val {
 }
 
 func (l *List) Iterator() traits.Iterator {
-	return &listIterator{
-		list:   l,
-		cursor: 0,
-		len:    l.size,
+	return func(yield func(ref.Val, ref.Val) bool) {
+		for i := 0; i < l.Size(); i++ {
+			idx := Integer(i)
+			elem := l.get(i)
+			if !yield(idx, elem) {
+				return
+			}
+		}
 	}
-}
-
-type listIterator struct {
-	list   *List
-	cursor int
-	len    int
-}
-
-func (it *listIterator) HasNext() bool {
-	return it.cursor < it.len
-}
-
-func (it *listIterator) Next() (ref.Val, ref.Val) {
-	if it.HasNext() {
-		idx := it.cursor
-		it.cursor++
-		return Integer(idx), it.list.get(idx)
-	}
-	return nil, nil
 }

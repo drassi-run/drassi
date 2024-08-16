@@ -1,13 +1,15 @@
+name: Test
+
 on:
   push:
     branches: [main]
   pull_request:
-name: Test
+
 jobs:
   test:
     strategy:
       matrix:
-        go-version: [1.21.x, 1.22.x] # test with 2 most recent go versions
+        go-version: [1.23.x]
         platform: [ubuntu-latest]
     runs-on: ${{ matrix.platform }}
     steps:

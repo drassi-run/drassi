@@ -1,6 +1,10 @@
 package traits
 
-import "drassi.run/core/pkg/expression/types/ref"
+import (
+	"iter"
+
+	"drassi.run/core/pkg/expression/types/ref"
+)
 
 // Iterable aggregate types permit traversal over their elements.
 type Iterable interface {
@@ -9,10 +13,4 @@ type Iterable interface {
 }
 
 // Iterator permits safe traversal over the contents of an aggregate type.
-type Iterator interface {
-	// HasNext returns true if there are unvisited elements in the Iterator.
-	HasNext() bool
-
-	// Next returns the next element.
-	Next() (ref.Val, ref.Val)
-}
+type Iterator iter.Seq2[ref.Val, ref.Val]

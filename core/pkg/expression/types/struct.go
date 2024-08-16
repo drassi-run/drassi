@@ -6,7 +6,6 @@ import (
 
 	"drassi.run/core/pkg/expression/types/ref"
 	"drassi.run/core/pkg/expression/types/traits"
-	"golang.org/x/exp/maps"
 )
 
 var fieldIndex = make(map[reflect.Type]map[string]int)
@@ -121,9 +120,13 @@ func (s *Struct) get(idx string) ref.Val {
 }
 
 func (s *Struct) Iterator() traits.Iterator {
-	return &mapIterator[string]{
-		getter: s.get,
-		keys:   maps.Keys(fieldIndex[s.typ]),
-		cursor: 0,
+	return func(yield func(ref.Val, ref.Val) bool) {
+		for k, idx := range fieldIndex[s.typ] {
+			v := s.val.Field(idx)
+			key, value := NativeToVal(k), NativeToVal(v)
+			if !yield(key, value) {
+				return
+			}
+		}
 	}
 }

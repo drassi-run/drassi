@@ -60,9 +60,7 @@ func testListIterator(t *testing.T) {
 		NewListDynamic(array).(*List),
 	} {
 		i := int64(0)
-		it := l.Iterator()
-		for it.HasNext() {
-			k, v := it.Next()
+		for k, v := range l.Iterator() {
 			assert.Equal(t, ref.TypeInteger, k.Type(), "index %q should be an integer", k)
 			assert.Equal(t, i, k.Value(), "expect get value in order")
 			assert.Equal(t, ref.TypeString, v.Type(), "value of index '%d' should be a string", i)
