@@ -16,12 +16,12 @@ func Index(object ref.LazyVal, indexes ...ref.LazyVal) ref.Val {
 	filterMode := false
 	for _, index := range indexes {
 		// short-circuit: select member from NULL always return NULL
-		if value.Type() == ref.TypeInvalid || value.Type() == ref.TypeNull {
+		if ref.IsError(value) || ref.IsNull(value) {
 			return value
 		}
 
 		idx := index()
-		if idx.Type() == ref.TypeInvalid {
+		if ref.IsError(idx) {
 			return idx
 		}
 
@@ -43,7 +43,7 @@ func Index(object ref.LazyVal, indexes ...ref.LazyVal) ref.Val {
 
 		children := make([]any, 0)
 		for _, item := range iterable.Iterator() {
-			if item.Type() == ref.TypeInvalid {
+			if ref.IsError(item) {
 				return item
 			}
 
@@ -101,7 +101,7 @@ func wildcardMember(value ref.Val) ref.Val {
 func extractMembers(value, idx ref.Val, fn func(any)) ref.Val {
 	if !wildcard.Equal(idx) {
 		member := selectMember(value, idx)
-		if member.Type() == ref.TypeInvalid {
+		if ref.IsError(member) {
 			return member
 		}
 		fn(member.Value())
@@ -111,7 +111,7 @@ func extractMembers(value, idx ref.Val, fn func(any)) ref.Val {
 	// wildcard index on Iterable value
 	if iterable, ok := value.(traits.Iterable); ok {
 		for _, member := range iterable.Iterator() {
-			if member.Type() == ref.TypeInvalid {
+			if ref.IsError(member) {
 				return member
 			}
 			fn(member.Value())

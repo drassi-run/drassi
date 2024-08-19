@@ -18,7 +18,7 @@ func Join(array ref.Val, separator ref.LazyVal) ref.Val {
 		dim := ","
 		if separator != nil {
 			delimiter := separator()
-			if delimiter.Type() == ref.TypeInvalid {
+			if ref.IsError(delimiter) {
 				return delimiter
 			}
 			if s, ok := delimiter.(traits.Stringable); ok {
@@ -42,7 +42,7 @@ func join(list traits.Iterable, sep string) ref.Val {
 
 	i := 0
 	for _, e := range list.Iterator() {
-		if e.Type() == ref.TypeInvalid {
+		if ref.IsError(e) {
 			return e
 		}
 

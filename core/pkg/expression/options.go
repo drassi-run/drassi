@@ -17,7 +17,7 @@ type EnvOption func(o *option) error
 func WithVariable(name string, value any) EnvOption {
 	return func(o *option) error {
 		variable := types.NativeToVal(value)
-		if variable.Type() == ref.TypeInvalid {
+		if ref.IsError(variable) {
 			return variable.Value().(error)
 		}
 
