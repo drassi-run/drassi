@@ -49,7 +49,7 @@ func (b Boolean) ToString() string {
 func (b Boolean) Compare(other ref.Val) (int, error) {
 	o, ok := other.(Boolean)
 	if !ok {
-		return 0, fmt.Errorf("%s vs. %s: %w", b.Type(), other.Type(), errUncomparable)
+		return 0, fmt.Errorf("%w: %s vs. %s", errUncomparable, b.Type(), other.Type())
 	}
 
 	if !b && o {

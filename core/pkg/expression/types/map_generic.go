@@ -10,7 +10,7 @@ import (
 func NewMapGeneric[M ~map[K]V, K comparable, V any](value M) ref.Val {
 	indexType := genericToType[K]()
 	if indexType == ref.TypeInvalid {
-		return NewError("unsupported map key %s: %w", reflect.TypeFor[K](), errUnsupportedType)
+		return NewError("%w: map key %s", errUnsupportedType, reflect.TypeFor[K]())
 	}
 
 	return &Map{
@@ -43,7 +43,7 @@ func (a *genericMapAccessor[M, K, V]) IndexType() ref.Type {
 func (a *genericMapAccessor[M, K, V]) Get(index any) ref.Val {
 	idx, ok := index.(K)
 	if !ok {
-		return WrapError(errInvalidType)
+		return NewError("%w: index must be %s, got %T", errInvalidType, reflect.TypeFor[K](), index)
 	}
 	return a.get(idx)
 }
