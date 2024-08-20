@@ -56,7 +56,7 @@ func (a *genericMapAccessor[M, K, V]) get(idx K) ref.Val {
 	return NativeToVal(v)
 }
 
-func (a *genericMapAccessor[M, K, V]) Iterator() traits.Iterator {
+func (a *genericMapAccessor[M, K, V]) Items() traits.Iterator {
 	return func(yield func(ref.Val, ref.Val) bool) {
 		for k, v := range a.instance {
 			key, value := NativeToVal(k), NativeToVal(v)

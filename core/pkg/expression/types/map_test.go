@@ -60,7 +60,7 @@ func testMapIterator(t *testing.T) {
 			keys[k] = false
 		}
 
-		for k, v := range m.Iterator() {
+		for k, v := range m.Items() {
 			assert.Equal(t, ref.TypeString, k.Type(), "key %q should be a string", k)
 			assert.Equal(t, ref.TypeInteger, v.Type(), "value of key %q should be an integer", k)
 			nk := k.Value().(string)

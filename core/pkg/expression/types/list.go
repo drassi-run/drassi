@@ -89,7 +89,7 @@ func (l *List) get(idx int) ref.Val {
 	return NativeToVal(e)
 }
 
-func (l *List) Iterator() traits.Iterator {
+func (l *List) Items() traits.Iterator {
 	return func(yield func(ref.Val, ref.Val) bool) {
 		for i := 0; i < l.Size(); i++ {
 			idx := Integer(i)

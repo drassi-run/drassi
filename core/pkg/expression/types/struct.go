@@ -119,7 +119,7 @@ func (s *Struct) get(idx string) ref.Val {
 	return NativeToVal(field)
 }
 
-func (s *Struct) Iterator() traits.Iterator {
+func (s *Struct) Items() traits.Iterator {
 	return func(yield func(ref.Val, ref.Val) bool) {
 		for k, idx := range fieldIndex[s.typ] {
 			v := s.val.Field(idx)

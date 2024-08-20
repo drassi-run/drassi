@@ -100,7 +100,7 @@ func testStructIterator(t *testing.T) {
 			keys[k] = false
 		}
 
-		for k, v := range s.Iterator() {
+		for k, v := range s.Items() {
 			assert.Equal(t, ref.TypeString, k.Type(), "key %q should be a string", k)
 			nk := k.Value().(string)
 			nv := m[nk]

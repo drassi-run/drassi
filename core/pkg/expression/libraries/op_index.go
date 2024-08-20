@@ -43,7 +43,7 @@ func Index(object ref.LazyVal, indexes ...ref.LazyVal) ref.Val {
 		}
 
 		children := make([]any, 0)
-		for _, item := range iterable.Iterator() {
+		for _, item := range iterable.Items() {
 			if ref.IsError(item) {
 				return item
 			}
@@ -88,7 +88,7 @@ func wildcardMember(value ref.Val) ref.Val {
 	if iterable, ok := value.(traits.Iterable); ok {
 		list := make([]any, 0)
 
-		for _, v := range iterable.Iterator() {
+		for _, v := range iterable.Items() {
 			list = append(list, v)
 		}
 
@@ -109,7 +109,7 @@ func extractMembers(value, idx ref.Val) iter.Seq[ref.Val] {
 	if iterable, ok := value.(traits.Iterable); ok {
 		return func(yield func(ref.Val) bool) {
 			// wildcard index on Iterable value
-			for _, member := range iterable.Iterator() {
+			for _, member := range iterable.Items() {
 				if !yield(member) {
 					break
 				}

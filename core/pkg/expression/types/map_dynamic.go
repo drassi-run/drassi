@@ -85,7 +85,7 @@ func (a *dynamicMapAccessor) get(idx reflect.Value) ref.Val {
 	return NativeToVal(v)
 }
 
-func (a *dynamicMapAccessor) Iterator() traits.Iterator {
+func (a *dynamicMapAccessor) Items() traits.Iterator {
 	return func(yield func(ref.Val, ref.Val) bool) {
 		it := a.instance.MapRange()
 		for it.Next() {

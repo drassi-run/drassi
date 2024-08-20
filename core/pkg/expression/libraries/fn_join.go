@@ -41,7 +41,7 @@ func join(list traits.Iterable, sep string) ref.Val {
 	builder := new(strings.Builder)
 
 	i := 0
-	for _, e := range list.Iterator() {
+	for _, e := range list.Items() {
 		if ref.IsError(e) {
 			return e
 		}
