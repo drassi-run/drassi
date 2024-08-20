@@ -56,21 +56,19 @@ func DecodeTokenHook(from reflect.Value, to reflect.Value) (any, error) {
 	return data, nil
 }
 
-func (m *mappingToken) DecodeMapstructure(input any) (any, error) {
+func (m mappingToken) DecodeMapstructure(input any) (any, error) {
 	inputVal := reflect.ValueOf(input)
 	if inputVal.Kind() != reflect.Map {
 		return input, nil
 	}
 
-	a := make([]KVPair[any, any], 0, inputVal.Len())
+	a := make([][2]any, 0, inputVal.Len())
 	mapIter := inputVal.MapRange()
 	for mapIter.Next() {
 		key := mapIter.Key()
 		val := mapIter.Value()
-		pair := KVPair[any, any]{
-			Key:   key.Interface(),
-			Value: val.Interface(),
-		}
+
+		pair := [2]any{key.Interface(), val.Interface()}
 		a = append(a, pair)
 	}
 	return a, nil

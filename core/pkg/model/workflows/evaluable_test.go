@@ -32,11 +32,11 @@ func mapValues[E any](m map[string]E) []E {
 	return l
 }
 
-func mapKVPairs[R comparable, K comparable, V any](m map[R]V, keyConv func(R) K) []KVPair[K, V] {
-	r := make([]KVPair[K, V], 0)
+func mapTokenPairs[K comparable](m map[K]Token, keyConv func(K) Token) [][2]Token {
+	r := make([][2]Token, 0)
 	for k, v := range m {
 		key := keyConv(k)
-		r = append(r, KVPair[K, V]{Key: key, Value: v})
+		r = append(r, [2]Token{key, v})
 	}
 	return r
 }
@@ -87,7 +87,7 @@ func TestDecodeEvaluable(t *testing.T) {
 				Token: NewSequenceToken(mapValues(scalaExpected)),
 			},
 			Dict: Evaluable[map[string]any]{
-				Token: NewMappingToken(mapKVPairs(scalaExpected, func(s string) Token {
+				Token: NewMappingToken(mapTokenPairs(scalaExpected, func(s string) Token {
 					return NewLiteralToken(s)
 				})),
 			},

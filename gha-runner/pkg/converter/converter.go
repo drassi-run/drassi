@@ -25,14 +25,12 @@ func ToToken(token *message.TemplateToken) workflows.Token {
 		}
 		return workflows.NewSequenceToken(seq)
 	case message.TokenTypeMapping:
-		pairs := make([]workflows.KVPair[workflows.Token, workflows.Token], len(token.Map))
+		pairs := make([][2]workflows.Token, len(token.Map))
 		for i, m := range token.Map {
 			k := ToToken(m.Key)
 			v := ToToken(m.Value)
-			pairs[i] = workflows.KVPair[workflows.Token, workflows.Token]{
-				Key:   k,
-				Value: v,
-			}
+
+			pairs[i] = [2]workflows.Token{k, v}
 		}
 		return workflows.NewMappingToken(pairs)
 	case message.TokenTypeBasicExpression:

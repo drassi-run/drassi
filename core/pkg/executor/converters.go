@@ -135,21 +135,21 @@ func ToStepRun(step workflows.Step) StepRun {
 }
 
 func toScriptStepRun(s *workflows.RunStep, bsr *BaseStepRun) StepRun {
-	inputs := make([]workflows.KVPair[workflows.Token, workflows.Token], 0)
-	inputs = append(inputs, workflows.KVPair[workflows.Token, workflows.Token]{
-		Key:   workflows.NewLiteralToken("script"),
-		Value: s.Run.Token,
+	inputs := make([][2]workflows.Token, 0)
+	inputs = append(inputs, [2]workflows.Token{
+		workflows.NewLiteralToken("script"),
+		s.Run.Token,
 	})
 	if s.Shell != "" {
-		inputs = append(inputs, workflows.KVPair[workflows.Token, workflows.Token]{
-			Key:   workflows.NewLiteralToken("shell"),
-			Value: workflows.NewLiteralToken(s.Shell),
+		inputs = append(inputs, [2]workflows.Token{
+			workflows.NewLiteralToken("shell"),
+			workflows.NewLiteralToken(s.Shell),
 		})
 	}
 	if !s.WorkingDir.IsNil() {
-		inputs = append(inputs, workflows.KVPair[workflows.Token, workflows.Token]{
-			Key:   workflows.NewLiteralToken("workingDirectory"),
-			Value: s.WorkingDir.Token,
+		inputs = append(inputs, [2]workflows.Token{
+			workflows.NewLiteralToken("workingDirectory"),
+			s.WorkingDir.Token,
 		})
 	}
 	bsr.Inputs = workflows.Evaluable[map[string]string]{

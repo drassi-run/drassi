@@ -50,11 +50,7 @@ func (e *Evaluable[R]) Evaluate(name string, supplier EvaluationSupplier) (R, er
 
 	r := new(R)
 	err = model.Decode(val, r)
-	if err != nil {
-		return *r, err
-	}
-
-	return *r, nil
+	return *r, err
 }
 
 type Token interface {
@@ -75,23 +71,22 @@ func NewLiteralToken(value any) Token {
 
 type expressionToken string
 
-func (e *expressionToken) Unravel(name string, supplier EvaluationSupplier) (any, error) {
+func (e expressionToken) Unravel(name string, supplier EvaluationSupplier) (any, error) {
 	ctx := supplier.Values(name)
 	return ctx.Value(e), nil // TODO real expression evaluation
 }
 
 func NewExpressionToken(expr string) Token {
 	e := expressionToken(expr)
-	return &e
+	return e
 }
 
 type sequenceToken []Token
 
-func (s *sequenceToken) Unravel(name string, supplier EvaluationSupplier) (any, error) {
-	seq := []Token(*s)
-	r := make([]any, len(seq))
+func (s sequenceToken) Unravel(name string, supplier EvaluationSupplier) (any, error) {
+	r := make([]any, len(s))
 
-	for i, token := range seq {
+	for i, token := range s {
 		if e, err := token.Unravel(name, supplier); err != nil {
 			return nil, err
 		} else {
@@ -103,22 +98,16 @@ func (s *sequenceToken) Unravel(name string, supplier EvaluationSupplier) (any, 
 
 func NewSequenceToken(seq []Token) Token {
 	e := sequenceToken(seq)
-	return &e
+	return e
 }
 
-type KVPair[K, V any] struct {
-	Key   K `json:"key,omitempty" yaml:"key,omitempty" actions:"key,omitempty"`
-	Value V `json:"value,omitempty" yaml:"value,omitempty" actions:"value,omitempty"`
-}
+type mappingToken [][2]Token
 
-type mappingToken []KVPair[Token, Token]
+func (m mappingToken) Unravel(name string, supplier EvaluationSupplier) (any, error) {
+	r := make(map[string]any, len(m))
 
-func (m *mappingToken) Unravel(name string, supplier EvaluationSupplier) (any, error) {
-	pairs := []KVPair[Token, Token](*m)
-	r := make(map[string]any, len(pairs))
-
-	for _, pair := range pairs {
-		kAny, err := pair.Key.Unravel(name, supplier)
+	for _, pair := range m {
+		kAny, err := pair[0].Unravel(name, supplier)
 		if err != nil {
 			return nil, err
 		}
@@ -127,7 +116,7 @@ func (m *mappingToken) Unravel(name string, supplier EvaluationSupplier) (any, e
 			return nil, fmt.Errorf("invalid key type: %T", kAny)
 		}
 
-		v, err := pair.Value.Unravel(name+"."+k, supplier)
+		v, err := pair[1].Unravel(name+"."+k, supplier)
 		if err != nil {
 			return nil, err
 		}
@@ -137,7 +126,7 @@ func (m *mappingToken) Unravel(name string, supplier EvaluationSupplier) (any, e
 	return r, nil
 }
 
-func NewMappingToken(pairs []KVPair[Token, Token]) Token {
+func NewMappingToken(pairs [][2]Token) Token {
 	e := mappingToken(pairs)
-	return &e
+	return e
 }
