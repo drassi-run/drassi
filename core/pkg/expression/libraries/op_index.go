@@ -1,6 +1,7 @@
 package libraries
 
 import (
+	"iter"
 	"math"
 
 	"drassi.run/core/pkg/expression/types"
@@ -47,13 +48,13 @@ func Index(object ref.LazyVal, indexes ...ref.LazyVal) ref.Val {
 				return item
 			}
 
-			err := extractMembers(item, idx, func(v any) {
-				if v != nil {
-					children = append(children, v)
+			for m := range extractMembers(item, idx) {
+				if ref.IsError(m) {
+					return m
 				}
-			})
-			if err != nil {
-				return err
+				if !ref.IsNull(m) {
+					children = append(children, m.Value())
+				}
 			}
 		}
 
@@ -97,29 +98,26 @@ func wildcardMember(value ref.Val) ref.Val {
 	return types.NULL
 }
 
-// TODO use iter.Seq when go1.23 released
-func extractMembers(value, idx ref.Val, fn func(any)) ref.Val {
+func extractMembers(value, idx ref.Val) iter.Seq[ref.Val] {
 	if !wildcard.Equal(idx) {
-		member := selectMember(value, idx)
-		if ref.IsError(member) {
-			return member
+		return func(yield func(ref.Val) bool) {
+			member := selectMember(value, idx)
+			yield(member)
 		}
-		fn(member.Value())
-		return nil
 	}
 
-	// wildcard index on Iterable value
 	if iterable, ok := value.(traits.Iterable); ok {
-		for _, member := range iterable.Iterator() {
-			if ref.IsError(member) {
-				return member
+		return func(yield func(ref.Val) bool) {
+			// wildcard index on Iterable value
+			for _, member := range iterable.Iterator() {
+				if !yield(member) {
+					break
+				}
 			}
-			fn(member.Value())
 		}
-		return nil
 	}
 
-	return nil
+	return func(func(ref.Val) bool) {}
 }
 
 //goland:noinspection GoSwitchMissingCasesForIotaConsts
