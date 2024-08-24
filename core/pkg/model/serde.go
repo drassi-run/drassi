@@ -22,6 +22,8 @@ func Decode(source any, target any) error {
 func WithDecodeHook(registered bool, h ...mapstructure.DecodeHookFunc) DecodeOption {
 	if registered {
 		h = slices.Concat(h, hooks)
+		h = append(h, WeaklyString)
+		h = append(h, decoderHook)
 	}
 	return func(config *mapstructure.DecoderConfig) {
 		config.DecodeHook = mapstructure.ComposeDecodeHookFunc(h...)

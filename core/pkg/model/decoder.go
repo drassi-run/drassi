@@ -41,7 +41,3 @@ func decoderHook(from reflect.Value, to reflect.Value) (any, error) {
 		return t, nil
 	}
 }
-
-func init() {
-	RegisterDecodeHook(decoderHook)
-}

@@ -2,6 +2,7 @@ package types
 
 import (
 	"fmt"
+	"strconv"
 
 	"drassi.run/core/pkg/expression/types/ref"
 )
@@ -38,10 +39,7 @@ func (b Boolean) ToNumber() float64 {
 }
 
 func (b Boolean) ToString() string {
-	if b {
-		return "true"
-	}
-	return "false"
+	return strconv.FormatBool(bool(b))
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTExpressions2/Expressions2/EvaluationResult.cs#L309
