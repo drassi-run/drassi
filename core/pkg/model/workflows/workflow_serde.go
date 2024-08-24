@@ -1,5 +1,7 @@
 package workflows
 
+import "drassi.run/core/pkg/model"
+
 func (p *Permissions) DecodeMapstructure(input any) (any, error) {
 	switch input {
 	case "read-all":
@@ -42,7 +44,7 @@ func (p *Permissions) DecodeMapstructure(input any) (any, error) {
 }
 
 func (c *Concurrency) DecodeMapstructure(input any) (any, error) {
-	if s, ok := input.(string); ok {
+	if s, ok := model.Stringify(input); ok {
 		m := map[string]any{"group": s}
 		return m, nil
 	}

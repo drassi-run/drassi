@@ -16,7 +16,7 @@ func DecodeStepHook(from reflect.Value, to reflect.Value) (any, error) {
 	}
 
 	f := from.Interface()
-	m, ok := f.(map[string]any)
+	m, ok := model.ObjectStringify(f)
 	if !ok {
 		return f, nil
 	}
