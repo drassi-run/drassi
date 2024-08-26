@@ -47,15 +47,15 @@ func WithMaxLength(length int) Option {
 	}
 }
 
-func Parse(source string, opts ...Option) (node Node, err error) {
-	return parse(false, source, opts...)
-}
-
-func ParseTemplate(source string, opts ...Option) (node Node, err error) {
+func ParseExpression(source string, opts ...Option) (node Node, err error) {
 	return parse(true, source, opts...)
 }
 
-func parse(template bool, source string, opts ...Option) (node Node, err error) {
+func ParseTemplate(source string, opts ...Option) (node Node, err error) {
+	return parse(false, source, opts...)
+}
+
+func parse(pure bool, source string, opts ...Option) (node Node, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			if e, ok := r.(error); ok {
@@ -88,7 +88,7 @@ func parse(template bool, source string, opts ...Option) (node Node, err error) 
 	lexer := grammar.NewActionsLexer(is)
 	lexer.RemoveErrorListeners()
 	lexer.AddErrorListener(listener)
-	if !template {
+	if pure {
 		lexer.SetMode(grammar.ActionsLexerEXPRESSION)
 	}
 
@@ -99,7 +99,7 @@ func parse(template bool, source string, opts ...Option) (node Node, err error) 
 	parser.AddParseListener(listener)
 
 	var tree antlr.ParseTree
-	if !template {
+	if pure {
 		tree = parser.Expression()
 	} else {
 		tree = parser.Template()

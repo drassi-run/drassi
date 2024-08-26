@@ -56,7 +56,7 @@ func testParseSimple(t *testing.T) {
 		{`foo(bar, 'baz')`, &FunctionNode{"foo", []Node{&VariableNode{"bar"}, &LiteralNode{Value: types.String(`baz`)}}}},
 	}
 	for _, tc := range tests {
-		node, err := Parse(tc.source)
+		node, err := ParseExpression(tc.source)
 
 		assert.NoError(t, err)
 		if expected, ok := tc.node.(*LiteralNode); ok && types.IsNaN(expected.Value) {
@@ -132,7 +132,7 @@ func testParseOperatorOrder(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		node, err := Parse(tc.source)
+		node, err := ParseExpression(tc.source)
 
 		assert.NoError(t, err)
 		assert.EqualValues(t, tc.node, node, tc.source)
@@ -171,7 +171,7 @@ func testParseError(t *testing.T) {
 	}
 	ste := new(syntaxError)
 	for _, tc := range tests {
-		_, err := Parse(tc)
+		_, err := ParseExpression(tc)
 		assert.Error(t, err)
 		assert.ErrorAs(t, err, &ste, tc)
 	}
@@ -180,19 +180,19 @@ func testParseError(t *testing.T) {
 func testParseOptions(t *testing.T) {
 	t.Run("max-length", func(t *testing.T) {
 		source := strings.Repeat("x", 101)
-		_, err := Parse(source, WithMaxLength(100))
+		_, err := ParseExpression(source, WithMaxLength(100))
 		assert.Error(t, err)
 		assert.ErrorContains(t, err, "max length exceeded")
 	})
 	t.Run("max-depth", func(t *testing.T) {
 		source := strings.Repeat("(", 101) + "x" + strings.Repeat(")", 101)
-		_, err := Parse(source, WithMaxDepth(100))
+		_, err := ParseExpression(source, WithMaxDepth(100))
 		assert.Error(t, err)
 		assert.ErrorContains(t, err, "max depth exceeded")
 	})
 	t.Run("max-error", func(t *testing.T) {
 		source := strings.Repeat("str.len() && ", 10) + "str.len()"
-		_, err := Parse(source, WithMaxError(4))
+		_, err := ParseExpression(source, WithMaxError(4))
 		assert.Error(t, err)
 		assert.ErrorContains(t, err, "more than 5 errors occurred")
 	})
