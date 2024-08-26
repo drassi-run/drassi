@@ -5,14 +5,13 @@ import (
 	"reflect"
 
 	"drassi.run/core/pkg/model"
-	"drassi.run/core/pkg/util/reflect"
 )
 
 var typeJob = reflect.TypeFor[Job]()
 
 func DecodeJobHook(from reflect.Value, to reflect.Value) (any, error) {
 	if !from.IsValid() || !to.Type().Implements(typeJob) {
-		return utilreflect.ValueOf(from), nil
+		return valueOf(from), nil
 	}
 
 	f := from.Interface()
@@ -67,7 +66,7 @@ func (s *JobSecrets) DecodeMapstructure(input any) (any, error) {
 		return nil, nil
 	}
 	if m, ok := input.(map[string]any); ok {
-		if secrets, err := utilreflect.CastMap[string, string](m); err != nil {
+		if secrets, err := castMap[string, string](m); err != nil {
 			return nil, err
 		} else {
 			s.Secrets = secrets

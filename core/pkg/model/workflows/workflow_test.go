@@ -18,21 +18,21 @@ type concurrencyTestStruct struct {
 func TestDecodeConcurrency(t *testing.T) {
 	t.Run("string", func(tt *testing.T) {
 		c := Concurrency{
-			Group: Evaluable[string]{Token: NewLiteralToken("group1")},
+			Group: NewLiteralToken("group1"),
 		}
 		testDecodeConcurrency(tt, "group1", c)
 	})
 
 	t.Run("expr", func(tt *testing.T) {
 		c := Concurrency{
-			Group: Evaluable[string]{Token: NewExpressionToken("${{ foobar }}")},
+			Group: NewExpressionToken("${{ foobar }}"),
 		}
 		testDecodeConcurrency(tt, "${{ foobar }}", c)
 	})
 
 	t.Run("map/group-expr", func(tt *testing.T) {
 		c := Concurrency{
-			Group:            Evaluable[string]{Token: NewExpressionToken("${{ foobar }}")},
+			Group:            NewExpressionToken("${{ foobar }}"),
 			CancelInProgress: true,
 		}
 		input := map[string]any{
@@ -43,7 +43,7 @@ func TestDecodeConcurrency(t *testing.T) {
 	})
 	t.Run("map/group-string", func(tt *testing.T) {
 		c := Concurrency{
-			Group:            Evaluable[string]{Token: NewLiteralToken("group1")},
+			Group:            NewLiteralToken("group1"),
 			CancelInProgress: true,
 		}
 		input := map[string]any{

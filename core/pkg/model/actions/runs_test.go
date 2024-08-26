@@ -3,7 +3,6 @@ package actions
 import (
 	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/workflows"
-	utilreflect "drassi.run/core/pkg/util/reflect"
 	"fmt"
 	"github.com/mitchellh/copystructure"
 	"github.com/mitchellh/mapstructure"
@@ -133,7 +132,7 @@ func TestDecodeRuns(t *testing.T) {
 		opt := func(config *mapstructure.DecoderConfig) {
 			fault := func(from reflect.Value, to reflect.Value) (any, error) {
 				if !to.Type().Implements(typeRuns) {
-					return utilreflect.ValueOf(from), nil
+					return valueOf(from), nil
 				}
 				return nil, nil // fault injection
 			}
