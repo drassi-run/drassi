@@ -24,7 +24,7 @@ type Container struct {
 	//
 	// Context available: `github`, `needs`, `strategy`, `matrix`, `job`, `runner`, `env`, `vars`, `secrets`, `inputs`
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
-	Env Evaluable[map[string]string] `json:"env,omitempty" yaml:"env,omitempty" actions:"env,omitempty"`
+	Env map[string]string `json:"env,omitempty" yaml:"env,omitempty" actions:"env,omitempty"`
 
 	// Sets an array of ports to expose on the container.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idcontainerports

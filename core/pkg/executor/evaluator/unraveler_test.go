@@ -10,14 +10,17 @@ import (
 )
 
 var (
-	la = []any{"abc", true, 3.14}
-	ls = []string{"one", "two", "three"}
-	ms = map[string]int{"first": 1, "second": 2, "third": 3}
-	mi = map[int]any{1: "value", 2: 3.14, 3: false}
+	la  = []any{"abc", true, 3.14}
+	ls  = []string{"one", "two", "three"}
+	ms  = map[string]int{"first": 1, "second": 2, "third": 3}
+	mi  = map[int]any{1: "value", 2: 3.14, 3: false}
+	env *expression.Env
+	ur  *unraveler
 )
 
-func setupEnv() *expression.Env {
-	env, err := expression.NewEnv(nil,
+func init() {
+	var err error
+	env, err = expression.NewEnv(nil,
 		expression.WithLibrary(libraries.StdLib()),
 		expression.WithVariable("la", la),
 		expression.WithVariable("ls", ls),
@@ -27,15 +30,11 @@ func setupEnv() *expression.Env {
 	if err != nil {
 		panic(err)
 	}
-	return env
-}
 
-func setupUnraveler() *unraveler {
-	ur := unraveler{
+	ur = &unraveler{
 		exprCache: make(map[string]*exprCache),
-		env:       setupEnv(),
+		env:       env,
 	}
-	return &ur
 }
 
 func TestUnravel(t *testing.T) {
@@ -46,8 +45,6 @@ func TestUnravel(t *testing.T) {
 }
 
 func testUnravelLiteral(t *testing.T) {
-	ur := setupUnraveler()
-
 	var value any = "foobar"
 	token := NewLiteralToken(value)
 	res, err := token.Unravel(ur)
@@ -61,8 +58,6 @@ func testUnravelExpression(t *testing.T) {
 }
 
 func testUnravelExpressionSuccess(t *testing.T) {
-	ur := setupUnraveler()
-
 	tc := map[string]any{
 		"${{ 'foobar' }}":  "foobar",
 		"${{ true }}":      true,
@@ -108,8 +103,6 @@ func testUnravelExpressionSuccess(t *testing.T) {
 }
 
 func testUnravelExpressionFailed(t *testing.T) {
-	ur := setupUnraveler()
-
 	t.Run("parse-error", func(t *testing.T) {
 		token := NewExpressionToken("${{ )( }}")
 		_, err := token.Unravel(ur)
@@ -134,9 +127,8 @@ func testUnravelSequence(t *testing.T) {
 	t.Run("failed", testUnravelSequenceFailed)
 }
 
-func testUnravelSequenceSuccess(t *testing.T) {
-	ur := setupUnraveler()
-	token := NewSequenceToken([]Token{
+var (
+	listToken = NewSequenceToken([]Token{
 		NewLiteralToken("string"),
 		NewLiteralToken(123),
 		NewExpressionToken("${{ la }}"),
@@ -144,20 +136,21 @@ func testUnravelSequenceSuccess(t *testing.T) {
 		NewLiteralToken(true),
 		NewExpressionToken("${{ ls }}"),
 	})
-	expected := []any{
+	listResult = []any{
 		"string", 123,
 		"abc", true, 3.14, // la
 		math.Inf(1), true,
 		"one", "two", "three", // ls
 	}
+)
 
-	res, err := token.Unravel(ur)
+func testUnravelSequenceSuccess(t *testing.T) {
+	res, err := listToken.Unravel(ur)
 	assert.Nil(t, err)
-	assert.Equal(t, expected, res)
+	assert.Equal(t, listResult, res)
 }
 
 func testUnravelSequenceFailed(t *testing.T) {
-	ur := setupUnraveler()
 	token := NewSequenceToken([]Token{
 		NewLiteralToken("string"),
 		NewExpressionToken("${{ ) }}"),
@@ -176,7 +169,6 @@ func testUnravelMapping(t *testing.T) {
 }
 
 func testUnravelMappingString(t *testing.T) {
-	ur := setupUnraveler()
 	token := NewMappingToken([][2]Token{
 		{NewLiteralToken("string"), NewLiteralToken("foobar")},
 		{NewLiteralToken("int"), NewLiteralToken(123)},
@@ -199,9 +191,8 @@ func testUnravelMappingString(t *testing.T) {
 	assert.Equal(t, expected, res)
 }
 
-func testUnravelMappingAny(t *testing.T) {
-	ur := setupUnraveler()
-	token := NewMappingToken([][2]Token{
+var (
+	mapToken = NewMappingToken([][2]Token{
 		{NewLiteralToken("string"), NewLiteralToken("foobar")},
 		{NewLiteralToken(123), NewLiteralToken(123)},
 		{NewLiteralToken(3.14), NewLiteralToken(3.14)},
@@ -209,7 +200,7 @@ func testUnravelMappingAny(t *testing.T) {
 		{NewExpressionToken("${{ 'expr-key' }}"), NewExpressionToken("${{ 'expr-value' }}")},
 		{NewExpressionToken("${{ insert }}"), NewExpressionToken("${{ mi }}")},
 	})
-	expected := map[string]any{
+	mapResult = map[string]any{
 		"string":   "foobar",
 		"123":      123,
 		"3.14":     3.14,
@@ -217,14 +208,15 @@ func testUnravelMappingAny(t *testing.T) {
 		"expr-key": "expr-value",
 		"1":        "value", "2": 3.14, "3": false, // mi
 	}
+)
 
-	res, err := token.Unravel(ur)
+func testUnravelMappingAny(t *testing.T) {
+	res, err := mapToken.Unravel(ur)
 	assert.Nil(t, err)
-	assert.Equal(t, expected, res)
+	assert.Equal(t, mapResult, res)
 }
 
 func testUnravelMappingError(t *testing.T) {
-	ur := setupUnraveler()
 	t.Run("suberr", func(t *testing.T) {
 		token := NewMappingToken([][2]Token{
 			{NewLiteralToken("foobar"), NewExpressionToken("${{ ) }}")},
