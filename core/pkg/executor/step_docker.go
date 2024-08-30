@@ -3,6 +3,7 @@ package executor
 import (
 	"context"
 
+	"drassi.run/core/pkg/executor/evaluator"
 	"drassi.run/core/pkg/model/dossiers"
 )
 
@@ -40,9 +41,8 @@ func (sr *DockerStepRun) MainTask() *Task {
 }
 
 func (sr *DockerStepRun) executeMain(ctx context.Context, exec StepExecutor) error {
-	evalSupplier := &evaluationSupplier{dossier: exec.Dossier()}
-	inputs, err := sr.Inputs.Evaluate("job.step", evalSupplier)
-	if err != nil {
+	inputs := make(map[string]string)
+	if err := evaluator.Evaluate(exec.ExpressionEnv(), sr.Inputs, &inputs); err != nil {
 		return err
 	}
 

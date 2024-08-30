@@ -2,6 +2,7 @@ package types
 
 import (
 	"fmt"
+	"strconv"
 
 	"drassi.run/core/pkg/expression/types/ref"
 )
@@ -38,10 +39,7 @@ func (b Boolean) ToNumber() float64 {
 }
 
 func (b Boolean) ToString() string {
-	if b {
-		return "true"
-	}
-	return "false"
+	return strconv.FormatBool(bool(b))
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTExpressions2/Expressions2/EvaluationResult.cs#L309
@@ -49,7 +47,7 @@ func (b Boolean) ToString() string {
 func (b Boolean) Compare(other ref.Val) (int, error) {
 	o, ok := other.(Boolean)
 	if !ok {
-		return 0, fmt.Errorf("%s vs. %s: %w", b.Type(), other.Type(), errUncomparable)
+		return 0, fmt.Errorf("%w: %s vs. %s", errUncomparable, b.Type(), other.Type())
 	}
 
 	if !b && o {

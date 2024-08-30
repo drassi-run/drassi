@@ -8,8 +8,8 @@ import (
 
 // Iterable aggregate types permit traversal over their elements.
 type Iterable interface {
-	// Iterator returns a new iterator view of the struct.
-	Iterator() Iterator
+	// Items return a new iterator view of the struct.
+	Items() Iterator
 }
 
 // Iterator permits safe traversal over the contents of an aggregate type.

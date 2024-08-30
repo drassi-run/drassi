@@ -1,13 +1,14 @@
 package workflows
 
+import "drassi.run/core/pkg/model"
+
 func (o *On) DecodeMapstructure(input any) (any, error) {
 	var events []string
-	switch e := input.(type) {
-	case string:
-		events = []string{e}
-	case []string:
-		events = e
-	default:
+	if s, ok := model.Stringify(input); ok {
+		events = []string{s}
+	} else if l, ok := model.ListStringify(input); ok {
+		events = l
+	} else {
 		// process On normal way
 		return input, nil
 	}
@@ -20,9 +21,7 @@ func (o *On) DecodeMapstructure(input any) (any, error) {
 }
 
 func (o *OnBranchProtectionRule) DecodeMapstructure(input any) (any, error) {
-	whenEventWithoutTypes(input, func() {
-		o.Types = o.defaultActivities()
-	})
+	input = applyDefaultActivities(input, o.defaultActivities())
 	return input, nil
 }
 
@@ -36,9 +35,7 @@ func (o *OnBranchProtectionRule) defaultActivities() []EventBranchProtectionRule
 }
 
 func (o *OnCheckRun) DecodeMapstructure(input any) (any, error) {
-	whenEventWithoutTypes(input, func() {
-		o.Types = o.defaultActivities()
-	})
+	input = applyDefaultActivities(input, o.defaultActivities())
 	return input, nil
 }
 
@@ -53,9 +50,7 @@ func (o *OnCheckRun) defaultActivities() []EventCheckRunActivity {
 }
 
 func (o *OnCheckSuite) DecodeMapstructure(input any) (any, error) {
-	whenEventWithoutTypes(input, func() {
-		o.Types = o.defaultActivities()
-	})
+	input = applyDefaultActivities(input, o.defaultActivities())
 	return input, nil
 }
 
@@ -69,9 +64,7 @@ func (o *OnCheckSuite) defaultActivities() []EventCheckSuiteActivity {
 }
 
 func (o *OnDiscussion) DecodeMapstructure(input any) (any, error) {
-	whenEventWithoutTypes(input, func() {
-		o.Types = o.defaultActivities()
-	})
+	input = applyDefaultActivities(input, o.defaultActivities())
 	return input, nil
 }
 func (o *OnDiscussion) defaultActivities() []EventDiscussionActivity {
@@ -94,9 +87,7 @@ func (o *OnDiscussion) defaultActivities() []EventDiscussionActivity {
 }
 
 func (o *OnDiscussionComment) DecodeMapstructure(input any) (any, error) {
-	whenEventWithoutTypes(input, func() {
-		o.Types = o.defaultActivities()
-	})
+	input = applyDefaultActivities(input, o.defaultActivities())
 	return input, nil
 }
 
@@ -110,9 +101,7 @@ func (o *OnDiscussionComment) defaultActivities() []EventDiscussionCommentActivi
 }
 
 func (o *OnIssueComment) DecodeMapstructure(input any) (any, error) {
-	whenEventWithoutTypes(input, func() {
-		o.Types = o.defaultActivities()
-	})
+	input = applyDefaultActivities(input, o.defaultActivities())
 	return input, nil
 }
 
@@ -126,9 +115,7 @@ func (o *OnIssueComment) defaultActivities() []EventIssueCommentActivity {
 }
 
 func (o *OnIssues) DecodeMapstructure(input any) (any, error) {
-	whenEventWithoutTypes(input, func() {
-		o.Types = o.defaultActivities()
-	})
+	input = applyDefaultActivities(input, o.defaultActivities())
 	return input, nil
 }
 
@@ -155,9 +142,7 @@ func (o *OnIssues) defaultActivities() []EventIssuesActivity {
 }
 
 func (o *OnLabel) DecodeMapstructure(input any) (any, error) {
-	whenEventWithoutTypes(input, func() {
-		o.Types = o.defaultActivities()
-	})
+	input = applyDefaultActivities(input, o.defaultActivities())
 	return input, nil
 }
 
@@ -171,9 +156,7 @@ func (o *OnLabel) defaultActivities() []EventLabelActivity {
 }
 
 func (o *OnMergeGroup) DecodeMapstructure(input any) (any, error) {
-	whenEventWithoutTypes(input, func() {
-		o.Types = o.defaultActivities()
-	})
+	input = applyDefaultActivities(input, o.defaultActivities())
 	return input, nil
 }
 
@@ -185,9 +168,7 @@ func (o *OnMergeGroup) defaultActivities() []EventMergeGroupActivity {
 }
 
 func (o *OnMilestone) DecodeMapstructure(input any) (any, error) {
-	whenEventWithoutTypes(input, func() {
-		o.Types = o.defaultActivities()
-	})
+	input = applyDefaultActivities(input, o.defaultActivities())
 	return input, nil
 }
 
@@ -203,9 +184,7 @@ func (o *OnMilestone) defaultActivities() []EventMilestoneActivity {
 }
 
 func (o *OnProject) DecodeMapstructure(input any) (any, error) {
-	whenEventWithoutTypes(input, func() {
-		o.Types = o.defaultActivities()
-	})
+	input = applyDefaultActivities(input, o.defaultActivities())
 	return input, nil
 }
 
@@ -221,9 +200,7 @@ func (o *OnProject) defaultActivities() []EventProjectActivity {
 }
 
 func (o *OnProjectCard) DecodeMapstructure(input any) (any, error) {
-	whenEventWithoutTypes(input, func() {
-		o.Types = o.defaultActivities()
-	})
+	input = applyDefaultActivities(input, o.defaultActivities())
 	return input, nil
 }
 
@@ -239,9 +216,7 @@ func (o *OnProjectCard) defaultActivities() []EventProjectCardActivity {
 }
 
 func (o *OnProjectColumn) DecodeMapstructure(input any) (any, error) {
-	whenEventWithoutTypes(input, func() {
-		o.Types = o.defaultActivities()
-	})
+	input = applyDefaultActivities(input, o.defaultActivities())
 	return input, nil
 }
 
@@ -256,9 +231,7 @@ func (o *OnProjectColumn) defaultActivities() []EventProjectColumnActivity {
 }
 
 func (o *OnPullRequest) DecodeMapstructure(input any) (any, error) {
-	whenEventWithoutTypes(input, func() {
-		o.Types = o.defaultActivities()
-	})
+	input = applyDefaultActivities(input, o.defaultActivities())
 	return input, nil
 }
 
@@ -271,9 +244,7 @@ func (o *OnPullRequest) defaultActivities() []EventPullRequestActivity {
 }
 
 func (o *OnPullRequestReview) DecodeMapstructure(input any) (any, error) {
-	whenEventWithoutTypes(input, func() {
-		o.Types = o.defaultActivities()
-	})
+	input = applyDefaultActivities(input, o.defaultActivities())
 	return input, nil
 }
 
@@ -287,9 +258,7 @@ func (o *OnPullRequestReview) defaultActivities() []EventPullRequestReviewActivi
 }
 
 func (o *OnPullRequestReviewComment) DecodeMapstructure(input any) (any, error) {
-	whenEventWithoutTypes(input, func() {
-		o.Types = o.defaultActivities()
-	})
+	input = applyDefaultActivities(input, o.defaultActivities())
 	return input, nil
 }
 
@@ -303,9 +272,7 @@ func (o *OnPullRequestReviewComment) defaultActivities() []EventPullRequestRevie
 }
 
 func (o *OnPullRequestTarget) DecodeMapstructure(input any) (any, error) {
-	whenEventWithoutTypes(input, func() {
-		o.Types = o.defaultActivities()
-	})
+	input = applyDefaultActivities(input, o.defaultActivities())
 	return input, nil
 }
 
@@ -318,9 +285,7 @@ func (o *OnPullRequestTarget) defaultActivities() []EventPullRequestTargetActivi
 }
 
 func (o *OnRegistryPackage) DecodeMapstructure(input any) (any, error) {
-	whenEventWithoutTypes(input, func() {
-		o.Types = o.defaultActivities()
-	})
+	input = applyDefaultActivities(input, o.defaultActivities())
 	return input, nil
 }
 
@@ -333,9 +298,7 @@ func (o *OnRegistryPackage) defaultActivities() []EventRegistryPackageActivity {
 }
 
 func (o *OnRelease) DecodeMapstructure(input any) (any, error) {
-	whenEventWithoutTypes(input, func() {
-		o.Types = o.defaultActivities()
-	})
+	input = applyDefaultActivities(input, o.defaultActivities())
 	return input, nil
 }
 
@@ -353,9 +316,7 @@ func (o *OnRelease) defaultActivities() []EventReleaseActivity {
 }
 
 func (o *OnWatch) DecodeMapstructure(input any) (any, error) {
-	whenEventWithoutTypes(input, func() {
-		o.Types = o.defaultActivities()
-	})
+	input = applyDefaultActivities(input, o.defaultActivities())
 	return input, nil
 }
 
@@ -367,9 +328,7 @@ func (o *OnWatch) defaultActivities() []EventWatchActivity {
 }
 
 func (o *OnWorkflowRun) DecodeMapstructure(input any) (any, error) {
-	whenEventWithoutTypes(input, func() {
-		o.Types = o.defaultActivities()
-	})
+	input = applyDefaultActivities(input, o.defaultActivities())
 	return input, nil
 }
 
@@ -380,13 +339,14 @@ func (o *OnWorkflowRun) defaultActivities() []EventWorkflowRunActivity {
 	}
 }
 
-func whenEventWithoutTypes(input any, handler func()) {
-	switch m := input.(type) {
-	case map[string]any:
-		v, ok := m["types"]
-		if !ok || v == nil {
-			handler()
-			delete(m, "types")
-		}
+func applyDefaultActivities[S ~string](input any, defaults []S) any {
+	m, ok := model.ObjectStringify(input)
+	if !ok {
+		return input
 	}
+	v, ok := m["types"]
+	if !ok || v == nil {
+		m["types"] = defaults
+	}
+	return m
 }

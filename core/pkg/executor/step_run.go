@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"drassi.run/core/pkg/executor/evaluator"
 	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/dossiers"
 	utilreader "drassi.run/core/pkg/util/reader"
@@ -41,9 +42,8 @@ func (sr *ScriptStepRun) MainTask() *Task {
 }
 
 func (sr *ScriptStepRun) executeMain(ctx context.Context, exec StepExecutor) error {
-	evalSupplier := &evaluationSupplier{dossier: exec.Dossier()}
-	inputs, err := sr.Inputs.Evaluate("job.step", evalSupplier)
-	if err != nil {
+	inputs := make(map[string]string)
+	if err := evaluator.Evaluate(exec.ExpressionEnv(), sr.Inputs, &inputs); err != nil {
 		return err
 	}
 

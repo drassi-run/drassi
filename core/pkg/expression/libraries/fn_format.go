@@ -21,7 +21,7 @@ var errInvalidFormat = errors.New("invalid format")
 
 func Format(fmt ref.LazyVal, args ...ref.LazyVal) ref.Val {
 	v := fmt()
-	if v.Type() == ref.TypeInvalid {
+	if ref.IsError(v) {
 		return v
 	}
 	format := stringify(v)
@@ -76,7 +76,7 @@ func Format(fmt ref.LazyVal, args ...ref.LazyVal) ref.Val {
 			rep := argsCache[index]
 			if rep == nil {
 				v := args[index]()
-				if v.Type() == ref.TypeInvalid {
+				if ref.IsError(v) {
 					return v
 				}
 				s := stringify(v)

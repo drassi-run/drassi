@@ -31,7 +31,7 @@ func (f unaryFn) Bind(args ...ref.LazyVal) ref.LazyVal {
 func (f unaryFn) invoke(arg ref.LazyVal) ref.LazyVal {
 	return func() ref.Val {
 		v := arg()
-		if v.Type() == ref.TypeInvalid {
+		if ref.IsError(v) {
 			return v
 		}
 
@@ -53,12 +53,12 @@ func (f binaryFn) Bind(args ...ref.LazyVal) ref.LazyVal {
 func (f binaryFn) invoke(a1, a2 ref.LazyVal) ref.LazyVal {
 	return func() ref.Val {
 		v1 := a1()
-		if v1.Type() == ref.TypeInvalid {
+		if ref.IsError(v1) {
 			return v1
 		}
 
 		v2 := a2()
-		if v1.Type() == ref.TypeInvalid {
+		if ref.IsError(v2) {
 			return v2
 		}
 
@@ -80,17 +80,17 @@ func (f ternaryFn) Bind(args ...ref.LazyVal) ref.LazyVal {
 func (f ternaryFn) invoke(a1, a2, a3 ref.LazyVal) ref.LazyVal {
 	return func() ref.Val {
 		v1 := a1()
-		if v1.Type() == ref.TypeInvalid {
+		if ref.IsError(v1) {
 			return v1
 		}
 
 		v2 := a2()
-		if v1.Type() == ref.TypeInvalid {
+		if ref.IsError(v2) {
 			return v2
 		}
 
 		v3 := a3()
-		if v1.Type() == ref.TypeInvalid {
+		if ref.IsError(v3) {
 			return v3
 		}
 
@@ -151,7 +151,7 @@ func (f oneOptionFn) Bind(args ...ref.LazyVal) ref.LazyVal {
 func (f oneOptionFn) invoke(a1, a2 ref.LazyVal) ref.LazyVal {
 	return func() ref.Val {
 		v1 := a1()
-		if v1.Type() == ref.TypeInvalid {
+		if ref.IsError(v1) {
 			return v1
 		}
 

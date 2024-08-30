@@ -102,7 +102,7 @@ func (s String) ToString() string {
 func (s String) Compare(other ref.Val) (int, error) {
 	o, ok := other.(String)
 	if !ok {
-		return 0, fmt.Errorf("%s vs. %s: %w", s.Type(), other.Type(), errUncomparable)
+		return 0, fmt.Errorf("%w: %s vs. %s", errUncomparable, s.Type(), other.Type())
 	}
 
 	// GitHub ignores case when comparing strings.

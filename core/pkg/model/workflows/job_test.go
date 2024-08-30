@@ -2,7 +2,6 @@ package workflows
 
 import (
 	"drassi.run/core/pkg/model"
-	utilreflect "drassi.run/core/pkg/util/reflect"
 	"fmt"
 	"github.com/mitchellh/mapstructure"
 	"gotest.tools/v3/assert"
@@ -29,9 +28,7 @@ func TestDecodeJob(t *testing.T) {
 
 	t.Run("normal", func(tt *testing.T) {
 		job := &NormalJob{
-			RunsOn: Evaluable[RunsOn]{
-				Token: NewLiteralToken("ubuntu"),
-			},
+			RunsOn: NewLiteralToken("ubuntu"),
 		}
 		testDecodeJob(tt, runsOnInput, job)
 	})
@@ -113,7 +110,7 @@ func TestDecodeJob(t *testing.T) {
 		opt := func(config *mapstructure.DecoderConfig) {
 			fault := func(from reflect.Value, to reflect.Value) (any, error) {
 				if !to.Type().Implements(typeJob) {
-					return utilreflect.ValueOf(from), nil
+					return valueOf(from), nil
 				}
 				return nil, nil // fault injection
 			}

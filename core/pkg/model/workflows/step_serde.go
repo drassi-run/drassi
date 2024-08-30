@@ -5,18 +5,17 @@ import (
 	"reflect"
 
 	"drassi.run/core/pkg/model"
-	"drassi.run/core/pkg/util/reflect"
 )
 
 var typeStep = reflect.TypeFor[Step]()
 
 func DecodeStepHook(from reflect.Value, to reflect.Value) (any, error) {
 	if !from.IsValid() || !to.Type().Implements(typeStep) {
-		return utilreflect.ValueOf(from), nil
+		return valueOf(from), nil
 	}
 
 	f := from.Interface()
-	m, ok := f.(map[string]any)
+	m, ok := model.ObjectStringify(f)
 	if !ok {
 		return f, nil
 	}

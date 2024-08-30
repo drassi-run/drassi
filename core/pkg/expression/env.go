@@ -1,6 +1,7 @@
 package expression
 
 import (
+	"fmt"
 	"maps"
 
 	"drassi.run/core/pkg/expression/ast"
@@ -35,20 +36,29 @@ func NewEnv(base *Env, opts ...EnvOption) (*Env, error) {
 	return e, nil
 }
 
-func (e *Env) newBinder() *binder {
-	return &binder{Env: e}
+func (e *Env) Bind(node ast.Node) (prog ref.LazyVal, err error) {
+	defer e.recover(&err)
+
+	b := binder{Env: e}
+	return b.Bind(node)
 }
 
-func (e *Env) Evaluate(node ast.Node) (any, error) {
-	b := e.newBinder()
+func (e *Env) Execute(prog ref.LazyVal) (result any, err error) {
+	defer e.recover(&err)
 
-	if prog, err := b.Bind(node); err != nil {
+	val := prog()
+	if err, ok := val.(error); ok {
 		return nil, err
-	} else {
-		val := prog()
-		if err, ok := val.(error); ok {
-			return nil, err
+	}
+	return val.Value(), nil
+}
+
+func (e *Env) recover(err *error) {
+	if r := recover(); r != nil {
+		ex, ok := r.(error)
+		if !ok {
+			ex = fmt.Errorf("panic: %v", r)
 		}
-		return val.Value(), nil
+		*err = ex
 	}
 }

@@ -5,7 +5,6 @@ import (
 
 	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/dossiers"
-	"drassi.run/core/pkg/model/workflows"
 )
 
 // Example:
@@ -52,13 +51,13 @@ func (sr *RepositoryStepRun) fixupTask(t *Task) *Task {
 	if t == nil {
 		return nil
 	}
-	if sr.Condition != nil {
-		if t.Condition != nil {
-			t.Condition = workflows.NewConditionalAnd(sr.Condition, t.Condition)
-		} else {
-			t.Condition = sr.Condition
-		}
-	}
+	//if sr.Condition != nil {
+	//	if t.Condition != nil {
+	//		t.Condition = workflows.NewConditionalAnd(sr.Condition, t.Condition)
+	//	} else {
+	//		t.Condition = sr.Condition
+	//	}
+	//}
 	t.StepId = sr.Id
 	return t
 }

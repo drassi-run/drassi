@@ -1,6 +1,7 @@
 package libraries
 
 import (
+	"iter"
 	"math"
 
 	"drassi.run/core/pkg/expression/types"
@@ -16,12 +17,12 @@ func Index(object ref.LazyVal, indexes ...ref.LazyVal) ref.Val {
 	filterMode := false
 	for _, index := range indexes {
 		// short-circuit: select member from NULL always return NULL
-		if value.Type() == ref.TypeInvalid || value.Type() == ref.TypeNull {
+		if ref.IsError(value) || ref.IsNull(value) {
 			return value
 		}
 
 		idx := index()
-		if idx.Type() == ref.TypeInvalid {
+		if ref.IsError(idx) {
 			return idx
 		}
 
@@ -42,18 +43,18 @@ func Index(object ref.LazyVal, indexes ...ref.LazyVal) ref.Val {
 		}
 
 		children := make([]any, 0)
-		for _, item := range iterable.Iterator() {
-			if item.Type() == ref.TypeInvalid {
+		for _, item := range iterable.Items() {
+			if ref.IsError(item) {
 				return item
 			}
 
-			err := extractMembers(item, idx, func(v any) {
-				if v != nil {
-					children = append(children, v)
+			for m := range extractMembers(item, idx) {
+				if ref.IsError(m) {
+					return m
 				}
-			})
-			if err != nil {
-				return err
+				if !ref.IsNull(m) {
+					children = append(children, m.Value())
+				}
 			}
 		}
 
@@ -87,7 +88,7 @@ func wildcardMember(value ref.Val) ref.Val {
 	if iterable, ok := value.(traits.Iterable); ok {
 		list := make([]any, 0)
 
-		for _, v := range iterable.Iterator() {
+		for _, v := range iterable.Items() {
 			list = append(list, v)
 		}
 
@@ -97,29 +98,26 @@ func wildcardMember(value ref.Val) ref.Val {
 	return types.NULL
 }
 
-// TODO use iter.Seq when go1.23 released
-func extractMembers(value, idx ref.Val, fn func(any)) ref.Val {
+func extractMembers(value, idx ref.Val) iter.Seq[ref.Val] {
 	if !wildcard.Equal(idx) {
-		member := selectMember(value, idx)
-		if member.Type() == ref.TypeInvalid {
-			return member
+		return func(yield func(ref.Val) bool) {
+			member := selectMember(value, idx)
+			yield(member)
 		}
-		fn(member.Value())
-		return nil
 	}
 
-	// wildcard index on Iterable value
 	if iterable, ok := value.(traits.Iterable); ok {
-		for _, member := range iterable.Iterator() {
-			if member.Type() == ref.TypeInvalid {
-				return member
+		return func(yield func(ref.Val) bool) {
+			// wildcard index on Iterable value
+			for _, member := range iterable.Items() {
+				if !yield(member) {
+					break
+				}
 			}
-			fn(member.Value())
 		}
-		return nil
 	}
 
-	return nil
+	return func(func(ref.Val) bool) {}
 }
 
 //goland:noinspection GoSwitchMissingCasesForIotaConsts

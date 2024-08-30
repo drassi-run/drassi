@@ -31,7 +31,7 @@ func NewStruct(value any) ref.Val {
 		}
 		fallthrough // error
 	default:
-		return NewError("expect a struct or pointer to struct, got %T: %w", value, errInvalidType)
+		return NewError("%w: expect a struct or pointer to struct, got %T", errInvalidType, value)
 	}
 	refTyp := refVal.Type()
 
@@ -103,7 +103,7 @@ func (s *Struct) IndexType() ref.Type {
 func (s *Struct) Get(index any) ref.Val {
 	idx, ok := index.(string)
 	if !ok {
-		return NewError("index must be a string, got %s (%[1]T): %w", index, errInvalidType)
+		return NewError("%w: index must be a string, got %T", errInvalidType, index)
 	}
 
 	return s.get(idx)
@@ -119,7 +119,7 @@ func (s *Struct) get(idx string) ref.Val {
 	return NativeToVal(field)
 }
 
-func (s *Struct) Iterator() traits.Iterator {
+func (s *Struct) Items() traits.Iterator {
 	return func(yield func(ref.Val, ref.Val) bool) {
 		for k, idx := range fieldIndex[s.typ] {
 			v := s.val.Field(idx)

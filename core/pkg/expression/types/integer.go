@@ -42,7 +42,7 @@ func (i Integer) ToString() string {
 func (i Integer) Compare(other ref.Val) (int, error) {
 	o, ok := other.(Integer)
 	if !ok {
-		return 0, fmt.Errorf("%s vs. %s: %w", i.Type(), other.Type(), errUncomparable)
+		return 0, fmt.Errorf("%w: %s vs. %s", errUncomparable, i.Type(), other.Type())
 	}
 
 	if i < o {

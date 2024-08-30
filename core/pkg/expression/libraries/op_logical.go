@@ -11,7 +11,7 @@ func LogicalAnd(operands ...ref.LazyVal) ref.Val {
 
 	for _, o := range operands {
 		res = o()
-		if res.Type() == ref.TypeInvalid {
+		if ref.IsError(res) {
 			return res
 		}
 		if isFalsy(res) {
@@ -26,7 +26,7 @@ func LogicalOr(operands ...ref.LazyVal) ref.Val {
 
 	for _, o := range operands {
 		res = o()
-		if res.Type() == ref.TypeInvalid {
+		if ref.IsError(res) {
 			return res
 		}
 		if isTruthy(res) {

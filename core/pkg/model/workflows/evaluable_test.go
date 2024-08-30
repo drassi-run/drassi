@@ -2,7 +2,6 @@ package workflows
 
 import (
 	"drassi.run/core/pkg/model"
-	utilreflect "drassi.run/core/pkg/util/reflect"
 	"github.com/google/go-cmp/cmp"
 	"github.com/mitchellh/copystructure"
 	"github.com/mitchellh/mapstructure"
@@ -32,11 +31,11 @@ func mapValues[E any](m map[string]E) []E {
 	return l
 }
 
-func mapKVPairs[R comparable, K comparable, V any](m map[R]V, keyConv func(R) K) []KVPair[K, V] {
-	r := make([]KVPair[K, V], 0)
+func mapTokenPairs[K comparable](m map[K]Token, keyConv func(K) Token) [][2]Token {
+	r := make([][2]Token, 0)
 	for k, v := range m {
 		key := keyConv(k)
-		r = append(r, KVPair[K, V]{Key: key, Value: v})
+		r = append(r, [2]Token{key, v})
 	}
 	return r
 }
@@ -78,19 +77,15 @@ func TestDecodeEvaluable(t *testing.T) {
 			"expr":      NewExpressionToken("${{ foo.bar }}"),
 		}
 		expected := &testEvaluable{
-			LitBool:   Evaluable[bool]{Token: NewLiteralToken(true)},
-			LitInt:    Evaluable[int64]{Token: NewLiteralToken(int64(123))},
-			LitFloat:  Evaluable[float64]{Token: NewLiteralToken(float64(1.23))},
-			LitString: Evaluable[string]{Token: NewLiteralToken("hello world")},
-			Expr:      Evaluable[string]{Token: NewExpressionToken("${{ foo.bar }}")},
-			Seq: Evaluable[[]any]{
-				Token: NewSequenceToken(mapValues(scalaExpected)),
-			},
-			Dict: Evaluable[map[string]any]{
-				Token: NewMappingToken(mapKVPairs(scalaExpected, func(s string) Token {
-					return NewLiteralToken(s)
-				})),
-			},
+			LitBool:   NewLiteralToken(true),
+			LitInt:    NewLiteralToken(int64(123)),
+			LitFloat:  NewLiteralToken(float64(1.23)),
+			LitString: NewLiteralToken("hello world"),
+			Expr:      NewExpressionToken("${{ foo.bar }}"),
+			Seq:       NewSequenceToken(mapValues(scalaExpected)),
+			Dict: NewMappingToken(mapTokenPairs(scalaExpected, func(s string) Token {
+				return NewLiteralToken(s)
+			})),
 		}
 
 		actual := new(testEvaluable)
@@ -105,7 +100,7 @@ func TestDecodeEvaluable(t *testing.T) {
 		opt := func(config *mapstructure.DecoderConfig) {
 			fault := func(from reflect.Value, to reflect.Value) (any, error) {
 				if !to.Type().Implements(typeToken) {
-					return utilreflect.ValueOf(from), nil
+					return valueOf(from), nil
 				}
 				return nil, nil // fault injection
 			}

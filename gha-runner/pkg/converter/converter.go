@@ -25,14 +25,12 @@ func ToToken(token *message.TemplateToken) workflows.Token {
 		}
 		return workflows.NewSequenceToken(seq)
 	case message.TokenTypeMapping:
-		pairs := make([]workflows.KVPair[workflows.Token, workflows.Token], len(token.Map))
+		pairs := make([][2]workflows.Token, len(token.Map))
 		for i, m := range token.Map {
 			k := ToToken(m.Key)
 			v := ToToken(m.Value)
-			pairs[i] = workflows.KVPair[workflows.Token, workflows.Token]{
-				Key:   k,
-				Value: v,
-			}
+
+			pairs[i] = [2]workflows.Token{k, v}
 		}
 		return workflows.NewMappingToken(pairs)
 	case message.TokenTypeBasicExpression:
@@ -48,12 +46,6 @@ func ToToken(token *message.TemplateToken) workflows.Token {
 		return nil
 	}
 	return nil
-}
-
-func ToEvaluable[R any](token *message.TemplateToken) workflows.Evaluable[R] {
-	return workflows.Evaluable[R]{
-		Token: ToToken(token),
-	}
 }
 
 func squashTokens(tokens []message.TemplateToken) workflows.Token {
@@ -75,14 +67,12 @@ func ToStepRun(step *message.JobStep) (executor.StepRun, error) {
 	sr := executor.BaseStepRun{
 		Uid:              step.Id,
 		Id:               step.ContextName,
-		Name:             ToEvaluable[string](step.DisplayNameToken),
-		ContinueOnError:  ToEvaluable[bool](step.ContinueOnError),
-		TimeoutInMinutes: ToEvaluable[int64](step.TimeoutInMinutes),
-		Env:              ToEvaluable[map[string]string](step.Env),
-		Inputs:           ToEvaluable[map[string]string](step.Inputs),
-	}
-	if step.Condition != "" {
-		sr.Condition = workflows.NewConditional(step.Condition)
+		Name:             ToToken(step.DisplayNameToken),
+		Condition:        workflows.Conditional(step.Condition),
+		ContinueOnError:  ToToken(step.ContinueOnError),
+		TimeoutInMinutes: ToToken(step.TimeoutInMinutes),
+		Env:              ToToken(step.Env),
+		Inputs:           ToToken(step.Inputs),
 	}
 
 	ref := &step.Reference
@@ -133,23 +123,17 @@ func ToJobRun(job *message.PipelineAgentJobRequest) (*executor.JobRun, error) {
 	}
 
 	jr := &executor.JobRun{
-		Uid: job.JobId,
-		Id:  job.JobName,
-		Name: workflows.Evaluable[string]{
-			Token: workflows.NewLiteralToken(job.JobDisplayName),
-		},
+		Uid:  job.JobId,
+		Id:   job.JobName,
+		Name: workflows.NewLiteralToken(job.JobDisplayName),
 
-		Container: ToEvaluable[*workflows.Container](job.JobContainer),
-		Services:  ToEvaluable[map[string]*workflows.Container](job.JobServiceContainers),
+		Container: ToToken(job.JobContainer),
+		Services:  ToToken(job.JobServiceContainers),
 
-		Defaults: workflows.Evaluable[workflows.Defaults]{
-			Token: squashTokens(job.Defaults),
-		},
-		Env: workflows.Evaluable[map[string]string]{
-			Token: squashTokens(job.Env),
-		},
-		Steps:   steps,
-		Outputs: ToEvaluable[map[string]string](job.JobOutputs),
+		Defaults: squashTokens(job.Defaults),
+		Env:      squashTokens(job.Env),
+		Steps:    steps,
+		Outputs:  ToToken(job.JobOutputs),
 	}
 	return jr, nil
 }

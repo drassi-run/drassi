@@ -5,18 +5,13 @@ import (
 	"strings"
 
 	"drassi.run/core/pkg/model"
-	"drassi.run/core/pkg/util/reflect"
 )
-
-func (e *Evaluable[R]) DecodeMapstructure(a any) (any, error) {
-	return map[string]any{"token": a}, nil
-}
 
 var typeToken = reflect.TypeFor[Token]()
 
 func DecodeTokenHook(from reflect.Value, to reflect.Value) (any, error) {
 	if !from.IsValid() || !to.Type().Implements(typeToken) || to.Interface() != nil {
-		return utilreflect.ValueOf(from), nil
+		return valueOf(from), nil
 	}
 
 	var (
@@ -53,24 +48,26 @@ func DecodeTokenHook(from reflect.Value, to reflect.Value) (any, error) {
 	if token != nil {
 		to.Set(reflect.ValueOf(token))
 	}
-	return data, nil
+	if data != nil {
+		return data, nil
+	} else {
+		return token, nil
+	}
 }
 
-func (m *mappingToken) DecodeMapstructure(input any) (any, error) {
+func (m mappingToken) DecodeMapstructure(input any) (any, error) {
 	inputVal := reflect.ValueOf(input)
 	if inputVal.Kind() != reflect.Map {
 		return input, nil
 	}
 
-	a := make([]KVPair[any, any], 0, inputVal.Len())
+	a := make([][2]any, 0, inputVal.Len())
 	mapIter := inputVal.MapRange()
 	for mapIter.Next() {
 		key := mapIter.Key()
 		val := mapIter.Value()
-		pair := KVPair[any, any]{
-			Key:   key.Interface(),
-			Value: val.Interface(),
-		}
+
+		pair := [2]any{key.Interface(), val.Interface()}
 		a = append(a, pair)
 	}
 	return a, nil

@@ -7,6 +7,59 @@ import (
 	"testing"
 )
 
+func TestOn(t *testing.T) {
+	t.Run("single-event", func(t *testing.T) {
+		expected := &On{
+			Push: &OnPush{},
+		}
+
+		input := "push"
+		o := new(On)
+		err := model.Decode(input, o)
+		assert.NilError(t, err)
+		assert.DeepEqual(t, o, expected)
+	})
+
+	t.Run("multiple-event", func(t *testing.T) {
+		expected := &On{
+			Push: &OnPush{},
+			Fork: &OnFork{},
+		}
+
+		input := []any{"push", "fork"}
+		o := new(On)
+		err := model.Decode(input, o)
+		assert.NilError(t, err)
+		assert.DeepEqual(t, o, expected)
+	})
+
+	t.Run("activity-type", func(t *testing.T) {
+		expected := &On{
+			Label: &OnLabel{
+				Types: []EventLabelActivity{EventLabelActivityCreated},
+			},
+			Push: &OnPush{
+				Branches: []string{"main"},
+			},
+			// TODO PageBuild is not null
+		}
+
+		input := map[string]any{
+			"label": map[string]any{
+				"types": []any{"created"},
+			},
+			"push": map[string]any{
+				"branches": []any{"main"},
+			},
+			"page_build": nil,
+		}
+		o := new(On)
+		err := model.Decode(input, o)
+		assert.NilError(t, err)
+		assert.DeepEqual(t, o, expected)
+	})
+}
+
 type klass[E any] struct {
 	Event *E `actions:"event,omitempty"`
 }

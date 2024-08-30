@@ -58,7 +58,7 @@ func (f Float) ToString() string {
 func (f Float) Compare(other ref.Val) (int, error) {
 	o, ok := other.(Float)
 	if !ok {
-		return 0, fmt.Errorf("%s vs. %s: %w", f.Type(), other.Type(), errUncomparable)
+		return 0, fmt.Errorf("%w: %s vs. %s", errUncomparable, f.Type(), other.Type())
 	}
 	if math.IsNaN(float64(f)) || math.IsNaN(float64(o)) {
 		return 0, errNaNCompare

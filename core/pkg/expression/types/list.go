@@ -25,7 +25,7 @@ func NewListDynamic(value any) ref.Val {
 	refVal := reflect.ValueOf(value)
 
 	if kind := refVal.Kind(); kind != reflect.Slice && kind != reflect.Array {
-		return NewError("expect a slice or array, got %T: %w", value, errInvalidType)
+		return NewError("%w: expect a slice or array, got %T", errInvalidType, value)
 	}
 
 	return &List{
@@ -76,7 +76,7 @@ func (l *List) IndexType() ref.Type {
 func (l *List) Get(index any) ref.Val {
 	idx, ok := index.(int)
 	if !ok {
-		return NewError("index must be an integer, got %s (%[1]T): %w", index, errInvalidType)
+		return NewError("%w: index must be an integer, got %T", errInvalidType, index)
 	}
 	if idx < 0 || idx >= l.Size() {
 		return NULL
@@ -89,7 +89,7 @@ func (l *List) get(idx int) ref.Val {
 	return NativeToVal(e)
 }
 
-func (l *List) Iterator() traits.Iterator {
+func (l *List) Items() traits.Iterator {
 	return func(yield func(ref.Val, ref.Val) bool) {
 		for i := 0; i < l.Size(); i++ {
 			idx := Integer(i)

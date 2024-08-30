@@ -233,7 +233,7 @@ func NativeToVal(val any) ref.Val {
 		}
 
 	default:
-		return NewError("un-supported value type %T", rawVal)
+		return NewError("%w: %T", errUnsupportedType, rawVal)
 	}
 }
 

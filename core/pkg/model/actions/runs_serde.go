@@ -6,14 +6,13 @@ import (
 	"strings"
 
 	"drassi.run/core/pkg/model"
-	"drassi.run/core/pkg/util/reflect"
 )
 
 var typeRuns = reflect.TypeFor[Runs]()
 
 func DecodeRunsHook(from reflect.Value, to reflect.Value) (any, error) {
 	if !from.IsValid() || !to.Type().Implements(typeRuns) {
-		return utilreflect.ValueOf(from), nil
+		return valueOf(from), nil
 	}
 
 	f := from.Interface()

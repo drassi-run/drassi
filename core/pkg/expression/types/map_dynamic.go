@@ -11,14 +11,14 @@ func NewMapDynamic(value any) ref.Val {
 	instance := reflect.ValueOf(value)
 
 	if instance.Kind() != reflect.Map {
-		return NewError("expect a map, got %T: %w", value, errInvalidType)
+		return NewError("%w: expect a map, got %T", errInvalidType, value)
 	}
 
 	keyType := instance.Type().Key()
 	indexType := reflectToType(keyType)
 
 	if indexType == ref.TypeInvalid {
-		return NewError("unsupported map key %s: %w", keyType, errUnsupportedType)
+		return NewError("%w: map key %s", errUnsupportedType, keyType)
 	}
 
 	return &Map{
@@ -72,7 +72,7 @@ func (a *dynamicMapAccessor) Get(index any) ref.Val {
 	idx := reflect.ValueOf(index)
 	if idx.Type() != a.keyType {
 		if !idx.Type().ConvertibleTo(a.keyType) {
-			return WrapError(errInvalidType)
+			return NewError("%w: index must be %s, got %T", errInvalidType, a.keyType, index)
 		}
 		idx = idx.Convert(a.keyType)
 	}
@@ -85,7 +85,7 @@ func (a *dynamicMapAccessor) get(idx reflect.Value) ref.Val {
 	return NativeToVal(v)
 }
 
-func (a *dynamicMapAccessor) Iterator() traits.Iterator {
+func (a *dynamicMapAccessor) Items() traits.Iterator {
 	return func(yield func(ref.Val, ref.Val) bool) {
 		it := a.instance.MapRange()
 		for it.Next() {

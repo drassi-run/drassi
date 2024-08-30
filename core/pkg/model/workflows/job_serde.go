@@ -5,18 +5,17 @@ import (
 	"reflect"
 
 	"drassi.run/core/pkg/model"
-	"drassi.run/core/pkg/util/reflect"
 )
 
 var typeJob = reflect.TypeFor[Job]()
 
 func DecodeJobHook(from reflect.Value, to reflect.Value) (any, error) {
 	if !from.IsValid() || !to.Type().Implements(typeJob) {
-		return utilreflect.ValueOf(from), nil
+		return valueOf(from), nil
 	}
 
 	f := from.Interface()
-	m, ok := f.(map[string]any)
+	m, ok := model.ObjectStringify(f)
 	if !ok {
 		return f, nil
 	}
@@ -50,7 +49,7 @@ func init() {
 }
 
 func (n *JobNeeds) DecodeMapstructure(input any) (any, error) {
-	if s, ok := input.(string); ok {
+	if s, ok := model.Stringify(input); ok {
 		return []string{s}, nil
 	} else {
 		return input, nil
@@ -67,7 +66,7 @@ func (s *JobSecrets) DecodeMapstructure(input any) (any, error) {
 		return nil, nil
 	}
 	if m, ok := input.(map[string]any); ok {
-		if secrets, err := utilreflect.CastMap[string, string](m); err != nil {
+		if secrets, err := castMap[string, string](m); err != nil {
 			return nil, err
 		} else {
 			s.Secrets = secrets
@@ -79,7 +78,7 @@ func (s *JobSecrets) DecodeMapstructure(input any) (any, error) {
 }
 
 func (e *Environment) DecodeMapstructure(input any) (any, error) {
-	if name, ok := input.(string); ok {
+	if name, ok := model.Stringify(input); ok {
 		e.Name = name
 		return nil, nil
 	}
@@ -88,38 +87,31 @@ func (e *Environment) DecodeMapstructure(input any) (any, error) {
 }
 
 func (r *RunsOn) setLabels(input any, rec bool) (any, error) {
-	switch inp := input.(type) {
-	case string:
-		r.Labels = []string{inp}
+	if s, ok := model.Stringify(input); ok {
+		r.Labels = []string{s}
 		return nil, nil
-	case []string:
-		r.Labels = inp
+	}
+	if l, ok := model.ListStringify(input); ok {
+		r.Labels = l
 		return nil, nil
-	case []any:
-		if labels, err := utilreflect.CastArray[string](inp); err != nil {
-			return nil, err
-		} else {
-			r.Labels = labels
-			return nil, nil
-		}
-	case map[string]any:
+	}
+	if m, ok := model.ObjectStringify(input); ok {
 		if rec {
-			if labels, ok := inp["labels"]; ok {
+			if labels, ok := m["labels"]; ok {
 				remain, err := r.setLabels(labels, false)
 				if err != nil {
 					return nil, err
 				}
 				if remain == nil { // Labels is set
-					delete(inp, "labels")
+					delete(m, "labels")
 				} else {
-					inp["labels"] = remain
+					m["labels"] = remain
 				}
 			}
 		}
-		return input, nil
-	default:
-		return input, nil
+		return m, nil
 	}
+	return input, nil
 }
 
 func (r *RunsOn) DecodeMapstructure(input any) (any, error) {
