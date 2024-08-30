@@ -1,41 +1,11 @@
 package evaluator
 
 import (
-	"drassi.run/core/pkg/expression"
-	"drassi.run/core/pkg/expression/libraries"
 	. "drassi.run/core/pkg/model/workflows"
 	"github.com/stretchr/testify/assert"
 	"math"
 	"testing"
 )
-
-var (
-	la  = []any{"abc", true, 3.14}
-	ls  = []string{"one", "two", "three"}
-	ms  = map[string]int{"first": 1, "second": 2, "third": 3}
-	mi  = map[int]any{1: "value", 2: 3.14, 3: false}
-	env *expression.Env
-	ur  *unraveler
-)
-
-func init() {
-	var err error
-	env, err = expression.NewEnv(nil,
-		expression.WithLibrary(libraries.StdLib()),
-		expression.WithVariable("la", la),
-		expression.WithVariable("ls", ls),
-		expression.WithVariable("ms", ms),
-		expression.WithVariable("mi", mi),
-	)
-	if err != nil {
-		panic(err)
-	}
-
-	ur = &unraveler{
-		exprCache: make(map[string]*exprCache),
-		env:       env,
-	}
-}
 
 func TestUnravel(t *testing.T) {
 	t.Run("literal", testUnravelLiteral)
