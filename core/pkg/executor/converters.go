@@ -138,7 +138,7 @@ func toScriptStepRun(s *workflows.RunStep, bsr *BaseStepRun) StepRun {
 	inputs := make([][2]workflows.Token, 0)
 	inputs = append(inputs, [2]workflows.Token{
 		workflows.NewLiteralToken("script"),
-		s.Run.Token,
+		s.Run,
 	})
 	if s.Shell != "" {
 		inputs = append(inputs, [2]workflows.Token{
@@ -146,15 +146,13 @@ func toScriptStepRun(s *workflows.RunStep, bsr *BaseStepRun) StepRun {
 			workflows.NewLiteralToken(s.Shell),
 		})
 	}
-	if !s.WorkingDir.IsNil() {
+	if s.WorkingDir != nil {
 		inputs = append(inputs, [2]workflows.Token{
 			workflows.NewLiteralToken("workingDirectory"),
-			s.WorkingDir.Token,
+			s.WorkingDir,
 		})
 	}
-	bsr.Inputs = workflows.Evaluable[map[string]string]{
-		Token: workflows.NewMappingToken(inputs),
-	}
+	bsr.Inputs = workflows.NewMappingToken(inputs)
 	return &ScriptStepRun{
 		BaseStepRun: *bsr,
 	}
