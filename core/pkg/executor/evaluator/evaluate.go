@@ -29,12 +29,15 @@ func Evaluate[R any](env *expression.Env, evaluable workflows.Evaluable[R], v *R
 }
 
 func Meet(env *expression.Env, condition workflows.Conditional) (bool, error) {
+	con := string(condition)
+	if con == "" {
+		return true, nil
+	}
+
 	u := &unraveler{
 		env:       env,
 		exprCache: make(map[string]*exprCache),
 	}
-
-	con := string(condition)
 	pure := !strings.Contains(con, workflows.OpenExpression)
 
 	if res, err := u.UnravelExpression(con, pure); err != nil {

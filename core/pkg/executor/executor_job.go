@@ -14,9 +14,11 @@ import (
 
 	"drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/executor/command"
+	"drassi.run/core/pkg/executor/evaluator"
 	"drassi.run/core/pkg/executor/problem"
 	"drassi.run/core/pkg/executor/reporter"
 	"drassi.run/core/pkg/executor/secret"
+	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/model/dossiers"
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
@@ -98,6 +100,7 @@ type jobExecutor struct {
 	errWriter io.Writer
 	streams   *sandboxer.Streams
 	cmdCtrl   CommandController
+	exprEnv   *expression.Env
 
 	defaults *workflows.Defaults
 	paths    []string
@@ -195,10 +198,9 @@ func (e *jobExecutor) RunJob(ctx context.Context) error {
 }
 
 func (e *jobExecutor) Finalize(ctx context.Context, runtime sandboxer.SandboxRuntime) (err error) {
-	evalSupplier := &evaluationSupplier{dossier: e.dossier}
 	defer func() {
-		output, ex := e.jobRun.Outputs.Evaluate("job.output", evalSupplier)
-		if err == nil && ex != nil {
+		output := make(map[string]string)
+		if ex := evaluator.Evaluate(e.exprEnv, e.jobRun.Outputs, &output); err == nil && ex != nil {
 			err = ex
 		}
 
@@ -247,64 +249,59 @@ func (e *jobExecutor) initializeJob(ctx context.Context) error {
 	}
 
 	// Evaluate expressions
-	evalSupplier := &evaluationSupplier{dossier: e.dossier}
-
-	if env, err := e.jobRun.Env.Evaluate("job.env", evalSupplier); err != nil {
+	env := make(map[string]string)
+	if err := evaluator.Evaluate(e.exprEnv, e.jobRun.Env, &env); err != nil {
 		return err
-	} else {
-		if err = e.SetEnv(env); err != nil {
-			return err
-		}
+	} else if err = e.SetEnv(env); err != nil {
+		return err
 	}
 
-	if defaults, err := e.jobRun.Defaults.Evaluate("job.defaults", evalSupplier); err != nil {
+	if err := evaluator.Evaluate(e.exprEnv, e.jobRun.Defaults, e.defaults); err != nil {
 		return err
-	} else {
-		e.defaults = &defaults
 	}
+
 	return nil
 }
 
 func (e *jobExecutor) initializeSandbox(ctx context.Context, runtime sandboxer.SandboxRuntime) error {
-	evalSupplier := &evaluationSupplier{dossier: e.dossier}
-	var jobContainer *container.ContainerConfig
-	if con, err := e.jobRun.Container.Evaluate("job.container", evalSupplier); err != nil {
-		return err
-	} else {
-		jobContainer, err = e.toContainerConfig(ctx, con)
-		if err != nil {
-			return err
-		}
-	}
-
-	var serviceContainers = make(map[string]*container.ContainerConfig)
-	if sers, err := e.jobRun.Services.Evaluate("job.services", evalSupplier); err != nil {
-		return err
-	} else {
-		for name, ser := range sers {
-			con, err := e.toContainerConfig(ctx, ser)
-			if err != nil {
-				return err
-			}
-			serviceContainers[name] = con
-		}
-	}
-
 	req := sandboxer.LaunchSandboxRequest{
-		JobId:             e.jobRun.Id,
-		JobEnv:            e.ciEnv(),
-		JobContainer:      jobContainer,
-		ServiceContainers: serviceContainers,
+		JobId:  e.jobRun.Id,
+		JobEnv: e.ciEnv(),
 	}
-	if resp, err := runtime.LaunchSandbox(ctx, req); err != nil {
+
+	var jobContainer *workflows.Container
+	if err := evaluator.Evaluate(e.exprEnv, e.jobRun.Container, &jobContainer); err != nil {
+		return err
+	} else if con, err := e.toContainerConfig(ctx, jobContainer); err != nil {
 		return err
 	} else {
-		e.sandbox = resp.Sandbox
-		e.dossier.Job.Container = resp.Container
-		e.dossier.Job.Services = resp.Services
-
-		e.processSandboxEnv(resp.Env)
+		req.JobContainer = con
 	}
+
+	var serviceContainers = make(map[string]*workflows.Container)
+	if err := evaluator.Evaluate(e.exprEnv, e.jobRun.Services, &serviceContainers); err != nil {
+		return err
+	} else {
+		services := make(map[string]*container.ContainerConfig, len(serviceContainers))
+		for name, srv := range serviceContainers {
+			if con, err := e.toContainerConfig(ctx, srv); err != nil {
+				return err
+			} else {
+				services[name] = con
+			}
+		}
+		req.ServiceContainers = services
+	}
+
+	resp, err := runtime.LaunchSandbox(ctx, req)
+	if err != nil {
+		return err
+	}
+
+	e.sandbox = resp.Sandbox
+	e.dossier.Job.Container = resp.Container
+	e.dossier.Job.Services = resp.Services
+	e.processSandboxEnv(resp.Env)
 	return nil
 }
 

@@ -5,7 +5,9 @@ import (
 	"maps"
 	"time"
 
+	"drassi.run/core/pkg/executor/evaluator"
 	"drassi.run/core/pkg/executor/reporter"
+	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/model/dossiers"
 	"drassi.run/core/pkg/sandboxer"
 )
@@ -31,6 +33,7 @@ type StepExecutor interface {
 	Streams() *sandboxer.Streams
 	Sandbox() sandboxer.Sandbox
 	Dossier() *dossiers.Dossier
+	ExpressionEnv() *expression.Env
 
 	Initialize(ctx context.Context) error
 	RunStep(ctx context.Context, fn func(StepRun) *Task) *dossiers.Step
@@ -49,6 +52,7 @@ type stepExecutor struct {
 	// Intra action state
 	state map[string]string
 
+	exprEnv  *expression.Env
 	dossier  *dossiers.Dossier
 	result   *dossiers.Step
 	extraEnv map[string]string
@@ -109,6 +113,10 @@ func (e *stepExecutor) Dossier() *dossiers.Dossier {
 	return e.dossier
 }
 
+func (e *stepExecutor) ExpressionEnv() *expression.Env {
+	return e.exprEnv
+}
+
 func (e *stepExecutor) Initialize(ctx context.Context) error {
 	return e.stepRun.Initialize(ctx, e)
 }
@@ -144,42 +152,35 @@ func (e *stepExecutor) beginTask(ctx context.Context, task *Task) {
 	}
 
 	base := e.stepRun.Base()
-	evalSupplier := &evaluationSupplier{dossier: e.dossier}
 
-	if env, err := base.Env.Evaluate("job.step.env", evalSupplier); err != nil {
+	if err := evaluator.Evaluate(e.exprEnv, base.Env, &e.dossier.Env); err != nil {
 		// TODO logging
 		e.result.Outcome = dossiers.ResultFailure
 		return
-	} else {
-		maps.Copy(e.dossier.Env, env)
 	}
 
-	if task.Condition != nil {
-		if meet, err := task.Condition.Meet("job.step", evalSupplier); err != nil {
-			e.result.Conclusion = dossiers.ResultFailure
-			e.result.Outcome = dossiers.ResultFailure
-		} else if !meet {
-			e.result.Conclusion = dossiers.ResultSkipped
-			e.result.Outcome = dossiers.ResultSkipped
-			// TODO logging
-		}
+	if meet, err := evaluator.Meet(e.exprEnv, task.Condition); err != nil {
+		e.result.Conclusion = dossiers.ResultFailure
+		e.result.Outcome = dossiers.ResultFailure
+	} else if !meet {
+		e.result.Conclusion = dossiers.ResultSkipped
+		e.result.Outcome = dossiers.ResultSkipped
+		// TODO logging
 	}
 }
 
 func (e *stepExecutor) runTask(ctx context.Context, task *Task) {
 	base := e.stepRun.Base()
-	evalSupplier := &evaluationSupplier{dossier: e.dossier}
 
-	if !base.TimeoutInMinutes.IsNil() {
-		if timeout, err := base.TimeoutInMinutes.Evaluate("job.step.timeout-minutes", evalSupplier); err != nil {
-			// TODO logging
-			e.result.Outcome = dossiers.ResultFailure
-			return
-		} else if timeout > 0 {
-			var cancel context.CancelFunc
-			ctx, cancel = context.WithTimeout(ctx, time.Duration(timeout)*time.Minute)
-			defer cancel()
-		}
+	timeout := int64(-1)
+	if err := evaluator.Evaluate(e.exprEnv, base.TimeoutInMinutes, &timeout); err != nil {
+		// TODO logging
+		e.result.Outcome = dossiers.ResultFailure
+		return
+	} else if timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(timeout)*time.Minute)
+		defer cancel()
 	}
 
 	if err := e.cmdCtrl.StartStep(ctx, e); err != nil {
@@ -217,8 +218,9 @@ func (e *stepExecutor) runTask(ctx context.Context, task *Task) {
 func (e *stepExecutor) endTask(ctx context.Context, task *Task) {
 	if e.result.Outcome == dossiers.ResultFailure {
 		base := e.stepRun.Base()
-		evalSupplier := &evaluationSupplier{dossier: e.dossier}
-		if continueOnError, err := base.ContinueOnError.Evaluate("job.step.continue-on-error", evalSupplier); err != nil {
+
+		continueOnError := false
+		if err := evaluator.Evaluate(e.exprEnv, base.ContinueOnError, &continueOnError); err != nil {
 			//logger.Infof("Failed but continue next step")
 			//return err
 			e.result.Conclusion = dossiers.ResultFailure
