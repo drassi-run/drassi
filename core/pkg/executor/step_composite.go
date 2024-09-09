@@ -15,9 +15,6 @@ type CompositeStepRun struct {
 	StepRuns []StepRun
 }
 
-func (sr *CompositeStepRun) SetContextInfo(dossier *dossiers.Dossier) {
-}
-
 func (sr *CompositeStepRun) Initialize(ctx context.Context, exec StepExecutor) (err error) {
 	g, ctx := errgroup.WithContext(ctx)
 	for _, step := range sr.StepRuns {

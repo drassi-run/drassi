@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"drassi.run/core/pkg/model"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -19,6 +20,10 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"k8s.io/apimachinery/pkg/util/rand"
 )
+
+type Repositorial interface {
+	Repository() *model.Repository
+}
 
 type Repository interface {
 	// The fullname of the repository. e.g. github.com/octocat/hello-world

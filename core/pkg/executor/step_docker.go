@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"drassi.run/core/pkg/executor/evaluator"
-	"drassi.run/core/pkg/model/dossiers"
 	"drassi.run/core/pkg/model/workflows"
 )
 
@@ -19,10 +18,10 @@ type DockerStepRun struct {
 	// * [/path/to/]Dockerfile
 	Image string
 
-	// Entrypoint for main stage. if empty, with.entrypoint could be use
+	// Entrypoint for the main stage, if empty, `with.entrypoint` could be used
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepswithentrypoint
 	Entrypoint string
-	// Entrypoint for all stages. if empty, with.args could be use
+	// Arguments for all stages, if empty, `with.args` could be used
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepswithargs
 	Args workflows.Evaluable[[]string]
 
@@ -33,14 +32,6 @@ type DockerStepRun struct {
 	PostIf         workflows.Conditional
 
 	resolvedImage string
-}
-
-func (sr *DockerStepRun) SetContextInfo(dossier *dossiers.Dossier) {
-	gh := dossier.Github
-
-	gh.Action = sr.Id
-	gh.ActionRepository = ""
-	gh.ActionRef = ""
 }
 
 func (sr *DockerStepRun) Initialize(ctx context.Context, exec StepExecutor) error {

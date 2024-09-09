@@ -9,7 +9,6 @@ import (
 
 	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/actions"
-	"drassi.run/core/pkg/model/dossiers"
 	"drassi.run/core/pkg/store/repository"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"gopkg.in/yaml.v3"
@@ -29,12 +28,8 @@ type ActionStepRun struct {
 	actionRun StepRun
 }
 
-func (sr *ActionStepRun) SetContextInfo(dossier *dossiers.Dossier) {
-	gh := dossier.Github
-
-	gh.Action = sr.Id
-	gh.ActionRepository = sr.Repo.Repo
-	gh.ActionRef = sr.Repo.Ref
+func (sr *ActionStepRun) Repository() *model.Repository {
+	return sr.Repo
 }
 
 func (sr *ActionStepRun) Initialize(ctx context.Context, exec StepExecutor) error {
@@ -86,7 +81,7 @@ func (sr *ActionStepRun) loadAction(ctx context.Context) error {
 		}
 	}
 
-	return fmt.Errorf(`unable to file "action.yml", "action.yaml" or "Dockerfile" in your given path`)
+	return fmt.Errorf(`file "action.yml", "action.yaml" and "Dockerfile" not found in your given path`)
 }
 
 func (sr *ActionStepRun) loadActionManifest(r io.ReadCloser) error {

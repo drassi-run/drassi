@@ -8,7 +8,6 @@ import (
 
 	"drassi.run/core/pkg/executor/evaluator"
 	"drassi.run/core/pkg/model"
-	"drassi.run/core/pkg/model/dossiers"
 	"drassi.run/core/pkg/model/workflows"
 	utilreader "drassi.run/core/pkg/util/reader"
 )
@@ -19,14 +18,6 @@ type ScriptStepRun struct {
 	Run        workflows.Evaluable[string]
 	Shell      string
 	WorkingDir workflows.Evaluable[string]
-}
-
-func (sr *ScriptStepRun) SetContextInfo(dossier *dossiers.Dossier) {
-	gh := dossier.Github
-
-	gh.Action = sr.Id
-	gh.ActionRepository = ""
-	gh.ActionRef = ""
 }
 
 func (sr *ScriptStepRun) Initialize(_ context.Context, _ StepExecutor) error {

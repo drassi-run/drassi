@@ -10,6 +10,7 @@ import (
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/model/dossiers"
 	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/pkg/store/repository"
 )
 
 type StepCommandHandler interface {
@@ -139,7 +140,16 @@ func (e *stepExecutor) RunStep(ctx context.Context, fn func(StepRun) *Task) *dos
 
 func (e *stepExecutor) initTask() {
 	e.dossier = e.job.NewSubDossier()
-	e.stepRun.SetContextInfo(e.dossier)
+
+	gh := e.dossier.Github
+	gh.Action = e.stepRun.StepId()
+	if r, ok := e.stepRun.(repository.Repositorial); ok {
+		repo := r.Repository()
+
+		gh.ActionRepository = repo.Repo
+		gh.ActionRef = repo.Ref
+	}
+
 	e.result = &dossiers.Step{
 		Outputs: make(map[string]string),
 	}

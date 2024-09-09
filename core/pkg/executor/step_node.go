@@ -3,7 +3,6 @@ package executor
 import (
 	"context"
 
-	"drassi.run/core/pkg/model/dossiers"
 	"drassi.run/core/pkg/model/workflows"
 )
 
@@ -18,9 +17,6 @@ type NodeStepRun struct {
 
 	Post   string
 	PostIf workflows.Conditional
-}
-
-func (sr *NodeStepRun) SetContextInfo(dossier *dossiers.Dossier) {
 }
 
 func (sr *NodeStepRun) Initialize(ctx context.Context, exec StepExecutor) error {
