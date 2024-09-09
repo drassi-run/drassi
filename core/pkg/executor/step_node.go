@@ -61,6 +61,6 @@ func (sr *NodeStepRun) PostTask() *Task {
 	}
 }
 
-func (sr *NodeStepRun) execute(stage Stage) func(context.Context, StepExecutor) error {
+func (sr *NodeStepRun) execute(stage Stage) TaskRun {
 	return nil
 }

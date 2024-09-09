@@ -86,7 +86,7 @@ func (sr *DockerStepRun) PostTask() *Task {
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/Handlers/ContainerActionHandler.cs#L22
-func (sr *DockerStepRun) execute(stage Stage) func(context.Context, StepExecutor) error {
+func (sr *DockerStepRun) execute(stage Stage) TaskRun {
 	return func(ctx context.Context, exec StepExecutor) error {
 		inputs := make(map[string]string)
 		if err := evaluator.Evaluate(exec.ExpressionEnv(), sr.Inputs, &inputs); err != nil {
@@ -104,7 +104,7 @@ func (sr *DockerStepRun) execute(stage Stage) func(context.Context, StepExecutor
 		}
 
 		env := make(map[string]string)
-		if err := evaluator.Evaluate(exec.ExpressionEnv(), sr.Env, &env); err != nil {
+		if err = evaluator.Evaluate(exec.ExpressionEnv(), sr.Env, &env); err != nil {
 			return err
 		}
 		maps.Copy(env, exec.ComposeEnv())
