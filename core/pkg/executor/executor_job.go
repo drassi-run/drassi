@@ -262,6 +262,16 @@ func (e *jobExecutor) initializeSandbox(scope *dig.Scope) error {
 		return err
 	}
 
+	// register SandboxLib (e.g hashFiles func) to expression.Env
+	opts := []expression.EnvOption{
+		expression.WithLibrary(libraries.SandboxLib(e.supervisor, e.sandbox)),
+	}
+	if exprEnv, err := expression.NewEnv(e.exprEnv, opts...); err != nil {
+		return err
+	} else {
+		e.exprEnv = exprEnv
+	}
+
 	// initialize ConsoleCommand & FileCommand
 	// NOTE: some handlers are depended on sandbox
 	if err := scope.Invoke(func(p consoleCommandParams) error {
