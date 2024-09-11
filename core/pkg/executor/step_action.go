@@ -33,8 +33,9 @@ func (sr *ActionStepRun) Repository() *repository.Repository {
 	return sr.Repo
 }
 
-func (sr *ActionStepRun) Initialize(ctx context.Context, exec StepExecutor) error {
+func (sr *ActionStepRun) Initialize(exec StepExecutor) error {
 	gh := exec.Dossier().Github
+	ctx := exec.Context()
 	if rev, err := sr.Store.Fetch(ctx, sr.Repo, gh.Token); err != nil {
 		return err
 	} else {
@@ -45,7 +46,7 @@ func (sr *ActionStepRun) Initialize(ctx context.Context, exec StepExecutor) erro
 		return err
 	}
 
-	return sr.actionRun.Initialize(ctx, exec)
+	return sr.actionRun.Initialize(exec)
 }
 
 func (sr *ActionStepRun) PreTask() *Task {

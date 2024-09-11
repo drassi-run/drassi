@@ -30,13 +30,8 @@ type commandController struct {
 	consoleMgr command.ConsoleManager
 	fileMgr    command.FileManager
 
-	job   handlerInfo[JobCommandHandler]
-	steps []handlerInfo[StepCommandHandler]
-}
-
-type handlerInfo[H any] struct {
-	ctx     context.Context
-	handler H
+	job   JobCommandHandler
+	steps []StepCommandHandler
 }
 
 func (cc *commandController) Register() {
@@ -73,10 +68,7 @@ func (cc *commandController) StartStep(ctx context.Context, stepHandler StepComm
 		return err
 	}
 
-	cc.steps = append(cc.steps, handlerInfo[StepCommandHandler]{
-		ctx:     ctx,
-		handler: stepHandler,
-	})
+	cc.steps = append(cc.steps, stepHandler)
 	return nil
 }
 
@@ -95,7 +87,7 @@ func (cc *commandController) EndStep(outcome dossiers.Result) (err error) {
 
 func (cc *commandController) LineHandler(w io.Writer, handlers ...logging.LineHandler) logging.LineHandler {
 	return func(line string) error {
-		jh := cc.job.handler
+		jh := cc.job
 		if cmd := cc.consoleMgr.ParseCommand(line); cmd != nil {
 			if err := cc.consoleMgr.Process(line, cmd); err != nil {
 				jh.Log(TagError, err.Error())
@@ -128,18 +120,18 @@ func (cc *commandController) stepHandle(fn func(context.Context, StepCommandHand
 		return errors.New("no step found")
 	}
 	currentStep := cc.steps[len(cc.steps)-1]
-	handler := currentStep.handler
-	ctx := currentStep.ctx
+	handler := currentStep
+	ctx := handler.Context()
 
 	return fn(ctx, handler)
 }
 
 func (cc *commandController) jobHandle(fn func(context.Context, JobCommandHandler) error) error {
-	handler := cc.job.handler
-	ctx := cc.job.ctx
+	handler := cc.job
+	ctx := cc.job.Context()
 	if len(cc.steps) > 0 {
 		currentStep := cc.steps[len(cc.steps)-1]
-		ctx = currentStep.ctx
+		ctx = currentStep.Context()
 	}
 	return fn(ctx, handler)
 }

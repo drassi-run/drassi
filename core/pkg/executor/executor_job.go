@@ -30,6 +30,7 @@ import (
 type JobCommandHandler interface {
 	JobRun() *JobRun
 	Sandbox() sandboxer.Sandbox
+	Context() context.Context
 
 	Log(tag, format string, a ...any)
 	AddPath(paths []string) error
@@ -47,9 +48,11 @@ type JobExecutor interface {
 	Sandbox() sandboxer.Sandbox
 	NewSubDossier() *dossiers.Dossier
 
-	Initialize(ctx context.Context, runtime sandboxer.SandboxRuntime) error
-	RunJob(ctx context.Context) error
-	Finalize(ctx context.Context, runtime sandboxer.SandboxRuntime) error
+	SetContext(ctx context.Context)
+
+	Initialize(runtime sandboxer.SandboxRuntime) error
+	RunJob() error
+	Finalize(runtime sandboxer.SandboxRuntime) error
 
 	Defaults() *workflows.Defaults
 	ComposePath() string
@@ -92,6 +95,8 @@ type jobExecutor struct {
 	jobRun   *JobRun
 	dossier  *dossiers.Dossier
 	reporter reporter.Reporter
+
+	ctx context.Context
 
 	sandbox       sandboxer.Sandbox
 	stepExecutors map[string]StepExecutor
@@ -167,32 +172,40 @@ func (e *jobExecutor) Sandbox() sandboxer.Sandbox {
 	return e.sandbox
 }
 
-func (e *jobExecutor) Initialize(ctx context.Context, runtime sandboxer.SandboxRuntime) error {
-	e.reporter.StartJob()
-
-	if err := e.initializeJob(ctx); err != nil {
-		return err
-	}
-
-	if err := e.initializeSandbox(ctx, runtime); err != nil {
-		return err
-	}
-
-	return e.initializeSteps(ctx)
+func (e *jobExecutor) Context() context.Context {
+	return e.ctx
 }
 
-func (e *jobExecutor) RunJob(ctx context.Context) error {
+func (e *jobExecutor) SetContext(ctx context.Context) {
+	e.ctx = ctx
+}
+
+func (e *jobExecutor) Initialize(runtime sandboxer.SandboxRuntime) error {
+	e.reporter.StartJob()
+
+	if err := e.initializeJob(); err != nil {
+		return err
+	}
+
+	if err := e.initializeSandbox(runtime); err != nil {
+		return err
+	}
+
+	return e.initializeSteps()
+}
+
+func (e *jobExecutor) RunJob() error {
 	e.cmdCtrl.Register()
 
-	if err := e.runStage(ctx, StagePre, StepRun.PreTask); err != nil {
+	if err := e.runStage(StagePre, StepRun.PreTask); err != nil {
 		e.result = dossiers.ResultFailure
 		return err
 	}
-	if err := e.runStage(ctx, StageMain, StepRun.MainTask); err != nil {
+	if err := e.runStage(StageMain, StepRun.MainTask); err != nil {
 		e.result = dossiers.ResultFailure
 		return err
 	}
-	if err := e.runStage(ctx, StagePost, StepRun.PostTask); err != nil {
+	if err := e.runStage(StagePost, StepRun.PostTask); err != nil {
 		e.result = dossiers.ResultFailure
 		return err
 	}
@@ -200,7 +213,7 @@ func (e *jobExecutor) RunJob(ctx context.Context) error {
 	return nil
 }
 
-func (e *jobExecutor) Finalize(ctx context.Context, runtime sandboxer.SandboxRuntime) (err error) {
+func (e *jobExecutor) Finalize(runtime sandboxer.SandboxRuntime) (err error) {
 	defer func() {
 		output := make(map[string]string)
 		if ex := evaluator.Evaluate(e.exprEnv, e.jobRun.Outputs, &output); err == nil && ex != nil {
@@ -214,7 +227,8 @@ func (e *jobExecutor) Finalize(ctx context.Context, runtime sandboxer.SandboxRun
 		return
 	}
 
-	// if ctx is done, a new one is created w/ timeout 5s to clean-up resources
+	// if ctx is done, a new one is created w/ timeout 5s to clean up resources
+	ctx := e.ctx
 	if ctx.Err() != nil {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
@@ -228,17 +242,14 @@ func (e *jobExecutor) Finalize(ctx context.Context, runtime sandboxer.SandboxRun
 	return
 }
 
-func (e *jobExecutor) initializeJob(ctx context.Context) error {
+func (e *jobExecutor) initializeJob() error {
 	e.outWriter = secret.NewWriter(e.reporter.Stdout(), e.secretMasker)
 	e.errWriter = secret.NewWriter(e.reporter.Stderr(), e.secretMasker)
 
 	e.cmdCtrl = &commandController{
 		consoleMgr: command.NewConsoleManager(e.outWriter),
 		fileMgr:    command.NewFileManager(e.sandbox),
-		job: handlerInfo[JobCommandHandler]{
-			ctx:     ctx,
-			handler: e,
-		},
+		job:        e,
 	}
 
 	e.streams = &sandboxer.Streams{
@@ -266,7 +277,7 @@ func (e *jobExecutor) initializeJob(ctx context.Context) error {
 	return nil
 }
 
-func (e *jobExecutor) initializeSandbox(ctx context.Context, runtime sandboxer.SandboxRuntime) error {
+func (e *jobExecutor) initializeSandbox(runtime sandboxer.SandboxRuntime) error {
 	req := sandboxer.LaunchSandboxRequest{
 		JobId:  e.jobRun.Id,
 		JobEnv: e.ciEnv(),
@@ -276,7 +287,7 @@ func (e *jobExecutor) initializeSandbox(ctx context.Context, runtime sandboxer.S
 	if err := evaluator.Evaluate(e.exprEnv, e.jobRun.Container, &jobContainer); err != nil {
 		return err
 	} else if jobContainer != nil {
-		if con, err := e.toContainerConfig(ctx, jobContainer); err != nil {
+		if con, err := e.toContainerConfig(e.ctx, jobContainer); err != nil {
 			return err
 		} else {
 			req.JobContainer = con
@@ -289,7 +300,7 @@ func (e *jobExecutor) initializeSandbox(ctx context.Context, runtime sandboxer.S
 	} else if len(serviceContainers) > 0 {
 		services := make(map[string]*container.ContainerConfig, len(serviceContainers))
 		for name, srv := range serviceContainers {
-			if con, err := e.toContainerConfig(ctx, srv); err != nil {
+			if con, err := e.toContainerConfig(e.ctx, srv); err != nil {
 				return err
 			} else {
 				services[name] = con
@@ -298,7 +309,7 @@ func (e *jobExecutor) initializeSandbox(ctx context.Context, runtime sandboxer.S
 		req.ServiceContainers = services
 	}
 
-	resp, err := runtime.LaunchSandbox(ctx, req)
+	resp, err := runtime.LaunchSandbox(e.ctx, req)
 	if err != nil {
 		return err
 	}
@@ -310,19 +321,20 @@ func (e *jobExecutor) initializeSandbox(ctx context.Context, runtime sandboxer.S
 	return nil
 }
 
-func (e *jobExecutor) initializeSteps(ctx context.Context) error {
+func (e *jobExecutor) initializeSteps() error {
 	e.stepExecutors = make(map[string]StepExecutor, len(e.jobRun.Steps))
-	g, ctx := errgroup.WithContext(ctx)
+	g, ctx := errgroup.WithContext(e.ctx)
 	for _, step := range e.jobRun.Steps {
 		exec := e.NewStepExecutor(step)
 		g.Go(func() error {
-			return exec.Initialize(ctx)
+			exec.SetContext(ctx)
+			return exec.Initialize()
 		})
 	}
 	return g.Wait()
 }
 
-func (e *jobExecutor) runStage(ctx context.Context, stage Stage, fn func(StepRun) *Task) error {
+func (e *jobExecutor) runStage(stage Stage, fn func(StepRun) *Task) error {
 	ids := make([]string, len(e.jobRun.Steps))
 	for i, step := range e.jobRun.Steps {
 		ids[i] = step.StepId()
@@ -332,7 +344,8 @@ func (e *jobExecutor) runStage(ctx context.Context, stage Stage, fn func(StepRun
 	}
 	for _, id := range ids {
 		exec := e.StepExecutor(id)
-		res := exec.RunStep(ctx, fn)
+		exec.SetContext(e.ctx)
+		res := exec.RunStep(fn)
 		if res == nil {
 			continue
 		}

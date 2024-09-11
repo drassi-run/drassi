@@ -1,7 +1,6 @@
 package executor
 
 import (
-	"context"
 	"fmt"
 	"slices"
 
@@ -15,12 +14,13 @@ type CompositeStepRun struct {
 	StepRuns []StepRun
 }
 
-func (sr *CompositeStepRun) Initialize(ctx context.Context, exec StepExecutor) (err error) {
-	g, ctx := errgroup.WithContext(ctx)
+func (sr *CompositeStepRun) Initialize(exec StepExecutor) (err error) {
+	g, ctx := errgroup.WithContext(exec.Context())
 	for _, step := range sr.StepRuns {
 		cExec := exec.NewChildExecutor(step)
 		g.Go(func() error {
-			return cExec.Initialize(ctx)
+			cExec.SetContext(ctx)
+			return cExec.Initialize()
 		})
 	}
 	return g.Wait()
@@ -49,13 +49,15 @@ func (sr *CompositeStepRun) createStageTask(stage Stage, fn func(StepRun) *Task)
 
 	return &Task{
 		Stage: stage,
-		Run: func(ctx context.Context, exec StepExecutor) error {
+		Run: func(exec StepExecutor) error {
 			for _, id := range taskIds {
 				cExec := exec.ChildExecutor(id)
 				if cExec == nil {
 					return fmt.Errorf(`task %q has no child context`, id)
 				}
-				res := cExec.RunStep(ctx, fn)
+
+				cExec.SetContext(exec.Context())
+				res := cExec.RunStep(fn)
 				if res != nil && res.Conclusion == dossiers.ResultFailure {
 					return fmt.Errorf(`step %q (%s) failed`, id, stage)
 				}

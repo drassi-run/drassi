@@ -1,7 +1,6 @@
 package executor
 
 import (
-	"context"
 	"fmt"
 	"maps"
 	"strings"
@@ -34,7 +33,8 @@ type DockerStepRun struct {
 	resolvedImage string
 }
 
-func (sr *DockerStepRun) Initialize(ctx context.Context, exec StepExecutor) error {
+func (sr *DockerStepRun) Initialize(exec StepExecutor) error {
+	ctx := exec.Context()
 	if image, ok := strings.CutPrefix(sr.Image, "docker://"); ok {
 		sr.resolvedImage = image
 		return exec.Sandbox().PullImage(ctx, image)
@@ -78,7 +78,8 @@ func (sr *DockerStepRun) PostTask() *Task {
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/Handlers/ContainerActionHandler.cs#L22
 func (sr *DockerStepRun) execute(stage Stage) TaskRun {
-	return func(ctx context.Context, exec StepExecutor) error {
+	return func(exec StepExecutor) error {
+		ctx := exec.Context()
 		inputs := make(map[string]string)
 		if err := evaluator.Evaluate(exec.ExpressionEnv(), sr.Inputs, &inputs); err != nil {
 			return err

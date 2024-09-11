@@ -1,8 +1,6 @@
 package executor
 
 import (
-	"context"
-
 	"drassi.run/core/pkg/model/workflows"
 )
 
@@ -19,7 +17,7 @@ type NodeStepRun struct {
 	PostIf workflows.Conditional
 }
 
-func (sr *NodeStepRun) Initialize(ctx context.Context, exec StepExecutor) error {
+func (sr *NodeStepRun) Initialize(exec StepExecutor) error {
 	// TODO copy to sandbox
 	return nil
 }

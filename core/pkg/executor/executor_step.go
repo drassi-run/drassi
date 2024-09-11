@@ -16,6 +16,7 @@ import (
 type StepCommandHandler interface {
 	StepRun() StepRun
 	Sandbox() sandboxer.Sandbox
+	Context() context.Context
 
 	SetEnv(env map[string]string, inExprValue bool) error
 	CreateStepSummary() error
@@ -38,8 +39,10 @@ type StepExecutor interface {
 	Dossier() *dossiers.Dossier
 	ExpressionEnv() *expression.Env
 
-	Initialize(ctx context.Context) error
-	RunStep(ctx context.Context, fn func(StepRun) *Task) *dossiers.Step
+	SetContext(ctx context.Context)
+
+	Initialize() error
+	RunStep(fn func(StepRun) *Task) *dossiers.Step
 	ComposeEnv() map[string]string
 	SetResult(outcome dossiers.Result)
 }
@@ -52,6 +55,8 @@ type stepExecutor struct {
 	reporter reporter.Reporter
 	cmdCtrl  CommandController
 
+	ctx context.Context
+
 	// Intra action state
 	state map[string]string
 
@@ -59,6 +64,14 @@ type stepExecutor struct {
 	dossier  *dossiers.Dossier
 	result   *dossiers.Step
 	extraEnv map[string]string
+}
+
+func (e *stepExecutor) Context() context.Context {
+	return e.ctx
+}
+
+func (e *stepExecutor) SetContext(ctx context.Context) {
+	e.ctx = ctx
 }
 
 func (e *stepExecutor) StepId() string {
@@ -120,21 +133,21 @@ func (e *stepExecutor) ExpressionEnv() *expression.Env {
 	return e.exprEnv
 }
 
-func (e *stepExecutor) Initialize(ctx context.Context) error {
-	return e.stepRun.Initialize(ctx, e)
+func (e *stepExecutor) Initialize() error {
+	return e.stepRun.Initialize(e)
 }
 
-func (e *stepExecutor) RunStep(ctx context.Context, fn func(StepRun) *Task) *dossiers.Step {
+func (e *stepExecutor) RunStep(fn func(StepRun) *Task) *dossiers.Step {
 	task := fn(e.stepRun)
 	if task == nil {
 		return nil
 	}
 
 	e.initTask()
-	defer e.endTask(ctx, task)
-	e.beginTask(ctx, task)
+	defer e.endTask(task)
+	e.beginTask(task)
 	if e.result.Outcome == "" {
-		e.runTask(ctx, task)
+		e.runTask(task)
 	}
 
 	return e.result
@@ -158,7 +171,7 @@ func (e *stepExecutor) initTask() {
 	e.extraEnv = make(map[string]string)
 }
 
-func (e *stepExecutor) beginTask(ctx context.Context, task *Task) {
+func (e *stepExecutor) beginTask(task *Task) {
 	if e.parent == nil { // root step
 		e.reporter.StartStep(e.StepId())
 	}
@@ -181,7 +194,7 @@ func (e *stepExecutor) beginTask(ctx context.Context, task *Task) {
 	}
 }
 
-func (e *stepExecutor) runTask(ctx context.Context, task *Task) {
+func (e *stepExecutor) runTask(task *Task) {
 	base := e.stepRun.Base()
 
 	timeout := int64(-1)
@@ -190,12 +203,12 @@ func (e *stepExecutor) runTask(ctx context.Context, task *Task) {
 		e.result.Outcome = dossiers.ResultFailure
 		return
 	} else if timeout > 0 {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, time.Duration(timeout)*time.Minute)
+		ctx, cancel := context.WithTimeout(e.ctx, time.Duration(timeout)*time.Minute)
+		e.ctx = ctx
 		defer cancel()
 	}
 
-	if err := e.cmdCtrl.StartStep(ctx, e); err != nil {
+	if err := e.cmdCtrl.StartStep(e.ctx, e); err != nil {
 		// TODO logging
 		e.result.Outcome = dossiers.ResultFailure
 		return
@@ -203,13 +216,13 @@ func (e *stepExecutor) runTask(ctx context.Context, task *Task) {
 
 	ch := make(chan error)
 	go func() {
-		ch <- task.Run(ctx, e)
+		ch <- task.Run(e)
 	}()
 
 	var err error
 	select {
-	case <-ctx.Done():
-		err = ctx.Err()
+	case <-e.ctx.Done():
+		err = e.ctx.Err()
 	case err = <-ch:
 	}
 
@@ -227,7 +240,7 @@ func (e *stepExecutor) runTask(ctx context.Context, task *Task) {
 	}
 }
 
-func (e *stepExecutor) endTask(ctx context.Context, task *Task) {
+func (e *stepExecutor) endTask(task *Task) {
 	if e.result.Outcome == dossiers.ResultFailure {
 		base := e.stepRun.Base()
 

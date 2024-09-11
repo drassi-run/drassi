@@ -20,7 +20,7 @@ type ScriptStepRun struct {
 	WorkingDir workflows.Evaluable[string]
 }
 
-func (sr *ScriptStepRun) Initialize(_ context.Context, _ StepExecutor) error {
+func (sr *ScriptStepRun) Initialize(StepExecutor) error {
 	return nil
 }
 
@@ -41,7 +41,8 @@ func (sr *ScriptStepRun) PostTask() *Task {
 	return nil
 }
 
-func (sr *ScriptStepRun) executeMain(ctx context.Context, exec StepExecutor) error {
+func (sr *ScriptStepRun) executeMain(exec StepExecutor) error {
+	ctx := exec.Context()
 	shell := model.Shell(exec.JobExecutor().Defaults().Run.Shell)
 	if sr.Shell != "" {
 		shell = model.Shell(sr.Shell)
