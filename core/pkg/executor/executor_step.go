@@ -2,49 +2,50 @@ package executor
 
 import (
 	"context"
+	"io"
 	"maps"
 	"time"
 
 	"drassi.run/core/pkg/executor/evaluator"
-	"drassi.run/core/pkg/executor/reporter"
 	"drassi.run/core/pkg/expression"
+	"drassi.run/core/pkg/expression/libraries"
 	"drassi.run/core/pkg/model/dossiers"
-	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/store/repository"
+	"drassi.run/core/pkg/util/dig"
+
+	"go.uber.org/dig"
 )
 
-type StepCommandHandler interface {
-	StepRun() StepRun
-	Sandbox() sandboxer.Sandbox
-	Context() context.Context
-
-	SetEnv(env map[string]string, inExprValue bool) error
-	CreateStepSummary() error
-	SaveState(state map[string]string) error
-	SetOutput(output map[string]string) error
-}
-
 type StepExecutor interface {
-	StepCommandHandler
-
-	JobExecutor() JobExecutor
 	NewChildExecutor(stepRun StepRun) StepExecutor
 	ChildExecutor(id string) StepExecutor
 	ParentExecutor() StepExecutor
 	RootExecutor() StepExecutor
 
 	StepId() string
-	Streams() *sandboxer.Streams
-	Sandbox() sandboxer.Sandbox
-	Dossier() *dossiers.Dossier
-	ExpressionEnv() *expression.Env
-
+	Context() context.Context
 	SetContext(ctx context.Context)
 
-	Initialize() error
+	Initialize(scope *dig.Scope) error
 	RunStep(fn func(StepRun) *Task) *dossiers.Step
+
+	SetEnv(env map[string]string) error
+	CreateStepSummary(r io.Reader) error
+	SaveState(state map[string]string) error
+	SetOutput(output map[string]string) error
+
+	// TODO: remove
 	ComposeEnv() map[string]string
 	SetResult(outcome dossiers.Result)
+}
+
+func newStepExecutor(job JobExecutor, parent StepExecutor, stepRun StepRun) StepExecutor {
+	return &stepExecutor{
+		job:      job,
+		parent:   parent,
+		children: make(map[string]StepExecutor),
+		stepRun:  stepRun,
+	}
 }
 
 type stepExecutor struct {
@@ -52,17 +53,19 @@ type stepExecutor struct {
 	parent   StepExecutor
 	children map[string]StepExecutor
 	stepRun  StepRun
-	reporter reporter.Reporter
-	cmdCtrl  CommandController
 
-	ctx context.Context
+	// records
+	gh     dossiers.Github
+	step   *dossiers.Step
+	env    map[string]string
+	jobEnv map[string]string
+	state  map[string]string // Intra action state
 
-	// Intra action state
-	state map[string]string
+	ctx        context.Context
+	exprEnv    *expression.Env
+	supervisor Supervisor
 
-	exprEnv  *expression.Env
-	dossier  *dossiers.Dossier
-	result   *dossiers.Step
+	// TODO: remove
 	extraEnv map[string]string
 }
 
@@ -82,21 +85,8 @@ func (e *stepExecutor) StepRun() StepRun {
 	return e.stepRun
 }
 
-func (e *stepExecutor) JobExecutor() JobExecutor {
-	return e.job
-}
-
 func (e *stepExecutor) NewChildExecutor(stepRun StepRun) StepExecutor {
-	cExec := &stepExecutor{
-		job:      e.job,
-		parent:   e,
-		children: make(map[string]StepExecutor),
-		stepRun:  stepRun,
-		reporter: e.reporter,
-		cmdCtrl:  e.cmdCtrl,
-		state:    make(map[string]string),
-	}
-
+	cExec := newStepExecutor(e.job, e, stepRun)
 	e.children[stepRun.StepId()] = cExec
 	return cExec
 }
@@ -117,24 +107,66 @@ func (e *stepExecutor) RootExecutor() StepExecutor {
 	return exec
 }
 
-func (e *stepExecutor) Streams() *sandboxer.Streams {
-	return e.job.Streams()
-}
+func (e *stepExecutor) Initialize(scope *dig.Scope) error {
+	// inject dependencies
+	if err := xdig.Populate(scope, &e.supervisor); err != nil {
+		return err
+	}
+	if err := xdig.Populate(scope, &e.exprEnv); err != nil {
+		return err
+	}
+	if err := xdig.Populate(scope, &e.gh); err != nil {
+		return err
+	} else {
+		e.gh.Action = e.StepId()
+	}
+	if err := xdig.Populate(scope, &e.jobEnv); err != nil {
+		return err
+	}
+	e.env = make(map[string]string)
+	maps.Copy(e.env, e.jobEnv)
+	e.step = new(dossiers.Step)
+	e.step.Outputs = make(map[string]string)
+	e.state = make(map[string]string)
 
-func (e *stepExecutor) Sandbox() sandboxer.Sandbox {
-	return e.job.Sandbox()
-}
+	// initialize StepRun
+	if err := e.stepRun.Initialize(e, scope); err != nil {
+		return err
+	}
 
-func (e *stepExecutor) Dossier() *dossiers.Dossier {
-	return e.dossier
-}
+	if r, ok := e.stepRun.(repository.Repositorial); ok {
+		repo := r.Repository()
 
-func (e *stepExecutor) ExpressionEnv() *expression.Env {
-	return e.exprEnv
-}
+		e.gh.ActionRepository = repo.Name
+		e.gh.ActionRef = repo.Ref
+	}
 
-func (e *stepExecutor) Initialize() error {
-	return e.stepRun.Initialize(e)
+	// setup expression.Env
+	opts := []expression.EnvOption{
+		expression.WithVariable("github", &e.gh),
+		expression.WithVariable("env", e.env),
+	}
+	if e.parent != nil {
+		opts = append(opts, expression.WithLibrary(libraries.StepLib(&e.gh)))
+	}
+	if exprEnv, err := expression.NewEnv(e.exprEnv, opts...); err != nil {
+		return err
+	} else {
+		e.exprEnv = exprEnv
+	}
+
+	// Provide scope values
+	if err := xdig.Supply(scope, e.exprEnv); err != nil {
+		return err
+	}
+	if err := xdig.Supply(scope, e.gh); err != nil {
+		return err
+	}
+	if err := xdig.Supply(scope, e.env); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (e *stepExecutor) RunStep(fn func(StepRun) *Task) *dossiers.Step {
@@ -143,75 +175,56 @@ func (e *stepExecutor) RunStep(fn func(StepRun) *Task) *dossiers.Step {
 		return nil
 	}
 
-	e.initTask()
 	defer e.endTask(task)
-	e.beginTask(task)
-	if e.result.Outcome == "" {
+	e.beginTask(task) // TODO logging error
+	if e.step.Outcome == "" {
 		e.runTask(task)
 	}
 
-	return e.result
+	return e.step
 }
 
-func (e *stepExecutor) initTask() {
-	e.dossier = e.job.NewSubDossier()
-
-	gh := e.dossier.Github
-	gh.Action = e.stepRun.StepId()
-	if r, ok := e.stepRun.(repository.Repositorial); ok {
-		repo := r.Repository()
-
-		gh.ActionRepository = repo.Name
-		gh.ActionRef = repo.Ref
-	}
-
-	e.result = &dossiers.Step{
-		Outputs: make(map[string]string),
-	}
-	e.extraEnv = make(map[string]string)
-}
-
-func (e *stepExecutor) beginTask(task *Task) {
-	if e.parent == nil { // root step
-		e.reporter.StartStep(e.StepId())
-	}
-
+func (e *stepExecutor) beginTask(task *Task) error {
+	e.supervisor.BeforeStepRun(e)
 	base := e.stepRun.Base()
 
-	if err := evaluator.Evaluate(e.exprEnv, base.Env, &e.dossier.Env); err != nil {
-		// TODO logging
-		e.result.Outcome = dossiers.ResultFailure
-		return
+	clear(e.env)
+	maps.Copy(e.env, e.jobEnv)
+	if err := evaluator.Evaluate(e.exprEnv, base.Env, &e.env); err != nil {
+		e.step.Outcome = dossiers.ResultFailure
+		return err
 	}
 
 	if meet, err := evaluator.Meet(e.exprEnv, task.Condition); err != nil {
-		e.result.Conclusion = dossiers.ResultFailure
-		e.result.Outcome = dossiers.ResultFailure
+		e.step.Conclusion = dossiers.ResultFailure
+		e.step.Outcome = dossiers.ResultFailure
+		return err
 	} else if !meet {
-		e.result.Conclusion = dossiers.ResultSkipped
-		e.result.Outcome = dossiers.ResultSkipped
+		e.step.Conclusion = dossiers.ResultSkipped
+		e.step.Outcome = dossiers.ResultSkipped
 		// TODO logging
 	}
+	return nil
 }
 
-func (e *stepExecutor) runTask(task *Task) {
+func (e *stepExecutor) runTask(task *Task) error {
 	base := e.stepRun.Base()
 
 	timeout := int64(-1)
 	if err := evaluator.Evaluate(e.exprEnv, base.TimeoutInMinutes, &timeout); err != nil {
 		// TODO logging
-		e.result.Outcome = dossiers.ResultFailure
-		return
+		e.step.Outcome = dossiers.ResultFailure
+		return err
 	} else if timeout > 0 {
 		ctx, cancel := context.WithTimeout(e.ctx, time.Duration(timeout)*time.Minute)
 		e.ctx = ctx
 		defer cancel()
 	}
 
-	if err := e.cmdCtrl.StartStep(e.ctx, e); err != nil {
+	if err := e.supervisor.BeforeTaskRun(task, e); err != nil {
 		// TODO logging
-		e.result.Outcome = dossiers.ResultFailure
-		return
+		e.step.Outcome = dossiers.ResultFailure
+		return err
 	}
 
 	ch := make(chan error)
@@ -227,44 +240,44 @@ func (e *stepExecutor) runTask(task *Task) {
 	}
 
 	if err != nil {
-		e.result.Outcome = dossiers.ResultFailure
+		e.step.Outcome = dossiers.ResultFailure
 		//logger.WithField("stepResult", stepResult.Outcome).Errorf("  \u274C  Failure - %s %s", stage, stepString)
 	} else {
-		e.result.Conclusion = dossiers.ResultSuccess
-		e.result.Outcome = dossiers.ResultSuccess
+		e.step.Conclusion = dossiers.ResultSuccess
+		e.step.Outcome = dossiers.ResultSuccess
 	}
 
-	if err = e.cmdCtrl.EndStep(e.result.Outcome); err != nil {
+	if err = e.supervisor.AfterTaskRun(task, e); err != nil {
 		// TODO logging
-		e.result.Outcome = dossiers.ResultFailure
+		e.step.Outcome = dossiers.ResultFailure
+		return err
 	}
+	return nil
 }
 
 func (e *stepExecutor) endTask(task *Task) {
-	if e.result.Outcome == dossiers.ResultFailure {
+	if e.step.Outcome == dossiers.ResultFailure {
 		base := e.stepRun.Base()
 
 		continueOnError := false
 		if err := evaluator.Evaluate(e.exprEnv, base.ContinueOnError, &continueOnError); err != nil {
 			//logger.Infof("Failed but continue next step")
 			//return err
-			e.result.Conclusion = dossiers.ResultFailure
+			e.step.Conclusion = dossiers.ResultFailure
 		} else if continueOnError {
 			//logger.Infof("Failed but continue next step")
-			e.result.Conclusion = dossiers.ResultSuccess
+			e.step.Conclusion = dossiers.ResultSuccess
 		} else {
-			e.result.Conclusion = dossiers.ResultFailure
+			e.step.Conclusion = dossiers.ResultFailure
 		}
 	}
 
-	if e.parent == nil { // root step
-		e.reporter.EndStep(e.StepId(), e.result.Outcome)
-	}
+	e.supervisor.AfterStepRun(e)
 }
 
 func (e *stepExecutor) ComposeEnv() map[string]string {
 	// clone dossier.Env to avoid modifying
-	m := maps.Clone(e.dossier.Env)
+	m := maps.Clone(e.env)
 
 	// NOTE:
 	// * INPUT_* env will be set in the step task
@@ -278,7 +291,7 @@ func (e *stepExecutor) ComposeEnv() map[string]string {
 	}
 
 	// set GITHUB_ACTION_* env
-	gh := e.dossier.Github
+	gh := e.gh
 	m["GITHUB_ACTION"] = e.stepRun.StepId()
 	m["GITHUB_ACTION_REF"] = gh.ActionRef
 	m["GITHUB_ACTION_REPOSITORY"] = gh.ActionRepository
@@ -292,52 +305,55 @@ func (e *stepExecutor) ComposeEnv() map[string]string {
 }
 
 func (e *stepExecutor) SetResult(outcome dossiers.Result) {
-	e.result.Outcome = outcome
+	e.step.Outcome = outcome
 }
 
+// SetEnv make an environment variable available to any subsequent steps in a workflow job
+//
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L132
 // https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#setting-an-environment-variable
-func (e *stepExecutor) SetEnv(env map[string]string, inExprValue bool) error {
+func (e *stepExecutor) SetEnv(env map[string]string) error {
 	for k := range env {
 		if setEnvBlockList.Has(k) {
 			// TODO context.AddIssue
 			delete(env, k)
 		}
 	}
-	// env not added to the expr evaluation context
-	if !inExprValue {
-		maps.Copy(e.extraEnv, env)
+	maps.Copy(e.env, env)
+	if e.parent != nil {
+		return e.parent.SetEnv(env)
 	} else {
-		// add env to both step-level and job-level context
-		maps.Copy(e.dossier.Env, env)
-		if jh, ok := e.job.(JobCommandHandler); ok {
-			return jh.SetEnv(env)
-		}
+		return e.job.SetEnv(env)
 	}
+}
+
+// CreateStepSummary create custom Markdown that it will be displayed on the summary page of a workflow run.
+//
+// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L186
+// https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#adding-a-job-summary
+func (e *stepExecutor) CreateStepSummary(io.Reader) error {
+	//TODO implement me
 	return nil
 }
 
-// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L186
-// https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#adding-a-job-summary
-func (e *stepExecutor) CreateStepSummary() error {
-	panic("implement me")
-}
-
+// SaveState used to create environment variables for sharing pre: or post: action state.
+//
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L260
 // https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#sending-values-to-the-pre-and-post-actions
 func (e *stepExecutor) SaveState(state map[string]string) error {
 	if e.parent != nil {
-		if root, ok := e.RootExecutor().(StepCommandHandler); ok {
-			return root.SaveState(state)
-		}
+		root := e.RootExecutor()
+		return root.SaveState(state)
 	}
 	maps.Copy(e.state, state)
 	return nil
 }
 
+// SetOutput sets a step's output parameter.
+//
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L293
 // https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#setting-an-output-parameter
 func (e *stepExecutor) SetOutput(output map[string]string) error {
-	maps.Copy(e.result.Outputs, output)
+	maps.Copy(e.step.Outputs, output)
 	return nil
 }

@@ -37,9 +37,7 @@ func fileAddPath(sup executor.Supervisor) *command.FileHandler {
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L132
 func fileSetEnv(sup executor.Supervisor) *command.FileHandler {
-	run := stepCommandRun(sup, parseEnvVars, func(step executor.StepExecutor, m map[string]string) error {
-		return step.SetEnv(m, true)
-	})
+	run := stepCommandRun(sup, parseEnvVars, executor.StepExecutor.SetEnv)
 	return command.NewFileHandler("GITHUB_ENV", run)
 }
 
@@ -58,8 +56,8 @@ func fileSetOutput(sup executor.Supervisor) *command.FileHandler {
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L186
 func createStepSummary(sup executor.Supervisor) *command.FileHandler {
 	run := func(r io.Reader) error {
-		// TODO: implement GITHUB_STEP_SUMMARY file command
-		return nil
+		step := sup.CurrentStep()
+		return step.CreateStepSummary(r)
 	}
 	return command.NewFileHandler("GITHUB_STEP_SUMMARY", run)
 }

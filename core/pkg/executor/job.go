@@ -9,10 +9,10 @@ type JobRun struct {
 
 	Container workflows.Evaluable[*workflows.Container]
 	Services  workflows.Evaluable[map[string]*workflows.Container]
+	Steps     []StepRun
 
 	Env      workflows.Evaluable[map[string]string]
-	Steps    []StepRun
 	Outputs  workflows.Evaluable[map[string]string]
-	Defaults workflows.Evaluable[workflows.Defaults]
+	Defaults workflows.Evaluable[*workflows.Defaults]
 	// Environment
 }

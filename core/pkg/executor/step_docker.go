@@ -6,7 +6,11 @@ import (
 	"strings"
 
 	"drassi.run/core/pkg/executor/evaluator"
+	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/model/workflows"
+	"drassi.run/core/pkg/sandboxer"
+
+	"go.uber.org/dig"
 )
 
 type DockerStepRun struct {
@@ -31,13 +35,17 @@ type DockerStepRun struct {
 	PostIf         workflows.Conditional
 
 	resolvedImage string
+	// injected values
+	sandbox sandboxer.Sandbox
+	streams *sandboxer.Streams
+	exprEnv *expression.Env
 }
 
-func (sr *DockerStepRun) Initialize(exec StepExecutor) error {
+func (sr *DockerStepRun) Initialize(exec StepExecutor, scope *dig.Scope) error {
 	ctx := exec.Context()
 	if image, ok := strings.CutPrefix(sr.Image, "docker://"); ok {
 		sr.resolvedImage = image
-		return exec.Sandbox().PullImage(ctx, image)
+		return sr.sandbox.PullImage(ctx, image)
 	}
 	// TODO: build image based on Dockerfile
 	return nil
@@ -81,7 +89,7 @@ func (sr *DockerStepRun) execute(stage Stage) TaskRun {
 	return func(exec StepExecutor) error {
 		ctx := exec.Context()
 		inputs := make(map[string]string)
-		if err := evaluator.Evaluate(exec.ExpressionEnv(), sr.Inputs, &inputs); err != nil {
+		if err := evaluator.Evaluate(sr.exprEnv, sr.Inputs, &inputs); err != nil {
 			return err
 		}
 
@@ -96,12 +104,12 @@ func (sr *DockerStepRun) execute(stage Stage) TaskRun {
 		}
 
 		env := make(map[string]string)
-		if err = evaluator.Evaluate(exec.ExpressionEnv(), sr.Env, &env); err != nil {
+		if err = evaluator.Evaluate(sr.exprEnv, sr.Env, &env); err != nil {
 			return err
 		}
 		maps.Copy(env, exec.ComposeEnv())
 
-		return exec.Sandbox().RunContainer(ctx, sr.resolvedImage, entrypoint, args, env, "")
+		return sr.sandbox.RunContainer(ctx, sr.resolvedImage, entrypoint, args, env, "")
 	}
 }
 
@@ -133,7 +141,7 @@ func (sr *DockerStepRun) computeEntrypoint(stage Stage, inputs map[string]string
 func (sr *DockerStepRun) computeArgs(inputs map[string]string, exec StepExecutor) ([]string, error) {
 	if sr.Args != nil {
 		args := make([]string, 0)
-		if err := evaluator.Evaluate(exec.ExpressionEnv(), sr.Args, &args); err != nil {
+		if err := evaluator.Evaluate(sr.exprEnv, sr.Args, &args); err != nil {
 			return nil, err
 		}
 		return args, nil

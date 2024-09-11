@@ -9,9 +9,12 @@ import (
 
 	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/actions"
+	"drassi.run/core/pkg/model/dossiers"
 	"drassi.run/core/pkg/store/repository"
 	"drassi.run/core/pkg/store/repository/gitstore"
+
 	"github.com/go-git/go-git/v5/plumbing/object"
+	"go.uber.org/dig"
 	"gopkg.in/yaml.v3"
 )
 
@@ -33,8 +36,8 @@ func (sr *ActionStepRun) Repository() *repository.Repository {
 	return sr.Repo
 }
 
-func (sr *ActionStepRun) Initialize(exec StepExecutor) error {
-	gh := exec.Dossier().Github
+func (sr *ActionStepRun) Initialize(exec StepExecutor, scope *dig.Scope) error {
+	gh := dossiers.Github{} // TODO
 	ctx := exec.Context()
 	if rev, err := sr.Store.Fetch(ctx, sr.Repo, gh.Token); err != nil {
 		return err
@@ -46,7 +49,7 @@ func (sr *ActionStepRun) Initialize(exec StepExecutor) error {
 		return err
 	}
 
-	return sr.actionRun.Initialize(exec)
+	return sr.actionRun.Initialize(exec, nil)
 }
 
 func (sr *ActionStepRun) PreTask() *Task {

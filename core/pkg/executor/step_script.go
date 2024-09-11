@@ -7,9 +7,13 @@ import (
 	"strings"
 
 	"drassi.run/core/pkg/executor/evaluator"
+	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/workflows"
+	"drassi.run/core/pkg/sandboxer"
 	utilreader "drassi.run/core/pkg/util/reader"
+
+	"go.uber.org/dig"
 )
 
 type ScriptStepRun struct {
@@ -18,9 +22,15 @@ type ScriptStepRun struct {
 	Run        workflows.Evaluable[string]
 	Shell      string
 	WorkingDir workflows.Evaluable[string]
+
+	// injected values
+	sandbox  sandboxer.Sandbox
+	streams  *sandboxer.Streams
+	exprEnv  *expression.Env
+	defaults *workflows.Defaults
 }
 
-func (sr *ScriptStepRun) Initialize(StepExecutor) error {
+func (sr *ScriptStepRun) Initialize(StepExecutor, *dig.Scope) error {
 	return nil
 }
 
@@ -43,18 +53,18 @@ func (sr *ScriptStepRun) PostTask() *Task {
 
 func (sr *ScriptStepRun) executeMain(exec StepExecutor) error {
 	ctx := exec.Context()
-	shell := model.Shell(exec.JobExecutor().Defaults().Run.Shell)
+	shell := model.Shell(sr.defaults.Run.Shell)
 	if sr.Shell != "" {
 		shell = model.Shell(sr.Shell)
 	}
 
-	workdir := exec.JobExecutor().Defaults().Run.WorkingDir
-	if err := evaluator.Evaluate(exec.ExpressionEnv(), sr.WorkingDir, &workdir); err != nil {
+	workdir := sr.defaults.Run.WorkingDir
+	if err := evaluator.Evaluate(sr.exprEnv, sr.WorkingDir, &workdir); err != nil {
 		return err
 	}
 
 	script := ""
-	if err := evaluator.Evaluate(exec.ExpressionEnv(), sr.Run, &script); err != nil {
+	if err := evaluator.Evaluate(sr.exprEnv, sr.Run, &script); err != nil {
 		return err
 	} else if script == "" {
 		return fmt.Errorf("script is required")
@@ -73,7 +83,7 @@ func (sr *ScriptStepRun) executeMain(exec StepExecutor) error {
 	}
 
 	env := exec.ComposeEnv()
-	return exec.Sandbox().Execute(ctx, cmd, env, workdir, exec.Streams())
+	return sr.sandbox.Execute(ctx, cmd, env, workdir, sr.streams)
 }
 
 func (sr *ScriptStepRun) expandCommand(shell model.Shell, scriptPath string) ([]string, error) {
@@ -98,7 +108,7 @@ func (sr *ScriptStepRun) computeScriptPath(exec StepExecutor, ex string) string 
 		path += "."
 	}
 	path += ex
-	return filepath.Join(exec.Sandbox().GetTempDir(), "scripts", path)
+	return filepath.Join(sr.sandbox.GetTempDir(), "scripts", path)
 }
 
 func (sr *ScriptStepRun) transferScriptIn(ctx context.Context, exec StepExecutor, script, path string) error {
@@ -110,6 +120,6 @@ func (sr *ScriptStepRun) transferScriptIn(ctx context.Context, exec StepExecutor
 	if reader, err := utilreader.FromFileEntries(ctx, entry); err != nil {
 		return err
 	} else {
-		return exec.Sandbox().CopyIn(ctx, reader, path)
+		return sr.sandbox.CopyIn(ctx, reader, path)
 	}
 }

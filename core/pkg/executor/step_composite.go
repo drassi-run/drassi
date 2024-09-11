@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"drassi.run/core/pkg/model/dossiers"
+	"go.uber.org/dig"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -14,13 +15,14 @@ type CompositeStepRun struct {
 	StepRuns []StepRun
 }
 
-func (sr *CompositeStepRun) Initialize(exec StepExecutor) (err error) {
+func (sr *CompositeStepRun) Initialize(exec StepExecutor, scope *dig.Scope) error {
 	g, ctx := errgroup.WithContext(exec.Context())
 	for _, step := range sr.StepRuns {
 		cExec := exec.NewChildExecutor(step)
+		cScope := scope.Scope(fmt.Sprintf("step(%s)", exec.StepId()))
 		g.Go(func() error {
 			cExec.SetContext(ctx)
-			return cExec.Initialize()
+			return cExec.Initialize(cScope)
 		})
 	}
 	return g.Wait()
