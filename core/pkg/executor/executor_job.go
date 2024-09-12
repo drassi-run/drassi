@@ -39,6 +39,8 @@ type JobCommandHandler interface {
 }
 
 type JobExecutor interface {
+	JobCommandHandler
+
 	JobId() string
 	Streams() *sandboxer.Streams
 	Sandbox() sandboxer.Sandbox
