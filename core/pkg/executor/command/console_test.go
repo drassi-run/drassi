@@ -5,11 +5,13 @@ import (
 	"testing"
 )
 
-func setupConsoleCmdMgr() *consoleCommandManager {
-	return NewConsoleCommandManager(nil).(*consoleCommandManager)
+func setupConsoleCmdMgr() *consoleManager {
+	return NewConsoleManager(nil).(*consoleManager)
 }
 
-func TestConsoleCommandManager_ParseCommandV1(t *testing.T) {
+func noop(*Command) error { return nil }
+
+func TestConsoleManager_ParseCommandV1(t *testing.T) {
 	tests := map[string]*Command{
 		"##[do-something k1=v1;]msg": {
 			Name: "do-something",
@@ -48,7 +50,7 @@ func TestConsoleCommandManager_ParseCommandV1(t *testing.T) {
 	}
 
 	mgr := setupConsoleCmdMgr()
-	_ = mgr.RegisterCommand("do-something", true, func(cmd *Command) error { return nil })
+	_ = mgr.Register(NewConsoleHandler("do-something", true, noop))
 
 	for input, expected := range tests {
 		t.Run(input, func(tt *testing.T) {
@@ -58,7 +60,7 @@ func TestConsoleCommandManager_ParseCommandV1(t *testing.T) {
 	}
 }
 
-func TestConsoleCommandManager_ParseCommandV2(t *testing.T) {
+func TestConsoleManager_ParseCommandV2(t *testing.T) {
 	tests := map[string]*Command{
 		"::do-something k1=v1,::msg": {
 			Name: "do-something",
@@ -104,7 +106,7 @@ func TestConsoleCommandManager_ParseCommandV2(t *testing.T) {
 	}
 
 	mgr := setupConsoleCmdMgr()
-	_ = mgr.RegisterCommand("do-something", true, func(cmd *Command) error { return nil })
+	_ = mgr.Register(NewConsoleHandler("do-something", true, noop))
 
 	for input, expected := range tests {
 		t.Run(input, func(tt *testing.T) {
@@ -114,9 +116,9 @@ func TestConsoleCommandManager_ParseCommandV2(t *testing.T) {
 	}
 }
 
-func TestConsoleCommandManager_IsProcessingCommand(t *testing.T) {
+func TestConsoleManager_IsProcessingCommand(t *testing.T) {
 	mgr := setupConsoleCmdMgr()
-	_ = mgr.RegisterCommand("foobar", true, func(cmd *Command) error { return nil })
+	_ = mgr.Register(NewConsoleHandler("foobar", true, noop))
 
 	assert.DeepEqual(t, true, mgr.isProcessingCommand("foobar"))
 	assert.DeepEqual(t, false, mgr.isProcessingCommand("xxx"))
@@ -126,9 +128,9 @@ func TestConsoleCommandManager_IsProcessingCommand(t *testing.T) {
 	assert.DeepEqual(t, true, mgr.isProcessingCommand("xxx"))
 }
 
-func TestConsoleCommandManager_StopCommands(t *testing.T) {
+func TestConsoleManager_StopCommands(t *testing.T) {
 	mgr := setupConsoleCmdMgr()
-	_ = mgr.RegisterCommand("do-something", true, func(cmd *Command) error { return nil })
+	_ = mgr.Register(NewConsoleHandler("do-something", true, noop))
 	v1line := "##[do-something k1=v1;]msg"
 	v2line := "::do-something k1=v1,::msg"
 	cmd := &Command{
