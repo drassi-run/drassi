@@ -12,11 +12,11 @@ import (
 	"testing"
 )
 
-func setupFileCmdMgr() *fileCommandManager {
-	return NewFileCommandManager("_suffix").(*fileCommandManager)
+func setupFileCmdMgr() *fileManager {
+	return NewFileManager("_suffix").(*fileManager)
 }
 
-func noopHandler(r io.Reader) error {
+func noopHandler(io.Reader) error {
 	return nil
 }
 
@@ -28,7 +28,7 @@ func (n noopReadCloser) Close() error {
 	return nil
 }
 
-func TestFileCommandManager_Initialize(t *testing.T) {
+func TestFileManager_Initialize(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	ctx := context.Background()
@@ -43,8 +43,8 @@ func TestFileCommandManager_Initialize(t *testing.T) {
 
 	t.Run("normal", func(tt *testing.T) {
 		mgr := setupFileCmdMgr()
-		_ = mgr.RegisterCommand("FIRST", noopHandler)
-		_ = mgr.RegisterCommand("SECOND", noopHandler)
+		_ = mgr.Register(NewFileHandler("FIRST", noopHandler))
+		_ = mgr.Register(NewFileHandler("SECOND", noopHandler))
 
 		sandbox := mock_sandboxer.NewMockSandbox(ctrl)
 		sandbox.EXPECT().GetTempDir().Return("/tmp/sandbox")
@@ -59,7 +59,7 @@ func TestFileCommandManager_Initialize(t *testing.T) {
 	})
 }
 
-func TestFileCommandManager_Process(t *testing.T) {
+func TestFileManager_Process(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	ctx := context.Background()
@@ -72,7 +72,7 @@ func TestFileCommandManager_Process(t *testing.T) {
 	})
 
 	t.Run("normal", func(tt *testing.T) {
-		stringHandler := func(t *testing.T, s string) FileCommandHandler {
+		stringHandler := func(t *testing.T, s string) func(r io.Reader) error {
 			return func(r io.Reader) error {
 				b, err := io.ReadAll(r)
 				assert.NilError(t, err)
@@ -82,8 +82,8 @@ func TestFileCommandManager_Process(t *testing.T) {
 		}
 
 		mgr := setupFileCmdMgr()
-		_ = mgr.RegisterCommand("FIRST", stringHandler(tt, "FIRST file content"))
-		_ = mgr.RegisterCommand("SECOND", stringHandler(tt, "SECOND file content"))
+		_ = mgr.Register(NewFileHandler("FIRST", stringHandler(tt, "FIRST file content")))
+		_ = mgr.Register(NewFileHandler("SECOND", stringHandler(tt, "SECOND file content")))
 
 		sandbox := mock_sandboxer.NewMockSandbox(ctrl)
 		sandbox.EXPECT().GetTempDir().Return("/tmp/sandbox")
@@ -98,8 +98,8 @@ func TestFileCommandManager_Process(t *testing.T) {
 
 	t.Run("file-not-found", func(tt *testing.T) {
 		mgr := setupFileCmdMgr()
-		_ = mgr.RegisterCommand("FIRST", noopHandler)
-		_ = mgr.RegisterCommand("SECOND", noopHandler)
+		_ = mgr.Register(NewFileHandler("FIRST", noopHandler))
+		_ = mgr.Register(NewFileHandler("SECOND", noopHandler))
 
 		sandbox := mock_sandboxer.NewMockSandbox(ctrl)
 		sandbox.EXPECT().GetTempDir().Return("/tmp/sandbox")
@@ -113,7 +113,7 @@ func TestFileCommandManager_Process(t *testing.T) {
 
 	t.Run("copy-error", func(tt *testing.T) {
 		mgr := setupFileCmdMgr()
-		_ = mgr.RegisterCommand("FIRST", noopHandler)
+		_ = mgr.Register(NewFileHandler("FIRST", noopHandler))
 
 		sandbox := mock_sandboxer.NewMockSandbox(ctrl)
 		sandbox.EXPECT().GetTempDir().Return("/tmp/sandbox")
@@ -126,9 +126,9 @@ func TestFileCommandManager_Process(t *testing.T) {
 
 	t.Run("handle-error", func(tt *testing.T) {
 		mgr := setupFileCmdMgr()
-		_ = mgr.RegisterCommand("FIRST", func(r io.Reader) error {
+		_ = mgr.Register(NewFileHandler("FIRST", func(r io.Reader) error {
 			return errors.New("unexpected error")
-		})
+		}))
 
 		sandbox := mock_sandboxer.NewMockSandbox(ctrl)
 		sandbox.EXPECT().GetTempDir().Return("/tmp/sandbox")
