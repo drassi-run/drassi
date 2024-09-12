@@ -27,8 +27,8 @@ type CommandController interface {
 }
 
 type commandController struct {
-	consoleMgr command.ConsoleCommandManager
-	fileMgr    command.FileCommandManager
+	consoleMgr command.ConsoleManager
+	fileMgr    command.FileManager
 
 	job   handlerInfo[JobCommandHandler]
 	steps []handlerInfo[StepCommandHandler]
@@ -40,27 +40,27 @@ type handlerInfo[H any] struct {
 }
 
 func (cc *commandController) Register() {
-	_ = cc.consoleMgr.RegisterCommand("add-mask", false, cc.addSecretMask)
-	_ = cc.consoleMgr.RegisterCommand("add-matcher", true, cc.addProblemMatcher)
-	_ = cc.consoleMgr.RegisterCommand("remove-matcher", true, cc.removeProblemMatcher)
+	_ = cc.consoleMgr.Register(command.NewConsoleHandler("add-mask", false, cc.addSecretMask))
+	_ = cc.consoleMgr.Register(command.NewConsoleHandler("add-matcher", true, cc.addProblemMatcher))
+	_ = cc.consoleMgr.Register(command.NewConsoleHandler("remove-matcher", true, cc.removeProblemMatcher))
 
-	_ = cc.consoleMgr.RegisterCommand("group", true, cc.groupingLog)
-	_ = cc.consoleMgr.RegisterCommand("endgroup", true, cc.endGroupingLog)
-	_ = cc.consoleMgr.RegisterCommand("debug", false, cc.logMessage)
-	_ = cc.consoleMgr.RegisterCommand("notice", false, cc.logMessage)
-	_ = cc.consoleMgr.RegisterCommand("warning", false, cc.logMessage)
-	_ = cc.consoleMgr.RegisterCommand("error", false, cc.logMessage)
+	_ = cc.consoleMgr.Register(command.NewConsoleHandler("group", true, cc.groupingLog))
+	_ = cc.consoleMgr.Register(command.NewConsoleHandler("endgroup", true, cc.endGroupingLog))
+	_ = cc.consoleMgr.Register(command.NewConsoleHandler("debug", false, cc.logMessage))
+	_ = cc.consoleMgr.Register(command.NewConsoleHandler("notice", false, cc.logMessage))
+	_ = cc.consoleMgr.Register(command.NewConsoleHandler("warning", false, cc.logMessage))
+	_ = cc.consoleMgr.Register(command.NewConsoleHandler("error", false, cc.logMessage))
 
-	_ = cc.consoleMgr.RegisterCommand("add-path", true, cc.consoleAddPath)
-	_ = cc.consoleMgr.RegisterCommand("set-env", true, cc.consoleSetEnv)
-	_ = cc.consoleMgr.RegisterCommand("set-output", true, cc.consoleSetOutput)
-	_ = cc.consoleMgr.RegisterCommand("save-state", true, cc.consoleSaveState)
+	_ = cc.consoleMgr.Register(command.NewConsoleHandler("add-path", true, cc.consoleAddPath))
+	_ = cc.consoleMgr.Register(command.NewConsoleHandler("set-env", true, cc.consoleSetEnv))
+	_ = cc.consoleMgr.Register(command.NewConsoleHandler("set-output", true, cc.consoleSetOutput))
+	_ = cc.consoleMgr.Register(command.NewConsoleHandler("save-state", true, cc.consoleSaveState))
 
-	_ = cc.fileMgr.RegisterCommand("GITHUB_PATH", cc.fileAddPath)
-	_ = cc.fileMgr.RegisterCommand("GITHUB_ENV", cc.fileSetEnv)
-	_ = cc.fileMgr.RegisterCommand("GITHUB_STATE", cc.fileSaveState)
-	_ = cc.fileMgr.RegisterCommand("GITHUB_OUTPUT", cc.fileSetOutput)
-	_ = cc.fileMgr.RegisterCommand("GITHUB_STEP_SUMMARY", cc.createStepSummary)
+	_ = cc.fileMgr.Register(command.NewFileHandler("GITHUB_PATH", cc.fileAddPath))
+	_ = cc.fileMgr.Register(command.NewFileHandler("GITHUB_ENV", cc.fileSetEnv))
+	_ = cc.fileMgr.Register(command.NewFileHandler("GITHUB_STATE", cc.fileSaveState))
+	_ = cc.fileMgr.Register(command.NewFileHandler("GITHUB_OUTPUT", cc.fileSetOutput))
+	_ = cc.fileMgr.Register(command.NewFileHandler("GITHUB_STEP_SUMMARY", cc.createStepSummary))
 }
 
 func (cc *commandController) StartStep(ctx context.Context, stepHandler StepCommandHandler) error {

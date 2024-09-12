@@ -230,8 +230,8 @@ func (e *jobExecutor) initializeJob(ctx context.Context) error {
 	e.errWriter = secret.NewWriter(e.reporter.Stderr(), e.secretMasker)
 
 	e.cmdCtrl = &commandController{
-		consoleMgr: command.NewConsoleCommandManager(e.outWriter),
-		fileMgr:    command.NewFileCommandManager(e.jobRun.Uid),
+		consoleMgr: command.NewConsoleManager(e.outWriter),
+		fileMgr:    command.NewFileManager(e.jobRun.Uid),
 		job: handlerInfo[JobCommandHandler]{
 			ctx:     ctx,
 			handler: e,
