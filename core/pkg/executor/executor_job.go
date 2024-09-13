@@ -15,6 +15,7 @@ import (
 	"drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/executor/command"
 	"drassi.run/core/pkg/executor/evaluator"
+	"drassi.run/core/pkg/executor/logger"
 	"drassi.run/core/pkg/executor/problem"
 	"drassi.run/core/pkg/executor/reporter"
 	"drassi.run/core/pkg/executor/secret"
@@ -39,6 +40,8 @@ type JobCommandHandler interface {
 }
 
 type JobExecutor interface {
+	JobCommandHandler
+
 	JobId() string
 	Streams() *sandboxer.Streams
 	Sandbox() sandboxer.Sandbox
@@ -230,8 +233,8 @@ func (e *jobExecutor) initializeJob(ctx context.Context) error {
 	e.errWriter = secret.NewWriter(e.reporter.Stderr(), e.secretMasker)
 
 	e.cmdCtrl = &commandController{
-		consoleMgr: command.NewConsoleCommandManager(e.outWriter),
-		fileMgr:    command.NewFileCommandManager(e.jobRun.Uid),
+		consoleMgr: command.NewConsoleManager(e.outWriter),
+		fileMgr:    command.NewFileManager(e.jobRun.Uid),
 		job: handlerInfo[JobCommandHandler]{
 			ctx:     ctx,
 			handler: e,
@@ -240,10 +243,10 @@ func (e *jobExecutor) initializeJob(ctx context.Context) error {
 
 	e.streams = &sandboxer.Streams{
 		In: e.reporter.Stdin(),
-		Out: reporter.NewLineWriter(
+		Out: logger.NewLineWriter(
 			e.cmdCtrl.LineHandler(e.outWriter, e.scanProblem),
 		),
-		Err: reporter.NewLineWriter(
+		Err: logger.NewLineWriter(
 			e.cmdCtrl.LineHandler(e.errWriter, e.scanProblem),
 		),
 	}

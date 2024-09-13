@@ -1,4 +1,4 @@
-package reporter
+package logger
 
 import (
 	"gotest.tools/v3/assert"

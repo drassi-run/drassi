@@ -12,40 +12,52 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-type FileCommandHandler = func(r io.Reader) error
+type FileHandler struct {
+	env string
+	run func(r io.Reader) error
+}
 
-type FileCommandManager interface {
-	RegisterCommand(env string, handler FileCommandHandler) error
+func NewFileHandler(env string, run func(r io.Reader) error) *FileHandler {
+	return &FileHandler{
+		env: env,
+		run: run,
+	}
+}
+
+type FileManager interface {
+	Register(handler *FileHandler) error
 	Initialize(ctx context.Context, sandbox sandboxer.Sandbox) (map[string]string, error)
 	Process(ctx context.Context, sandbox sandboxer.Sandbox) error
 }
 
-func NewFileCommandManager(suffix string) FileCommandManager {
+func NewFileManager(suffix string) FileManager {
 	if !strings.HasPrefix(suffix, "_") {
 		suffix = "_" + suffix
 	}
 
-	return &fileCommandManager{
-		registeredCommands: make(map[string]FileCommandHandler),
+	return &fileManager{
+		registeredCommands: make(map[string]*FileHandler),
 		suffix:             suffix,
 	}
 }
 
-type fileCommandManager struct {
-	registeredCommands map[string]FileCommandHandler
+type fileManager struct {
+	registeredCommands map[string]*FileHandler
 
 	suffix string
 }
 
-func (mgr *fileCommandManager) RegisterCommand(env string, handler FileCommandHandler) error {
-	if handler == nil {
+func (mgr *fileManager) Register(handler *FileHandler) error {
+	env := handler.env
+	if handler.run == nil {
 		delete(mgr.registeredCommands, env)
+	} else {
+		mgr.registeredCommands[env] = handler
 	}
-	mgr.registeredCommands[env] = handler
 	return nil
 }
 
-func (mgr *fileCommandManager) Initialize(ctx context.Context, sandbox sandboxer.Sandbox) (map[string]string, error) {
+func (mgr *fileManager) Initialize(ctx context.Context, sandbox sandboxer.Sandbox) (map[string]string, error) {
 	if len(mgr.registeredCommands) == 0 {
 		return nil, nil
 	}
@@ -70,7 +82,7 @@ func (mgr *fileCommandManager) Initialize(ctx context.Context, sandbox sandboxer
 	return env, nil
 }
 
-func (mgr *fileCommandManager) Process(ctx context.Context, sandbox sandboxer.Sandbox) error {
+func (mgr *fileManager) Process(ctx context.Context, sandbox sandboxer.Sandbox) error {
 	if len(mgr.registeredCommands) == 0 {
 		return nil
 	}
@@ -91,7 +103,7 @@ func (mgr *fileCommandManager) Process(ctx context.Context, sandbox sandboxer.Sa
 				return err
 			}
 			defer r.Close()
-			return handler(r)
+			return handler.run(r)
 		})
 	}
 	return g.Wait()

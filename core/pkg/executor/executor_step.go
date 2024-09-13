@@ -23,6 +23,8 @@ type StepCommandHandler interface {
 }
 
 type StepExecutor interface {
+	StepCommandHandler
+
 	JobExecutor() JobExecutor
 	NewChildExecutor(stepRun StepRun) StepExecutor
 	ChildExecutor(id string) StepExecutor

@@ -11,6 +11,7 @@ import (
 	"code.gitea.io/actions-proto-go/runner/v1/runnerv1connect"
 	"connectrpc.com/connect"
 	"drassi.run/core/pkg/executor"
+	"drassi.run/core/pkg/executor/logger"
 	"drassi.run/core/pkg/executor/reporter"
 	"drassi.run/core/pkg/model/dossiers"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -52,8 +53,8 @@ func NewReporter(
 		client: client,
 	}
 
-	r.out = reporter.NewLineWriter(r.appendLogLine)
-	r.err = reporter.NewLineWriter(r.appendLogLine)
+	r.out = logger.NewLineWriter(r.appendLogLine)
+	r.err = logger.NewLineWriter(r.appendLogLine)
 
 	r.taskOutputs = make(map[string]string)
 	stepStates := make([]*runnerv1.StepState, len(jobRun.Steps))
