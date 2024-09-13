@@ -1,7 +1,7 @@
 package secret
 
 import (
-	"gotest.tools/v3/assert"
+	"github.com/stretchr/testify/assert"
 	"regexp"
 	"testing"
 )
@@ -114,5 +114,5 @@ func TestRegexSecret(t *testing.T) {
 
 func testSecret(tt *testing.T, secret Secret, input string, expected []*Position) {
 	actual := secret.At(input)
-	assert.DeepEqual(tt, expected, actual)
+	assert.EqualValues(tt, expected, actual)
 }

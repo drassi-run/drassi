@@ -1,7 +1,7 @@
 package problem
 
 import (
-	"gotest.tools/v3/assert"
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
@@ -31,7 +31,7 @@ func TestConfig_Validate(t *testing.T) {
 
 		conf.Configs[0].Owner = "asdf"
 		err = conf.Validate()
-		assert.NilError(tt, err)
+		assert.NoError(tt, err)
 	})
 
 	t.Run("owner/required", func(tt *testing.T) {
@@ -47,7 +47,7 @@ func TestConfig_Validate(t *testing.T) {
 
 		conf.Configs[0].Owner = "asdf"
 		err = conf.Validate()
-		assert.NilError(tt, err)
+		assert.NoError(tt, err)
 	})
 
 	t.Run("severity", func(tt *testing.T) {
@@ -58,7 +58,7 @@ func TestConfig_Validate(t *testing.T) {
 			},
 		}
 		err := config.Validate()
-		assert.NilError(tt, err)
+		assert.NoError(tt, err)
 
 		config.Severity = "foobar"
 		err = config.Validate()
@@ -66,7 +66,7 @@ func TestConfig_Validate(t *testing.T) {
 
 		config.Severity = "NOTICE"
 		err = config.Validate()
-		assert.NilError(tt, err)
+		assert.NoError(tt, err)
 	})
 
 	t.Run("loop/single", func(tt *testing.T) {
@@ -88,7 +88,7 @@ func TestConfig_Validate(t *testing.T) {
 		}
 		config.Patterns = []Pattern{p2, p1}
 		err = config.Validate()
-		assert.NilError(tt, err)
+		assert.NoError(tt, err)
 	})
 
 	t.Run("loop/last", func(tt *testing.T) {
@@ -106,7 +106,7 @@ func TestConfig_Validate(t *testing.T) {
 		config.Patterns[1].Loop = false
 		config.Patterns[2].Loop = true
 		err = config.Validate()
-		assert.NilError(tt, err)
+		assert.NoError(tt, err)
 	})
 
 	t.Run("loop/message", func(tt *testing.T) {
@@ -122,7 +122,7 @@ func TestConfig_Validate(t *testing.T) {
 
 		config.Patterns[1].Loop = false
 		err = config.Validate()
-		assert.NilError(tt, err)
+		assert.NoError(tt, err)
 	})
 
 	t.Run("message/first", func(tt *testing.T) {
@@ -134,7 +134,7 @@ func TestConfig_Validate(t *testing.T) {
 			},
 		}
 		err := config.Validate()
-		assert.NilError(tt, err)
+		assert.NoError(tt, err)
 	})
 
 	t.Run("message/required", func(tt *testing.T) {
@@ -150,7 +150,7 @@ func TestConfig_Validate(t *testing.T) {
 		config.Patterns[0].File = nil
 		config.Patterns[0].Message = pointer(1)
 		err = config.Validate()
-		assert.NilError(tt, err)
+		assert.NoError(tt, err)
 	})
 
 	t.Run("regexp/required", func(tt *testing.T) {
@@ -165,7 +165,7 @@ func TestConfig_Validate(t *testing.T) {
 
 		config.Patterns[0].Regexp = `^error: (.+)$`
 		err = config.Validate()
-		assert.NilError(tt, err)
+		assert.NoError(tt, err)
 	})
 
 	t.Run("property/duplicated", func(tt *testing.T) {
@@ -183,7 +183,7 @@ func TestConfig_Validate(t *testing.T) {
 		config.Patterns[0].File = nil
 		config.Patterns[0].Severity = pointer(1)
 		err = config.Validate()
-		assert.NilError(tt, err)
+		assert.NoError(tt, err)
 	})
 
 	t.Run("property/out-of-range", func(tt *testing.T) {
@@ -198,7 +198,7 @@ func TestConfig_Validate(t *testing.T) {
 
 		config.Patterns[0].Message = pointer(1)
 		err = config.Validate()
-		assert.NilError(tt, err)
+		assert.NoError(tt, err)
 	})
 
 	t.Run("property/negative", func(tt *testing.T) {
@@ -213,6 +213,6 @@ func TestConfig_Validate(t *testing.T) {
 
 		config.Patterns[0].Message = pointer(1)
 		err = config.Validate()
-		assert.NilError(tt, err)
+		assert.NoError(tt, err)
 	})
 }

@@ -1,7 +1,8 @@
 package logger
 
 import (
-	"gotest.tools/v3/assert"
+	"github.com/stretchr/testify/assert"
+	"io"
 	"testing"
 )
 
@@ -15,8 +16,8 @@ func TestLineWriter(t *testing.T) {
 	lw := NewLineWriter(lineHandler)
 
 	write := func(s string) {
-		n, err := lw.Write([]byte(s))
-		assert.NilError(t, err)
+		n, err := io.WriteString(lw, s)
+		assert.NoError(t, err)
 		assert.Equal(t, len(s), n, s)
 	}
 
@@ -33,5 +34,5 @@ func TestLineWriter(t *testing.T) {
 		" and another\n",
 		"last line\n",
 	}
-	assert.DeepEqual(t, expected, lines)
+	assert.EqualValues(t, expected, lines)
 }
