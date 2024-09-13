@@ -1,4 +1,4 @@
-package logger
+package logging
 
 import (
 	"fmt"
@@ -21,7 +21,7 @@ type Logger interface {
 	Log(tag, format string, a ...any)
 }
 
-func New(r io.Writer) Logger {
+func NewLogger(r io.Writer) Logger {
 	return &logger{r: r}
 }
 

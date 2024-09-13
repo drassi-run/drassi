@@ -11,7 +11,7 @@ import (
 	"code.gitea.io/actions-proto-go/runner/v1/runnerv1connect"
 	"connectrpc.com/connect"
 	"drassi.run/core/pkg/executor"
-	"drassi.run/core/pkg/executor/logger"
+	"drassi.run/core/pkg/executor/logging"
 	"drassi.run/core/pkg/executor/reporter"
 	"drassi.run/core/pkg/model/dossiers"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -53,8 +53,8 @@ func NewReporter(
 		client: client,
 	}
 
-	r.out = logger.NewLineWriter(r.appendLogLine)
-	r.err = logger.NewLineWriter(r.appendLogLine)
+	r.out = logging.NewLineWriter(r.appendLogLine)
+	r.err = logging.NewLineWriter(r.appendLogLine)
 
 	r.taskOutputs = make(map[string]string)
 	stepStates := make([]*runnerv1.StepState, len(jobRun.Steps))
@@ -85,9 +85,7 @@ func (r *GiteaReporter) Stderr() io.Writer {
 }
 
 func (r *GiteaReporter) appendLogLine(line string) error {
-	line = strings.TrimRightFunc(line, func(r rune) bool {
-		return r == '\n' || r == '\r'
-	})
+	line = strings.TrimRight(line, "\r\n")
 
 	row := &runnerv1.LogRow{
 		Time:    timestamppb.Now(),

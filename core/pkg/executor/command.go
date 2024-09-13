@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"drassi.run/core/pkg/executor/command"
-	"drassi.run/core/pkg/executor/logger"
+	"drassi.run/core/pkg/executor/logging"
 	"drassi.run/core/pkg/executor/problem"
 	"drassi.run/core/pkg/executor/secret"
 	"drassi.run/core/pkg/model/dossiers"
@@ -21,7 +21,7 @@ import (
 
 type CommandController interface {
 	Register()
-	LineHandler(w io.Writer, handlers ...logger.LineHandler) logger.LineHandler
+	LineHandler(w io.Writer, handlers ...logging.LineHandler) logging.LineHandler
 	StartStep(ctx context.Context, stepHandler StepCommandHandler) error
 	EndStep(outcome dossiers.Result) (err error)
 }
@@ -92,7 +92,7 @@ func (cc *commandController) EndStep(outcome dossiers.Result) (err error) {
 	return
 }
 
-func (cc *commandController) LineHandler(w io.Writer, handlers ...logger.LineHandler) logger.LineHandler {
+func (cc *commandController) LineHandler(w io.Writer, handlers ...logging.LineHandler) logging.LineHandler {
 	return func(line string) error {
 		jh := cc.job.handler
 		if cmd := cc.consoleMgr.ParseCommand(line); cmd != nil {
