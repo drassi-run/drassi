@@ -8,20 +8,16 @@ import (
 
 	"drassi.run/core/pkg/executor/evaluator"
 	"drassi.run/core/pkg/model"
-	"drassi.run/core/pkg/model/dossiers"
+	"drassi.run/core/pkg/model/workflows"
 	utilreader "drassi.run/core/pkg/util/reader"
 )
 
 type ScriptStepRun struct {
 	BaseStepRun
-}
 
-func (sr *ScriptStepRun) SetContextInfo(dossier *dossiers.Dossier) {
-	gh := dossier.Github
-
-	gh.Action = sr.Id
-	gh.ActionRepository = ""
-	gh.ActionRef = ""
+	Run        workflows.Evaluable[string]
+	Shell      string
+	WorkingDir workflows.Evaluable[string]
 }
 
 func (sr *ScriptStepRun) Initialize(_ context.Context, _ StepExecutor) error {
@@ -41,19 +37,28 @@ func (sr *ScriptStepRun) MainTask() *Task {
 	}
 }
 
+func (sr *ScriptStepRun) PostTask() *Task {
+	return nil
+}
+
 func (sr *ScriptStepRun) executeMain(ctx context.Context, exec StepExecutor) error {
-	inputs := make(map[string]string)
-	if err := evaluator.Evaluate(exec.ExpressionEnv(), sr.Inputs, &inputs); err != nil {
+	shell := model.Shell(exec.JobExecutor().Defaults().Run.Shell)
+	if sr.Shell != "" {
+		shell = model.Shell(sr.Shell)
+	}
+
+	workdir := exec.JobExecutor().Defaults().Run.WorkingDir
+	if err := evaluator.Evaluate(exec.ExpressionEnv(), sr.WorkingDir, &workdir); err != nil {
 		return err
 	}
 
-	shell := sr.getShell(exec, inputs)
-	workdir := sr.getWorkdir(exec, inputs)
-
-	script, ok := inputs["script"]
-	if !ok {
-		return fmt.Errorf("script not found")
+	script := ""
+	if err := evaluator.Evaluate(exec.ExpressionEnv(), sr.Run, &script); err != nil {
+		return err
+	} else if script == "" {
+		return fmt.Errorf("script is required")
 	}
+
 	script = shell.FixupScript(script)
 	path := sr.computeScriptPath(exec, shell.Extension())
 
@@ -68,24 +73,6 @@ func (sr *ScriptStepRun) executeMain(ctx context.Context, exec StepExecutor) err
 
 	env := exec.ComposeEnv()
 	return exec.Sandbox().Execute(ctx, cmd, env, workdir, exec.Streams())
-}
-
-func (sr *ScriptStepRun) PostTask() *Task {
-	return nil
-}
-
-func (sr *ScriptStepRun) getShell(exec StepExecutor, inputs map[string]string) model.Shell {
-	if shell, ok := inputs["shell"]; ok {
-		return model.Shell(shell)
-	}
-	return model.Shell(exec.JobExecutor().Defaults().Run.Shell)
-}
-
-func (sr *ScriptStepRun) getWorkdir(exec StepExecutor, inputs map[string]string) string {
-	if workdir, ok := inputs["workdir"]; ok {
-		return workdir
-	}
-	return exec.JobExecutor().Defaults().Run.WorkingDir
 }
 
 func (sr *ScriptStepRun) expandCommand(shell model.Shell, scriptPath string) ([]string, error) {

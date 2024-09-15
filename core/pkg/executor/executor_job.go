@@ -275,16 +275,18 @@ func (e *jobExecutor) initializeSandbox(ctx context.Context, runtime sandboxer.S
 	var jobContainer *workflows.Container
 	if err := evaluator.Evaluate(e.exprEnv, e.jobRun.Container, &jobContainer); err != nil {
 		return err
-	} else if con, err := e.toContainerConfig(ctx, jobContainer); err != nil {
-		return err
-	} else {
-		req.JobContainer = con
+	} else if jobContainer != nil {
+		if con, err := e.toContainerConfig(ctx, jobContainer); err != nil {
+			return err
+		} else {
+			req.JobContainer = con
+		}
 	}
 
 	var serviceContainers = make(map[string]*workflows.Container)
 	if err := evaluator.Evaluate(e.exprEnv, e.jobRun.Services, &serviceContainers); err != nil {
 		return err
-	} else {
+	} else if len(serviceContainers) > 0 {
 		services := make(map[string]*container.ContainerConfig, len(serviceContainers))
 		for name, srv := range serviceContainers {
 			if con, err := e.toContainerConfig(ctx, srv); err != nil {

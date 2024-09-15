@@ -82,7 +82,7 @@ type DockerRuns struct {
 	// - Use defaults that allow using the action without specifying any `args`.
 	// - If the action exposes a `--help` flag, or something similar, use that to make your action self-documenting.
 	// https://docs.github.com/en/actions/creating-actions/metadata-syntax-for-github-actions#runsargs
-	Args []string `json:"args,omitempty" yaml:"args,omitempty" actions:"args,omitempty"`
+	Args workflows.Evaluable[[]string] `json:"args,omitempty" yaml:"args,omitempty" actions:"args,omitempty"`
 
 	// Allows you to run a script before the `entrypoint` action begins. For example, you can use `pre-entrypoint:` to run a prerequisite setup script.
 	// GitHub Actions uses `docker run` to launch this action, and runs the script inside a new container that uses the same base image.

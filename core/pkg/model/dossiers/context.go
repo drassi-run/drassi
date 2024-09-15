@@ -1,11 +1,5 @@
 package dossiers
 
-import (
-	"context"
-)
-
-type contextKey struct{}
-
 // Contexts are a way to access information about workflow runs, variables, runner environments, jobs, and steps.
 // Each context is an object that contains properties, which can be strings or other objects.
 // https://docs.github.com/en/actions/learn-github-actions/contexts#about-contexts
@@ -78,25 +72,4 @@ type Strategy struct {
 type Need struct {
 	Outputs map[string]string `json:"outputs" yaml:"outputs" actions:"outputs"`
 	Result  Result            `json:"result" yaml:"result" actions:"result"`
-}
-
-type Expr struct {
-	// State contains context data, used in when evaluating status check function or access context data
-	// Examples for such expr:
-	// name: ${{ github.actor }}
-	// when: ${{ success() }}
-	State *Dossier
-}
-
-// FromGoContext get gha context data from go context, return default value for fields if gha context data is not set
-func FromGoContext(ctx context.Context) (c Dossier) {
-	if v := ctx.Value(contextKey{}); v != nil {
-		return v.(Dossier)
-	}
-	return
-}
-
-// GoContext returns a copy of parent in which the value of gha context is set.
-func GoContext(ctx context.Context, c Dossier) context.Context {
-	return context.WithValue(ctx, contextKey{}, c)
 }

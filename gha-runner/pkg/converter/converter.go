@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"drassi.run/core/pkg/executor"
-	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/workflows"
+	"drassi.run/core/pkg/store/repository"
 	"drassi.run/gha-runner/pkg/message"
 )
 
@@ -59,7 +59,7 @@ func squashTokens(tokens []message.TemplateToken) workflows.Token {
 		for i, token := range tokens {
 			ts[i] = ToToken(&token)
 		}
-		return &multiMapToken{tokens: ts}
+		return workflows.NewSquashMappingToken(ts)
 	}
 }
 
@@ -74,12 +74,19 @@ func ToStepRun(step *message.JobStep) (executor.StepRun, error) {
 		Env:              ToToken(step.Env),
 		Inputs:           ToToken(step.Inputs),
 	}
+	// for Script step, extract run, shell and workingDir from inputs
+	if step.Reference.Type != message.SourceTypeScript {
+		sr.Inputs = ToToken(step.Inputs)
+	}
 
 	ref := &step.Reference
 	switch ref.Type {
 	case message.SourceTypeScript:
 		ssr := &executor.ScriptStepRun{
 			BaseStepRun: sr,
+		}
+		if err := extractScriptStepInputs(ssr, step.Inputs); err != nil {
+			return nil, err
 		}
 		return ssr, nil
 	case message.SourceTypeContainerRegistry:
@@ -95,18 +102,18 @@ func ToStepRun(step *message.JobStep) (executor.StepRun, error) {
 		if !strings.EqualFold(ref.RepositoryType, "github") {
 			return nil, fmt.Errorf("unsupported step %s with repo type %s", step.ContextName, ref.RepositoryType)
 		}
-		repo := model.Repository{
-			Protocol: "https",
+		repo := &repository.Repository{
+			Scheme:   "https",
 			Endpoint: "github.com",
-			Repo:     ref.Name,
+			Name:     ref.Name,
 			Path:     ref.Path,
 			Ref:      ref.Ref,
 		}
-		rsr := &executor.RepositoryStepRun{
+		asr := &executor.ActionStepRun{
 			BaseStepRun: sr,
 			Repo:        repo,
 		}
-		return rsr, nil
+		return asr, nil
 	default:
 		return nil, fmt.Errorf("unsupported step %s reference type %s", step.ContextName, ref.Type)
 	}
@@ -136,4 +143,33 @@ func ToJobRun(job *message.PipelineAgentJobRequest) (*executor.JobRun, error) {
 		Outputs:  ToToken(job.JobOutputs),
 	}
 	return jr, nil
+}
+
+func extractScriptStepInputs(ssr *executor.ScriptStepRun, inputs *message.TemplateToken) error {
+	if inputs.Type != message.TokenTypeMapping {
+		return fmt.Errorf("exptect step inputs is a map, got %d", inputs.Type)
+	}
+
+	for _, pair := range inputs.Map {
+		k := pair.Key
+		v := pair.Value
+		if k.Type != message.TokenTypeString {
+			return fmt.Errorf("exptect step inputs key is a string, got %d", k.Type)
+		}
+		switch k.String {
+		case "script":
+			ssr.Run = ToToken(v)
+		case "workingDirectory":
+			ssr.WorkingDir = ToToken(v)
+		case "shell":
+			if v.Type != message.TokenTypeString {
+				return fmt.Errorf("exptect step shell is a string, got %d", k.Type)
+			}
+			ssr.Shell = v.String
+		default:
+			return fmt.Errorf("unexppected step inputs key %s", k.String)
+		}
+	}
+
+	return nil
 }

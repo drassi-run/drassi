@@ -5,20 +5,19 @@ import (
 	"fmt"
 	"slices"
 
-	"drassi.run/core/pkg/model/actions"
 	"drassi.run/core/pkg/model/dossiers"
 	"golang.org/x/sync/errgroup"
 )
 
-type compositeActionRun struct {
-	action *actions.CompositeRuns
+type CompositeStepRun struct {
+	BaseStepRun
 
-	stepRuns []StepRun
+	StepRuns []StepRun
 }
 
-func (ar *compositeActionRun) Initialize(ctx context.Context, exec StepExecutor) (err error) {
+func (sr *CompositeStepRun) Initialize(ctx context.Context, exec StepExecutor) (err error) {
 	g, ctx := errgroup.WithContext(ctx)
-	for _, step := range ar.stepRuns {
+	for _, step := range sr.StepRuns {
 		cExec := exec.NewChildExecutor(step)
 		g.Go(func() error {
 			return cExec.Initialize(ctx)
@@ -27,25 +26,21 @@ func (ar *compositeActionRun) Initialize(ctx context.Context, exec StepExecutor)
 	return g.Wait()
 }
 
-func (ar *compositeActionRun) PreTask() *Task {
-	return ar.createStageTask(StagePre, StepRun.PreTask)
+func (sr *CompositeStepRun) PreTask() *Task {
+	return sr.createStageTask(StagePre, StepRun.PreTask)
 }
 
-func (ar *compositeActionRun) MainTask() *Task {
-	return ar.createStageTask(StageMain, StepRun.MainTask)
+func (sr *CompositeStepRun) MainTask() *Task {
+	return sr.createStageTask(StageMain, StepRun.MainTask)
 }
 
-func (ar *compositeActionRun) PostTask() *Task {
-	return ar.createStageTask(StagePost, StepRun.PostTask)
+func (sr *CompositeStepRun) PostTask() *Task {
+	return sr.createStageTask(StagePost, StepRun.PostTask)
 }
 
-func (ar *compositeActionRun) Action() actions.Runs {
-	return ar.action
-}
-
-func (ar *compositeActionRun) createStageTask(stage Stage, fn func(StepRun) *Task) *Task {
-	taskIds := make([]string, len(ar.stepRuns))
-	for i, step := range ar.stepRuns {
+func (sr *CompositeStepRun) createStageTask(stage Stage, fn func(StepRun) *Task) *Task {
+	taskIds := make([]string, len(sr.StepRuns))
+	for i, step := range sr.StepRuns {
 		taskIds[i] = step.StepId()
 	}
 	if stage == StagePost {

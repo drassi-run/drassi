@@ -1,25 +1,6 @@
 package executor
 
-import (
-	"context"
-
-	"drassi.run/core/pkg/model/workflows"
-)
-
-type Stage string
-
-const (
-	StagePre  Stage = "pre"
-	StageMain Stage = "main"
-	StagePost Stage = "post"
-)
-
-type Task struct {
-	StepId    string
-	Stage     Stage
-	Condition workflows.Conditional // default true
-	Run       func(context.Context, StepExecutor) error
-}
+import "drassi.run/core/pkg/model/workflows"
 
 type JobRun struct {
 	Id   string

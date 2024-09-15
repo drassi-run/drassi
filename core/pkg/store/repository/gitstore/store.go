@@ -1,4 +1,4 @@
-package repository
+package gitstore
 
 import (
 	"archive/tar"
@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"drassi.run/core/pkg/store/repository"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -20,45 +21,35 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 )
 
-type Repository interface {
-	// The fullname of the repository. e.g. github.com/octocat/hello-world
-	Name() string
-
-	// The Git URL to the repository. e.g. git://github.com/octocat/hello-world.git.
-	Url() string
-
-	// The reference of the repository. It cound be a branch, a tag or a commit SHA
-	Ref() string
+type Store interface {
+	Fetch(ctx context.Context, repo *repository.Repository, token string) (rev string, err error)
+	Read(ctx context.Context, repo *repository.Repository, rev string) (io.ReadCloser, error)
+	File(ctx context.Context, repo *repository.Repository, rev, path string) (io.ReadCloser, error)
 }
 
-type RepositoryManager interface {
-	Fetch(ctx context.Context, repo Repository, token string) (rev string, err error)
-	Read(ctx context.Context, repo Repository, rev string) (io.ReadCloser, error)
-}
-
-func NewRepositoryManager(rootDir string) (RepositoryManager, error) {
+func New(rootDir string) (Store, error) {
 	if err := os.MkdirAll(rootDir, 0x755); err != nil {
 		return nil, err
 	}
 
-	rm := &repositoryManager{
+	rs := &store{
 		rootDir: rootDir,
 	}
-	return rm, nil
+	return rs, nil
 }
 
-type repositoryManager struct {
+type store struct {
 	rootDir string
 	repos   map[string]*git.Repository
 }
 
-func (m *repositoryManager) Fetch(ctx context.Context, repo Repository, token string) (string, error) {
-	path, err := m.ensureDir(repo)
+func (s *store) Fetch(ctx context.Context, repo *repository.Repository, token string) (string, error) {
+	path, err := s.ensureDir(repo)
 	if err != nil {
 		return "", err
 	}
 
-	gitRepo, err := m.ensureRepo(path, repo)
+	gitRepo, err := s.ensureRepo(path, repo)
 	if err != nil {
 		return "", err
 	}
@@ -66,7 +57,7 @@ func (m *repositoryManager) Fetch(ctx context.Context, repo Repository, token st
 	tmpBranch := rand.String(12)
 	defer gitRepo.DeleteBranch(tmpBranch)
 
-	err = m.fetch(ctx, repo, token, tmpBranch)
+	err = s.fetch(ctx, repo, token, tmpBranch)
 	if err != nil {
 		return "", err
 	}
@@ -78,10 +69,11 @@ func (m *repositoryManager) Fetch(ctx context.Context, repo Repository, token st
 	return hash.String(), nil
 }
 
-func (m *repositoryManager) Read(ctx context.Context, repo Repository, rev string) (io.ReadCloser, error) {
-	gitRepo, ok := m.repos[repo.Name()]
+func (s *store) Read(ctx context.Context, repo *repository.Repository, rev string) (io.ReadCloser, error) {
+	id := repo.Key()
+	gitRepo, ok := s.repos[id]
 	if !ok {
-		return nil, fmt.Errorf("repo %s not found", repo.Name())
+		return nil, fmt.Errorf("repo %q not found", id)
 	}
 
 	commit, err := gitRepo.CommitObject(plumbing.NewHash(rev))
@@ -116,8 +108,36 @@ func (m *repositoryManager) Read(ctx context.Context, repo Repository, rev strin
 	return reader, nil
 }
 
-func (m *repositoryManager) fetch(ctx context.Context, repo Repository, token, branch string) error {
-	gitRepo := m.repos[repo.Name()]
+func (s *store) File(ctx context.Context, repo *repository.Repository, rev, path string) (io.ReadCloser, error) {
+	id := repo.Key()
+	gitRepo, ok := s.repos[id]
+	if !ok {
+		return nil, fmt.Errorf("repo %q not found", id)
+	}
+
+	commit, err := gitRepo.CommitObject(plumbing.NewHash(rev))
+	if err != nil {
+		return nil, err
+	}
+
+	tree, err := commit.Tree()
+	if err != nil {
+		return nil, err
+	}
+
+	file, err := tree.File(path)
+	if err != nil {
+		return nil, err
+	}
+	if !file.Mode.IsFile() {
+		return nil, fmt.Errorf("%q is not a (regular) file", path)
+	}
+
+	return file.Reader()
+}
+
+func (s *store) fetch(ctx context.Context, repo *repository.Repository, token, branch string) error {
+	gitRepo := s.repos[repo.Key()]
 
 	var auth transport.AuthMethod
 	if token != "" {
@@ -130,9 +150,9 @@ func (m *repositoryManager) fetch(ctx context.Context, repo Repository, token, b
 	// https://github.blog/2020-12-21-get-up-to-speed-with-partial-clone-and-shallow-clone/
 	return gitRepo.FetchContext(ctx, &git.FetchOptions{
 		RemoteName: "anonymous",
-		RemoteURL:  repo.Url(),
+		RemoteURL:  url(repo),
 		RefSpecs: []config.RefSpec{
-			config.RefSpec(fmt.Sprintf("+%s:%s", repo.Ref(), branch)),
+			config.RefSpec(fmt.Sprintf("+%s:%s", repo.Ref, branch)),
 		},
 
 		Auth:  auth,
@@ -142,8 +162,8 @@ func (m *repositoryManager) fetch(ctx context.Context, repo Repository, token, b
 	})
 }
 
-func (m *repositoryManager) ensureDir(repo Repository) (string, error) {
-	path := filepath.Join(m.rootDir, ensureSuffix(repo.Name(), ".git"))
+func (s *store) ensureDir(repo *repository.Repository) (string, error) {
+	path := filepath.Join(s.rootDir, ensureSuffix(repo.Key(), ".git"))
 	fileInfo, err := os.Stat(path)
 
 	if err != nil {
@@ -163,9 +183,9 @@ func (m *repositoryManager) ensureDir(repo Repository) (string, error) {
 	return path, nil
 }
 
-func (m *repositoryManager) ensureRepo(path string, repo Repository) (*git.Repository, error) {
-	id := repo.Name()
-	gitRepo, ok := m.repos[id]
+func (s *store) ensureRepo(path string, repo *repository.Repository) (*git.Repository, error) {
+	id := repo.Key()
+	gitRepo, ok := s.repos[id]
 	if ok {
 		return gitRepo, nil
 	}
@@ -182,14 +202,14 @@ func (m *repositoryManager) ensureRepo(path string, repo Repository) (*git.Repos
 	} else {
 		_, err = gitRepo.CreateRemoteAnonymous(&config.RemoteConfig{
 			Name: "anonymous",
-			URLs: []string{repo.Url()},
+			URLs: []string{url(repo)},
 		})
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	m.repos[id] = gitRepo
+	s.repos[id] = gitRepo
 	return gitRepo, nil
 }
 
@@ -238,4 +258,12 @@ func newTarHandler(tw *tar.Writer) tarHandler {
 		}
 	}
 	return h
+}
+
+func url(repo *repository.Repository) string {
+	u := repo.Key()
+	if repo.Transport == "" {
+		return "https://" + u
+	}
+	return repo.Transport + "://" + u
 }
