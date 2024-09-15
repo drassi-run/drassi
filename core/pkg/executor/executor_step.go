@@ -146,7 +146,7 @@ func (e *stepExecutor) initTask() {
 	if r, ok := e.stepRun.(repository.Repositorial); ok {
 		repo := r.Repository()
 
-		gh.ActionRepository = repo.Repo
+		gh.ActionRepository = repo.Name
 		gh.ActionRef = repo.Ref
 	}
 

@@ -10,6 +10,7 @@ import (
 	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/actions"
 	"drassi.run/core/pkg/store/repository"
+	"drassi.run/core/pkg/store/repository/gitstore"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"gopkg.in/yaml.v3"
 )
@@ -20,15 +21,15 @@ import (
 // + Using a local action: `uses: ./.github/actions/hello-world-action`
 type ActionStepRun struct {
 	BaseStepRun
-	Repo *model.Repository
+	Repo *repository.Repository
 
-	Store repository.Store
+	Store gitstore.Store
 
 	rev       string
 	actionRun StepRun
 }
 
-func (sr *ActionStepRun) Repository() *model.Repository {
+func (sr *ActionStepRun) Repository() *repository.Repository {
 	return sr.Repo
 }
 

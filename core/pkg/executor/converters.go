@@ -10,9 +10,9 @@ import (
 	"drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/executor/problem"
 	"drassi.run/core/pkg/executor/reporter"
-	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/actions"
 	"drassi.run/core/pkg/model/workflows"
+	"drassi.run/core/pkg/store/repository"
 	"github.com/google/uuid"
 )
 
@@ -97,7 +97,7 @@ func FromSteps(steps []workflows.Step) []StepRun {
 			case *DockerStepRun:
 				id = normalize(s.Image)
 			case *ActionStepRun:
-				id = normalize(s.Repo.Repo)
+				id = normalize(s.Repo.Name)
 			}
 
 			count := idMap[id] + 1
@@ -159,7 +159,7 @@ func toDockerStepRun(s *workflows.UsesStep, bsr *BaseStepRun) StepRun {
 }
 
 func toActionStepRun(s *workflows.UsesStep, bsr *BaseStepRun) StepRun {
-	repo, _ := model.ParseRepository(s.Uses)
+	repo, _ := repository.Parse(s.Uses)
 	return &ActionStepRun{
 		BaseStepRun: *bsr,
 		Repo:        repo,

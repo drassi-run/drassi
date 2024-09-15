@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"drassi.run/core/pkg/executor"
-	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/workflows"
+	"drassi.run/core/pkg/store/repository"
 	"drassi.run/gha-runner/pkg/message"
 )
 
@@ -102,10 +102,10 @@ func ToStepRun(step *message.JobStep) (executor.StepRun, error) {
 		if !strings.EqualFold(ref.RepositoryType, "github") {
 			return nil, fmt.Errorf("unsupported step %s with repo type %s", step.ContextName, ref.RepositoryType)
 		}
-		repo := &model.Repository{
-			Protocol: "https",
+		repo := &repository.Repository{
+			Scheme:   "https",
 			Endpoint: "github.com",
-			Repo:     ref.Name,
+			Name:     ref.Name,
 			Path:     ref.Path,
 			Ref:      ref.Ref,
 		}
