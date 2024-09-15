@@ -15,7 +15,7 @@ import (
 	"drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/executor/command"
 	"drassi.run/core/pkg/executor/evaluator"
-	"drassi.run/core/pkg/executor/logger"
+	"drassi.run/core/pkg/executor/logging"
 	"drassi.run/core/pkg/executor/problem"
 	"drassi.run/core/pkg/executor/reporter"
 	"drassi.run/core/pkg/executor/secret"
@@ -243,10 +243,10 @@ func (e *jobExecutor) initializeJob(ctx context.Context) error {
 
 	e.streams = &sandboxer.Streams{
 		In: e.reporter.Stdin(),
-		Out: logger.NewLineWriter(
+		Out: logging.NewLineWriter(
 			e.cmdCtrl.LineHandler(e.outWriter, e.scanProblem),
 		),
-		Err: logger.NewLineWriter(
+		Err: logging.NewLineWriter(
 			e.cmdCtrl.LineHandler(e.errWriter, e.scanProblem),
 		),
 	}

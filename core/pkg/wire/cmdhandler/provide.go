@@ -1,11 +1,11 @@
-package cmdhandler
+package wire_cmdhandler
 
 import (
 	"drassi.run/core/pkg/util/dig"
 	"go.uber.org/dig"
 )
 
-func Provide(scope *dig.Scope) error {
+func ProvideTo(scope *dig.Scope) error {
 	if err := provideConsoleHandlers(scope); err != nil {
 		return err
 	}

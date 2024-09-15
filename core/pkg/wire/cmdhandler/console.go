@@ -1,4 +1,4 @@
-package cmdhandler
+package wire_cmdhandler
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/executor/command"
-	"drassi.run/core/pkg/executor/logger"
+	"drassi.run/core/pkg/executor/logging"
 	"drassi.run/core/pkg/executor/problem"
 	"drassi.run/core/pkg/executor/secret"
 	"drassi.run/core/pkg/sandboxer"
@@ -118,18 +118,18 @@ func readProblemMatcherFile(ctx context.Context, sb sandboxer.Sandbox, file stri
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L751
-func groupingLog(l logger.Logger) *command.ConsoleHandler {
+func groupingLog(l logging.Logger) *command.ConsoleHandler {
 	run := func(cmd *command.Command) error {
-		l.Log(logger.TagGroup, cmd.Value)
+		l.Log(logging.TagGroup, cmd.Value)
 		return nil
 	}
 	return command.NewConsoleHandler("group", true, run)
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L751
-func endGroupingLog(l logger.Logger) *command.ConsoleHandler {
+func endGroupingLog(l logging.Logger) *command.ConsoleHandler {
 	run := func(cmd *command.Command) error {
-		l.Log(logger.TagEndGroup, "")
+		l.Log(logging.TagEndGroup, "")
 		return nil
 	}
 	return command.NewConsoleHandler("endgroup", true, run)
@@ -137,7 +137,7 @@ func endGroupingLog(l logger.Logger) *command.ConsoleHandler {
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L566
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L600
-func logMessage(l logger.Logger) []*command.ConsoleHandler {
+func logMessage(l logging.Logger) []*command.ConsoleHandler {
 	run := func(cmd *command.Command) error {
 		// TODO
 		return nil

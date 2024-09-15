@@ -1,4 +1,4 @@
-package cmdhandler
+package wire_cmdhandler
 
 import (
 	"archive/tar"
