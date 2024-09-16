@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"drassi.run/core/pkg/container"
+	"drassi.run/core/pkg/executor/command"
 	"drassi.run/core/pkg/executor/evaluator"
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/expression/libraries"
@@ -257,7 +258,45 @@ func (e *jobExecutor) initializeSandbox(scope *dig.Scope) error {
 		return err
 	}
 
+	// initialize ConsoleCommand & FileCommand
+	// NOTE: some handlers are depended on sandbox
+	if err := scope.Invoke(func(p consoleCommandParams) error {
+		for _, h := range p.handlers {
+			if err := p.cmdMgr.Register(h); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	if err := scope.Invoke(func(p fileCommandParams) error {
+		for _, h := range p.handlers {
+			if err := p.cmdMgr.Register(h); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+
 	return nil
+}
+
+type consoleCommandParams struct {
+	dig.In
+
+	cmdMgr   command.ConsoleManager
+	handlers []*command.ConsoleHandler `group:"console-handlers"`
+}
+
+type fileCommandParams struct {
+	dig.In
+
+	cmdMgr   command.FileManager
+	handlers []*command.FileHandler `group:"file-handlers"`
 }
 
 func (e *jobExecutor) initializeSteps(scope *dig.Scope) error {
