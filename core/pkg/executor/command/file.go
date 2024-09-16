@@ -26,25 +26,21 @@ func NewFileHandler(env string, run func(r io.Reader) error) *FileHandler {
 
 type FileManager interface {
 	Register(handler *FileHandler) error
-	Initialize(ctx context.Context, sandbox sandboxer.Sandbox) (map[string]string, error)
-	Process(ctx context.Context, sandbox sandboxer.Sandbox) error
+	Initialize(ctx context.Context, suffix string) error
+	Process(ctx context.Context, suffix string) error
+	Env(suffix string) map[string]string
 }
 
-func NewFileManager(suffix string) FileManager {
-	if !strings.HasPrefix(suffix, "_") {
-		suffix = "_" + suffix
-	}
-
+func NewFileManager(sandbox sandboxer.Sandbox) FileManager {
 	return &fileManager{
 		registeredCommands: make(map[string]*FileHandler),
-		suffix:             suffix,
+		sandbox:            sandbox,
 	}
 }
 
 type fileManager struct {
+	sandbox            sandboxer.Sandbox
 	registeredCommands map[string]*FileHandler
-
-	suffix string
 }
 
 func (mgr *fileManager) Register(handler *FileHandler) error {
@@ -57,45 +53,47 @@ func (mgr *fileManager) Register(handler *FileHandler) error {
 	return nil
 }
 
-func (mgr *fileManager) Initialize(ctx context.Context, sandbox sandboxer.Sandbox) (map[string]string, error) {
+func (mgr *fileManager) Initialize(ctx context.Context, suffix string) error {
 	if len(mgr.registeredCommands) == 0 {
-		return nil, nil
+		return nil
+	}
+	if !strings.HasPrefix(suffix, "_") {
+		suffix = "_" + suffix
 	}
 
-	dir := filepath.Join(sandbox.GetTempDir(), "file_commands")
-	env := make(map[string]string, len(mgr.registeredCommands))
+	dir := filepath.Join(mgr.sandbox.GetTempDir(), "file_commands")
 	fileEntries := make([]*utilreader.FileEntry, 0, len(mgr.registeredCommands))
 	for cmd := range mgr.registeredCommands {
-		name := cmd + mgr.suffix
-		env[cmd] = filepath.Join(dir, name)
 		fileEntries = append(fileEntries, &utilreader.FileEntry{
-			Name: name,
+			Name: cmd + suffix,
 			Mode: 0o666,
 		})
 	}
 
 	if r, err := utilreader.FromFileEntries(ctx, fileEntries...); err != nil {
-		return nil, err
-	} else if err = sandbox.CopyIn(ctx, r, dir); err != nil {
-		return nil, err
+		return err
+	} else {
+		return mgr.sandbox.CopyIn(ctx, r, dir)
 	}
-	return env, nil
 }
 
-func (mgr *fileManager) Process(ctx context.Context, sandbox sandboxer.Sandbox) error {
+func (mgr *fileManager) Process(ctx context.Context, suffix string) error {
 	if len(mgr.registeredCommands) == 0 {
 		return nil
 	}
+	if !strings.HasPrefix(suffix, "_") {
+		suffix = "_" + suffix
+	}
 
-	dir := filepath.Join(sandbox.GetTempDir(), "file_commands")
+	dir := filepath.Join(mgr.sandbox.GetTempDir(), "file_commands")
 
 	g, ctx := errgroup.WithContext(ctx)
 	for cmd, h := range mgr.registeredCommands {
 		handler := h
-		path := filepath.Join(dir, cmd+mgr.suffix)
+		path := filepath.Join(dir, cmd+suffix)
 
 		g.Go(func() error {
-			r, err := sandbox.CopyOut(ctx, path)
+			r, err := mgr.sandbox.CopyOut(ctx, path)
 			if err != nil {
 				if os.IsNotExist(err) {
 					return nil
@@ -107,4 +105,17 @@ func (mgr *fileManager) Process(ctx context.Context, sandbox sandboxer.Sandbox) 
 		})
 	}
 	return g.Wait()
+}
+
+func (mgr *fileManager) Env(suffix string) map[string]string {
+	if !strings.HasPrefix(suffix, "_") {
+		suffix = "_" + suffix
+	}
+
+	dir := filepath.Join(mgr.sandbox.GetTempDir(), "file_commands")
+	env := make(map[string]string, len(mgr.registeredCommands))
+	for cmd := range mgr.registeredCommands {
+		env[cmd] = filepath.Join(dir, cmd+suffix)
+	}
+	return env
 }

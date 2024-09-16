@@ -234,7 +234,7 @@ func (e *jobExecutor) initializeJob(ctx context.Context) error {
 
 	e.cmdCtrl = &commandController{
 		consoleMgr: command.NewConsoleManager(e.outWriter),
-		fileMgr:    command.NewFileManager(e.jobRun.Uid),
+		fileMgr:    command.NewFileManager(e.sandbox),
 		job: handlerInfo[JobCommandHandler]{
 			ctx:     ctx,
 			handler: e,
