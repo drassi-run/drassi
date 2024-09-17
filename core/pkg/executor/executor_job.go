@@ -98,6 +98,10 @@ func (e *jobExecutor) Initialize(scope *dig.Scope) error {
 		return err
 	}
 
+	if err := e.initializeScope(scope); err != nil {
+		return err
+	}
+
 	return e.initializeSteps(scope)
 }
 
@@ -190,17 +194,6 @@ func (e *jobExecutor) initializeJob(scope *dig.Scope) error {
 		e.exprEnv = exprEnv
 	}
 
-	// Provide scope values
-	if err := xdig.Supply(scope, e.exprEnv); err != nil {
-		return err
-	}
-	if err := xdig.Supply(scope, e.github); err != nil {
-		return err
-	}
-	if err := xdig.Supply(scope, e.env); err != nil {
-		return err
-	}
-
 	// Evaluate expressions
 	env := make(map[string]string)
 	if err := evaluator.Evaluate(e.exprEnv, e.jobRun.Env, &env); err != nil {
@@ -258,10 +251,6 @@ func (e *jobExecutor) initializeSandbox(scope *dig.Scope) error {
 		e.job.Services = resp.Services
 	}
 
-	if err := xdig.Supply(scope, e.sandbox, dig.Export(true)); err != nil {
-		return err
-	}
-
 	// register SandboxLib (e.g hashFiles func) to expression.Env
 	opts := []expression.EnvOption{
 		expression.WithLibrary(libraries.SandboxLib(e.supervisor, e.sandbox)),
@@ -270,6 +259,24 @@ func (e *jobExecutor) initializeSandbox(scope *dig.Scope) error {
 		return err
 	} else {
 		e.exprEnv = exprEnv
+	}
+
+	return nil
+}
+
+func (e *jobExecutor) initializeScope(scope *dig.Scope) error {
+	// Provide scope values
+	if err := xdig.Supply(scope, e.exprEnv); err != nil {
+		return err
+	}
+	if err := xdig.Supply(scope, e.github); err != nil {
+		return err
+	}
+	if err := xdig.Supply(scope, e.env); err != nil {
+		return err
+	}
+	if err := xdig.Supply(scope, e.sandbox, dig.Export(true)); err != nil {
+		return err
 	}
 
 	// initialize ConsoleCommand & FileCommand
