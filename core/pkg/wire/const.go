@@ -1,4 +1,4 @@
-package xdig
+package wire
 
 const (
 	ConsoleCommandHandlers = "console-handlers"
