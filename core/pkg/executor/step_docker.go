@@ -2,7 +2,6 @@ package executor
 
 import (
 	"fmt"
-	"maps"
 	"strings"
 
 	"drassi.run/core/pkg/executor/evaluator"
@@ -106,8 +105,9 @@ func (sr *DockerStepRun) execute(stage Stage) TaskRun {
 		env := make(map[string]string)
 		if err = evaluator.Evaluate(sr.exprEnv, sr.Env, &env); err != nil {
 			return err
+		} else {
+			exec.ComposeEnv(env)
 		}
-		maps.Copy(env, exec.ComposeEnv())
 
 		return sr.sandbox.RunContainer(ctx, sr.resolvedImage, entrypoint, args, env, "")
 	}

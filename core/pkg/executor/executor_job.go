@@ -3,6 +3,7 @@ package executor
 import (
 	"context"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 	"time"
@@ -34,8 +35,7 @@ type JobExecutor interface {
 	AddPath(paths []string) error
 	SetEnv(env map[string]string) error
 
-	// TODO: remove
-	ComposePath() string
+	ComposeEnv(m map[string]string)
 }
 
 func NewJobExecutor(run *JobRun) JobExecutor {
@@ -48,11 +48,12 @@ type jobExecutor struct {
 	jobRun *JobRun
 
 	// records
-	gh    dossiers.Github
-	job   *dossiers.Job
-	steps map[string]*dossiers.Step
-	env   map[string]string
-	paths []string
+	github dossiers.Github
+	runner dossiers.Runner
+	job    *dossiers.Job
+	steps  map[string]*dossiers.Step
+	env    map[string]string
+	paths  []string
 
 	ctx           context.Context
 	exprEnv       *expression.Env
@@ -157,15 +158,18 @@ func (e *jobExecutor) initializeJob(scope *dig.Scope) error {
 	if err := xdig.Populate(scope, &e.env); err != nil {
 		return err
 	}
-	if err := xdig.Populate(scope, &e.gh); err != nil {
+	if err := xdig.Populate(scope, &e.runner); err != nil {
+		return err
+	}
+	if err := xdig.Populate(scope, &e.github); err != nil {
 		return err
 	} else {
 		// sanitize GitHub
-		e.gh.Action = ""
-		e.gh.ActionPath = ""
-		e.gh.ActionRef = ""
-		e.gh.ActionRepository = ""
-		e.gh.ActionStatus = ""
+		e.github.Action = ""
+		e.github.ActionPath = ""
+		e.github.ActionRef = ""
+		e.github.ActionRepository = ""
+		e.github.ActionStatus = ""
 	}
 	e.job = new(dossiers.Job)
 	e.steps = make(map[string]*dossiers.Step, len(e.jobRun.Steps))
@@ -174,7 +178,7 @@ func (e *jobExecutor) initializeJob(scope *dig.Scope) error {
 
 	// setup expression.Env
 	opts := []expression.EnvOption{
-		expression.WithVariable("github", &e.gh),
+		expression.WithVariable("github", &e.github),
 		expression.WithVariable("job", e.job),
 		expression.WithVariable("steps", e.steps),
 		expression.WithVariable("env", e.env),
@@ -190,7 +194,7 @@ func (e *jobExecutor) initializeJob(scope *dig.Scope) error {
 	if err := xdig.Supply(scope, e.exprEnv); err != nil {
 		return err
 	}
-	if err := xdig.Supply(scope, e.gh); err != nil {
+	if err := xdig.Supply(scope, e.github); err != nil {
 		return err
 	}
 	if err := xdig.Supply(scope, e.env); err != nil {
@@ -282,7 +286,36 @@ func (e *jobExecutor) initializeSandbox(scope *dig.Scope) error {
 		return err
 	}
 
-	return nil
+	err := scope.Invoke(func(cmdMgr command.FileManager) error {
+		cb := func(_ *Task, exec StepExecutor) error {
+			ctx := exec.Context()
+			suffix := exec.StepId()
+			return cmdMgr.Initialize(ctx, suffix)
+		}
+		e.supervisor.Register(BeforeRunTaskCallback(cb))
+
+		cb = func(_ *Task, exec StepExecutor) error {
+			ctx := exec.Context()
+			suffix := exec.StepId()
+			return cmdMgr.Process(ctx, suffix)
+		}
+		e.supervisor.Register(AfterRunTaskCallback(cb))
+
+		ep := func() map[string]string {
+			exec := e.supervisor.CurrentStep()
+			if exec == nil {
+				return nil
+			}
+
+			suffix := exec.StepId()
+			return cmdMgr.Env(suffix)
+		}
+		e.supervisor.Register(EnvProvider(ep))
+
+		return nil
+	})
+
+	return err
 }
 
 type consoleCommandParams struct {
@@ -337,8 +370,22 @@ func (e *jobExecutor) runStage(stage Stage, fn func(StepRun) *Task) error {
 	return nil
 }
 
-func (e *jobExecutor) ComposePath() string {
-	return strings.Join(e.paths, ":")
+func (e *jobExecutor) ComposeEnv(m map[string]string) {
+	runnerEnv := map[string]string{
+		"RUNNER_NAME":        e.runner.Name,
+		"RUNNER_ARCH":        string(e.runner.Arch),
+		"RUNNER_OS":          string(e.runner.Os),
+		"RUNNER_ENVIRONMENT": e.runner.Environment,
+	}
+	if e.runner.Debug == "1" {
+		m["RUNNER_DEBUG"] = "1"
+	}
+	maps.Copy(m, runnerEnv)
+
+	supEnv := e.supervisor.ProvideEnv()
+	maps.Copy(m, supEnv)
+
+	m["PATH"] = strings.Join(e.paths, ":")
 }
 
 // AddPath prepending a directory to the system PATH variable (and remove duplicates).
@@ -388,73 +435,3 @@ func (e *jobExecutor) SetEnv(env map[string]string) error {
 	}
 	return nil
 }
-
-// https://docs.github.com/en/actions/learn-github-actions/variables#default-environment-variables
-//func (e *jobExecutor) ciEnv() map[string]string {
-//	gh := e.dossier.Github
-//	r := e.dossier.Runner
-//
-//	m := map[string]string{
-//		"CI":             "true",
-//		"GITHUB_ACTIONS": "true",
-//
-//		"GITHUB_ACTOR":               gh.Actor,
-//		"GITHUB_ACTOR_ID":            gh.ActorId,
-//		"GITHUB_API_URL":             gh.ApiUrl,
-//		"GITHUB_BASE_REF":            gh.BaseRef,
-//		"GITHUB_EVENT_NAME":          gh.EventName,
-//		"GITHUB_GRAPHQL_URL":         gh.GraphqlUrl,
-//		"GITHUB_HEAD_REF":            gh.HeadRef,
-//		"GITHUB_JOB":                 gh.Job,
-//		"GITHUB_REF":                 gh.Ref,
-//		"GITHUB_REF_NAME":            gh.RefName,
-//		"GITHUB_REF_PROTECTED":       strconv.FormatBool(gh.RefProtected),
-//		"GITHUB_REF_TYPE":            string(gh.RefType),
-//		"GITHUB_REPOSITORY":          gh.Repository,
-//		"GITHUB_REPOSITORY_ID":       gh.RepositoryId,
-//		"GITHUB_REPOSITORY_OWNER":    gh.RepositoryOwner,
-//		"GITHUB_REPOSITORY_OWNER_ID": gh.RepositoryOwnerId,
-//		"GITHUB_RETENTION_DAYS":      gh.RetentionDays,
-//		"GITHUB_RUN_ATTEMPT":         gh.RunAttempt,
-//		"GITHUB_RUN_ID":              gh.RunId,
-//		"GITHUB_RUN_NUMBER":          gh.RunNumber,
-//		"GITHUB_SERVER_URL":          gh.ServerUrl,
-//		"GITHUB_SHA":                 gh.Sha,
-//		"GITHUB_TRIGGERING_ACTOR":    gh.TriggeringActor,
-//		"GITHUB_WORKFLOW":            gh.Workflow,
-//		"GITHUB_WORKFLOW_REF":        gh.WorkflowRef,
-//		"GITHUB_WORKFLOW_SHA":        gh.WorkflowSha,
-//
-//		"RUNNER_NAME":        r.Name,
-//		"RUNNER_ARCH":        string(r.Arch),
-//		"RUNNER_OS":          string(r.Os),
-//		"RUNNER_ENVIRONMENT": r.Environment,
-//	}
-//	if r.Debug == "1" {
-//		m["RUNNER_DEBUG"] = r.Debug
-//	}
-//
-//	return m
-//}
-
-//func (e *jobExecutor) processSandboxEnv(env map[string]string) {
-//	gh := e.dossier.Github
-//	gh.Workspace = env["GITHUB_WORKSPACE"]
-//	gh.EventPath = env["GITHUB_EVENT_PATH"]
-//
-//	r := e.dossier.Runner
-//	r.Temp = env["RUNNER_TEMP"]
-//	r.ToolCache = env["RUNNER_TOOL_CACHE"]
-//	r.Workspace = env["RUNNER_WORKSPACE"]
-//	// env.RUNNER_USER
-//	// env.RUNNER_PERFLOG
-//
-//	e.paths = strings.Split(env["PATH"], ":")
-//}
-
-//// File commands env
-// "GITHUB_PATH": gh.Path
-// "GITHUB_ENV": gh.Env
-// "GITHUB_OUTPUT": gh.Output
-// "GITHUB_STATE": gh.State
-// "GITHUB_STEP_SUMMARY": gh.StepSummary

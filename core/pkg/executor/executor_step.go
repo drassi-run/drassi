@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"maps"
+	"strconv"
 	"time"
 
 	"drassi.run/core/pkg/executor/evaluator"
@@ -34,8 +35,7 @@ type StepExecutor interface {
 	SaveState(state map[string]string) error
 	SetOutput(output map[string]string) error
 
-	// TODO: remove
-	ComposeEnv() map[string]string
+	ComposeEnv(m map[string]string)
 	SetResult(outcome dossiers.Result)
 }
 
@@ -55,7 +55,7 @@ type stepExecutor struct {
 	stepRun  StepRun
 
 	// records
-	gh     dossiers.Github
+	github dossiers.Github
 	step   *dossiers.Step
 	env    map[string]string
 	jobEnv map[string]string
@@ -64,9 +64,6 @@ type stepExecutor struct {
 	ctx        context.Context
 	exprEnv    *expression.Env
 	supervisor Supervisor
-
-	// TODO: remove
-	extraEnv map[string]string
 }
 
 func (e *stepExecutor) Context() context.Context {
@@ -115,10 +112,10 @@ func (e *stepExecutor) Initialize(scope *dig.Scope) error {
 	if err := xdig.Populate(scope, &e.exprEnv); err != nil {
 		return err
 	}
-	if err := xdig.Populate(scope, &e.gh); err != nil {
+	if err := xdig.Populate(scope, &e.github); err != nil {
 		return err
 	} else {
-		e.gh.Action = e.StepId()
+		e.github.Action = e.StepId()
 	}
 	if err := xdig.Populate(scope, &e.jobEnv); err != nil {
 		return err
@@ -137,17 +134,17 @@ func (e *stepExecutor) Initialize(scope *dig.Scope) error {
 	if r, ok := e.stepRun.(repository.Repositorial); ok {
 		repo := r.Repository()
 
-		e.gh.ActionRepository = repo.Name
-		e.gh.ActionRef = repo.Ref
+		e.github.ActionRepository = repo.Name
+		e.github.ActionRef = repo.Ref
 	}
 
 	// setup expression.Env
 	opts := []expression.EnvOption{
-		expression.WithVariable("github", &e.gh),
+		expression.WithVariable("github", &e.github),
 		expression.WithVariable("env", e.env),
 	}
 	if e.parent != nil {
-		opts = append(opts, expression.WithLibrary(libraries.StepLib(&e.gh)))
+		opts = append(opts, expression.WithLibrary(libraries.StepLib(&e.github)))
 	}
 	if exprEnv, err := expression.NewEnv(e.exprEnv, opts...); err != nil {
 		return err
@@ -159,7 +156,7 @@ func (e *stepExecutor) Initialize(scope *dig.Scope) error {
 	if err := xdig.Supply(scope, e.exprEnv); err != nil {
 		return err
 	}
-	if err := xdig.Supply(scope, e.gh); err != nil {
+	if err := xdig.Supply(scope, e.github); err != nil {
 		return err
 	}
 	if err := xdig.Supply(scope, e.env); err != nil {
@@ -275,13 +272,45 @@ func (e *stepExecutor) endTask(task *Task) {
 	e.supervisor.AfterStepRun(e)
 }
 
-func (e *stepExecutor) ComposeEnv() map[string]string {
-	// clone dossier.Env to avoid modifying
-	m := maps.Clone(e.env)
+func (e *stepExecutor) ComposeEnv(m map[string]string) {
+	e.job.ComposeEnv(m)
 
-	// NOTE:
-	// * INPUT_* env will be set in the step task
-	// * Other default envs are set when sandbox is created
+	maps.Copy(m, e.env)
+
+	// set GITHUB_* env
+	ghEnv := map[string]string{
+		"GITHUB_ACTION":              e.github.Action,
+		"GITHUB_ACTION_REF":          e.github.ActionRef,
+		"GITHUB_ACTION_REPOSITORY":   e.github.ActionRepository,
+		"GITHUB_ACTOR":               e.github.Actor,
+		"GITHUB_ACTOR_ID":            e.github.ActorId,
+		"GITHUB_API_URL":             e.github.ApiUrl,
+		"GITHUB_BASE_REF":            e.github.BaseRef,
+		"GITHUB_EVENT_NAME":          e.github.EventName,
+		"GITHUB_EVENT_PATH":          e.github.EventPath,
+		"GITHUB_GRAPHQL_URL":         e.github.GraphqlUrl,
+		"GITHUB_HEAD_REF":            e.github.HeadRef,
+		"GITHUB_JOB":                 e.github.Job,
+		"GITHUB_REF":                 e.github.Ref,
+		"GITHUB_REF_NAME":            e.github.RefName,
+		"GITHUB_REF_PROTECTED":       strconv.FormatBool(e.github.RefProtected),
+		"GITHUB_REF_TYPE":            string(e.github.RefType),
+		"GITHUB_REPOSITORY":          e.github.Repository,
+		"GITHUB_REPOSITORY_ID":       e.github.RepositoryId,
+		"GITHUB_REPOSITORY_OWNER":    e.github.RepositoryOwner,
+		"GITHUB_REPOSITORY_OWNER_ID": e.github.RepositoryOwnerId,
+		"GITHUB_RETENTION_DAYS":      e.github.RetentionDays,
+		"GITHUB_RUN_ATTEMPT":         e.github.RunAttempt,
+		"GITHUB_RUN_ID":              e.github.RunId,
+		"GITHUB_RUN_NUMBER":          e.github.RunNumber,
+		"GITHUB_SERVER_URL":          e.github.ServerUrl,
+		"GITHUB_SHA":                 e.github.Sha,
+		"GITHUB_TRIGGERING_ACTOR":    e.github.TriggeringActor,
+		"GITHUB_WORKFLOW":            e.github.Workflow,
+		"GITHUB_WORKFLOW_REF":        e.github.WorkflowRef,
+		"GITHUB_WORKFLOW_SHA":        e.github.WorkflowSha,
+	}
+	maps.Copy(m, ghEnv)
 
 	// set STATE_* env
 	// https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#sending-values-to-the-pre-and-post-actions
@@ -289,19 +318,6 @@ func (e *stepExecutor) ComposeEnv() map[string]string {
 		k = "STATE_" + k
 		m[k] = v
 	}
-
-	// set GITHUB_ACTION_* env
-	gh := e.gh
-	m["GITHUB_ACTION"] = e.stepRun.StepId()
-	m["GITHUB_ACTION_REF"] = gh.ActionRef
-	m["GITHUB_ACTION_REPOSITORY"] = gh.ActionRepository
-
-	// set file commands env
-	maps.Copy(m, e.extraEnv)
-
-	m["PATH"] = e.job.ComposePath()
-
-	return m
 }
 
 func (e *stepExecutor) SetResult(outcome dossiers.Result) {

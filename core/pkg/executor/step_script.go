@@ -82,7 +82,9 @@ func (sr *ScriptStepRun) executeMain(exec StepExecutor) error {
 		return nil
 	}
 
-	env := exec.ComposeEnv()
+	env := make(map[string]string)
+	exec.ComposeEnv(env)
+
 	return sr.sandbox.Execute(ctx, cmd, env, workdir, sr.streams)
 }
 
