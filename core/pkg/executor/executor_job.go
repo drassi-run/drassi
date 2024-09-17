@@ -2,6 +2,7 @@ package executor
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -124,12 +125,23 @@ func (e *jobExecutor) RunJob() error {
 
 func (e *jobExecutor) Finalize() (err error) {
 	defer func() {
-		output := make(map[string]string)
-		if ex := evaluator.Evaluate(e.exprEnv, e.jobRun.Outputs, &output); err == nil && ex != nil {
-			err = ex
+		errs := make([]error, 0)
+		if err != nil {
+			errs = append(errs, err)
 		}
 
-		e.supervisor.AfterJobRun(e, output)
+		output := make(map[string]string)
+
+		if err := evaluator.Evaluate(e.exprEnv, e.jobRun.Outputs, &output); err != nil {
+			errs = append(errs, err)
+		}
+		if err := e.supervisor.AfterJobRun(e, output); err != nil {
+			errs = append(errs, err)
+		}
+
+		if len(errs) > 0 {
+			err = errors.Join(errs...)
+		}
 	}()
 
 	if e.sandbox == nil {
@@ -178,7 +190,9 @@ func (e *jobExecutor) initializeJob(scope *dig.Scope) error {
 	e.job = new(dossiers.Job)
 	e.steps = make(map[string]*dossiers.Step, len(e.jobRun.Steps))
 
-	e.supervisor.BeforeJobRun(e)
+	if err := e.supervisor.BeforeJobRun(e); err != nil {
+		return err
+	}
 
 	// setup expression.Env
 	opts := []expression.EnvOption{

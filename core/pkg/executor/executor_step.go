@@ -182,7 +182,10 @@ func (e *stepExecutor) RunStep(fn func(StepRun) *Task) *dossiers.Step {
 }
 
 func (e *stepExecutor) beginTask(task *Task) error {
-	e.supervisor.BeforeStepRun(e)
+	if err := e.supervisor.BeforeStepRun(e); err != nil {
+		return err
+	}
+
 	base := e.stepRun.Base()
 
 	clear(e.env)
@@ -269,7 +272,9 @@ func (e *stepExecutor) endTask(task *Task) {
 		}
 	}
 
-	e.supervisor.AfterStepRun(e)
+	if err := e.supervisor.AfterStepRun(e); err != nil {
+		//logger.Infof("Failed but continue next step")
+	}
 }
 
 func (e *stepExecutor) ComposeEnv(m map[string]string) {
