@@ -64,12 +64,13 @@ func (cc *commandController) Register() {
 }
 
 func (cc *commandController) StartStep(ctx context.Context, stepHandler StepCommandHandler) error {
-	if env, err := cc.fileMgr.Initialize(ctx, stepHandler.Sandbox()); err != nil {
+	suffix := stepHandler.StepRun().StepId()
+	if err := cc.fileMgr.Initialize(ctx, suffix); err != nil {
 		return err
-	} else {
-		if err = stepHandler.SetEnv(env, false); err != nil {
-			return err
-		}
+	}
+	env := cc.fileMgr.Env(suffix)
+	if err := stepHandler.SetEnv(env, false); err != nil {
+		return err
 	}
 
 	cc.steps = append(cc.steps, handlerInfo[StepCommandHandler]{
@@ -85,7 +86,7 @@ func (cc *commandController) EndStep(outcome dossiers.Result) (err error) {
 			if ctx.Err() != nil { // ctx is DONE
 				return nil
 			}
-			return cc.fileMgr.Process(ctx, handler.Sandbox())
+			return cc.fileMgr.Process(ctx, handler.StepRun().StepId())
 		})
 	}
 	cc.steps = cc.steps[:len(cc.steps)-1]

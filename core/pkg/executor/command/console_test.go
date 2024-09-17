@@ -1,7 +1,7 @@
 package command
 
 import (
-	"gotest.tools/v3/assert"
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
@@ -55,7 +55,7 @@ func TestConsoleManager_ParseCommandV1(t *testing.T) {
 	for input, expected := range tests {
 		t.Run(input, func(tt *testing.T) {
 			actual := mgr.parseCommandV1(input)
-			assert.DeepEqual(tt, actual, expected)
+			assert.EqualValues(tt, actual, expected, input)
 		})
 	}
 }
@@ -111,7 +111,7 @@ func TestConsoleManager_ParseCommandV2(t *testing.T) {
 	for input, expected := range tests {
 		t.Run(input, func(tt *testing.T) {
 			actual := mgr.parseCommandV2(input)
-			assert.DeepEqual(tt, actual, expected)
+			assert.EqualValues(tt, actual, expected, input)
 		})
 	}
 }
@@ -120,12 +120,12 @@ func TestConsoleManager_IsProcessingCommand(t *testing.T) {
 	mgr := setupConsoleCmdMgr()
 	_ = mgr.Register(NewConsoleHandler("foobar", true, noop))
 
-	assert.DeepEqual(t, true, mgr.isProcessingCommand("foobar"))
-	assert.DeepEqual(t, false, mgr.isProcessingCommand("xxx"))
+	assert.True(t, mgr.isProcessingCommand("foobar"))
+	assert.False(t, mgr.isProcessingCommand("xxx"))
 
 	mgr.resumeCmdToken = "xxx"
-	assert.DeepEqual(t, false, mgr.isProcessingCommand("foobar"))
-	assert.DeepEqual(t, true, mgr.isProcessingCommand("xxx"))
+	assert.False(t, mgr.isProcessingCommand("foobar"))
+	assert.True(t, mgr.isProcessingCommand("xxx"))
 }
 
 func TestConsoleManager_StopCommands(t *testing.T) {
@@ -141,14 +141,14 @@ func TestConsoleManager_StopCommands(t *testing.T) {
 		Value: "msg",
 	}
 
-	assert.DeepEqual(t, cmd, mgr.ParseCommand(v2line))
-	assert.DeepEqual(t, cmd, mgr.ParseCommand(v1line))
+	assert.EqualValues(t, cmd, mgr.ParseCommand(v2line), v2line)
+	assert.EqualValues(t, cmd, mgr.ParseCommand(v1line), v1line)
 
 	mgr.resumeCmdToken = "xxx"
-	assert.Assert(t, mgr.ParseCommand(v2line) == nil)
-	assert.Assert(t, mgr.ParseCommand(v1line) == nil)
+	assert.Nil(t, mgr.ParseCommand(v2line), v2line)
+	assert.Nil(t, mgr.ParseCommand(v1line), v1line)
 
 	resumeCmd := &Command{Name: "xxx"}
-	assert.DeepEqual(t, resumeCmd, mgr.ParseCommand("##[xxx]"))
-	assert.DeepEqual(t, resumeCmd, mgr.ParseCommand("::xxx::"))
+	assert.EqualValues(t, resumeCmd, mgr.ParseCommand("##[xxx]"), "##[xxx]")
+	assert.EqualValues(t, resumeCmd, mgr.ParseCommand("::xxx::"), "::xxx::")
 }
