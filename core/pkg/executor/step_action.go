@@ -12,6 +12,7 @@ import (
 	"drassi.run/core/pkg/model/dossiers"
 	"drassi.run/core/pkg/store/repository"
 	"drassi.run/core/pkg/store/repository/gitstore"
+	"drassi.run/core/pkg/util/dig"
 
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"go.uber.org/dig"
@@ -26,10 +27,11 @@ type ActionStepRun struct {
 	BaseStepRun
 	Repo *repository.Repository
 
-	Store gitstore.Store
-
 	rev       string
 	actionRun StepRun
+
+	// injected values
+	store gitstore.Store
 }
 
 func (sr *ActionStepRun) Repository() *repository.Repository {
@@ -37,9 +39,16 @@ func (sr *ActionStepRun) Repository() *repository.Repository {
 }
 
 func (sr *ActionStepRun) Initialize(exec StepExecutor, scope *dig.Scope) error {
-	gh := dossiers.Github{} // TODO
+	var github dossiers.Github
+	if err := xdig.Populate(scope, &github); err != nil {
+		return err
+	}
+	if err := xdig.Populate(scope, &sr.store); err != nil {
+		return err
+	}
+
 	ctx := exec.Context()
-	if rev, err := sr.Store.Fetch(ctx, sr.Repo, gh.Token); err != nil {
+	if rev, err := sr.store.Fetch(ctx, sr.Repo, github.Token); err != nil {
 		return err
 	} else {
 		sr.rev = rev
@@ -49,7 +58,7 @@ func (sr *ActionStepRun) Initialize(exec StepExecutor, scope *dig.Scope) error {
 		return err
 	}
 
-	return sr.actionRun.Initialize(exec, nil)
+	return sr.actionRun.Initialize(exec, scope)
 }
 
 func (sr *ActionStepRun) PreTask() *Task {
@@ -68,7 +77,7 @@ func (sr *ActionStepRun) loadAction(ctx context.Context) error {
 	// 1. First, try reading "action.yml" or "action.yaml" file
 	for _, f := range []string{"action.yml", "action.yaml"} {
 		path := filepath.Join(sr.Repo.Path, f)
-		if r, err := sr.Store.File(ctx, sr.Repo, sr.rev, path); err == nil {
+		if r, err := sr.store.File(ctx, sr.Repo, sr.rev, path); err == nil {
 			return sr.loadActionManifest(r)
 		} else if !errors.Is(err, object.ErrFileNotFound) {
 			return err
@@ -78,7 +87,7 @@ func (sr *ActionStepRun) loadAction(ctx context.Context) error {
 	// 2. Second, try reading "Dockerfile" or "dockerfile"
 	for _, f := range []string{"Dockerfile", "dockerfile"} {
 		path := filepath.Join(sr.Repo.Path, f)
-		if r, err := sr.Store.File(ctx, sr.Repo, sr.rev, path); err == nil {
+		if r, err := sr.store.File(ctx, sr.Repo, sr.rev, path); err == nil {
 			r.Close()
 			return sr.createDockerfileAction(path)
 		} else if !errors.Is(err, object.ErrFileNotFound) {

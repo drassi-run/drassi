@@ -8,6 +8,7 @@ import (
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/pkg/util/dig"
 
 	"go.uber.org/dig"
 )
@@ -41,6 +42,16 @@ type DockerStepRun struct {
 }
 
 func (sr *DockerStepRun) Initialize(exec StepExecutor, scope *dig.Scope) error {
+	if err := xdig.Populate(scope, &sr.sandbox); err != nil {
+		return err
+	}
+	if err := xdig.Populate(scope, &sr.streams); err != nil {
+		return err
+	}
+	if err := xdig.Populate(scope, &sr.exprEnv); err != nil {
+		return err
+	}
+
 	ctx := exec.Context()
 	if image, ok := strings.CutPrefix(sr.Image, "docker://"); ok {
 		sr.resolvedImage = image

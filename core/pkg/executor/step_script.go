@@ -11,6 +11,7 @@ import (
 	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/pkg/util/dig"
 	utilreader "drassi.run/core/pkg/util/reader"
 
 	"go.uber.org/dig"
@@ -30,7 +31,20 @@ type ScriptStepRun struct {
 	defaults *workflows.Defaults
 }
 
-func (sr *ScriptStepRun) Initialize(StepExecutor, *dig.Scope) error {
+func (sr *ScriptStepRun) Initialize(exec StepExecutor, scope *dig.Scope) error {
+	if err := xdig.Populate(scope, &sr.sandbox); err != nil {
+		return err
+	}
+	if err := xdig.Populate(scope, &sr.streams); err != nil {
+		return err
+	}
+	if err := xdig.Populate(scope, &sr.exprEnv); err != nil {
+		return err
+	}
+	if err := xdig.Populate(scope, &sr.defaults); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -78,7 +92,7 @@ func (sr *ScriptStepRun) executeMain(exec StepExecutor) error {
 		return err
 	}
 
-	if err = sr.transferScriptIn(ctx, exec, script, path); err != nil {
+	if err = sr.transferScriptIn(ctx, script, path); err != nil {
 		return nil
 	}
 
@@ -101,19 +115,19 @@ func (sr *ScriptStepRun) expandCommand(shell model.Shell, scriptPath string) ([]
 	return cmd, nil
 }
 
-func (sr *ScriptStepRun) computeScriptPath(exec StepExecutor, ex string) string {
+func (sr *ScriptStepRun) computeScriptPath(exec StepExecutor, ext string) string {
 	path := sr.Id
 	for parent := exec.ParentExecutor(); parent != nil; parent = parent.ParentExecutor() {
 		path = fmt.Sprintf("%s-composite-%s", parent.StepId(), path)
 	}
-	if !strings.HasPrefix(ex, ".") {
-		path += "."
+	if !strings.HasPrefix(ext, ".") {
+		ext = "." + ext
 	}
-	path += ex
+	path += ext
 	return filepath.Join(sr.sandbox.GetTempDir(), "scripts", path)
 }
 
-func (sr *ScriptStepRun) transferScriptIn(ctx context.Context, exec StepExecutor, script, path string) error {
+func (sr *ScriptStepRun) transferScriptIn(ctx context.Context, script, path string) error {
 	entry := &utilreader.FileEntry{
 		Name:    "",
 		Content: script,
