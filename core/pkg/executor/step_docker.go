@@ -108,7 +108,7 @@ func (sr *DockerStepRun) execute(stage Stage) TaskRun {
 			return err
 		}
 
-		args, err := sr.computeArgs(inputs, exec)
+		args, err := sr.computeArgs(inputs)
 		if err != nil {
 			return err
 		}
@@ -118,6 +118,10 @@ func (sr *DockerStepRun) execute(stage Stage) TaskRun {
 			return err
 		} else {
 			exec.ComposeEnv(env)
+		}
+		for k, v := range inputs {
+			k = strings.ToUpper(k)
+			env["INPUT_"+k] = v
 		}
 
 		return sr.sandbox.RunContainer(ctx, sr.resolvedImage, entrypoint, args, env, "")
@@ -149,7 +153,7 @@ func (sr *DockerStepRun) computeEntrypoint(stage Stage, inputs map[string]string
 	return nil, nil
 }
 
-func (sr *DockerStepRun) computeArgs(inputs map[string]string, exec StepExecutor) ([]string, error) {
+func (sr *DockerStepRun) computeArgs(inputs map[string]string) ([]string, error) {
 	if sr.Args != nil {
 		args := make([]string, 0)
 		if err := evaluator.Evaluate(sr.exprEnv, sr.Args, &args); err != nil {
