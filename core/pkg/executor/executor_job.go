@@ -30,13 +30,13 @@ type JobExecutor interface {
 	SetContext(ctx context.Context)
 
 	Initialize(scope *dig.Scope) error
-	RunJob() error
+	RunJob() *dossiers.Job
 	Finalize() error
+	ComposeEnv(m map[string]string)
+	SetStatus(status dossiers.Result)
 
 	AddPath(paths []string) error
 	SetEnv(env map[string]string) error
-
-	ComposeEnv(m map[string]string)
 }
 
 func NewJobExecutor(run *JobRun) JobExecutor {
@@ -49,12 +49,13 @@ type jobExecutor struct {
 	jobRun *JobRun
 
 	// records
-	github dossiers.Github
-	runner dossiers.Runner
-	job    *dossiers.Job
-	steps  map[string]*dossiers.Step
-	env    map[string]string
-	paths  []string
+	github  dossiers.Github
+	runner  dossiers.Runner
+	jobInfo *dossiers.JobInfo
+	job     *dossiers.Job
+	steps   map[string]*dossiers.Step
+	env     map[string]string
+	paths   []string
 
 	ctx           context.Context
 	exprEnv       *expression.Env
@@ -106,21 +107,23 @@ func (e *jobExecutor) Initialize(scope *dig.Scope) error {
 	return e.initializeSteps(scope)
 }
 
-func (e *jobExecutor) RunJob() error {
-	if err := e.runStage(StagePre, StepRun.PreTask); err != nil {
-		e.job.Status = dossiers.ResultFailure
-		return err
+func (e *jobExecutor) RunJob() *dossiers.Job {
+	e.SetStatus(dossiers.ResultSuccess)
+	states := map[Stage]func(StepRun) *Task{
+		StagePre:  StepRun.PreTask,
+		StageMain: StepRun.MainTask,
+		StagePost: StepRun.PostTask,
 	}
-	if err := e.runStage(StageMain, StepRun.MainTask); err != nil {
-		e.job.Status = dossiers.ResultFailure
-		return err
+	for state, fn := range states {
+		if err := e.runStage(state, fn); err != nil {
+			e.SetStatus(dossiers.ResultFailure)
+			//log err
+		}
 	}
-	if err := e.runStage(StagePost, StepRun.PostTask); err != nil {
-		e.job.Status = dossiers.ResultFailure
-		return err
+	if err := evaluator.Evaluate(e.exprEnv, e.jobRun.Outputs, &e.job.Outputs); err != nil {
+		e.SetStatus(dossiers.ResultFailure)
 	}
-	e.job.Status = dossiers.ResultSuccess
-	return nil
+	return e.job
 }
 
 func (e *jobExecutor) Finalize() (err error) {
@@ -130,12 +133,7 @@ func (e *jobExecutor) Finalize() (err error) {
 			errs = append(errs, err)
 		}
 
-		output := make(map[string]string)
-
-		if err := evaluator.Evaluate(e.exprEnv, e.jobRun.Outputs, &output); err != nil {
-			errs = append(errs, err)
-		}
-		if err := e.supervisor.AfterJobRun(e, output); err != nil {
+		if err := e.supervisor.AfterJobRun(e, e.job); err != nil {
 			errs = append(errs, err)
 		}
 
@@ -181,12 +179,14 @@ func (e *jobExecutor) initializeJob(scope *dig.Scope) error {
 		return err
 	} else {
 		// sanitize GitHub
+		e.github.Job = e.JobId()
 		e.github.Action = ""
 		e.github.ActionPath = ""
 		e.github.ActionRef = ""
 		e.github.ActionRepository = ""
 		e.github.ActionStatus = ""
 	}
+	e.jobInfo = new(dossiers.JobInfo)
 	e.job = new(dossiers.Job)
 	e.steps = make(map[string]*dossiers.Step, len(e.jobRun.Steps))
 
@@ -197,10 +197,10 @@ func (e *jobExecutor) initializeJob(scope *dig.Scope) error {
 	// setup expression.Env
 	opts := []expression.EnvOption{
 		expression.WithVariable("github", &e.github),
-		expression.WithVariable("job", e.job),
+		expression.WithVariable("job", e.jobInfo),
 		expression.WithVariable("steps", e.steps),
 		expression.WithVariable("env", e.env),
-		expression.WithLibrary(libraries.JobLib(e.job)),
+		expression.WithLibrary(libraries.JobLib(e.jobInfo)),
 	}
 	if exprEnv, err := expression.NewEnv(e.exprEnv, opts...); err != nil {
 		return err
@@ -261,8 +261,8 @@ func (e *jobExecutor) initializeSandbox(scope *dig.Scope) error {
 		return err
 	} else {
 		e.sandbox = resp.Sandbox
-		e.job.Container = resp.Container
-		e.job.Services = resp.Services
+		e.jobInfo.Container = resp.Container
+		e.jobInfo.Services = resp.Services
 	}
 
 	// register SandboxLib (e.g hashFiles func) to expression.Env
@@ -417,6 +417,11 @@ func (e *jobExecutor) ComposeEnv(m map[string]string) {
 	maps.Copy(m, supEnv)
 
 	m["PATH"] = strings.Join(e.paths, ":")
+}
+
+func (e *jobExecutor) SetStatus(status dossiers.Result) {
+	e.job.Result = status
+	e.jobInfo.Status = status
 }
 
 // AddPath prepending a directory to the system PATH variable (and remove duplicates).

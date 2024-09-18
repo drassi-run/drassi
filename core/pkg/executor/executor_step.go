@@ -29,14 +29,13 @@ type StepExecutor interface {
 
 	Initialize(scope *dig.Scope) error
 	RunStep(fn func(StepRun) *Task) *dossiers.Step
+	ComposeEnv(m map[string]string)
+	SetStatus(status dossiers.Result)
 
 	SetEnv(env map[string]string) error
 	CreateStepSummary(r io.Reader) error
 	SaveState(state map[string]string) error
 	SetOutput(output map[string]string) error
-
-	ComposeEnv(m map[string]string)
-	SetResult(outcome dossiers.Result)
 }
 
 func newStepExecutor(job JobExecutor, parent StepExecutor, stepRun StepRun) StepExecutor {
@@ -191,17 +190,17 @@ func (e *stepExecutor) beginTask(task *Task) error {
 	clear(e.env)
 	maps.Copy(e.env, e.jobEnv)
 	if err := evaluator.Evaluate(e.exprEnv, base.Env, &e.env); err != nil {
-		e.step.Outcome = dossiers.ResultFailure
+		e.SetStatus(dossiers.ResultFailure)
 		return err
 	}
 
 	if meet, err := evaluator.Meet(e.exprEnv, task.Condition); err != nil {
+		e.SetStatus(dossiers.ResultFailure)
 		e.step.Conclusion = dossiers.ResultFailure
-		e.step.Outcome = dossiers.ResultFailure
 		return err
 	} else if !meet {
+		e.SetStatus(dossiers.ResultSkipped)
 		e.step.Conclusion = dossiers.ResultSkipped
-		e.step.Outcome = dossiers.ResultSkipped
 		// TODO logging
 	}
 	return nil
@@ -213,7 +212,7 @@ func (e *stepExecutor) runTask(task *Task) error {
 	timeout := int64(-1)
 	if err := evaluator.Evaluate(e.exprEnv, base.TimeoutInMinutes, &timeout); err != nil {
 		// TODO logging
-		e.step.Outcome = dossiers.ResultFailure
+		e.SetStatus(dossiers.ResultFailure)
 		return err
 	} else if timeout > 0 {
 		ctx, cancel := context.WithTimeout(e.ctx, time.Duration(timeout)*time.Minute)
@@ -223,7 +222,7 @@ func (e *stepExecutor) runTask(task *Task) error {
 
 	if err := e.supervisor.BeforeTaskRun(task, e); err != nil {
 		// TODO logging
-		e.step.Outcome = dossiers.ResultFailure
+		e.SetStatus(dossiers.ResultFailure)
 		return err
 	}
 
@@ -240,16 +239,15 @@ func (e *stepExecutor) runTask(task *Task) error {
 	}
 
 	if err != nil {
-		e.step.Outcome = dossiers.ResultFailure
+		e.SetStatus(dossiers.ResultFailure)
 		//logger.WithField("stepResult", stepResult.Outcome).Errorf("  \u274C  Failure - %s %s", stage, stepString)
 	} else {
-		e.step.Conclusion = dossiers.ResultSuccess
-		e.step.Outcome = dossiers.ResultSuccess
+		e.SetStatus(dossiers.ResultSuccess)
 	}
 
 	if err = e.supervisor.AfterTaskRun(task, e); err != nil {
 		// TODO logging
-		e.step.Outcome = dossiers.ResultFailure
+		e.SetStatus(dossiers.ResultFailure)
 		return err
 	}
 	return nil
@@ -268,11 +266,11 @@ func (e *stepExecutor) endTask(task *Task) {
 			//logger.Infof("Failed but continue next step")
 			e.step.Conclusion = dossiers.ResultSuccess
 		} else {
-			e.step.Conclusion = dossiers.ResultFailure
+			e.step.Conclusion = e.step.Outcome
 		}
 	}
 
-	if err := e.supervisor.AfterStepRun(e); err != nil {
+	if err := e.supervisor.AfterStepRun(e, e.step); err != nil {
 		//logger.Infof("Failed but continue next step")
 	}
 }
@@ -325,8 +323,9 @@ func (e *stepExecutor) ComposeEnv(m map[string]string) {
 	}
 }
 
-func (e *stepExecutor) SetResult(outcome dossiers.Result) {
-	e.step.Outcome = outcome
+func (e *stepExecutor) SetStatus(status dossiers.Result) {
+	e.github.ActionStatus = status
+	e.step.Outcome = status
 }
 
 // SetEnv make an environment variable available to any subsequent steps in a workflow job

@@ -3,7 +3,7 @@ package dossiers
 // The job context contains information about the currently running job.
 // https://docs.github.com/en/actions/learn-github-actions/contexts#job-context
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/JobContext.cs
-type Job struct {
+type JobInfo struct {
 	Container *Container            `json:"container" yaml:"container"`
 	Services  map[string]*Container `json:"services" yaml:"services"`
 	Status    Result                `json:"status" yaml:"status"`
@@ -17,7 +17,7 @@ type Container struct {
 
 // The `jobs` context is only available in reusable workflows, and can only be used to set outputs for a reusable workflow.
 // https://docs.github.com/en/actions/learn-github-actions/contexts#jobs-context
-type JobReusableWorkflow struct {
+type Job struct {
 	Result  Result            `json:"result" yaml:"result"`
 	Outputs map[string]string `json:"outputs" yaml:"outputs"`
 }
