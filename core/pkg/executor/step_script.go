@@ -7,9 +7,14 @@ import (
 	"strings"
 
 	"drassi.run/core/pkg/executor/evaluator"
+	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/workflows"
+	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/pkg/util/dig"
 	utilreader "drassi.run/core/pkg/util/reader"
+
+	"go.uber.org/dig"
 )
 
 type ScriptStepRun struct {
@@ -18,9 +23,28 @@ type ScriptStepRun struct {
 	Run        workflows.Evaluable[string]
 	Shell      string
 	WorkingDir workflows.Evaluable[string]
+
+	// injected values
+	sandbox  sandboxer.Sandbox
+	streams  *sandboxer.Streams
+	exprEnv  *expression.Env
+	defaults *workflows.Defaults
 }
 
-func (sr *ScriptStepRun) Initialize(_ context.Context, _ StepExecutor) error {
+func (sr *ScriptStepRun) Initialize(exec StepExecutor, scope *dig.Scope) error {
+	if err := xdig.Populate(scope, &sr.sandbox); err != nil {
+		return err
+	}
+	if err := xdig.Populate(scope, &sr.streams); err != nil {
+		return err
+	}
+	if err := xdig.Populate(scope, &sr.exprEnv); err != nil {
+		return err
+	}
+	if err := xdig.Populate(scope, &sr.defaults); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -41,19 +65,20 @@ func (sr *ScriptStepRun) PostTask() *Task {
 	return nil
 }
 
-func (sr *ScriptStepRun) executeMain(ctx context.Context, exec StepExecutor) error {
-	shell := model.Shell(exec.JobExecutor().Defaults().Run.Shell)
+func (sr *ScriptStepRun) executeMain(exec StepExecutor) error {
+	ctx := exec.Context()
+	shell := model.Shell(sr.defaults.Run.Shell)
 	if sr.Shell != "" {
 		shell = model.Shell(sr.Shell)
 	}
 
-	workdir := exec.JobExecutor().Defaults().Run.WorkingDir
-	if err := evaluator.Evaluate(exec.ExpressionEnv(), sr.WorkingDir, &workdir); err != nil {
+	workdir := sr.defaults.Run.WorkingDir
+	if err := evaluator.Evaluate(sr.exprEnv, sr.WorkingDir, &workdir); err != nil {
 		return err
 	}
 
 	script := ""
-	if err := evaluator.Evaluate(exec.ExpressionEnv(), sr.Run, &script); err != nil {
+	if err := evaluator.Evaluate(sr.exprEnv, sr.Run, &script); err != nil {
 		return err
 	} else if script == "" {
 		return fmt.Errorf("script is required")
@@ -67,12 +92,14 @@ func (sr *ScriptStepRun) executeMain(ctx context.Context, exec StepExecutor) err
 		return err
 	}
 
-	if err = sr.transferScriptIn(ctx, exec, script, path); err != nil {
+	if err = sr.transferScriptIn(ctx, script, path); err != nil {
 		return nil
 	}
 
-	env := exec.ComposeEnv()
-	return exec.Sandbox().Execute(ctx, cmd, env, workdir, exec.Streams())
+	env := make(map[string]string)
+	exec.ComposeEnv(env)
+
+	return sr.sandbox.Execute(ctx, cmd, env, workdir, sr.streams)
 }
 
 func (sr *ScriptStepRun) expandCommand(shell model.Shell, scriptPath string) ([]string, error) {
@@ -88,19 +115,19 @@ func (sr *ScriptStepRun) expandCommand(shell model.Shell, scriptPath string) ([]
 	return cmd, nil
 }
 
-func (sr *ScriptStepRun) computeScriptPath(exec StepExecutor, ex string) string {
+func (sr *ScriptStepRun) computeScriptPath(exec StepExecutor, ext string) string {
 	path := sr.Id
 	for parent := exec.ParentExecutor(); parent != nil; parent = parent.ParentExecutor() {
 		path = fmt.Sprintf("%s-composite-%s", parent.StepId(), path)
 	}
-	if !strings.HasPrefix(ex, ".") {
-		path += "."
+	if !strings.HasPrefix(ext, ".") {
+		ext = "." + ext
 	}
-	path += ex
-	return filepath.Join(exec.Sandbox().GetTempDir(), "scripts", path)
+	path += ext
+	return filepath.Join(sr.sandbox.GetTempDir(), "scripts", path)
 }
 
-func (sr *ScriptStepRun) transferScriptIn(ctx context.Context, exec StepExecutor, script, path string) error {
+func (sr *ScriptStepRun) transferScriptIn(ctx context.Context, script, path string) error {
 	entry := &utilreader.FileEntry{
 		Name:    "",
 		Content: script,
@@ -109,6 +136,6 @@ func (sr *ScriptStepRun) transferScriptIn(ctx context.Context, exec StepExecutor
 	if reader, err := utilreader.FromFileEntries(ctx, entry); err != nil {
 		return err
 	} else {
-		return exec.Sandbox().CopyIn(ctx, reader, path)
+		return sr.sandbox.CopyIn(ctx, reader, path)
 	}
 }

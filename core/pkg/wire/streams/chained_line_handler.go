@@ -5,14 +5,16 @@ import (
 	"regexp"
 	"strings"
 
+	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/executor/command"
 	"drassi.run/core/pkg/executor/problem"
 	"drassi.run/core/pkg/executor/reporter"
+	"drassi.run/core/pkg/model/dossiers"
 )
 
 type chainedLineHandler func(line string) (next bool, err error)
 
-func processCommand(consoleMgr command.ConsoleManager) chainedLineHandler {
+func processCommand(consoleMgr command.ConsoleManager, sup executor.Supervisor) chainedLineHandler {
 	return func(line string) (bool, error) {
 		cmd := consoleMgr.ParseCommand(line)
 		if cmd == nil {
@@ -21,8 +23,10 @@ func processCommand(consoleMgr command.ConsoleManager) chainedLineHandler {
 
 		err := consoleMgr.Process(line, cmd)
 		if err != nil {
-			// set step outcome = failure
-			// exec.SetResult(dossiers.ResultFailure)
+			step := sup.CurrentStep()
+			if step != nil {
+				step.SetStatus(dossiers.ResultFailure)
+			}
 		}
 		return false, err
 	}

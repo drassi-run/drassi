@@ -179,7 +179,7 @@ func consoleSetEnv(sup executor.Supervisor) *command.ConsoleHandler {
 		env := map[string]string{
 			name: cmd.Value,
 		}
-		return step.SetEnv(env, true)
+		return step.SetEnv(env)
 	}
 	return command.NewConsoleHandler("set-env", true, run)
 }

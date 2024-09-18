@@ -19,11 +19,11 @@ type Dossier struct {
 
 	// The job context contains information about the currently running job.
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#job-context
-	Job *Job `json:"job" yaml:"job" actions:"job"`
+	Job *JobInfo `json:"job" yaml:"job" actions:"job"`
 
 	// The `jobs` context is only available in reusable workflows, and can only be used to set outputs for a reusable workflow.
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#jobs-context
-	Jobs map[string]*JobReusableWorkflow `json:"jobs" yaml:"jobs" actions:"jobs"`
+	Jobs map[string]*Job `json:"jobs" yaml:"jobs" actions:"jobs"`
 
 	// The `steps` context contains information about the steps in the current job that have an `id` specified and have already run.
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#steps-context

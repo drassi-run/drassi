@@ -1,9 +1,9 @@
 package executor
 
 import (
-	"context"
-
 	"drassi.run/core/pkg/model/workflows"
+
+	"go.uber.org/dig"
 )
 
 type NodeStepRun struct {
@@ -19,7 +19,7 @@ type NodeStepRun struct {
 	PostIf workflows.Conditional
 }
 
-func (sr *NodeStepRun) Initialize(ctx context.Context, exec StepExecutor) error {
+func (sr *NodeStepRun) Initialize(exec StepExecutor, scope *dig.Scope) error {
 	// TODO copy to sandbox
 	return nil
 }
