@@ -5,14 +5,12 @@ import (
 	"drassi.run/core/pkg/model/dossiers"
 )
 
-func JobLib(jobInfo *dossiers.JobInfo) expr.Library {
-	lib := &jobLib{info: jobInfo}
-
-	return lib
+func JobLib(job *dossiers.Job) expr.Library {
+	return &jobLib{job: job}
 }
 
 type jobLib struct {
-	info *dossiers.JobInfo
+	job *dossiers.Job
 }
 
 func (lib *jobLib) EnvOptions() []expr.EnvOption {

@@ -11,9 +11,7 @@ type Contextual interface {
 }
 
 func SandboxLib(c Contextual, sb sandboxer.Sandbox) expr.Library {
-	lib := &sandboxLib{contextual: c, sandbox: sb}
-
-	return lib
+	return &sandboxLib{contextual: c, sandbox: sb}
 }
 
 type sandboxLib struct {

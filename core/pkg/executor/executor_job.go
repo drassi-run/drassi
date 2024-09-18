@@ -200,7 +200,7 @@ func (e *jobExecutor) initializeJob(scope *dig.Scope) error {
 		expression.WithVariable("job", e.jobInfo),
 		expression.WithVariable("steps", e.steps),
 		expression.WithVariable("env", e.env),
-		expression.WithLibrary(libraries.JobLib(e.jobInfo)),
+		expression.WithLibrary(libraries.JobLib(e.job)),
 	}
 	if exprEnv, err := expression.NewEnv(e.exprEnv, opts...); err != nil {
 		return err

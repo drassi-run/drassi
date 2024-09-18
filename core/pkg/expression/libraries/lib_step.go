@@ -5,14 +5,12 @@ import (
 	"drassi.run/core/pkg/model/dossiers"
 )
 
-func StepLib(stepInfo *dossiers.Github) expr.Library {
-	lib := &stepLib{info: stepInfo}
-
-	return lib
+func StepLib(step *dossiers.Step) expr.Library {
+	return &stepLib{step: step}
 }
 
 type stepLib struct {
-	info *dossiers.Github
+	step *dossiers.Step
 }
 
 func (lib *stepLib) EnvOptions() []expr.EnvOption {

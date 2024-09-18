@@ -11,17 +11,17 @@ func (lib *jobLib) Always() ref.Val {
 }
 
 func (lib *jobLib) Success() ref.Val {
-	r := lib.info.Status == dossiers.ResultSuccess
+	r := lib.job.Result == dossiers.ResultSuccess
 	return types.Boolean(r)
 }
 
 func (lib *jobLib) Failure() ref.Val {
-	r := lib.info.Status == dossiers.ResultFailure
+	r := lib.job.Result == dossiers.ResultFailure
 	return types.Boolean(r)
 }
 
 func (lib *jobLib) Cancelled() ref.Val {
-	r := lib.info.Status == dossiers.ResultCancelled
+	r := lib.job.Result == dossiers.ResultCancelled
 	return types.Boolean(r)
 }
 
@@ -30,16 +30,16 @@ func (lib *stepLib) Always() ref.Val {
 }
 
 func (lib *stepLib) Success() ref.Val {
-	r := lib.info.ActionStatus == dossiers.ResultSuccess
+	r := lib.step.Outcome == dossiers.ResultSuccess
 	return types.Boolean(r)
 }
 
 func (lib *stepLib) Failure() ref.Val {
-	r := lib.info.ActionStatus == dossiers.ResultFailure
+	r := lib.step.Outcome == dossiers.ResultFailure
 	return types.Boolean(r)
 }
 
 func (lib *stepLib) Cancelled() ref.Val {
-	r := lib.info.ActionStatus == dossiers.ResultCancelled
+	r := lib.step.Outcome == dossiers.ResultCancelled
 	return types.Boolean(r)
 }
