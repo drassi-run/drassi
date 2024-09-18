@@ -26,53 +26,65 @@ func ProvideTo(scope *dig.Scope) error {
 	if err := scope.Provide(newStream, dig.Export(true)); err != nil {
 		return err
 	}
+	if err := scope.Provide(newLog, dig.Export(true)); err != nil {
+		return err
+	}
 
 	return nil
 }
 
 type streamsParams struct {
-	In  io.Reader `name:"stdin"`
-	Out io.Writer `name:"streamOut"`
-	Err io.Writer `name:"streamErr"`
+	dig.In
+	StdIn  io.Reader `name:"stdin"`
+	StdOut io.Writer `name:"streamOut"`
+	StdErr io.Writer `name:"streamErr"`
 }
 
-func newStream(params streamsParams) *sandboxer.Streams {
+func newStream(p streamsParams) *sandboxer.Streams {
 	return &sandboxer.Streams{
-		In:  params.In,
-		Out: params.Out,
-		Err: params.Err,
+		In:  p.StdIn,
+		Out: p.StdOut,
+		Err: p.StdErr,
 	}
 }
 
-type streamIOParams struct {
+type logParams struct {
+	dig.In
+	StdOut io.Writer `name:"stdout"`
+}
+
+func newLog(p logParams) logging.Logger {
+	return logging.NewLogger(p.StdOut)
+}
+
+type streamOutParams struct {
 	dig.In
 	Logger         logging.Logger
 	ProcessCommand chainedLineHandler `name:"processCommand"`
 	ScanProblem    chainedLineHandler `name:"scanProblem"`
-}
-
-type streamOutParams struct {
-	streamIOParams
-	Out io.Writer `name:"stdout"`
+	StdOut         io.Writer          `name:"stdout"`
 }
 
 type streamErrParams struct {
-	streamIOParams
-	Out io.Writer `name:"stdout"`
+	dig.In
+	Logger         logging.Logger
+	ProcessCommand chainedLineHandler `name:"processCommand"`
+	ScanProblem    chainedLineHandler `name:"scanProblem"`
+	StdErr         io.Writer          `name:"stderr"`
 }
 
-func streamOut(params streamOutParams) io.Writer {
-	handler := streamHandler(params.Out, params.Logger, []chainedLineHandler{
-		params.ProcessCommand,
-		params.ScanProblem,
+func streamOut(p streamOutParams) io.Writer {
+	handler := streamHandler(p.StdOut, p.Logger, []chainedLineHandler{
+		p.ProcessCommand,
+		p.ScanProblem,
 	})
 	return logging.NewLineWriter(handler)
 }
 
-func streamErr(params streamErrParams) io.Writer {
-	handler := streamHandler(params.Out, params.Logger, []chainedLineHandler{
-		params.ProcessCommand,
-		params.ScanProblem,
+func streamErr(p streamErrParams) io.Writer {
+	handler := streamHandler(p.StdErr, p.Logger, []chainedLineHandler{
+		p.ProcessCommand,
+		p.ScanProblem,
 	})
 	return logging.NewLineWriter(handler)
 }
