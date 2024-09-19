@@ -7,15 +7,17 @@ import (
 	"drassi.run/core/pkg/expression/types/ref"
 )
 
-type option struct {
-	variables map[string]ref.Val
-	functions map[string]Function
+type Option func(o *env) error
+
+func WithAlias(name string, alias string) Option {
+	return func(o *env) error {
+		o.alias[name] = alias
+		return nil
+	}
 }
 
-type EnvOption func(o *option) error
-
-func WithVariable(name string, value any) EnvOption {
-	return func(o *option) error {
+func WithVariable(name string, value any) Option {
+	return func(o *env) error {
 		variable := types.NativeToVal(value)
 		if ref.IsError(variable) {
 			return variable.Value().(error)
@@ -26,11 +28,11 @@ func WithVariable(name string, value any) EnvOption {
 	}
 }
 
-func WithFunction(name string, fn Function) EnvOption {
+func WithFunction(name string, fn Function) Option {
 	// function name is case-insensitive
 	name = strings.ToLower(name)
 
-	return func(o *option) error {
+	return func(o *env) error {
 		o.functions[name] = fn
 		return nil
 	}
@@ -41,8 +43,8 @@ type Function interface {
 	Bind(args ...ref.LazyVal) ref.LazyVal
 }
 
-func WithLibrary(lib Library) EnvOption {
-	return func(o *option) error {
+func WithLibrary(lib Library) Option {
+	return func(o *env) error {
 		for _, opt := range lib.EnvOptions() {
 			if err := opt(o); err != nil {
 				return err
@@ -53,5 +55,33 @@ func WithLibrary(lib Library) EnvOption {
 }
 
 type Library interface {
-	EnvOptions() []EnvOption
+	EnvOptions() []Option
+}
+
+func WithMaxError(num int) Option {
+	return func(o *env) error {
+		o.maxError = num
+		return nil
+	}
+}
+
+func WithMaxDepth(depth int) Option {
+	return func(o *env) error {
+		o.maxDepth = depth
+		return nil
+	}
+}
+
+func WithMaxLength(length int) Option {
+	return func(o *env) error {
+		o.maxLength = length
+		return nil
+	}
+}
+
+func WithCache(enabled bool) Option {
+	return func(o *env) error {
+		o.cacheEnabled = enabled
+		return nil
+	}
 }

@@ -58,7 +58,7 @@ type jobExecutor struct {
 	paths   []string
 
 	ctx           context.Context
-	exprEnv       *expression.Env
+	exprEnv       expression.Env
 	runtime       sandboxer.SandboxRuntime
 	sandbox       sandboxer.Sandbox
 	stepExecutors map[string]StepExecutor
@@ -195,14 +195,14 @@ func (e *jobExecutor) initializeJob(scope *dig.Scope) error {
 	}
 
 	// setup expression.Env
-	opts := []expression.EnvOption{
+	opts := []expression.Option{
 		expression.WithVariable("github", &e.github),
 		expression.WithVariable("job", e.jobInfo),
 		expression.WithVariable("steps", e.steps),
 		expression.WithVariable("env", e.env),
 		expression.WithLibrary(libraries.JobLib(e.job)),
 	}
-	if exprEnv, err := expression.NewEnv(e.exprEnv, opts...); err != nil {
+	if exprEnv, err := e.exprEnv.New(opts...); err != nil {
 		return err
 	} else {
 		e.exprEnv = exprEnv
@@ -266,10 +266,10 @@ func (e *jobExecutor) initializeSandbox(scope *dig.Scope) error {
 	}
 
 	// register SandboxLib (e.g hashFiles func) to expression.Env
-	opts := []expression.EnvOption{
+	opts := []expression.Option{
 		expression.WithLibrary(libraries.SandboxLib(e.supervisor, e.sandbox)),
 	}
-	if exprEnv, err := expression.NewEnv(e.exprEnv, opts...); err != nil {
+	if exprEnv, err := e.exprEnv.New(opts...); err != nil {
 		return err
 	} else {
 		e.exprEnv = exprEnv

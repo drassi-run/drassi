@@ -13,8 +13,8 @@ type jobLib struct {
 	job *dossiers.Job
 }
 
-func (lib *jobLib) EnvOptions() []expr.EnvOption {
-	opts := []expr.EnvOption{
+func (lib *jobLib) EnvOptions() []expr.Option {
+	opts := []expr.Option{
 		expr.WithFunction("success", nullaryFn(lib.Success)),
 		expr.WithFunction("always", nullaryFn(lib.Always)),
 		expr.WithFunction("cancelled", nullaryFn(lib.Cancelled)),

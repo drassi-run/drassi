@@ -19,7 +19,7 @@ type sandboxLib struct {
 	sandbox    sandboxer.Sandbox
 }
 
-func (s *sandboxLib) EnvOptions() []expr.EnvOption {
+func (s *sandboxLib) EnvOptions() []expr.Option {
 	// TODO add hashFiles function
 	return nil
 }

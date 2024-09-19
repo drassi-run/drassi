@@ -11,8 +11,8 @@ func StdLib() expr.Library {
 
 type stdLib struct{}
 
-func (lib stdLib) EnvOptions() []expr.EnvOption {
-	opts := []expr.EnvOption{
+func (lib stdLib) EnvOptions() []expr.Option {
+	opts := []expr.Option{
 		expr.WithFunction(op.LogicalNot, unaryFn(LogicalNot)),
 		expr.WithFunction(op.LogicalAnd, variadicLazyFn(LogicalAnd)),
 		expr.WithFunction(op.LogicalOr, variadicLazyFn(LogicalOr)),

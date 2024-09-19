@@ -8,19 +8,12 @@ import (
 	"regexp"
 
 	"drassi.run/core/pkg/expression"
-	"drassi.run/core/pkg/expression/ast"
 	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/workflows"
 )
 
-type exprCache struct {
-	node ast.Node
-	err  error
-}
-
 type unraveler struct {
-	exprCache map[string]*exprCache
-	env       *expression.Env
+	env expression.Env
 }
 
 func (u *unraveler) UnravelLiteral(val any) (any, error) {
@@ -28,7 +21,7 @@ func (u *unraveler) UnravelLiteral(val any) (any, error) {
 }
 
 func (u *unraveler) UnravelExpression(expr string, pure bool) (any, error) {
-	node, err := u.parseExpression(expr, pure)
+	node, err := u.env.Parse(expr, pure)
 	if err != nil {
 		return nil, err
 	}
@@ -39,20 +32,6 @@ func (u *unraveler) UnravelExpression(expr string, pure bool) (any, error) {
 	}
 
 	return u.env.Execute(prog)
-}
-
-func (u *unraveler) parseExpression(expr string, pure bool) (node ast.Node, err error) {
-	if c, ok := u.exprCache[expr]; ok {
-		return c.node, c.err
-	}
-
-	if pure {
-		node, err = ast.ParseExpression(expr)
-	} else {
-		node, err = ast.ParseTemplate(expr)
-	}
-	u.exprCache[expr] = &exprCache{node: node, err: err}
-	return node, err
 }
 
 func (u *unraveler) UnravelSequence(seq []workflows.Token) (any, error) {

@@ -61,7 +61,7 @@ type stepExecutor struct {
 	state  map[string]string // Intra action state
 
 	ctx        context.Context
-	exprEnv    *expression.Env
+	exprEnv    expression.Env
 	supervisor Supervisor
 }
 
@@ -138,14 +138,14 @@ func (e *stepExecutor) Initialize(scope *dig.Scope) error {
 	}
 
 	// setup expression.Env
-	opts := []expression.EnvOption{
+	opts := []expression.Option{
 		expression.WithVariable("github", &e.github),
 		expression.WithVariable("env", e.env),
 	}
 	if e.parent != nil {
 		opts = append(opts, expression.WithLibrary(libraries.StepLib(e.step)))
 	}
-	if exprEnv, err := expression.NewEnv(e.exprEnv, opts...); err != nil {
+	if exprEnv, err := e.exprEnv.New(opts...); err != nil {
 		return err
 	} else {
 		e.exprEnv = exprEnv

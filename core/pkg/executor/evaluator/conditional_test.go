@@ -13,13 +13,13 @@ var (
 	ls  = []string{"one", "two", "three"}
 	ms  = map[string]int{"first": 1, "second": 2, "third": 3}
 	mi  = map[int]any{1: "value", 2: 3.14, 3: false}
-	env *expression.Env
+	env expression.Env
 	ur  *unraveler
 )
 
 func init() {
 	var err error
-	env, err = expression.NewEnv(nil,
+	env, err = expression.NewEnv(
 		expression.WithLibrary(libraries.StdLib()),
 		expression.WithVariable("la", la),
 		expression.WithVariable("ls", ls),
@@ -30,10 +30,7 @@ func init() {
 		panic(err)
 	}
 
-	ur = &unraveler{
-		exprCache: make(map[string]*exprCache),
-		env:       env,
-	}
+	ur = &unraveler{env: env}
 }
 
 func TestConditional(t *testing.T) {

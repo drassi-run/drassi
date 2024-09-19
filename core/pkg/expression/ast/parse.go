@@ -7,80 +7,21 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 )
 
-type option struct {
-	maxError  int
-	maxDepth  int
-	maxLength int
+type Option struct {
+	MaxError  int
+	MaxDepth  int
+	MaxLength int
 }
 
-func newOption() *option {
-	return &option{
-		maxError: 32,
-		// https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTExpressions2/Expressions2/ExpressionConstants.cs#L29
-		// Larger value is used because ANTLR have some internal nodes
-		maxDepth: 512,
-		// https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTExpressions2/Expressions2/ExpressionConstants.cs#L30
-		maxLength: 21_000,
-	}
-}
-
-type Option func(o *option) error
-
-func WithMaxError(num int) Option {
-	return func(o *option) error {
-		o.maxError = num
-		return nil
-	}
-}
-
-func WithMaxDepth(depth int) Option {
-	return func(o *option) error {
-		o.maxDepth = depth
-		return nil
-	}
-}
-
-func WithMaxLength(length int) Option {
-	return func(o *option) error {
-		o.maxLength = length
-		return nil
-	}
-}
-
-func ParseExpression(source string, opts ...Option) (node Node, err error) {
-	return parse(true, source, opts...)
-}
-
-func ParseTemplate(source string, opts ...Option) (node Node, err error) {
-	return parse(false, source, opts...)
-}
-
-func parse(pure bool, source string, opts ...Option) (node Node, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			if e, ok := r.(error); ok {
-				err = e
-			} else {
-				err = fmt.Errorf("panic: %v", r)
-			}
-		}
-	}()
-
-	opt := newOption()
-	for _, o := range opts {
-		if err = o(opt); err != nil {
-			return nil, err
-		}
-	}
-
-	if len(source) > opt.maxLength {
-		return nil, fmt.Errorf("max length exceeded: %d", opt.maxLength)
+func Parse(source string, pureExpr bool, opt Option) (node Node, err error) {
+	if len(source) > opt.MaxLength {
+		return nil, fmt.Errorf("max length exceeded: %d", opt.MaxLength)
 	}
 
 	listener := &astListener{
-		maxError: opt.maxError,
+		maxError: opt.MaxError,
 		errors:   nil,
-		maxDepth: opt.maxDepth,
+		maxDepth: opt.MaxDepth,
 		depth:    0,
 	}
 
@@ -88,7 +29,7 @@ func parse(pure bool, source string, opts ...Option) (node Node, err error) {
 	lexer := grammar.NewActionsLexer(is)
 	lexer.RemoveErrorListeners()
 	lexer.AddErrorListener(listener)
-	if pure {
+	if pureExpr {
 		lexer.SetMode(grammar.ActionsLexerEXPRESSION)
 	}
 
@@ -99,7 +40,7 @@ func parse(pure bool, source string, opts ...Option) (node Node, err error) {
 	parser.AddParseListener(listener)
 
 	var tree antlr.ParseTree
-	if pure {
+	if pureExpr {
 		tree = parser.Expression()
 	} else {
 		tree = parser.Template()

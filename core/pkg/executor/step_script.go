@@ -27,7 +27,7 @@ type ScriptStepRun struct {
 	// injected values
 	sandbox  sandboxer.Sandbox
 	streams  *sandboxer.Streams
-	exprEnv  *expression.Env
+	exprEnv  expression.Env
 	defaults *workflows.Defaults
 }
 
