@@ -38,7 +38,7 @@ type DockerStepRun struct {
 	// injected values
 	sandbox sandboxer.Sandbox
 	streams *sandboxer.Streams
-	exprEnv *expression.Env
+	exprEnv expression.Env
 }
 
 func (sr *DockerStepRun) Initialize(exec StepExecutor, scope *dig.Scope) error {

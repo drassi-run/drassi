@@ -11,53 +11,52 @@ import (
 )
 
 type binder struct {
-	*Env
-
+	env    *env
 	stacks []ast.Node
 }
 
 // Bind associate ast.Node to the variables, functions and operators implementation in the env
 // but defer the execution later.
-func (e *binder) Bind(node ast.Node) (ref.LazyVal, error) {
-	r := e.Visit(node)
+func (b *binder) Bind(node ast.Node) (ref.LazyVal, error) {
+	r := b.Visit(node)
 	if err, ok := r.(error); ok {
 		return nil, err
 	}
 	return r.(ref.LazyVal), nil
 }
 
-func (e *binder) pushNode(n ast.Node) {
-	e.stacks = append(e.stacks, n)
+func (b *binder) pushNode(n ast.Node) {
+	b.stacks = append(b.stacks, n)
 }
 
-func (e *binder) popNode() {
-	if len(e.stacks) > 0 {
-		e.stacks = e.stacks[:len(e.stacks)-1]
+func (b *binder) popNode() {
+	if len(b.stacks) > 0 {
+		b.stacks = b.stacks[:len(b.stacks)-1]
 	}
 }
 
-func (e *binder) Visit(node ast.Node) any {
-	r := node.Accept(e)
+func (b *binder) Visit(node ast.Node) any {
+	r := node.Accept(b)
 	if err, ok := r.(error); ok {
 		return err
 	}
 	val := r.(ref.LazyVal)
 
 	return func() ref.Val {
-		e.pushNode(node)
-		defer e.popNode()
+		b.pushNode(node)
+		defer b.popNode()
 		return val()
 	}
 }
 
-func (e *binder) VisitLiteralNode(node *ast.LiteralNode) any {
+func (b *binder) VisitLiteralNode(node *ast.LiteralNode) any {
 	return func() ref.Val {
 		return node.Value
 	}
 }
 
-func (e *binder) VisitVariableNode(node *ast.VariableNode) any {
-	variable, ok := e.variables[node.Name]
+func (b *binder) VisitVariableNode(node *ast.VariableNode) any {
+	variable, ok := b.env.variables[node.Name]
 	if !ok {
 		return fmt.Errorf("undefined variable: %s", node.Name)
 	}
@@ -67,8 +66,8 @@ func (e *binder) VisitVariableNode(node *ast.VariableNode) any {
 	}
 }
 
-func (e *binder) VisitOperatorNode(node *ast.OperatorNode) any {
-	operator, ok := e.functions[node.Operator]
+func (b *binder) VisitOperatorNode(node *ast.OperatorNode) any {
+	operator, ok := b.env.functions[node.Operator]
 	if !ok {
 		return fmt.Errorf("undefined operator: %q", operators.Symbol(node.Operator))
 	}
@@ -83,7 +82,7 @@ func (e *binder) VisitOperatorNode(node *ast.OperatorNode) any {
 
 	operands := make([]ref.LazyVal, len(node.Operands))
 	for i, operand := range node.Operands {
-		r := e.Visit(operand)
+		r := b.Visit(operand)
 		if err, ok := r.(error); ok {
 			return err
 		}
@@ -93,13 +92,13 @@ func (e *binder) VisitOperatorNode(node *ast.OperatorNode) any {
 	return operator.Bind(operands...)
 }
 
-func (e *binder) VisitPropertyAccessNode(node *ast.PropertyAccessNode) any {
-	operator, ok := e.functions[operators.PropertyAccess]
+func (b *binder) VisitPropertyAccessNode(node *ast.PropertyAccessNode) any {
+	operator, ok := b.env.functions[operators.PropertyAccess]
 	if !ok {
 		return fmt.Errorf("undefined operator: %q", operators.Symbol(operators.PropertyAccess))
 	}
 
-	r := e.Visit(node.Object)
+	r := b.Visit(node.Object)
 	if err, ok := r.(error); ok {
 		return err
 	}
@@ -116,13 +115,13 @@ func (e *binder) VisitPropertyAccessNode(node *ast.PropertyAccessNode) any {
 	return operator.Bind(prepend(properties, object)...)
 }
 
-func (e *binder) VisitIndexAccessNode(node *ast.IndexAccessNode) any {
-	operator, ok := e.functions[operators.IndexAccess]
+func (b *binder) VisitIndexAccessNode(node *ast.IndexAccessNode) any {
+	operator, ok := b.env.functions[operators.IndexAccess]
 	if !ok {
 		return fmt.Errorf("undefined operator %q", operators.Symbol(operators.IndexAccess))
 	}
 
-	r := e.Visit(node.Object)
+	r := b.Visit(node.Object)
 	if err, ok := r.(error); ok {
 		return err
 	}
@@ -130,7 +129,7 @@ func (e *binder) VisitIndexAccessNode(node *ast.IndexAccessNode) any {
 
 	indexes := make([]ref.LazyVal, len(node.Indexes))
 	for i, idx := range node.Indexes {
-		r := e.Visit(idx)
+		r := b.Visit(idx)
 		if err, ok := r.(error); ok {
 			return err
 		}
@@ -140,9 +139,9 @@ func (e *binder) VisitIndexAccessNode(node *ast.IndexAccessNode) any {
 	return operator.Bind(prepend(indexes, object)...)
 }
 
-func (e *binder) VisitFunctionNode(node *ast.FunctionNode) any {
+func (b *binder) VisitFunctionNode(node *ast.FunctionNode) any {
 	fnName := strings.ToLower(node.Name)
-	function, ok := e.functions[fnName]
+	function, ok := b.env.functions[fnName]
 	if !ok {
 		return fmt.Errorf("undefined function: %s", node.Name)
 	}
@@ -157,7 +156,7 @@ func (e *binder) VisitFunctionNode(node *ast.FunctionNode) any {
 
 	arguments := make([]ref.LazyVal, numArgs)
 	for i, arg := range node.Arguments {
-		r := e.Visit(arg)
+		r := b.Visit(arg)
 		if err, ok := r.(error); ok {
 			return err
 		}

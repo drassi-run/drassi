@@ -13,8 +13,8 @@ type stepLib struct {
 	step *dossiers.Step
 }
 
-func (lib *stepLib) EnvOptions() []expr.EnvOption {
-	opts := []expr.EnvOption{
+func (lib *stepLib) EnvOptions() []expr.Option {
+	opts := []expr.Option{
 		expr.WithFunction("success", nullaryFn(lib.Success)),
 		expr.WithFunction("always", nullaryFn(lib.Always)),
 		expr.WithFunction("cancelled", nullaryFn(lib.Cancelled)),

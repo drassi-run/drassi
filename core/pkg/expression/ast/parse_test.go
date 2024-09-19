@@ -2,10 +2,19 @@ package ast
 
 import (
 	"drassi.run/core/pkg/expression/types"
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"strings"
 	"testing"
 )
+
+func defaultOption() Option {
+	return Option{
+		MaxError:  32,
+		MaxDepth:  512,
+		MaxLength: 21_000,
+	}
+}
 
 func TestParseExpression(t *testing.T) {
 	t.Run("simple", testParseSimple)
@@ -56,7 +65,7 @@ func testParseSimple(t *testing.T) {
 		{`foo(bar, 'baz')`, &FunctionNode{"foo", []Node{&VariableNode{"bar"}, &LiteralNode{Value: types.String(`baz`)}}}},
 	}
 	for _, tc := range tests {
-		node, err := ParseExpression(tc.source)
+		node, err := Parse(tc.source, true, defaultOption())
 
 		assert.NoError(t, err)
 		if expected, ok := tc.node.(*LiteralNode); ok && types.IsNaN(expected.Value) {
@@ -132,7 +141,7 @@ func testParseOperatorOrder(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		node, err := ParseExpression(tc.source)
+		node, err := Parse(tc.source, true, defaultOption())
 
 		assert.NoError(t, err)
 		assert.EqualValues(t, tc.node, node, tc.source)
@@ -171,7 +180,7 @@ func testParseError(t *testing.T) {
 	}
 	ste := new(syntaxError)
 	for _, tc := range tests {
-		_, err := ParseExpression(tc)
+		_, err := Parse(tc, true, defaultOption())
 		assert.Error(t, err)
 		assert.ErrorAs(t, err, &ste, tc)
 	}
@@ -180,22 +189,42 @@ func testParseError(t *testing.T) {
 func testParseOptions(t *testing.T) {
 	t.Run("max-length", func(t *testing.T) {
 		source := strings.Repeat("x", 101)
-		_, err := ParseExpression(source, WithMaxLength(100))
+		opt := defaultOption()
+		opt.MaxLength = 100
+		_, err := recoverParse(true, source, opt)
 		assert.Error(t, err)
 		assert.ErrorContains(t, err, "max length exceeded")
 	})
 	t.Run("max-depth", func(t *testing.T) {
 		source := strings.Repeat("(", 101) + "x" + strings.Repeat(")", 101)
-		_, err := ParseExpression(source, WithMaxDepth(100))
+		opt := defaultOption()
+		opt.MaxDepth = 100
+		_, err := recoverParse(true, source, opt)
 		assert.Error(t, err)
 		assert.ErrorContains(t, err, "max depth exceeded")
 	})
 	t.Run("max-error", func(t *testing.T) {
 		source := strings.Repeat("str.len() && ", 10) + "str.len()"
-		_, err := ParseExpression(source, WithMaxError(4))
+		opt := defaultOption()
+		opt.MaxError = 4
+		_, err := recoverParse(true, source, opt)
 		assert.Error(t, err)
 		assert.ErrorContains(t, err, "more than 5 errors occurred")
 	})
+}
+
+func recoverParse(pureExpr bool, source string, opt Option) (node Node, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			ex, ok := r.(error)
+			if !ok {
+				ex = fmt.Errorf("panic: %v", r)
+			}
+			err = ex
+		}
+	}()
+
+	return Parse(source, pureExpr, opt)
 }
 
 func TestParseTemplate(t *testing.T) {
@@ -221,7 +250,7 @@ func testParseTemplateRawString(t *testing.T) {
 		`"foobar"`,
 	}
 	for _, input := range tests {
-		node, err := ParseTemplate(input)
+		node, err := Parse(input, false, defaultOption())
 		expected := &LiteralNode{types.String(formatEscaper.Replace(input))}
 
 		assert.NoError(t, err)
@@ -242,7 +271,7 @@ func testParseTemplateSingleExpr(t *testing.T) {
 	}
 
 	for source, expected := range tests {
-		node, err := ParseTemplate(source)
+		node, err := Parse(source, false, defaultOption())
 
 		assert.NoError(t, err)
 		assert.EqualValues(t, expected, node, source)
@@ -308,7 +337,7 @@ func testParseTemplateWithExpr(t *testing.T) {
 	}
 
 	for source, expected := range tests {
-		node, err := ParseTemplate(source)
+		node, err := Parse(source, false, defaultOption())
 
 		assert.NoError(t, err)
 		assert.EqualValues(t, expected, node, source)
@@ -326,17 +355,17 @@ func testParseTemplateError(t *testing.T) {
 
 	ste := new(syntaxError)
 	for _, tc := range tests {
-		_, err := ParseTemplate(tc)
+		_, err := Parse(tc, false, defaultOption())
 		assert.Error(t, err)
 		assert.ErrorAs(t, err, &ste, tc)
 
 		pretc := "pre" + tc
-		_, err = ParseTemplate(pretc)
+		_, err = Parse(pretc, false, defaultOption())
 		assert.Error(t, err)
 		assert.ErrorAs(t, err, &ste, pretc)
 
 		subtc := tc + "sub"
-		_, err = ParseTemplate(subtc)
+		_, err = Parse(subtc, false, defaultOption())
 		assert.Error(t, err)
 		assert.ErrorAs(t, err, &ste, subtc)
 	}

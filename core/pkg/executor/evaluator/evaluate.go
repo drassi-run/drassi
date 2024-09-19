@@ -10,34 +10,26 @@ import (
 	"drassi.run/core/pkg/model/workflows"
 )
 
-func Evaluate[R any](env *expression.Env, evaluable workflows.Evaluable[R], v *R) error {
+func Evaluate[R any](env expression.Env, evaluable workflows.Evaluable[R], v *R) error {
 	if evaluable == nil {
 		return nil
 	}
 
-	u := &unraveler{
-		env:       env,
-		exprCache: make(map[string]*exprCache),
-	}
+	u := &unraveler{env: env}
 	if res, err := evaluable.Unravel(u); err != nil {
 		return err
-	} else if err = model.Decode(res, v); err != nil {
-		return err
+	} else {
+		return model.Decode(res, v)
 	}
-
-	return nil
 }
 
-func Meet(env *expression.Env, condition workflows.Conditional) (bool, error) {
+func Meet(env expression.Env, condition workflows.Conditional) (bool, error) {
 	con := string(condition)
 	if con == "" {
 		return true, nil
 	}
 
-	u := &unraveler{
-		env:       env,
-		exprCache: make(map[string]*exprCache),
-	}
+	u := &unraveler{env: env}
 	pure := !strings.Contains(con, workflows.OpenExpression)
 
 	if res, err := u.UnravelExpression(con, pure); err != nil {
