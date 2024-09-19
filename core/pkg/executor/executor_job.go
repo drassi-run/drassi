@@ -20,7 +20,6 @@ import (
 	"drassi.run/core/pkg/util/dig"
 
 	"go.uber.org/dig"
-	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -366,16 +365,28 @@ type fileCommandParams struct {
 
 func (e *jobExecutor) initializeSteps(scope *dig.Scope) error {
 	e.stepExecutors = make(map[string]StepExecutor, len(e.jobRun.Steps))
-	g, ctx := errgroup.WithContext(e.ctx)
+
+	// TODO: concurrent version of Initialize is temporary disable because of concurrent map writes in scope
+	//g, ctx := errgroup.WithContext(e.ctx)
+	//for _, step := range e.jobRun.Steps {
+	//	exec := e.NewStepExecutor(step)
+	//	s := scope.Scope(fmt.Sprintf("step(%s)", exec.StepId()))
+	//	g.Go(func() error {
+	//		exec.SetContext(ctx)
+	//		return exec.Initialize(s)
+	//	})
+	//}
+	//return g.Wait()
+
 	for _, step := range e.jobRun.Steps {
 		exec := e.NewStepExecutor(step)
 		s := scope.Scope(fmt.Sprintf("step(%s)", exec.StepId()))
-		g.Go(func() error {
-			exec.SetContext(ctx)
-			return exec.Initialize(s)
-		})
+		exec.SetContext(e.ctx)
+		if err := exec.Initialize(s); err != nil {
+			return err
+		}
 	}
-	return g.Wait()
+	return nil
 }
 
 func (e *jobExecutor) runStage(stage Stage, fn func(StepRun) *Task) error {
