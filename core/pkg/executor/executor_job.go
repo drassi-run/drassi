@@ -96,7 +96,7 @@ func (e *jobExecutor) Initialize(scope *dig.Scope) error {
 		return err
 	}
 
-	if err := e.initializeSandbox(scope); err != nil {
+	if err := e.initializeSandbox(); err != nil {
 		return err
 	}
 
@@ -166,6 +166,9 @@ func (e *jobExecutor) initializeJob(scope *dig.Scope) error {
 	if err := xdig.Populate(scope, &e.supervisor); err != nil {
 		return err
 	}
+	if err := xdig.Populate(scope, &e.runtime); err != nil {
+		return err
+	}
 	if err := xdig.Populate(scope, &e.exprEnv); err != nil {
 		return err
 	}
@@ -216,19 +219,17 @@ func (e *jobExecutor) initializeJob(scope *dig.Scope) error {
 		return err
 	}
 
-	var defaults *workflows.Defaults
+	var defaults workflows.Defaults
 	if err := evaluator.Evaluate(e.exprEnv, e.jobRun.Defaults, &defaults); err != nil {
 		return err
-	} else if defaults != nil {
-		if err = xdig.Supply(scope, defaults); err != nil {
-			return err
-		}
+	} else if err = xdig.Supply(scope, defaults); err != nil {
+		return err
 	}
 
 	return nil
 }
 
-func (e *jobExecutor) initializeSandbox(scope *dig.Scope) error {
+func (e *jobExecutor) initializeSandbox() error {
 	req := sandboxer.LaunchSandboxRequest{JobId: e.jobRun.Id}
 
 	var jobContainer *workflows.Container
@@ -296,8 +297,8 @@ func (e *jobExecutor) initializeScope(scope *dig.Scope) error {
 	// initialize ConsoleCommand & FileCommand
 	// NOTE: some handlers are depended on sandbox
 	if err := scope.Invoke(func(p consoleCommandParams) error {
-		for _, h := range p.handlers {
-			if err := p.cmdMgr.Register(h); err != nil {
+		for _, h := range p.Handlers {
+			if err := p.CmdMgr.Register(h); err != nil {
 				return err
 			}
 		}
@@ -307,8 +308,8 @@ func (e *jobExecutor) initializeScope(scope *dig.Scope) error {
 	}
 
 	if err := scope.Invoke(func(p fileCommandParams) error {
-		for _, h := range p.handlers {
-			if err := p.cmdMgr.Register(h); err != nil {
+		for _, h := range p.Handlers {
+			if err := p.CmdMgr.Register(h); err != nil {
 				return err
 			}
 		}
@@ -352,15 +353,15 @@ func (e *jobExecutor) initializeScope(scope *dig.Scope) error {
 type consoleCommandParams struct {
 	dig.In
 
-	cmdMgr   command.ConsoleManager
-	handlers []*command.ConsoleHandler `group:"console-handlers"`
+	CmdMgr   command.ConsoleManager
+	Handlers []*command.ConsoleHandler `group:"console-handlers"`
 }
 
 type fileCommandParams struct {
 	dig.In
 
-	cmdMgr   command.FileManager
-	handlers []*command.FileHandler `group:"file-handlers"`
+	CmdMgr   command.FileManager
+	Handlers []*command.FileHandler `group:"file-handlers"`
 }
 
 func (e *jobExecutor) initializeSteps(scope *dig.Scope) error {
@@ -416,7 +417,9 @@ func (e *jobExecutor) ComposeEnv(m map[string]string) {
 	supEnv := e.supervisor.ProvideEnv()
 	maps.Copy(m, supEnv)
 
-	m["PATH"] = strings.Join(e.paths, ":")
+	if len(e.paths) > 0 {
+		m["PATH"] = strings.Join(e.paths, ":")
+	}
 }
 
 func (e *jobExecutor) SetStatus(status dossiers.Result) {

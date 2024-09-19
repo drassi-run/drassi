@@ -13,6 +13,6 @@ type JobRun struct {
 
 	Env      workflows.Evaluable[map[string]string]
 	Outputs  workflows.Evaluable[map[string]string]
-	Defaults workflows.Evaluable[*workflows.Defaults]
+	Defaults workflows.Evaluable[workflows.Defaults]
 	// Environment
 }
