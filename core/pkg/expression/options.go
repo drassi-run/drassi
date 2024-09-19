@@ -9,6 +9,13 @@ import (
 
 type Option func(o *env) error
 
+func WithAlias(name string, alias string) Option {
+	return func(o *env) error {
+		o.alias[name] = alias
+		return nil
+	}
+}
+
 func WithVariable(name string, value any) Option {
 	return func(o *env) error {
 		variable := types.NativeToVal(value)

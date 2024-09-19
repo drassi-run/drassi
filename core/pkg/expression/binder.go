@@ -56,7 +56,12 @@ func (b *binder) VisitLiteralNode(node *ast.LiteralNode) any {
 }
 
 func (b *binder) VisitVariableNode(node *ast.VariableNode) any {
-	variable, ok := b.env.variables[node.Name]
+	name := node.Name
+	if alias, ok := b.env.alias[name]; ok {
+		name = alias
+	}
+
+	variable, ok := b.env.variables[name]
 	if !ok {
 		return fmt.Errorf("undefined variable: %s", node.Name)
 	}

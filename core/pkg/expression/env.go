@@ -29,6 +29,7 @@ func NewEnv(opts ...Option) (Env, error) {
 		exprCache: make(map[string]*cacheNode),
 		tmplCache: make(map[string]*cacheNode),
 
+		alias:     make(map[string]string),
 		variables: make(map[string]ref.Val),
 		functions: make(map[string]Function),
 	}
@@ -56,6 +57,7 @@ type env struct {
 	exprCache map[string]*cacheNode
 	tmplCache map[string]*cacheNode
 
+	alias     map[string]string
 	variables map[string]ref.Val
 	functions map[string]Function
 }
@@ -70,6 +72,7 @@ func (e *env) New(opts ...Option) (Env, error) {
 		exprCache: e.exprCache,
 		tmplCache: e.tmplCache,
 
+		alias:     maps.Clone(e.alias),
 		variables: maps.Clone(e.variables),
 		functions: maps.Clone(e.functions),
 	}
