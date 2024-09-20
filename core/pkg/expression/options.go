@@ -9,9 +9,9 @@ import (
 
 type Option func(o *env) error
 
-func WithAlias(name string, alias string) Option {
+func WithAlias(name string, ref string) Option {
 	return func(o *env) error {
-		o.alias[name] = alias
+		o.alias[name] = ref
 		return nil
 	}
 }

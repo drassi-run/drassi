@@ -28,7 +28,7 @@ type ScriptStepRun struct {
 	sandbox  sandboxer.Sandbox
 	streams  *sandboxer.Streams
 	exprEnv  expression.Env
-	defaults *workflows.Defaults
+	defaults workflows.Defaults
 }
 
 func (sr *ScriptStepRun) Initialize(exec StepExecutor, scope *dig.Scope) error {

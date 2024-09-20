@@ -6,7 +6,6 @@ import (
 
 	"drassi.run/core/pkg/model/dossiers"
 	"go.uber.org/dig"
-	"golang.org/x/sync/errgroup"
 )
 
 type CompositeStepRun struct {
@@ -16,16 +15,28 @@ type CompositeStepRun struct {
 }
 
 func (sr *CompositeStepRun) Initialize(exec StepExecutor, scope *dig.Scope) error {
-	g, ctx := errgroup.WithContext(exec.Context())
+	// TODO: concurrent version of Initialize is temporary disable because of concurrent map writes in scope
+	//g, ctx := errgroup.WithContext(exec.Context())
+	//for _, step := range sr.StepRuns {
+	//	cExec := exec.NewChildExecutor(step)
+	//	cScope := scope.Scope(fmt.Sprintf("step(%s)", exec.StepId()))
+	//	g.Go(func() error {
+	//		cExec.SetContext(ctx)
+	//		return cExec.Initialize(cScope)
+	//	})
+	//}
+	//return g.Wait()
+
+	ctx := exec.Context()
 	for _, step := range sr.StepRuns {
 		cExec := exec.NewChildExecutor(step)
 		cScope := scope.Scope(fmt.Sprintf("step(%s)", exec.StepId()))
-		g.Go(func() error {
-			cExec.SetContext(ctx)
-			return cExec.Initialize(cScope)
-		})
+		cExec.SetContext(ctx)
+		if err := cExec.Initialize(cScope); err != nil {
+			return err
+		}
 	}
-	return g.Wait()
+	return nil
 }
 
 func (sr *CompositeStepRun) PreTask() *Task {

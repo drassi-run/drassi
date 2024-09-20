@@ -13,19 +13,29 @@ import (
 	"syscall"
 	"time"
 
-	runnerv1 "code.gitea.io/actions-proto-go/runner/v1"
+	"code.gitea.io/actions-proto-go/runner/v1"
 	"connectrpc.com/connect"
 	"drassi.run/core/pkg/executor"
+	"drassi.run/core/pkg/executor/command"
+	"drassi.run/core/pkg/executor/problem"
+	"drassi.run/core/pkg/executor/reporter"
 	"drassi.run/core/pkg/executor/secret"
+	"drassi.run/core/pkg/expression"
+	"drassi.run/core/pkg/expression/libraries"
 	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/dossiers"
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/sandboxer/host"
+	"drassi.run/core/pkg/util/dig"
+	"drassi.run/core/pkg/wire/cmdhandler"
+	"drassi.run/core/pkg/wire/etc"
+	"drassi.run/core/pkg/wire/reporter"
+	"drassi.run/core/pkg/wire/streams"
 	"drassi.run/gitea-runner/pkg/service"
 	"github.com/spf13/cobra"
+	"go.uber.org/dig"
 	"golang.org/x/time/rate"
-	"google.golang.org/protobuf/types/known/structpb"
 	"gopkg.in/yaml.v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -138,71 +148,144 @@ func (c *launchCommand) fetchTask(ctx context.Context) (*runnerv1.Task, bool) {
 		return nil, false
 	}
 
-	// got a task, set `tasksVersion` to zero to force query db in next request.
+	// got a task, set `tasksVersion` to zero to force query db in the next request.
 	c.tasksVersion.CompareAndSwap(resp.Msg.TasksVersion, 0)
 	return resp.Msg.Task, true
 }
 
 func (c *launchCommand) runTask(ctx context.Context, task *runnerv1.Task) error {
-	workflow, err := c.decodeWorkflow(task.WorkflowPayload)
-	if err != nil {
-		return err
-	}
+	scope := dig.New().Scope("runner")
 
-	jr, err := c.convertJobRun(workflow)
-	if err != nil {
-		return err
-	}
-
-	gh, err := c.decodeContext(task.Context)
-	if err != nil {
-		return err
-	}
-
-	if gh.Token == "" {
-		if t := task.Secrets["GITEA_TOKEN"]; t != "" {
-			gh.Token = t
-		} else if t = task.Secrets["GITHUB_TOKEN"]; t != "" {
-			gh.Token = t
-		}
-	}
-
+	// expression.Env
 	needs := c.convertJobNeeds(task.Needs)
-	runner := &dossiers.Runner{
+	opts := []expression.Option{
+		expression.WithCache(true),
+		expression.WithLibrary(libraries.StdLib()),
+		expression.WithVariable("secrets", task.Secrets),
+		expression.WithVariable("vars", task.Vars),
+		expression.WithVariable("needs", needs),
+		expression.WithAlias("gitea", "github"), // make `gitea` variable alias to `github`
+	}
+	if exprEnv, err := expression.NewEnv(opts...); err != nil {
+		return err
+	} else if err = xdig.Supply(scope, exprEnv); err != nil {
+		return err
+	}
+
+	// Env context
+	env := make(map[string]string)
+	if err := xdig.Supply(scope, env); err != nil {
+		return err
+	}
+
+	// Runner context
+	runner := dossiers.Runner{
 		Name:        c.runnerInfo.Name,
 		Os:          model.Linux,
 		Arch:        model.X64,
 		Environment: "self-hosted",
 	}
-
-	d := &dossiers.Dossier{
-		Github:    gh,
-		Secrets:   task.Secrets,
-		Variables: task.Vars,
-		Needs:     needs,
-		Runner:    runner,
+	if err := xdig.Supply(scope, runner); err != nil {
+		return err
 	}
 
-	reporter := service.NewReporter(ctx, task.Id, jr, c.client)
-	defer reporter.Close()
-
-	je := executor.NewJobExecutor(jr, d, reporter)
-
-	if jh, ok := je.(executor.JobCommandHandler); ok {
-		for _, v := range task.Secrets {
-			jh.AddSecretMask(secret.NewValueSecret(v))
+	// GitHub context
+	var github dossiers.Github
+	if err := model.Decode(task.Context.AsMap(), &github); err != nil {
+		return err
+	} else if github.Token == "" {
+		if t := task.Secrets["GITEA_TOKEN"]; t != "" {
+			github.Token = t
+		} else if t = task.Secrets["GITHUB_TOKEN"]; t != "" {
+			github.Token = t
 		}
-	}
-
-	if err = je.Initialize(ctx, c.runtime); err != nil {
+	} else if err = xdig.Supply(scope, github); err != nil {
 		return err
 	}
 
-	if err = je.RunJob(ctx); err != nil {
+	// secret.Masker
+	sm := secret.NewMasker()
+	for _, v := range task.Secrets {
+		sm.AddSecret(secret.NewValueSecret(v))
+	}
+	if err := xdig.Supply(scope, sm); err != nil {
 		return err
 	}
 
-	return je.Finalize(ctx, c.runtime)
+	// problem.Matcher
+	pm := make(map[string]problem.Matcher)
+	if err := xdig.Supply(scope, pm); err != nil {
+		return err
+	}
+
+	// Wire scope
+	if err := scope.Provide(command.NewFileManager); err != nil {
+		return err
+	}
+	if err := scope.Provide(newCommandConsoleManager); err != nil {
+		return err
+	}
+	if err := scope.Provide(executor.NewSupervisor); err != nil {
+		return err
+	}
+	if err := wire_cmdhandler.ProvideTo(scope); err != nil {
+		return err
+	}
+	if err := wire_streams.ProvideTo(scope.Scope("internal(streams)")); err != nil {
+		return err
+	}
+	if err := xdig.Supply(scope, c.runtime); err != nil {
+		return err
+	}
+	if err := etc.Wire(scope); err != nil {
+		return err
+	}
+
+	// JobRun
+	workflow := new(workflows.Workflow)
+	if err := c.decodeWorkflow(task.WorkflowPayload, workflow); err != nil {
+		return err
+	}
+	jr, err := c.convertJobRun(workflow)
+	if err != nil {
+		return err
+	}
+
+	// reporter.Reporter
+	rep := service.NewReporter(ctx, task.Id, jr, c.client)
+	defer rep.Close()
+	if err = xdig.Supply[reporter.Reporter](scope, rep); err != nil {
+		return err
+	} else if err = wire_reporter.ProvideTo(scope); err != nil {
+		return err
+	} else if err = wire_reporter.Wire(scope); err != nil {
+		return err
+	}
+
+	scope = scope.Scope(fmt.Sprintf("job(%s)", jr.Id))
+	je := executor.NewJobExecutor(jr)
+	je.SetContext(ctx)
+
+	defer je.Finalize()
+	if err = je.Initialize(scope); err != nil {
+		return err
+	}
+
+	r := je.RunJob()
+	if r.Result != dossiers.ResultSuccess {
+		return fmt.Errorf("")
+	}
+
+	return nil
+}
+
+type cmParams struct {
+	dig.In
+	Out io.Writer `name:"stdout"`
+}
+
+func newCommandConsoleManager(p cmParams) command.ConsoleManager {
+	return command.NewConsoleManager(p.Out)
 }
 
 func (c *launchCommand) convertJobRun(wf *workflows.Workflow) (*executor.JobRun, error) {
@@ -234,28 +317,14 @@ func (c *launchCommand) convertJobNeeds(taskNeeds map[string]*runnerv1.TaskNeed)
 	return needs
 }
 
-func (c *launchCommand) decodeWorkflow(payload []byte) (*workflows.Workflow, error) {
+func (c *launchCommand) decodeWorkflow(payload []byte, workflow *workflows.Workflow) error {
 	var raw any
 	reader := bytes.NewReader(payload)
 	if err := yaml.NewDecoder(reader).Decode(&raw); err != nil && err != io.EOF {
-		return nil, err
+		return err
 	}
 
-	workflow := new(workflows.Workflow)
-	if err := model.Decode(raw, workflow); err != nil {
-		return nil, err
-	}
-	return workflow, nil
-}
-
-func (c *launchCommand) decodeContext(s *structpb.Struct) (*dossiers.Github, error) {
-	m := s.AsMap()
-	gh := new(dossiers.Github)
-
-	if err := model.Decode(m, gh); err != nil {
-		return nil, err
-	}
-	return gh, nil
+	return model.Decode(raw, workflow)
 }
 
 func (c *launchCommand) finalize(ctx context.Context) {
