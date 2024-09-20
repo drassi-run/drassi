@@ -1,4 +1,4 @@
-package dossiers
+package records
 
 // Contexts are a way to access information about workflow runs, variables, runner environments, jobs, and steps.
 // Each context is an object that contains properties, which can be strings or other objects.

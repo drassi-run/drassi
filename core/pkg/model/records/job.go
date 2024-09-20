@@ -1,4 +1,4 @@
-package dossiers
+package records
 
 // The job context contains information about the currently running job.
 // https://docs.github.com/en/actions/learn-github-actions/contexts#job-context

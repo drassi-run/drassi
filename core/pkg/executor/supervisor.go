@@ -4,7 +4,7 @@ import (
 	"context"
 	"maps"
 
-	"drassi.run/core/pkg/model/dossiers"
+	"drassi.run/core/pkg/model/records"
 )
 
 type Supervisor interface {
@@ -15,10 +15,10 @@ type Supervisor interface {
 	Register(...Callback)
 
 	BeforeJobRun(je JobExecutor) error
-	AfterJobRun(je JobExecutor, result *dossiers.Job) error
+	AfterJobRun(je JobExecutor, result *records.Job) error
 
 	BeforeStepRun(se StepExecutor) error
-	AfterStepRun(se StepExecutor, result *dossiers.Step) error
+	AfterStepRun(se StepExecutor, result *records.Step) error
 
 	BeforeTaskRun(t *Task, se StepExecutor) error
 	AfterTaskRun(t *Task, se StepExecutor) error
@@ -30,10 +30,10 @@ type Callback func(*hook)
 
 type hook struct {
 	beforeRunJobCallbacks []func(JobExecutor) error
-	afterRunJobCallbacks  []func(JobExecutor, *dossiers.Job) error
+	afterRunJobCallbacks  []func(JobExecutor, *records.Job) error
 
 	beforeRunStepCallbacks []func(StepExecutor) error
-	afterRunStepCallbacks  []func(StepExecutor, *dossiers.Step) error
+	afterRunStepCallbacks  []func(StepExecutor, *records.Step) error
 
 	beforeRunTaskCallbacks []func(*Task, StepExecutor) error
 	afterRunTaskCallbacks  []func(*Task, StepExecutor) error
@@ -47,7 +47,7 @@ func BeforeRunJobCallback(cb func(JobExecutor) error) Callback {
 	}
 }
 
-func AfterRunJobCallback(cb func(JobExecutor, *dossiers.Job) error) Callback {
+func AfterRunJobCallback(cb func(JobExecutor, *records.Job) error) Callback {
 	return func(h *hook) {
 		h.afterRunJobCallbacks = append(h.afterRunJobCallbacks, cb)
 	}
@@ -59,7 +59,7 @@ func BeforeRunStepCallback(cb func(StepExecutor) error) Callback {
 	}
 }
 
-func AfterRunStepCallback(cb func(StepExecutor, *dossiers.Step) error) Callback {
+func AfterRunStepCallback(cb func(StepExecutor, *records.Step) error) Callback {
 	return func(h *hook) {
 		h.afterRunStepCallbacks = append(h.afterRunStepCallbacks, cb)
 	}
@@ -133,7 +133,7 @@ func (s *supervisor) BeforeJobRun(je JobExecutor) error {
 	return nil
 }
 
-func (s *supervisor) AfterJobRun(je JobExecutor, result *dossiers.Job) error {
+func (s *supervisor) AfterJobRun(je JobExecutor, result *records.Job) error {
 	for _, cb := range s.afterRunJobCallbacks {
 		if err := cb(je, result); err != nil {
 			return err
@@ -155,7 +155,7 @@ func (s *supervisor) BeforeStepRun(se StepExecutor) error {
 	return nil
 }
 
-func (s *supervisor) AfterStepRun(se StepExecutor, result *dossiers.Step) error {
+func (s *supervisor) AfterStepRun(se StepExecutor, result *records.Step) error {
 	for _, cb := range s.afterRunStepCallbacks {
 		if err := cb(se, result); err != nil {
 			return err

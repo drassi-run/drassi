@@ -9,7 +9,7 @@ import (
 	"drassi.run/core/pkg/executor/command"
 	"drassi.run/core/pkg/executor/problem"
 	"drassi.run/core/pkg/executor/reporter"
-	"drassi.run/core/pkg/model/dossiers"
+	"drassi.run/core/pkg/model/records"
 )
 
 type chainedLineHandler func(line string) (next bool, err error)
@@ -25,7 +25,7 @@ func processCommand(consoleMgr command.ConsoleManager, sup executor.Supervisor) 
 		if err != nil {
 			step := sup.CurrentStep()
 			if step != nil {
-				step.SetStatus(dossiers.ResultFailure)
+				step.SetStatus(records.ResultFailure)
 			}
 		}
 		return false, err

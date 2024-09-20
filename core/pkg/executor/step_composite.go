@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"slices"
 
-	"drassi.run/core/pkg/model/dossiers"
+	"drassi.run/core/pkg/model/records"
 	"go.uber.org/dig"
 )
 
@@ -71,7 +71,7 @@ func (sr *CompositeStepRun) createStageTask(stage Stage, fn func(StepRun) *Task)
 
 				cExec.SetContext(exec.Context())
 				res := cExec.RunStep(fn)
-				if res != nil && res.Conclusion == dossiers.ResultFailure {
+				if res != nil && res.Conclusion == records.ResultFailure {
 					return fmt.Errorf(`step %q (%s) failed`, id, stage)
 				}
 			}

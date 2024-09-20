@@ -3,7 +3,7 @@ package reporter
 import (
 	"io"
 
-	"drassi.run/core/pkg/model/dossiers"
+	"drassi.run/core/pkg/model/records"
 )
 
 // https://github.com/actions/runner/blob/main/src/Sdk/DTWebApi/WebApi/Issue.cs
@@ -30,9 +30,9 @@ type Reporter interface {
 	Stderr() io.Writer
 
 	StartJob()
-	EndJob(result dossiers.Result, outputs map[string]string)
+	EndJob(result records.Result, outputs map[string]string)
 	StartStep(stepId string)
-	EndStep(stepId string, result dossiers.Result)
+	EndStep(stepId string, result records.Result)
 
 	AddIssue(issue *Issue) error
 	AttachFile(kind, name string, reader io.Reader) error

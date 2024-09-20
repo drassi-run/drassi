@@ -1,4 +1,4 @@
-package dossiers
+package records
 
 import "drassi.run/core/pkg/model"
 

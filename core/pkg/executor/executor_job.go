@@ -14,7 +14,7 @@ import (
 	"drassi.run/core/pkg/executor/evaluator"
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/expression/libraries"
-	"drassi.run/core/pkg/model/dossiers"
+	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/util/dig"
@@ -29,10 +29,10 @@ type JobExecutor interface {
 	SetContext(ctx context.Context)
 
 	Initialize(scope *dig.Scope) error
-	RunJob() *dossiers.Job
+	RunJob() *records.Job
 	Finalize() error
 	ComposeEnv(m map[string]string)
-	SetStatus(status dossiers.Result)
+	SetStatus(status records.Result)
 
 	AddPath(paths []string) error
 	SetEnv(env map[string]string) error
@@ -48,11 +48,11 @@ type jobExecutor struct {
 	jobRun *JobRun
 
 	// records
-	github  dossiers.Github
-	runner  dossiers.Runner
-	jobInfo *dossiers.JobInfo
-	job     *dossiers.Job
-	steps   map[string]*dossiers.Step
+	github  records.Github
+	runner  records.Runner
+	jobInfo *records.JobInfo
+	job     *records.Job
+	steps   map[string]*records.Step
 	env     map[string]string
 	paths   []string
 
@@ -106,8 +106,8 @@ func (e *jobExecutor) Initialize(scope *dig.Scope) error {
 	return e.initializeSteps(scope)
 }
 
-func (e *jobExecutor) RunJob() *dossiers.Job {
-	e.SetStatus(dossiers.ResultSuccess)
+func (e *jobExecutor) RunJob() *records.Job {
+	e.SetStatus(records.ResultSuccess)
 	states := map[Stage]func(StepRun) *Task{
 		StagePre:  StepRun.PreTask,
 		StageMain: StepRun.MainTask,
@@ -115,12 +115,12 @@ func (e *jobExecutor) RunJob() *dossiers.Job {
 	}
 	for state, fn := range states {
 		if err := e.runStage(state, fn); err != nil {
-			e.SetStatus(dossiers.ResultFailure)
+			e.SetStatus(records.ResultFailure)
 			//log err
 		}
 	}
 	if err := evaluator.Evaluate(e.exprEnv, e.jobRun.Outputs, &e.job.Outputs); err != nil {
-		e.SetStatus(dossiers.ResultFailure)
+		e.SetStatus(records.ResultFailure)
 	}
 	return e.job
 }
@@ -188,9 +188,9 @@ func (e *jobExecutor) initializeJob(scope *dig.Scope) error {
 		e.github.ActionRepository = ""
 		e.github.ActionStatus = ""
 	}
-	e.jobInfo = new(dossiers.JobInfo)
-	e.job = new(dossiers.Job)
-	e.steps = make(map[string]*dossiers.Step, len(e.jobRun.Steps))
+	e.jobInfo = new(records.JobInfo)
+	e.job = new(records.Job)
+	e.steps = make(map[string]*records.Step, len(e.jobRun.Steps))
 
 	if err := e.supervisor.BeforeJobRun(e); err != nil {
 		return err
@@ -405,7 +405,7 @@ func (e *jobExecutor) runStage(stage Stage, fn func(StepRun) *Task) error {
 			continue
 		}
 		e.steps[id] = res
-		if res.Conclusion == dossiers.ResultFailure {
+		if res.Conclusion == records.ResultFailure {
 			return fmt.Errorf(`step %q (%s) failed`, id, stage)
 		}
 	}
@@ -433,7 +433,7 @@ func (e *jobExecutor) ComposeEnv(m map[string]string) {
 	}
 }
 
-func (e *jobExecutor) SetStatus(status dossiers.Result) {
+func (e *jobExecutor) SetStatus(status records.Result) {
 	e.job.Result = status
 	e.jobInfo.Status = status
 }

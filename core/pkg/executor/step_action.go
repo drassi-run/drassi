@@ -9,7 +9,7 @@ import (
 
 	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/actions"
-	"drassi.run/core/pkg/model/dossiers"
+	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/store/repository"
 	"drassi.run/core/pkg/store/repository/gitstore"
 	"drassi.run/core/pkg/util/dig"
@@ -39,7 +39,7 @@ func (sr *ActionStepRun) Repository() *repository.Repository {
 }
 
 func (sr *ActionStepRun) Initialize(exec StepExecutor, scope *dig.Scope) error {
-	var github dossiers.Github
+	var github records.Github
 	if err := xdig.Populate(scope, &github); err != nil {
 		return err
 	}
