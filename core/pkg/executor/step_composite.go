@@ -104,7 +104,7 @@ func (sr *CompositeStepRun) createStageTask(stage Stage, fn func(StepRun) *Task)
 			}
 		}
 
-		return nil
+		return sr.produceOutputs(exec)
 	}
 
 	return &Task{
@@ -116,4 +116,12 @@ func (sr *CompositeStepRun) createStageTask(stage Stage, fn func(StepRun) *Task)
 func (sr *CompositeStepRun) computeInputs() error {
 	clear(sr.inputs)
 	return evaluator.Evaluate(sr.exprEnv, sr.Inputs, &sr.inputs)
+}
+
+func (sr *CompositeStepRun) produceOutputs(exec StepExecutor) error {
+	outputs := make(map[string]string)
+	if err := evaluator.Evaluate(sr.exprEnv, sr.Outputs, &outputs); err != nil {
+		return err
+	}
+	return exec.SetOutput(outputs)
 }
