@@ -165,6 +165,9 @@ func (c *launchCommand) runTask(ctx context.Context, task *runnerv1.Task) error 
 		expression.WithVariable("vars", task.Vars),
 		expression.WithVariable("needs", needs),
 		expression.WithAlias("gitea", "github"), // make `gitea` variable alias to `github`
+		expression.WithVariable("strategy", new(records.Strategy)),
+		expression.WithVariable("matrix", make(map[string]string)),
+		expression.WithVariable("inputs", make(map[string]any)),
 	}
 	if exprEnv, err := expression.NewEnv(opts...); err != nil {
 		return err
