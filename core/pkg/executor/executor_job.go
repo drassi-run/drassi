@@ -404,8 +404,12 @@ func (e *jobExecutor) runStage(stage Stage, fn func(StepRun) *Task) error {
 		if res == nil {
 			continue
 		}
-		e.steps[id] = res
+		// Only set `steps` records in `main` stage & `id` is user specified
+		if stage == StageMain && !strings.HasPrefix(id, "__") {
+			e.steps[id] = res
+		}
 		if res.Conclusion == records.ResultFailure {
+			e.job.Result = records.ResultFailure
 			return fmt.Errorf(`step %q (%s) failed`, id, stage)
 		}
 	}

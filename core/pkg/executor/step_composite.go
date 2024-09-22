@@ -100,6 +100,7 @@ func (sr *CompositeStepRun) createStageTask(stage Stage, fn func(StepRun) *Task)
 			cExec.SetContext(ctx)
 			res := cExec.RunStep(fn)
 			if res != nil && res.Conclusion == records.ResultFailure {
+				exec.SetStatus(records.ResultFailure)
 				return fmt.Errorf(`step %q (%s) failed`, id, stage)
 			}
 		}
