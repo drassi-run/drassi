@@ -41,8 +41,8 @@ func DecodeRunsHook(from reflect.Value, to reflect.Value) (any, error) {
 		}
 	} else if strings.HasPrefix(using, "node") {
 		if t == nil {
-			to.Set(reflect.ValueOf(&JavaScriptRuns{}))
-		} else if _, ok := t.(*JavaScriptRuns); !ok {
+			to.Set(reflect.ValueOf(&NodeRuns{}))
+		} else if _, ok := t.(*NodeRuns); !ok {
 			return nil, fmt.Errorf(`map with using=%q CAN'T be decode to %T`, using, t)
 		}
 	}

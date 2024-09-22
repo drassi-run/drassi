@@ -6,7 +6,7 @@ type Runs interface {
 	isRuns()
 }
 
-type JavaScriptRuns struct {
+type NodeRuns struct {
 	// The application used to execute the code specified in `main`.
 	// https://docs.github.com/en/actions/creating-actions/metadata-syntax-for-github-actions#runsusing-for-javascript-actions
 	Using string `json:"using,omitempty" yaml:"using,omitempty" actions:"using,omitempty" validate:"required"`
@@ -43,7 +43,7 @@ type JavaScriptRuns struct {
 	PostIf workflows.Conditional `json:"post-if,omitempty" yaml:"post-if,omitempty" actions:"post-if,omitempty"`
 }
 
-func (r *JavaScriptRuns) isRuns() {
+func (r *NodeRuns) isRuns() {
 }
 
 type DockerRuns struct {

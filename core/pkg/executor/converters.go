@@ -122,7 +122,7 @@ func toActionStepRun(s *workflows.UsesStep, bsr *BaseStepRun) StepRun {
 func FromAction(action *actions.Action) (StepRun, error) {
 	var sr StepRun
 	switch r := action.Runs.(type) {
-	case *actions.JavaScriptRuns:
+	case *actions.NodeRuns:
 		sr = &NodeStepRun{
 			Runtime: r.Using,
 			Main:    r.Main,
