@@ -7,6 +7,7 @@ import (
 	"drassi.run/core/pkg/executor/evaluator"
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/model/records"
+	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/util/dig"
 	"go.uber.org/dig"
 )
@@ -108,9 +109,17 @@ func (sr *CompositeStepRun) createStageTask(stage Stage, fn func(StepRun) *Task)
 		return sr.produceOutputs(exec)
 	}
 
+	// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionManifestManager.cs#L472-L490
+	var condition workflows.Conditional
+	if stage == StagePre || stage == StagePost {
+		condition = "always()"
+	}
+
 	return &Task{
-		Stage: stage,
-		Run:   taskRun,
+		StepId:    sr.Id,
+		Stage:     stage,
+		Condition: condition,
+		Run:       taskRun,
 	}
 }
 
