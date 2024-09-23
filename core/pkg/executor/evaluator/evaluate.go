@@ -23,23 +23,39 @@ func Evaluate[R any](env expression.Env, evaluable workflows.Evaluable[R], v *R)
 	}
 }
 
+// Meet evaluate [workflows.Conditional] in [expression.Env]
+//   - When condition is empty, default to "success()"
+//   - When a status function is not referenced, refined "CONDITION" as "success() && <CONDITION>"
+//
+// https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTPipelines/Pipelines/ObjectTemplating/PipelineTemplateConverter.cs#L591
 func Meet(env expression.Env, condition workflows.Conditional) (bool, error) {
 	con := string(condition)
 	if con == "" {
-		return true, nil
+		con = "success()"
 	}
 
-	u := &unraveler{env: env}
 	pure := !strings.Contains(con, workflows.OpenExpression)
-
-	if res, err := u.UnravelExpression(con, pure); err != nil {
+	node, err := env.Parse(con, pure)
+	if err != nil {
 		return false, err
 	} else {
-		v := types.NativeToVal(res)
-
-		// See libraries.isTruthy
-		b, ok := v.(traits.Logical)
-		meet := !ok || b.ToBoolean()
-		return meet, nil
+		r := new(refiner)
+		node = r.Refine(node)
 	}
+
+	prog, err := env.Bind(node)
+	if err != nil {
+		return false, err
+	}
+
+	res, err := env.Execute(prog)
+	if err != nil {
+		return false, err
+	}
+
+	v := types.NativeToVal(res)
+	// See libraries.isTruthy
+	b, ok := v.(traits.Logical)
+	meet := !ok || b.ToBoolean()
+	return meet, nil
 }
