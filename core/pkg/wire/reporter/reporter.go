@@ -6,7 +6,7 @@ import (
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/executor/reporter"
 	"drassi.run/core/pkg/executor/secret"
-	"drassi.run/core/pkg/model/dossiers"
+	"drassi.run/core/pkg/model/records"
 	"go.uber.org/dig"
 )
 
@@ -83,7 +83,7 @@ func registerCallbacks(rep reporter.Reporter, sup executor.Supervisor) error {
 	}
 	sup.Register(executor.BeforeRunJobCallback(h1))
 
-	h2 := func(je executor.JobExecutor, result *dossiers.Job) error {
+	h2 := func(je executor.JobExecutor, result *records.Job) error {
 		rep.EndJob(result.Result, result.Outputs)
 		return nil
 	}
@@ -95,7 +95,7 @@ func registerCallbacks(rep reporter.Reporter, sup executor.Supervisor) error {
 	}
 	sup.Register(executor.BeforeRunStepCallback(h3))
 
-	h4 := func(se executor.StepExecutor, result *dossiers.Step) error {
+	h4 := func(se executor.StepExecutor, result *records.Step) error {
 		rep.EndStep(se.StepId(), result.Outcome)
 		return nil
 	}

@@ -43,7 +43,7 @@ func TestDecodeRuns(t *testing.T) {
 	}
 
 	t.Run("js", func(tt *testing.T) {
-		runs := &JavaScriptRuns{
+		runs := &NodeRuns{
 			Using: "node20",
 			Main:  "main.js",
 		}
@@ -67,7 +67,7 @@ func TestDecodeRuns(t *testing.T) {
 
 	t.Run("conflict/empty", func(tt *testing.T) {
 		input := map[string]any{}
-		var runs Runs = &JavaScriptRuns{}
+		var runs Runs = &NodeRuns{}
 		err := model.Decode(input, &runs)
 
 		assert.ErrorContains(tt, err, "`using` is required, and MUST be a string")
@@ -88,7 +88,7 @@ func TestDecodeRuns(t *testing.T) {
 	})
 
 	t.Run("conflict/wrong-map-type/3", func(tt *testing.T) {
-		var runs Runs = &JavaScriptRuns{}
+		var runs Runs = &NodeRuns{}
 		err := model.Decode(compositeInput, &runs)
 
 		assert.ErrorContains(tt, err, fmt.Sprintf(`map with using=%q CAN'T be decode to %T`, compositeInput["using"], runs))
@@ -143,7 +143,7 @@ func TestDecodeRuns(t *testing.T) {
 		input := map[string]any{
 			"using": "docker",
 		}
-		runs := new(JavaScriptRuns)
+		runs := new(NodeRuns)
 		err := model.DecodeWithOptions(input, &runs, opt)
 		assert.NilError(tt, err)
 	})

@@ -10,7 +10,7 @@ import (
 	"drassi.run/core/pkg/executor/evaluator"
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/expression/libraries"
-	"drassi.run/core/pkg/model/dossiers"
+	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/store/repository"
 	"drassi.run/core/pkg/util/dig"
 
@@ -28,9 +28,9 @@ type StepExecutor interface {
 	SetContext(ctx context.Context)
 
 	Initialize(scope *dig.Scope) error
-	RunStep(fn func(StepRun) *Task) *dossiers.Step
+	RunStep(fn func(StepRun) *Task) *records.Step
 	ComposeEnv(m map[string]string)
-	SetStatus(status dossiers.Result)
+	SetStatus(status records.Result)
 
 	SetEnv(env map[string]string) error
 	CreateStepSummary(r io.Reader) error
@@ -54,8 +54,8 @@ type stepExecutor struct {
 	stepRun  StepRun
 
 	// records
-	github dossiers.Github
-	step   *dossiers.Step
+	github records.Github
+	step   *records.Step
 	env    map[string]string
 	jobEnv map[string]string
 	state  map[string]string // Intra action state
@@ -121,7 +121,7 @@ func (e *stepExecutor) Initialize(scope *dig.Scope) error {
 	}
 	e.env = make(map[string]string)
 	maps.Copy(e.env, e.jobEnv)
-	e.step = new(dossiers.Step)
+	e.step = new(records.Step)
 	e.step.Outputs = make(map[string]string)
 	e.state = make(map[string]string)
 
@@ -165,7 +165,7 @@ func (e *stepExecutor) Initialize(scope *dig.Scope) error {
 	return nil
 }
 
-func (e *stepExecutor) RunStep(fn func(StepRun) *Task) *dossiers.Step {
+func (e *stepExecutor) RunStep(fn func(StepRun) *Task) *records.Step {
 	task := fn(e.stepRun)
 	if task == nil {
 		return nil
@@ -190,17 +190,17 @@ func (e *stepExecutor) beginTask(task *Task) error {
 	clear(e.env)
 	maps.Copy(e.env, e.jobEnv)
 	if err := evaluator.Evaluate(e.exprEnv, base.Env, &e.env); err != nil {
-		e.SetStatus(dossiers.ResultFailure)
+		e.SetStatus(records.ResultFailure)
 		return err
 	}
 
 	if meet, err := evaluator.Meet(e.exprEnv, task.Condition); err != nil {
-		e.SetStatus(dossiers.ResultFailure)
-		e.step.Conclusion = dossiers.ResultFailure
+		e.SetStatus(records.ResultFailure)
+		e.step.Conclusion = records.ResultFailure
 		return err
 	} else if !meet {
-		e.SetStatus(dossiers.ResultSkipped)
-		e.step.Conclusion = dossiers.ResultSkipped
+		e.SetStatus(records.ResultSkipped)
+		e.step.Conclusion = records.ResultSkipped
 		// TODO logging
 	}
 	return nil
@@ -212,7 +212,7 @@ func (e *stepExecutor) runTask(task *Task) error {
 	timeout := int64(-1)
 	if err := evaluator.Evaluate(e.exprEnv, base.TimeoutInMinutes, &timeout); err != nil {
 		// TODO logging
-		e.SetStatus(dossiers.ResultFailure)
+		e.SetStatus(records.ResultFailure)
 		return err
 	} else if timeout > 0 {
 		ctx, cancel := context.WithTimeout(e.ctx, time.Duration(timeout)*time.Minute)
@@ -222,7 +222,7 @@ func (e *stepExecutor) runTask(task *Task) error {
 
 	if err := e.supervisor.BeforeTaskRun(task, e); err != nil {
 		// TODO logging
-		e.SetStatus(dossiers.ResultFailure)
+		e.SetStatus(records.ResultFailure)
 		return err
 	}
 
@@ -239,32 +239,32 @@ func (e *stepExecutor) runTask(task *Task) error {
 	}
 
 	if err != nil {
-		e.SetStatus(dossiers.ResultFailure)
+		e.SetStatus(records.ResultFailure)
 		//logger.WithField("stepResult", stepResult.Outcome).Errorf("  \u274C  Failure - %s %s", stage, stepString)
 	} else {
-		e.SetStatus(dossiers.ResultSuccess)
+		e.SetStatus(records.ResultSuccess)
 	}
 
 	if err = e.supervisor.AfterTaskRun(task, e); err != nil {
 		// TODO logging
-		e.SetStatus(dossiers.ResultFailure)
+		e.SetStatus(records.ResultFailure)
 		return err
 	}
 	return nil
 }
 
 func (e *stepExecutor) endTask(task *Task) {
-	if e.step.Outcome == dossiers.ResultFailure {
+	if e.step.Outcome == records.ResultFailure {
 		base := e.stepRun.Base()
 
 		continueOnError := false
 		if err := evaluator.Evaluate(e.exprEnv, base.ContinueOnError, &continueOnError); err != nil {
 			//logger.Infof("Failed but continue next step")
 			//return err
-			e.step.Conclusion = dossiers.ResultFailure
+			e.step.Conclusion = records.ResultFailure
 		} else if continueOnError {
 			//logger.Infof("Failed but continue next step")
-			e.step.Conclusion = dossiers.ResultSuccess
+			e.step.Conclusion = records.ResultSuccess
 		} else {
 			e.step.Conclusion = e.step.Outcome
 		}
@@ -323,7 +323,7 @@ func (e *stepExecutor) ComposeEnv(m map[string]string) {
 	}
 }
 
-func (e *stepExecutor) SetStatus(status dossiers.Result) {
+func (e *stepExecutor) SetStatus(status records.Result) {
 	e.github.ActionStatus = status
 	e.step.Outcome = status
 }

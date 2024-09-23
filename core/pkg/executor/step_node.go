@@ -28,10 +28,15 @@ func (sr *NodeStepRun) PreTask() *Task {
 	if sr.Pre == "" {
 		return nil
 	}
+	// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionManifestManager.cs#L451-L471
+	condition := sr.PreIf
+	if condition == "" {
+		condition = "always()"
+	}
 	return &Task{
 		StepId:    sr.Id,
 		Stage:     StagePre,
-		Condition: sr.PreIf,
+		Condition: condition,
 		Run:       sr.execute(StagePre),
 	}
 }
@@ -49,10 +54,15 @@ func (sr *NodeStepRun) PostTask() *Task {
 	if sr.Post == "" {
 		return nil
 	}
+	// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionManifestManager.cs#L451-L471
+	condition := sr.PostIf
+	if condition == "" {
+		condition = "always()"
+	}
 	return &Task{
 		StepId:    sr.Id,
 		Stage:     StagePost,
-		Condition: sr.PostIf,
+		Condition: condition,
 		Run:       sr.execute(StagePost),
 	}
 }

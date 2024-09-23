@@ -23,7 +23,7 @@ import (
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/expression/libraries"
 	"drassi.run/core/pkg/model"
-	"drassi.run/core/pkg/model/dossiers"
+	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/sandboxer/host"
@@ -165,6 +165,9 @@ func (c *launchCommand) runTask(ctx context.Context, task *runnerv1.Task) error 
 		expression.WithVariable("vars", task.Vars),
 		expression.WithVariable("needs", needs),
 		expression.WithAlias("gitea", "github"), // make `gitea` variable alias to `github`
+		expression.WithVariable("strategy", new(records.Strategy)),
+		expression.WithVariable("matrix", make(map[string]string)),
+		expression.WithVariable("inputs", make(map[string]any)),
 	}
 	if exprEnv, err := expression.NewEnv(opts...); err != nil {
 		return err
@@ -179,7 +182,7 @@ func (c *launchCommand) runTask(ctx context.Context, task *runnerv1.Task) error 
 	}
 
 	// Runner context
-	runner := dossiers.Runner{
+	runner := records.Runner{
 		Name:        c.runnerInfo.Name,
 		Os:          model.Linux,
 		Arch:        model.X64,
@@ -190,7 +193,7 @@ func (c *launchCommand) runTask(ctx context.Context, task *runnerv1.Task) error 
 	}
 
 	// GitHub context
-	var github dossiers.Github
+	var github records.Github
 	if err := model.Decode(task.Context.AsMap(), &github); err != nil {
 		return err
 	} else if github.Token == "" {
@@ -272,7 +275,7 @@ func (c *launchCommand) runTask(ctx context.Context, task *runnerv1.Task) error 
 	}
 
 	r := je.RunJob()
-	if r.Result != dossiers.ResultSuccess {
+	if r.Result != records.ResultSuccess {
 		return fmt.Errorf("")
 	}
 
@@ -302,14 +305,14 @@ func (c *launchCommand) convertJobRun(wf *workflows.Workflow) (*executor.JobRun,
 	return nil, fmt.Errorf("empty job")
 }
 
-func (c *launchCommand) convertJobNeeds(taskNeeds map[string]*runnerv1.TaskNeed) map[string]*dossiers.Need {
+func (c *launchCommand) convertJobNeeds(taskNeeds map[string]*runnerv1.TaskNeed) map[string]*records.Need {
 	if len(taskNeeds) == 0 {
 		return nil
 	}
 
-	needs := make(map[string]*dossiers.Need, len(taskNeeds))
+	needs := make(map[string]*records.Need, len(taskNeeds))
 	for k, n := range taskNeeds {
-		needs[k] = &dossiers.Need{
+		needs[k] = &records.Need{
 			Outputs: n.Outputs,
 			Result:  resultMap[n.Result],
 		}
@@ -378,10 +381,10 @@ func loadJson(file string, object any) error {
 	return json.NewDecoder(f).Decode(object)
 }
 
-var resultMap = map[runnerv1.Result]dossiers.Result{
+var resultMap = map[runnerv1.Result]records.Result{
 	runnerv1.Result_RESULT_UNSPECIFIED: "",
-	runnerv1.Result_RESULT_SUCCESS:     dossiers.ResultSuccess,
-	runnerv1.Result_RESULT_FAILURE:     dossiers.ResultFailure,
-	runnerv1.Result_RESULT_CANCELLED:   dossiers.ResultCancelled,
-	runnerv1.Result_RESULT_SKIPPED:     dossiers.ResultSkipped,
+	runnerv1.Result_RESULT_SUCCESS:     records.ResultSuccess,
+	runnerv1.Result_RESULT_FAILURE:     records.ResultFailure,
+	runnerv1.Result_RESULT_CANCELLED:   records.ResultCancelled,
+	runnerv1.Result_RESULT_SKIPPED:     records.ResultSkipped,
 }

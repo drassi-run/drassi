@@ -4,17 +4,43 @@ import (
 	"fmt"
 	"slices"
 
-	"drassi.run/core/pkg/model/dossiers"
+	"drassi.run/core/pkg/executor/evaluator"
+	"drassi.run/core/pkg/expression"
+	"drassi.run/core/pkg/model/records"
+	"drassi.run/core/pkg/model/workflows"
+	"drassi.run/core/pkg/util/dig"
 	"go.uber.org/dig"
 )
 
 type CompositeStepRun struct {
 	BaseStepRun
-
 	StepRuns []StepRun
+
+	exprEnv expression.Env
+	inputs  map[string]string
 }
 
 func (sr *CompositeStepRun) Initialize(exec StepExecutor, scope *dig.Scope) error {
+	sr.inputs = make(map[string]string)
+	if err := xdig.Populate(scope, &sr.exprEnv); err != nil {
+		return err
+	}
+
+	// create a new intermediate scope to store composite values (inputs & exprEnv)
+	scope = scope.Scope("composite")
+	opts := []expression.Option{
+		// inputs from upper layers will NOT be passed to child steps
+		expression.WithVariable("inputs", sr.inputs),
+	}
+	if exprEnv, err := sr.exprEnv.New(opts...); err != nil {
+		return err
+	} else if err = xdig.Supply(scope, exprEnv); err != nil {
+		return err
+	}
+	if err := xdig.Supply(scope, sr.inputs); err != nil {
+		return err
+	}
+
 	// TODO: concurrent version of Initialize is temporary disable because of concurrent map writes in scope
 	//g, ctx := errgroup.WithContext(exec.Context())
 	//for _, step := range sr.StepRuns {
@@ -60,22 +86,52 @@ func (sr *CompositeStepRun) createStageTask(stage Stage, fn func(StepRun) *Task)
 		slices.Reverse(taskIds) // in place reverse
 	}
 
-	return &Task{
-		Stage: stage,
-		Run: func(exec StepExecutor) error {
-			for _, id := range taskIds {
-				cExec := exec.ChildExecutor(id)
-				if cExec == nil {
-					return fmt.Errorf(`task %q has no child context`, id)
-				}
+	taskRun := func(exec StepExecutor) error {
+		if err := sr.computeInputs(); err != nil {
+			return err
+		}
 
-				cExec.SetContext(exec.Context())
-				res := cExec.RunStep(fn)
-				if res != nil && res.Conclusion == dossiers.ResultFailure {
-					return fmt.Errorf(`step %q (%s) failed`, id, stage)
-				}
+		ctx := exec.Context()
+		for _, id := range taskIds {
+			cExec := exec.ChildExecutor(id)
+			if cExec == nil {
+				return fmt.Errorf(`task %q has no child context`, id)
 			}
-			return nil
-		},
+
+			cExec.SetContext(ctx)
+			res := cExec.RunStep(fn)
+			if res != nil && res.Conclusion == records.ResultFailure {
+				exec.SetStatus(records.ResultFailure)
+				return fmt.Errorf(`step %q (%s) failed`, id, stage)
+			}
+		}
+
+		return sr.produceOutputs(exec)
 	}
+
+	// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionManifestManager.cs#L472-L490
+	var condition workflows.Conditional
+	if stage == StagePre || stage == StagePost {
+		condition = "always()"
+	}
+
+	return &Task{
+		StepId:    sr.Id,
+		Stage:     stage,
+		Condition: condition,
+		Run:       taskRun,
+	}
+}
+
+func (sr *CompositeStepRun) computeInputs() error {
+	clear(sr.inputs)
+	return evaluator.Evaluate(sr.exprEnv, sr.Inputs, &sr.inputs)
+}
+
+func (sr *CompositeStepRun) produceOutputs(exec StepExecutor) error {
+	outputs := make(map[string]string)
+	if err := evaluator.Evaluate(sr.exprEnv, sr.Outputs, &outputs); err != nil {
+		return err
+	}
+	return exec.SetOutput(outputs)
 }

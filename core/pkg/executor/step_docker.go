@@ -65,10 +65,15 @@ func (sr *DockerStepRun) PreTask() *Task {
 	if sr.PreEntrypoint == "" {
 		return nil
 	}
+	// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionManifestManager.cs#L430-L450
+	condition := sr.PreIf
+	if condition == "" {
+		condition = "always()"
+	}
 	return &Task{
 		StepId:    sr.Id,
 		Stage:     StagePre,
-		Condition: sr.PreIf,
+		Condition: condition,
 		Run:       sr.execute(StagePre),
 	}
 }
@@ -86,10 +91,15 @@ func (sr *DockerStepRun) PostTask() *Task {
 	if sr.PostEntrypoint == "" {
 		return nil
 	}
+	// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionManifestManager.cs#L430-L450
+	condition := sr.PostIf
+	if condition == "" {
+		condition = "always()"
+	}
 	return &Task{
 		StepId:    sr.Id,
 		Stage:     StagePost,
-		Condition: sr.PostIf,
+		Condition: condition,
 		Run:       sr.execute(StagePost),
 	}
 }

@@ -3,7 +3,7 @@ package libraries
 import (
 	"drassi.run/core/pkg/expression/types"
 	"drassi.run/core/pkg/expression/types/ref"
-	"drassi.run/core/pkg/model/dossiers"
+	"drassi.run/core/pkg/model/records"
 )
 
 func (lib *jobLib) Always() ref.Val {
@@ -11,17 +11,17 @@ func (lib *jobLib) Always() ref.Val {
 }
 
 func (lib *jobLib) Success() ref.Val {
-	r := lib.job.Result == dossiers.ResultSuccess
+	r := lib.job.Result == records.ResultSuccess
 	return types.Boolean(r)
 }
 
 func (lib *jobLib) Failure() ref.Val {
-	r := lib.job.Result == dossiers.ResultFailure
+	r := lib.job.Result == records.ResultFailure
 	return types.Boolean(r)
 }
 
 func (lib *jobLib) Cancelled() ref.Val {
-	r := lib.job.Result == dossiers.ResultCancelled
+	r := lib.job.Result == records.ResultCancelled
 	return types.Boolean(r)
 }
 
@@ -30,16 +30,16 @@ func (lib *stepLib) Always() ref.Val {
 }
 
 func (lib *stepLib) Success() ref.Val {
-	r := lib.step.Outcome == dossiers.ResultSuccess
+	r := lib.step.Outcome == records.ResultSuccess
 	return types.Boolean(r)
 }
 
 func (lib *stepLib) Failure() ref.Val {
-	r := lib.step.Outcome == dossiers.ResultFailure
+	r := lib.step.Outcome == records.ResultFailure
 	return types.Boolean(r)
 }
 
 func (lib *stepLib) Cancelled() ref.Val {
-	r := lib.step.Outcome == dossiers.ResultCancelled
+	r := lib.step.Outcome == records.ResultCancelled
 	return types.Boolean(r)
 }

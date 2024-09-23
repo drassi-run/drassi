@@ -2,15 +2,15 @@ package libraries
 
 import (
 	expr "drassi.run/core/pkg/expression"
-	"drassi.run/core/pkg/model/dossiers"
+	"drassi.run/core/pkg/model/records"
 )
 
-func JobLib(job *dossiers.Job) expr.Library {
+func JobLib(job *records.Job) expr.Library {
 	return &jobLib{job: job}
 }
 
 type jobLib struct {
-	job *dossiers.Job
+	job *records.Job
 }
 
 func (lib *jobLib) EnvOptions() []expr.Option {

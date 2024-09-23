@@ -2,15 +2,15 @@ package libraries
 
 import (
 	expr "drassi.run/core/pkg/expression"
-	"drassi.run/core/pkg/model/dossiers"
+	"drassi.run/core/pkg/model/records"
 )
 
-func StepLib(step *dossiers.Step) expr.Library {
+func StepLib(step *records.Step) expr.Library {
 	return &stepLib{step: step}
 }
 
 type stepLib struct {
-	step *dossiers.Step
+	step *records.Step
 }
 
 func (lib *stepLib) EnvOptions() []expr.Option {
