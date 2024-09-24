@@ -27,6 +27,7 @@ import (
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/sandboxer/host"
+	"drassi.run/core/pkg/store/repository/gitstore"
 	"drassi.run/core/pkg/util/dig"
 	"drassi.run/core/pkg/wire/cmdhandler"
 	"drassi.run/core/pkg/wire/etc"
@@ -44,6 +45,7 @@ type launchCommand struct {
 	runnerInfo RunnerInfo
 	client     service.GiteaClient
 	runtime    sandboxer.SandboxRuntime
+	store      gitstore.Store
 
 	// tasksVersion used to store the version of the last task fetched from the Gitea.
 	tasksVersion atomic.Int64
@@ -92,6 +94,12 @@ func (c *launchCommand) initialize(ctx context.Context) error {
 	}
 	if _, err := c.client.Declare(ctx, connect.NewRequest(req)); err != nil {
 		return err
+	}
+
+	if store, err := gitstore.New(".cache"); err != nil {
+		return err
+	} else {
+		c.store = store
 	}
 
 	c.runtime = getRuntime()
@@ -238,6 +246,9 @@ func (c *launchCommand) runTask(ctx context.Context, task *runnerv1.Task) error 
 		return err
 	}
 	if err := xdig.Supply(scope, c.runtime); err != nil {
+		return err
+	}
+	if err := xdig.Supply(scope, c.store); err != nil {
 		return err
 	}
 	if err := etc.Wire(scope); err != nil {
