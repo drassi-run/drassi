@@ -10,6 +10,7 @@ import (
 	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/actions"
 	"drassi.run/core/pkg/model/records"
+	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/store/repository"
 	"drassi.run/core/pkg/store/repository/gitstore"
 	"drassi.run/core/pkg/util/dig"
@@ -29,9 +30,6 @@ type ActionStepRun struct {
 
 	rev       string
 	actionRun StepRun
-
-	// injected values
-	store gitstore.Store
 }
 
 func (sr *ActionStepRun) Repository() *repository.Repository {
@@ -39,22 +37,36 @@ func (sr *ActionStepRun) Repository() *repository.Repository {
 }
 
 func (sr *ActionStepRun) Initialize(exec StepExecutor, scope *dig.Scope) error {
-	var github records.Github
+	var (
+		github  records.Github
+		store   gitstore.Store
+		sandbox sandboxer.Sandbox
+		ctx     = exec.Context()
+	)
+
 	if err := xdig.Populate(scope, &github); err != nil {
 		return err
 	}
-	if err := xdig.Populate(scope, &sr.store); err != nil {
+	if err := xdig.Populate(scope, &store); err != nil {
+		return err
+	}
+	if err := xdig.Populate(scope, &sandbox); err != nil {
+		return err
+	}
+	if err := xdig.Supply(scope, sr.Repo); err != nil {
 		return err
 	}
 
-	ctx := exec.Context()
-	if rev, err := sr.store.Fetch(ctx, sr.Repo, github.Token); err != nil {
+	if rev, err := store.Fetch(ctx, sr.Repo, github.Token); err != nil {
 		return err
 	} else {
 		sr.rev = rev
 	}
 
-	if err := sr.loadAction(ctx); err != nil {
+	if err := sr.loadAction(ctx, store); err != nil {
+		return err
+	}
+	if err := sr.transferAction(ctx, store, sandbox); err != nil {
 		return err
 	}
 
@@ -73,11 +85,11 @@ func (sr *ActionStepRun) PostTask() *Task {
 	return sr.actionRun.PostTask()
 }
 
-func (sr *ActionStepRun) loadAction(ctx context.Context) error {
+func (sr *ActionStepRun) loadAction(ctx context.Context, store gitstore.Store) error {
 	// 1. First, try reading "action.yml" or "action.yaml" file
 	for _, f := range []string{"action.yml", "action.yaml"} {
 		path := filepath.Join(sr.Repo.Path, f)
-		if r, err := sr.store.File(ctx, sr.Repo, sr.rev, path); err == nil {
+		if r, err := store.File(ctx, sr.Repo, sr.rev, path); err == nil {
 			return sr.loadActionManifest(r)
 		} else if !errors.Is(err, object.ErrFileNotFound) {
 			return err
@@ -87,7 +99,7 @@ func (sr *ActionStepRun) loadAction(ctx context.Context) error {
 	// 2. Second, try reading "Dockerfile" or "dockerfile"
 	for _, f := range []string{"Dockerfile", "dockerfile"} {
 		path := filepath.Join(sr.Repo.Path, f)
-		if r, err := sr.store.File(ctx, sr.Repo, sr.rev, path); err == nil {
+		if r, err := store.File(ctx, sr.Repo, sr.rev, path); err == nil {
 			r.Close()
 			return sr.createDockerfileAction(path)
 		} else if !errors.Is(err, object.ErrFileNotFound) {
@@ -124,4 +136,15 @@ func (sr *ActionStepRun) createDockerfileAction(dockerfile string) error {
 		Image: dockerfile,
 	}
 	return nil
+}
+
+func (sr *ActionStepRun) transferAction(ctx context.Context, store gitstore.Store, sandbox sandboxer.Sandbox) error {
+	r, err := store.Read(ctx, sr.Repo, sr.rev)
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+
+	actionPath := filepath.Join(sandbox.GetActionsDir(), sr.Repo.Endpoint, sr.Repo.Name)
+	return sandbox.CopyIn(ctx, r, actionPath)
 }
