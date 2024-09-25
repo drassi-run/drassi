@@ -139,7 +139,8 @@ func endGroupingLog(l logging.Logger) *command.ConsoleHandler {
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L600
 func logMessage(l logging.Logger) []*command.ConsoleHandler {
 	run := func(cmd *command.Command) error {
-		// TODO
+		tag := fmt.Sprintf("##[%s]", cmd.Name)
+		l.Log(tag, cmd.Value)
 		return nil
 	}
 	return []*command.ConsoleHandler{
