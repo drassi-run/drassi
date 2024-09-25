@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"path/filepath"
 
 	"drassi.run/core/pkg/model"
@@ -57,7 +58,14 @@ func (sr *ActionStepRun) Initialize(exec StepExecutor, scope *dig.Scope) error {
 		return err
 	}
 
-	if rev, err := store.Fetch(ctx, sr.Repo, github.Token); err != nil {
+	token := github.Token
+	// If the action is located in different server than the job repo,
+	// unset the token to prevent an unauthenticated error.
+	if repository.Endpoint(sr.Repo) != sr.serverDomain(github.ServerUrl) {
+		token = ""
+	}
+
+	if rev, err := store.Fetch(ctx, sr.Repo, token); err != nil {
 		return err
 	} else {
 		sr.rev = rev
@@ -148,4 +156,11 @@ func (sr *ActionStepRun) transferAction(ctx context.Context, store gitstore.Stor
 	location := repository.FullName(sr.Repo) + "@" + sr.Repo.Ref
 	location = filepath.Join(sandbox.GetActionsDir(), location)
 	return sandbox.CopyIn(ctx, r, location)
+}
+
+func (sr *ActionStepRun) serverDomain(s string) string {
+	if u, err := url.Parse(s); err == nil {
+		return u.Host
+	}
+	return ""
 }
