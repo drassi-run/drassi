@@ -2,12 +2,14 @@ package logging
 
 import (
 	"bytes"
+	"errors"
 	"io"
 )
 
 type LineHandler = func(line string) error
 
 type lineWriter struct {
+	closed  bool
 	buffer  bytes.Buffer
 	handler LineHandler
 }
@@ -19,6 +21,10 @@ func NewLineWriter(handler LineHandler) io.Writer {
 }
 
 func (w *lineWriter) Write(p []byte) (int, error) {
+	if w.closed {
+		return 0, errors.New("attempt to write to closed writer")
+	}
+
 	buf := bytes.NewBuffer(p)
 	written := 0
 	for {
@@ -41,4 +47,13 @@ func (w *lineWriter) Write(p []byte) (int, error) {
 
 func (w *lineWriter) WriteString(s string) (int, error) {
 	return w.Write([]byte(s))
+}
+
+func (w *lineWriter) Close() error {
+	w.closed = true
+	defer w.buffer.Reset()
+	if s := w.buffer.String(); s != "" {
+		return w.handler(s)
+	}
+	return nil
 }

@@ -280,6 +280,17 @@ func (c *launchCommand) runTask(ctx context.Context, task *runnerv1.Task) error 
 	je := executor.NewJobExecutor(jr)
 	je.SetContext(ctx)
 
+	defer func() {
+		_ = scope.Invoke(func(streams sandboxer.Streams) {
+			if closer, ok := streams.Out.(io.Closer); ok {
+				_ = closer.Close()
+			}
+			if closer, ok := streams.Err.(io.Closer); ok {
+				_ = closer.Close()
+			}
+		})
+		_ = rep.Close()
+	}()
 	defer je.Finalize()
 	if err = je.Initialize(scope); err != nil {
 		return err

@@ -195,6 +195,13 @@ func (r *GiteaReporter) AttachFile(kind, name string, reader io.Reader) error {
 }
 
 func (r *GiteaReporter) Close() error {
+	if c, ok := r.out.(io.Closer); ok {
+		_ = c.Close()
+	}
+	if c, ok := r.err.(io.Closer); ok {
+		_ = c.Close()
+	}
+
 	if err := r.uploadLog(true); err != nil {
 		return err
 	}
