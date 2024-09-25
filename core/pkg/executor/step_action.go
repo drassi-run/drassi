@@ -145,6 +145,7 @@ func (sr *ActionStepRun) transferAction(ctx context.Context, store gitstore.Stor
 	}
 	defer r.Close()
 
-	actionPath := filepath.Join(sandbox.GetActionsDir(), sr.Repo.Endpoint, sr.Repo.Name)
-	return sandbox.CopyIn(ctx, r, actionPath)
+	location := repository.FullName(sr.Repo) + "@" + sr.Repo.Ref
+	location = filepath.Join(sandbox.GetActionsDir(), location)
+	return sandbox.CopyIn(ctx, r, location)
 }

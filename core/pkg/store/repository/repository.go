@@ -3,6 +3,7 @@ package repository
 import (
 	"fmt"
 	"net"
+	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -25,12 +26,28 @@ type Repository struct {
 	Ref       string // e.g. v3
 }
 
-func (r *Repository) Key() string {
-	endpoint := r.Endpoint
-	if endpoint == "" {
-		endpoint = "github.com"
+func Endpoint(r *Repository) string {
+	if r.Endpoint == "" {
+		return "github.com"
 	}
-	return fmt.Sprintf("%s/%s", r.Endpoint, r.Name)
+	return r.Endpoint
+}
+
+func FullName(r *Repository) string {
+	return fmt.Sprintf("%s/%s", Endpoint(r), r.Name)
+}
+
+func Url(repo *Repository) string {
+	r := FullName(repo)
+	if repo.Transport == "" {
+		return "https://" + r
+	}
+	return repo.Transport + "://" + r
+}
+
+func Location(repo *Repository) string {
+	r := FullName(repo) + "@" + repo.Ref
+	return filepath.Join(r, repo.Path)
 }
 
 func Parse(s string) (*Repository, error) {

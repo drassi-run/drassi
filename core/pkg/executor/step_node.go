@@ -127,6 +127,6 @@ func (sr *NodeStepRun) computeScriptPath(stage Stage) string {
 		script = sr.Main
 	}
 
-	scriptPath := filepath.Join(sr.sandbox.GetActionsDir(), sr.repo.Endpoint, sr.repo.Name, sr.repo.Path, script)
+	scriptPath := filepath.Join(sr.sandbox.GetActionsDir(), repository.Location(sr.repo), script)
 	return scriptPath
 }

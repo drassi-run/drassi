@@ -83,7 +83,7 @@ func (s *store) Fetch(ctx context.Context, repo *repository.Repository, token st
 }
 
 func (s *store) Read(ctx context.Context, repo *repository.Repository, rev string) (io.ReadCloser, error) {
-	id := repo.Key()
+	id := repository.FullName(repo)
 	gitRepo, ok := s.repos[id]
 	if !ok {
 		return nil, fmt.Errorf("repo %q not found", id)
@@ -122,7 +122,7 @@ func (s *store) Read(ctx context.Context, repo *repository.Repository, rev strin
 }
 
 func (s *store) File(ctx context.Context, repo *repository.Repository, rev, path string) (io.ReadCloser, error) {
-	id := repo.Key()
+	id := repository.FullName(repo)
 	gitRepo, ok := s.repos[id]
 	if !ok {
 		return nil, fmt.Errorf("repo %q not found", id)
@@ -150,7 +150,7 @@ func (s *store) File(ctx context.Context, repo *repository.Repository, rev, path
 }
 
 func (s *store) fetch(ctx context.Context, repo *repository.Repository, token, branch string) error {
-	gitRepo := s.repos[repo.Key()]
+	gitRepo := s.repos[repository.FullName(repo)]
 
 	var auth transport.AuthMethod
 	if token != "" {
@@ -162,7 +162,7 @@ func (s *store) fetch(ctx context.Context, repo *repository.Repository, token, b
 
 	remoteConfig := &config.RemoteConfig{
 		Name: remoteName,
-		URLs: []string{url(repo)},
+		URLs: []string{repository.Url(repo)},
 	}
 	remote, err := gitRepo.CreateRemoteAnonymous(remoteConfig)
 	if err != nil {
@@ -186,7 +186,9 @@ func (s *store) fetch(ctx context.Context, repo *repository.Repository, token, b
 }
 
 func (s *store) ensureDir(repo *repository.Repository) (string, error) {
-	path := filepath.Join(s.rootDir, ensureSuffix(repo.Key(), ".git"))
+	path := repository.FullName(repo)
+	path = ensureSuffix(path, ".git")
+	path = filepath.Join(s.rootDir, path)
 	fileInfo, err := os.Stat(path)
 
 	if err != nil {
@@ -207,7 +209,7 @@ func (s *store) ensureDir(repo *repository.Repository) (string, error) {
 }
 
 func (s *store) ensureRepo(path string, repo *repository.Repository) (*git.Repository, error) {
-	id := repo.Key()
+	id := repository.FullName(repo)
 	if gitRepo, ok := s.repos[id]; ok {
 		return gitRepo, nil
 	}
@@ -267,14 +269,6 @@ func newTarHandler(tw *tar.Writer) tarHandler {
 		}
 	}
 	return h
-}
-
-func url(repo *repository.Repository) string {
-	u := repo.Key()
-	if repo.Transport == "" {
-		return "https://" + u
-	}
-	return repo.Transport + "://" + u
 }
 
 func resolveDir(path string) (string, error) {
