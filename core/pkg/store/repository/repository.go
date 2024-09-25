@@ -26,6 +26,10 @@ type Repository struct {
 }
 
 func (r *Repository) Key() string {
+	endpoint := r.Endpoint
+	if endpoint == "" {
+		endpoint = "github.com"
+	}
 	return fmt.Sprintf("%s/%s", r.Endpoint, r.Name)
 }
 
