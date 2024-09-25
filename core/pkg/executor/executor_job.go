@@ -108,16 +108,18 @@ func (e *jobExecutor) Initialize(scope *dig.Scope) error {
 
 func (e *jobExecutor) RunJob() *records.Job {
 	e.SetStatus(records.ResultSuccess)
-	states := map[Stage]func(StepRun) *Task{
-		StagePre:  StepRun.PreTask,
-		StageMain: StepRun.MainTask,
-		StagePost: StepRun.PostTask,
+
+	if err := e.runStage(StagePre, StepRun.PreTask); err != nil {
+		e.SetStatus(records.ResultFailure)
+		//log err
 	}
-	for state, fn := range states {
-		if err := e.runStage(state, fn); err != nil {
-			e.SetStatus(records.ResultFailure)
-			//log err
-		}
+	if err := e.runStage(StageMain, StepRun.MainTask); err != nil {
+		e.SetStatus(records.ResultFailure)
+		//log err
+	}
+	if err := e.runStage(StagePost, StepRun.PostTask); err != nil {
+		e.SetStatus(records.ResultFailure)
+		//log err
 	}
 	if err := evaluator.Evaluate(e.exprEnv, e.jobRun.Outputs, &e.job.Outputs); err != nil {
 		e.SetStatus(records.ResultFailure)
