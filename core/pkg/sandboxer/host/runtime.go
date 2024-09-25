@@ -58,8 +58,8 @@ func (h *hostSandboxRuntime) LaunchSandbox(ctx context.Context, request sandboxe
 	if err := os.Mkdir(sb.actionsDir, 0o755); err != nil {
 		return res, err
 	}
-	sb.actionsDir = filepath.Join(spath, "tools")
-	if err := os.Mkdir(sb.actionsDir, 0o755); err != nil {
+	sb.toolsDir = filepath.Join(spath, "tools")
+	if err := os.Mkdir(sb.toolsDir, 0o755); err != nil {
 		return res, err
 	}
 	sb.tempDir = filepath.Join(spath, "tmp")

@@ -263,8 +263,14 @@ func (e *jobExecutor) initializeSandbox() error {
 		return err
 	} else {
 		e.sandbox = resp.Sandbox
+
+		// set records values
 		e.jobInfo.Container = resp.Container
 		e.jobInfo.Services = resp.Services
+		e.github.Workspace = e.sandbox.GetWorkspaceDir()
+		e.runner.Workspace = e.sandbox.GetWorkspaceDir()
+		e.runner.ToolCache = e.sandbox.GetToolsDir()
+		e.runner.Temp = e.sandbox.GetTempDir()
 	}
 
 	// register SandboxLib (e.g hashFiles func) to expression.Env
@@ -425,6 +431,9 @@ func (e *jobExecutor) ComposeEnv(m map[string]string) {
 		"RUNNER_ARCH":        string(e.runner.Arch),
 		"RUNNER_OS":          string(e.runner.Os),
 		"RUNNER_ENVIRONMENT": e.runner.Environment,
+		"RUNNER_TEMP":        e.runner.Temp,
+		"RUNNER_TOOL_CACHE":  e.runner.ToolCache,
+		"RUNNER_WORKSPACE":   e.runner.Workspace,
 	}
 	if e.runner.Debug == "1" {
 		m["RUNNER_DEBUG"] = "1"
