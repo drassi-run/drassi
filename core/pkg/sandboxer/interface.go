@@ -24,6 +24,8 @@ type Sandbox interface {
 	PullImage(ctx context.Context, image string) error
 	BuildImage(ctx context.Context, image string, dockerfile string, contextPath string) error
 
+	Paths() []string
+
 	// The full path the repository is cloned to, and where the job runs from
 	GetWorkspaceDir() string
 

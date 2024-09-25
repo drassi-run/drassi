@@ -271,6 +271,10 @@ func (e *jobExecutor) initializeSandbox() error {
 		e.runner.Workspace = e.sandbox.GetWorkspaceDir()
 		e.runner.ToolCache = e.sandbox.GetToolsDir()
 		e.runner.Temp = e.sandbox.GetTempDir()
+
+		paths := e.sandbox.Paths()
+		slices.Reverse(paths) // in-place reverse
+		_ = e.AddPath(paths)
 	}
 
 	// register SandboxLib (e.g hashFiles func) to expression.Env
@@ -444,7 +448,8 @@ func (e *jobExecutor) ComposeEnv(m map[string]string) {
 	maps.Copy(m, supEnv)
 
 	if len(e.paths) > 0 {
-		m["PATH"] = strings.Join(e.paths, ":")
+		sep := string(e.runner.Os.PathSeparator())
+		m["PATH"] = strings.Join(e.paths, sep)
 	}
 }
 
@@ -462,12 +467,11 @@ func (e *jobExecutor) AddPath(paths []string) error {
 	if len(paths) == 0 {
 		return nil
 	}
-	slices.Reverse(paths)
 
-	newPaths := make([]string, 0, len(paths))
-	set := sets.New(paths[0])
+	newPaths := make([]string, 0, len(e.paths))
+	set := sets.New[string]()
 
-	for _, path := range paths[1:] {
+	for _, path := range slices.Backward(paths) {
 		if !set.Has(path) {
 			newPaths = append(newPaths, path)
 			set.Insert(path)

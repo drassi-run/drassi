@@ -108,6 +108,10 @@ func (h *hostSandboxRuntime) ExecuteSandbox(ctx context.Context, request sandbox
 	for k, v := range request.Env {
 		env = append(env, fmt.Sprintf("%s=%s", k, v))
 	}
+	if _, ok := request.Env["PATH"]; !ok {
+		path := os.Getenv("PATH")
+		env = append(env, fmt.Sprintf("PATH=%s", path))
+	}
 	cmd.Env = env
 
 	cmd.Stdin = request.Streams.In

@@ -346,6 +346,44 @@ func (c *MockSandboxGetWorkspaceDirCall) DoAndReturn(f func() string) *MockSandb
 	return c
 }
 
+// Paths mocks base method.
+func (m *MockSandbox) Paths() []string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Paths")
+	ret0, _ := ret[0].([]string)
+	return ret0
+}
+
+// Paths indicates an expected call of Paths.
+func (mr *MockSandboxMockRecorder) Paths() *MockSandboxPathsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Paths", reflect.TypeOf((*MockSandbox)(nil).Paths))
+	return &MockSandboxPathsCall{Call: call}
+}
+
+// MockSandboxPathsCall wrap *gomock.Call
+type MockSandboxPathsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockSandboxPathsCall) Return(arg0 []string) *MockSandboxPathsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockSandboxPathsCall) Do(f func() []string) *MockSandboxPathsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockSandboxPathsCall) DoAndReturn(f func() []string) *MockSandboxPathsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // PullImage mocks base method.
 func (m *MockSandbox) PullImage(ctx context.Context, image string) error {
 	m.ctrl.T.Helper()

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -105,6 +106,14 @@ func (s *hostSandbox) PullImage(ctx context.Context, image string) error {
 func (s *hostSandbox) BuildImage(ctx context.Context, image string, dockerfile string, contextPath string) error {
 	//TODO implement me
 	panic("implement me")
+}
+
+func (s *hostSandbox) Paths() []string {
+	path := os.Getenv("PATH")
+	// Split path by os.PathListSeparator
+	return strings.FieldsFunc(path, func(r rune) bool {
+		return r == os.PathListSeparator
+	})
 }
 
 func (s *hostSandbox) GetWorkspaceDir() string {
