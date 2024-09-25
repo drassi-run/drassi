@@ -28,6 +28,11 @@ type Store interface {
 	File(ctx context.Context, repo *repository.Repository, rev, path string) (io.ReadCloser, error)
 }
 
+const (
+	folderPerm fs.FileMode = 0o755
+	remoteName string      = "anonymous"
+)
+
 func New(rootDir string) (Store, error) {
 	if d, err := resolveDir(rootDir); err != nil {
 		return nil, err
@@ -35,12 +40,13 @@ func New(rootDir string) (Store, error) {
 		rootDir = d
 	}
 
-	if err := os.MkdirAll(rootDir, 0x755); err != nil {
+	if err := os.MkdirAll(rootDir, folderPerm); err != nil {
 		return nil, err
 	}
 
 	rs := &store{
 		rootDir: rootDir,
+		repos:   make(map[string]*git.Repository),
 	}
 	return rs, nil
 }
@@ -153,11 +159,19 @@ func (s *store) fetch(ctx context.Context, repo *repository.Repository, token, b
 			Password: token,
 		}
 	}
+
+	remoteConfig := &config.RemoteConfig{
+		Name: remoteName,
+		URLs: []string{url(repo)},
+	}
+	remote, err := gitRepo.CreateRemoteAnonymous(remoteConfig)
+	if err != nil {
+		return err
+	}
+
 	// TODO: using treeless clone when go-git implement it
 	// https://github.blog/2020-12-21-get-up-to-speed-with-partial-clone-and-shallow-clone/
-	return gitRepo.FetchContext(ctx, &git.FetchOptions{
-		RemoteName: "anonymous",
-		RemoteURL:  url(repo),
+	fetchOptions := &git.FetchOptions{
 		RefSpecs: []config.RefSpec{
 			config.RefSpec(fmt.Sprintf("+%s:%s", repo.Ref, branch)),
 		},
@@ -166,7 +180,9 @@ func (s *store) fetch(ctx context.Context, repo *repository.Repository, token, b
 		Tags:  git.NoTags,
 		Force: true,
 		Prune: true,
-	})
+	}
+
+	return remote.FetchContext(ctx, fetchOptions)
 }
 
 func (s *store) ensureDir(repo *repository.Repository) (string, error) {
@@ -175,16 +191,16 @@ func (s *store) ensureDir(repo *repository.Repository) (string, error) {
 
 	if err != nil {
 		if os.IsNotExist(err) {
-			return path, os.MkdirAll(path, 0o755)
+			return path, os.MkdirAll(path, folderPerm)
 		}
 		return "", err
 	}
 
 	if !fileInfo.IsDir() {
-		if err := os.RemoveAll(path); err != nil {
+		if err = os.RemoveAll(path); err != nil {
 			return "", err
 		}
-		return path, os.MkdirAll(path, 0o755)
+		return path, os.MkdirAll(path, folderPerm)
 	}
 
 	return path, nil
@@ -192,32 +208,18 @@ func (s *store) ensureDir(repo *repository.Repository) (string, error) {
 
 func (s *store) ensureRepo(path string, repo *repository.Repository) (*git.Repository, error) {
 	id := repo.Key()
-	gitRepo, ok := s.repos[id]
-	if ok {
+	if gitRepo, ok := s.repos[id]; ok {
 		return gitRepo, nil
 	}
 
 	gitRepo, err := git.PlainInit(path, true)
-	if err != nil {
-		if errors.Is(err, git.ErrRepositoryAlreadyExists) {
-			gitRepo, err = git.PlainOpen(path)
-		}
-
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		_, err = gitRepo.CreateRemoteAnonymous(&config.RemoteConfig{
-			Name: "anonymous",
-			URLs: []string{url(repo)},
-		})
-		if err != nil {
-			return nil, err
-		}
+	if errors.Is(err, git.ErrRepositoryAlreadyExists) {
+		gitRepo, err = git.PlainOpen(path)
 	}
-
-	s.repos[id] = gitRepo
-	return gitRepo, nil
+	if gitRepo != nil {
+		s.repos[id] = gitRepo
+	}
+	return gitRepo, err
 }
 
 func ensureSuffix(s, suffix string) string {
