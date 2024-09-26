@@ -97,7 +97,8 @@ func streamHandler(w io.Writer, l logging.Logger, lineHandlers []chainedLineHand
 				l.Log(logging.TagError, err.Error())
 			}
 			if !next {
-				return err
+				// Should NOT bubble up error
+				return nil
 			}
 		}
 
