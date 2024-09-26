@@ -1,10 +1,12 @@
 package wire_cmdhandler
 
 import (
+	"archive/tar"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"path/filepath"
 
 	"drassi.run/core/pkg/executor"
@@ -13,6 +15,7 @@ import (
 	"drassi.run/core/pkg/executor/problem"
 	"drassi.run/core/pkg/executor/secret"
 	"drassi.run/core/pkg/sandboxer"
+	utilreader "drassi.run/core/pkg/util/reader"
 )
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L384
@@ -104,6 +107,7 @@ func readProblemMatcherFile(ctx context.Context, sb sandboxer.Sandbox, file stri
 		ws := sb.GetWorkspaceDir()
 		file = filepath.Join(ws, file)
 	}
+
 	reader, err := sb.CopyOut(ctx, file)
 	if err != nil {
 		return nil, err
@@ -111,10 +115,13 @@ func readProblemMatcherFile(ctx context.Context, sb sandboxer.Sandbox, file stri
 	defer reader.Close()
 
 	conf := new(problem.MatcherConfigs)
-	if err = json.NewDecoder(reader).Decode(conf); err != nil {
-		return nil, err
-	}
-	return conf, nil
+	err = utilreader.Untar(ctx, reader, func(hdr *tar.Header, tr io.Reader) error {
+		if hdr.Name != "" {
+			return fmt.Errorf("expected read single file with empty name, got %s", hdr.Name)
+		}
+		return json.NewDecoder(tr).Decode(conf)
+	})
+	return conf, err
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L751
