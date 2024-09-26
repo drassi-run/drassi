@@ -130,7 +130,7 @@ func (sr *ActionStepRun) loadActionManifest(r io.ReadCloser) error {
 		return err
 	}
 
-	if actionRun, err := FromAction(action); err != nil {
+	if actionRun, err := FromAction(action, sr.BaseStepRun); err != nil {
 		return err
 	} else {
 		sr.actionRun = actionRun
@@ -141,7 +141,8 @@ func (sr *ActionStepRun) loadActionManifest(r io.ReadCloser) error {
 
 func (sr *ActionStepRun) createDockerfileAction(dockerfile string) error {
 	sr.actionRun = &DockerStepRun{
-		Image: dockerfile,
+		BaseStepRun: sr.BaseStepRun,
+		Image:       dockerfile,
 	}
 	return nil
 }
