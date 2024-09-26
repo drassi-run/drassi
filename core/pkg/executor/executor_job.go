@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -18,6 +19,7 @@ import (
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/util/dig"
+	utilreader "drassi.run/core/pkg/util/reader"
 
 	"go.uber.org/dig"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -277,6 +279,12 @@ func (e *jobExecutor) initializeSandbox() error {
 		_ = e.AddPath(paths)
 	}
 
+	if location, err := e.setupEventFile(e.ctx); err != nil {
+		return err
+	} else {
+		e.github.EventPath = location
+	}
+
 	// register SandboxLib (e.g hashFiles func) to expression.Env
 	opts := []expression.Option{
 		expression.WithLibrary(libraries.SandboxLib(e.supervisor, e.sandbox)),
@@ -503,4 +511,19 @@ func (e *jobExecutor) SetEnv(env map[string]string) error {
 		e.env[k] = v
 	}
 	return nil
+}
+
+func (e *jobExecutor) setupEventFile(ctx context.Context) (string, error) {
+	files := map[string]any{"": e.github.Event}
+	r, err := utilreader.FromJsonObject(files, false)
+	if err != nil {
+		return "", err
+	}
+
+	location := filepath.Join(e.sandbox.GetTempDir(), "workflow", "event.json")
+	if err = e.sandbox.CopyIn(ctx, r, location); err != nil {
+		return "", err
+	}
+
+	return location, nil
 }
