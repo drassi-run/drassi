@@ -89,13 +89,13 @@ func registerCallbacks(rep reporter.Reporter, sup executor.Supervisor) error {
 	}
 	sup.Register(executor.AfterRunJobCallback(h2))
 
-	h3 := func(se executor.StepExecutor) error {
+	h3 := func(stage executor.Stage, se executor.StepExecutor) error {
 		rep.StartStep(se.StepId())
 		return nil
 	}
 	sup.Register(executor.BeforeRunStepCallback(h3))
 
-	h4 := func(se executor.StepExecutor, result *records.Step) error {
+	h4 := func(stage executor.Stage, se executor.StepExecutor, result *records.Step) error {
 		rep.EndStep(se.StepId(), result.Outcome)
 		return nil
 	}

@@ -17,8 +17,8 @@ type Supervisor interface {
 	BeforeJobRun(je JobExecutor) error
 	AfterJobRun(je JobExecutor, result *records.Job) error
 
-	BeforeStepRun(se StepExecutor) error
-	AfterStepRun(se StepExecutor, result *records.Step) error
+	BeforeStepRun(stage Stage, se StepExecutor) error
+	AfterStepRun(stage Stage, se StepExecutor, result *records.Step) error
 
 	BeforeTaskRun(t *Task, se StepExecutor) error
 	AfterTaskRun(t *Task, se StepExecutor) error
@@ -32,8 +32,8 @@ type hook struct {
 	beforeRunJobCallbacks []func(JobExecutor) error
 	afterRunJobCallbacks  []func(JobExecutor, *records.Job) error
 
-	beforeRunStepCallbacks []func(StepExecutor) error
-	afterRunStepCallbacks  []func(StepExecutor, *records.Step) error
+	beforeRunStepCallbacks []func(Stage, StepExecutor) error
+	afterRunStepCallbacks  []func(Stage, StepExecutor, *records.Step) error
 
 	beforeRunTaskCallbacks []func(*Task, StepExecutor) error
 	afterRunTaskCallbacks  []func(*Task, StepExecutor) error
@@ -53,13 +53,13 @@ func AfterRunJobCallback(cb func(JobExecutor, *records.Job) error) Callback {
 	}
 }
 
-func BeforeRunStepCallback(cb func(StepExecutor) error) Callback {
+func BeforeRunStepCallback(cb func(Stage, StepExecutor) error) Callback {
 	return func(h *hook) {
 		h.beforeRunStepCallbacks = append(h.beforeRunStepCallbacks, cb)
 	}
 }
 
-func AfterRunStepCallback(cb func(StepExecutor, *records.Step) error) Callback {
+func AfterRunStepCallback(cb func(Stage, StepExecutor, *records.Step) error) Callback {
 	return func(h *hook) {
 		h.afterRunStepCallbacks = append(h.afterRunStepCallbacks, cb)
 	}
@@ -144,20 +144,20 @@ func (s *supervisor) AfterJobRun(je JobExecutor, result *records.Job) error {
 	return nil
 }
 
-func (s *supervisor) BeforeStepRun(se StepExecutor) error {
+func (s *supervisor) BeforeStepRun(stage Stage, se StepExecutor) error {
 	s.steps = append(s.steps, se)
 
 	for _, cb := range s.beforeRunStepCallbacks {
-		if err := cb(se); err != nil {
+		if err := cb(stage, se); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (s *supervisor) AfterStepRun(se StepExecutor, result *records.Step) error {
+func (s *supervisor) AfterStepRun(stage Stage, se StepExecutor, result *records.Step) error {
 	for _, cb := range s.afterRunStepCallbacks {
-		if err := cb(se, result); err != nil {
+		if err := cb(stage, se, result); err != nil {
 			return err
 		}
 	}

@@ -181,7 +181,7 @@ func (e *stepExecutor) RunStep(fn func(StepRun) *Task) *records.Step {
 }
 
 func (e *stepExecutor) beginTask(task *Task) error {
-	if err := e.supervisor.BeforeStepRun(e); err != nil {
+	if err := e.supervisor.BeforeStepRun(task.Stage, e); err != nil {
 		return err
 	}
 
@@ -270,7 +270,7 @@ func (e *stepExecutor) endTask(task *Task) {
 		}
 	}
 
-	if err := e.supervisor.AfterStepRun(e, e.step); err != nil {
+	if err := e.supervisor.AfterStepRun(task.Stage, e, e.step); err != nil {
 		//logger.Infof("Failed but continue next step")
 	}
 }
