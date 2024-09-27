@@ -337,6 +337,15 @@ func (e *jobExecutor) initializeScope(scope *dig.Scope) error {
 		return err
 	}
 
+	if e.runner.Debug == "1" {
+		if err := scope.Invoke(func(cmdMgr command.ConsoleManager) error {
+			cmd := &command.Command{Name: "echo", Value: "ON"}
+			return cmdMgr.Process("", cmd)
+		}); err != nil {
+			return err
+		}
+	}
+
 	err := scope.Invoke(func(cmdMgr command.FileManager) error {
 		cb := func(_ *Task, exec StepExecutor) error {
 			ctx := exec.Context()

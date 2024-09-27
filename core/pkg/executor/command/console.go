@@ -67,7 +67,7 @@ func NewConsoleManager(w io.Writer) ConsoleManager {
 	mgr := &consoleManager{
 		writer:             w,
 		registeredCommands: make(map[string]*ConsoleHandler),
-		echo:               true,
+		echo:               false, // debug to false, unless runner.Debug is set
 		resumeCmdToken:     "",
 	}
 	_ = mgr.Register(NewConsoleHandler("stop-commands", true, mgr.stopCommands))
