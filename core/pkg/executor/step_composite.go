@@ -56,7 +56,7 @@ func (sr *CompositeStepRun) Initialize(exec StepExecutor, scope *dig.Scope) erro
 	ctx := exec.Context()
 	for _, step := range sr.StepRuns {
 		cExec := exec.NewChildExecutor(step)
-		cScope := scope.Scope(fmt.Sprintf("step(%s)", exec.StepId()))
+		cScope := scope.Scope(fmt.Sprintf("step(%s)", StepId(exec)))
 		cExec.SetContext(ctx)
 		if err := cExec.Initialize(cScope); err != nil {
 			return err
@@ -83,7 +83,7 @@ func (sr *CompositeStepRun) createStageTask(stage Stage, fn func(StepRun) *Task)
 		taskIds[i] = step.StepId()
 	}
 	if stage == StagePost {
-		slices.Reverse(taskIds) // in place reverse
+		slices.Reverse(taskIds) // in-place reverse
 	}
 
 	taskRun := func(exec StepExecutor) error {
@@ -95,14 +95,14 @@ func (sr *CompositeStepRun) createStageTask(stage Stage, fn func(StepRun) *Task)
 		for _, id := range taskIds {
 			cExec := exec.ChildExecutor(id)
 			if cExec == nil {
-				return fmt.Errorf(`task %q has no child context`, id)
+				return fmt.Errorf("task %q has no child context", id)
 			}
 
 			cExec.SetContext(ctx)
 			res := cExec.RunStep(fn)
 			if res != nil && res.Conclusion == records.ResultFailure {
 				exec.SetStatus(records.ResultFailure)
-				return fmt.Errorf(`step %q (%s) failed`, id, stage)
+				return fmt.Errorf("step %q (%s) failed", id, stage)
 			}
 		}
 

@@ -26,7 +26,7 @@ import (
 )
 
 type JobExecutor interface {
-	JobId() string
+	JobRun() *JobRun
 	Context() context.Context
 	SetContext(ctx context.Context)
 
@@ -38,6 +38,14 @@ type JobExecutor interface {
 
 	AddPath(paths []string) error
 	SetEnv(env map[string]string) error
+}
+
+func JobId(e JobExecutor) string {
+	return e.JobRun().Id
+}
+
+func JobUid(e JobExecutor) string {
+	return e.JobRun().Uid
 }
 
 func NewJobExecutor(run *JobRun) JobExecutor {
@@ -64,10 +72,6 @@ type jobExecutor struct {
 	sandbox       sandboxer.Sandbox
 	stepExecutors map[string]StepExecutor
 	supervisor    Supervisor
-}
-
-func (e *jobExecutor) JobId() string {
-	return e.jobRun.Id
 }
 
 func (e *jobExecutor) JobRun() *JobRun {
@@ -185,7 +189,7 @@ func (e *jobExecutor) initializeJob(scope *dig.Scope) error {
 		return err
 	} else {
 		// sanitize GitHub
-		e.github.Job = e.JobId()
+		e.github.Job = JobId(e)
 		e.github.Action = ""
 		e.github.ActionPath = ""
 		e.github.ActionRef = ""
@@ -349,14 +353,14 @@ func (e *jobExecutor) initializeScope(scope *dig.Scope) error {
 	err := scope.Invoke(func(cmdMgr command.FileManager) error {
 		cb := func(_ *Task, exec StepExecutor) error {
 			ctx := exec.Context()
-			suffix := exec.StepId()
+			suffix := StepUid(exec)
 			return cmdMgr.Initialize(ctx, suffix)
 		}
 		e.supervisor.Register(BeforeRunTaskCallback(cb))
 
 		cb = func(_ *Task, exec StepExecutor) error {
 			ctx := exec.Context()
-			suffix := exec.StepId()
+			suffix := StepUid(exec)
 			return cmdMgr.Process(ctx, suffix)
 		}
 		e.supervisor.Register(AfterRunTaskCallback(cb))
@@ -367,7 +371,7 @@ func (e *jobExecutor) initializeScope(scope *dig.Scope) error {
 				return nil
 			}
 
-			suffix := exec.StepId()
+			suffix := StepUid(exec)
 			return cmdMgr.Env(suffix)
 		}
 		e.supervisor.Register(EnvProvider(ep))
@@ -409,7 +413,7 @@ func (e *jobExecutor) initializeSteps(scope *dig.Scope) error {
 
 	for _, step := range e.jobRun.Steps {
 		exec := e.NewStepExecutor(step)
-		s := scope.Scope(fmt.Sprintf("step(%s)", exec.StepId()))
+		s := scope.Scope(fmt.Sprintf("step(%s)", StepId(exec)))
 		exec.SetContext(e.ctx)
 		if err := exec.Initialize(s); err != nil {
 			return err
