@@ -22,7 +22,7 @@ import (
 func addSecretMask(secretMasker secret.Masker) *command.ConsoleHandler {
 	run := func(cmd *command.Command) error {
 		if cmd.Value == "" {
-			return errors.New("can't add secret mask for empty string in ##[add-mask] command")
+			return fmt.Errorf("%w %q: empty value", command.ErrInvalidCommand, "add-mask")
 		}
 		s := secret.NewValueSecret(cmd.Value)
 		secretMasker.AddSecret(s)
@@ -42,7 +42,7 @@ func addProblemMatcher(m map[string]problem.Matcher, sb sandboxer.Sandbox, sup e
 	run := func(cmd *command.Command) error {
 		file := cmd.Value
 		if file == "" {
-			return errors.New("file path must be specified in ##[add-matcher] command")
+			return fmt.Errorf("%w %q: empty file path (in cmd value)", command.ErrInvalidCommand, "add-matcher")
 		}
 
 		ctx := sup.Context()
@@ -75,7 +75,7 @@ func removeProblemMatcher(m map[string]problem.Matcher, sb sandboxer.Sandbox, su
 		file := cmd.Value
 		owner := cmd.Params["owner"]
 		if (file == "") == (owner == "") {
-			return errors.New("either an owner name or a file path must be specified in ##[remove-matcher] command")
+			return fmt.Errorf("%w %q: either owner or file must be specified, but not both", command.ErrInvalidCommand, "remove-matcher")
 		}
 
 		var owners []string
@@ -176,7 +176,7 @@ func consoleSetEnv(sup executor.Supervisor) *command.ConsoleHandler {
 	run := func(cmd *command.Command) error {
 		name, ok := cmd.Params["name"]
 		if !ok || name == "" {
-			return errors.New("required field 'name' is missing in ##[set-output] command")
+			return fmt.Errorf("%w %q: required field %q is missing", command.ErrInvalidCommand, "set-env", "name")
 		}
 
 		step := sup.CurrentStep()
@@ -197,7 +197,7 @@ func consoleSetOutput(sup executor.Supervisor) *command.ConsoleHandler {
 	run := func(cmd *command.Command) error {
 		name, ok := cmd.Params["name"]
 		if !ok || name == "" {
-			return fmt.Errorf("required field 'name' in ##[set-output] command")
+			return fmt.Errorf("%w %q: required field %q is missing", command.ErrInvalidCommand, "set-output", "name")
 		}
 
 		step := sup.CurrentStep()
@@ -218,7 +218,7 @@ func consoleSaveState(sup executor.Supervisor) *command.ConsoleHandler {
 	run := func(cmd *command.Command) error {
 		name, ok := cmd.Params["name"]
 		if !ok || name == "" {
-			return fmt.Errorf("required field 'name' in ##[save-state] command")
+			return fmt.Errorf("%w %q: required field %q is missing", command.ErrInvalidCommand, "save-state", "name")
 		}
 
 		step := sup.CurrentStep()

@@ -88,7 +88,7 @@ func (mgr *consoleManager) Register(handler *ConsoleHandler) error {
 	name := handler.name
 	if slices.Contains(builtinCommands, name) {
 		if _, ok := mgr.registeredCommands[name]; ok {
-			return fmt.Errorf("can't overwrite built-in command %s", name)
+			return fmt.Errorf("can't overwrite built-in command %q", name)
 		}
 	}
 
@@ -206,7 +206,7 @@ func (mgr *consoleManager) parseCommandParams(params, sep string, replacer *stri
 func (mgr *consoleManager) Process(line string, cmd *Command) error {
 	handler, ok := mgr.registeredCommands[cmd.Name]
 	if !ok {
-		return fmt.Errorf("un-registered command %s", cmd.Name)
+		return fmt.Errorf("%w %q", ErrNotRegisteredCommand, cmd.Name)
 	}
 
 	if mgr.echo && handler.echo {
@@ -228,7 +228,7 @@ func (mgr *consoleManager) setEcho(cmd *Command) error {
 	case "OFF":
 		mgr.echo = false
 	default:
-		return fmt.Errorf("invalid echo command value. Possible values can be: 'on', 'off'. Got %s", mod)
+		return fmt.Errorf("%w %q: invalid value %q, should be either 'on' or 'off'", ErrInvalidCommand, "echo", mod)
 	}
 	return nil
 }
@@ -236,7 +236,7 @@ func (mgr *consoleManager) setEcho(cmd *Command) error {
 func (mgr *consoleManager) stopCommands(cmd *Command) error {
 	token := cmd.Value
 	if !mgr.validStopCommandToken(token) {
-		return fmt.Errorf("invalid stop-command token %s", token)
+		return fmt.Errorf("%w %q: invalid token %q", ErrInvalidCommand, "stop", token)
 	}
 
 	mgr.resumeCmdToken = token
