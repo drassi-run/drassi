@@ -3,6 +3,7 @@ package reporter
 import (
 	"io"
 
+	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/model/records"
 )
 
@@ -29,10 +30,11 @@ type Reporter interface {
 	Stdout() io.Writer
 	Stderr() io.Writer
 
-	StartJob()
-	EndJob(result records.Result, outputs map[string]string)
-	StartStep(stepId string)
-	EndStep(stepId string, result records.Result)
+	StartJob(je executor.JobExecutor) error
+	EndJob(je executor.JobExecutor, result *records.Job) error
+
+	StartStep(stage executor.Stage, se executor.StepExecutor) error
+	EndStep(stage executor.Stage, se executor.StepExecutor, result *records.Step) error
 
 	AddIssue(issue *Issue) error
 	AttachFile(kind, name string, reader io.Reader) error

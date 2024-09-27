@@ -266,7 +266,7 @@ func (c *launchCommand) runTask(ctx context.Context, task *runnerv1.Task) error 
 	}
 
 	// reporter.Reporter
-	rep := service.NewReporter(ctx, task.Id, jr, c.client)
+	rep := service.NewReporter(ctx, task.Id, c.client)
 	defer rep.Close()
 	if err = xdig.Supply[reporter.Reporter](scope, rep); err != nil {
 		return err
