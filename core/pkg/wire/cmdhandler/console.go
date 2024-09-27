@@ -14,6 +14,7 @@ import (
 	"drassi.run/core/pkg/executor/logging"
 	"drassi.run/core/pkg/executor/problem"
 	"drassi.run/core/pkg/executor/secret"
+	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/sandboxer"
 	utilreader "drassi.run/core/pkg/util/reader"
 )
@@ -143,15 +144,24 @@ func endGroupingLog(l logging.Logger) *command.ConsoleHandler {
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L566
+func debugMessage(l logging.Logger, runner records.Runner) *command.ConsoleHandler {
+	run := func(cmd *command.Command) error { return nil }
+	if runner.Debug == "1" {
+		run = func(cmd *command.Command) error {
+			l.Log(logging.TagDebug, cmd.Value)
+			return nil
+		}
+	}
+	return command.NewConsoleHandler("debug", false, run)
+}
+
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L600
 func logMessage(l logging.Logger) []*command.ConsoleHandler {
 	run := func(cmd *command.Command) error {
-		tag := fmt.Sprintf("##[%s]", cmd.Name)
-		l.Log(tag, cmd.Value)
+		l.Log(cmd.Name, cmd.Value)
 		return nil
 	}
 	return []*command.ConsoleHandler{
-		command.NewConsoleHandler("debug", false, run),
 		command.NewConsoleHandler("notice", false, run),
 		command.NewConsoleHandler("warning", false, run),
 		command.NewConsoleHandler("error", false, run),
