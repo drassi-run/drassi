@@ -1,10 +1,12 @@
 package wire_cmdhandler
 
 import (
+	"archive/tar"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"path/filepath"
 
 	"drassi.run/core/pkg/executor"
@@ -12,14 +14,16 @@ import (
 	"drassi.run/core/pkg/executor/logging"
 	"drassi.run/core/pkg/executor/problem"
 	"drassi.run/core/pkg/executor/secret"
+	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/sandboxer"
+	utilreader "drassi.run/core/pkg/util/reader"
 )
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L384
 func addSecretMask(secretMasker secret.Masker) *command.ConsoleHandler {
 	run := func(cmd *command.Command) error {
 		if cmd.Value == "" {
-			return errors.New("can't add secret mask for empty string in ##[add-mask] command")
+			return fmt.Errorf("%w %q: empty value", command.ErrInvalidCommand, "add-mask")
 		}
 		s := secret.NewValueSecret(cmd.Value)
 		secretMasker.AddSecret(s)
@@ -39,7 +43,7 @@ func addProblemMatcher(m map[string]problem.Matcher, sb sandboxer.Sandbox, sup e
 	run := func(cmd *command.Command) error {
 		file := cmd.Value
 		if file == "" {
-			return errors.New("file path must be specified in ##[add-matcher] command")
+			return fmt.Errorf("%w %q: empty file path (in cmd value)", command.ErrInvalidCommand, "add-matcher")
 		}
 
 		ctx := sup.Context()
@@ -72,7 +76,7 @@ func removeProblemMatcher(m map[string]problem.Matcher, sb sandboxer.Sandbox, su
 		file := cmd.Value
 		owner := cmd.Params["owner"]
 		if (file == "") == (owner == "") {
-			return errors.New("either an owner name or a file path must be specified in ##[remove-matcher] command")
+			return fmt.Errorf("%w %q: either owner or file must be specified, but not both", command.ErrInvalidCommand, "remove-matcher")
 		}
 
 		var owners []string
@@ -104,6 +108,7 @@ func readProblemMatcherFile(ctx context.Context, sb sandboxer.Sandbox, file stri
 		ws := sb.GetWorkspaceDir()
 		file = filepath.Join(ws, file)
 	}
+
 	reader, err := sb.CopyOut(ctx, file)
 	if err != nil {
 		return nil, err
@@ -111,10 +116,13 @@ func readProblemMatcherFile(ctx context.Context, sb sandboxer.Sandbox, file stri
 	defer reader.Close()
 
 	conf := new(problem.MatcherConfigs)
-	if err = json.NewDecoder(reader).Decode(conf); err != nil {
-		return nil, err
-	}
-	return conf, nil
+	err = utilreader.Untar(ctx, reader, func(hdr *tar.Header, tr io.Reader) error {
+		if hdr.Name != "" {
+			return fmt.Errorf("expected read single file with empty name, got %s", hdr.Name)
+		}
+		return json.NewDecoder(tr).Decode(conf)
+	})
+	return conf, err
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L751
@@ -136,14 +144,24 @@ func endGroupingLog(l logging.Logger) *command.ConsoleHandler {
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L566
+func debugMessage(l logging.Logger, runner records.Runner) *command.ConsoleHandler {
+	run := func(cmd *command.Command) error { return nil }
+	if runner.Debug == "1" {
+		run = func(cmd *command.Command) error {
+			l.Log(logging.TagDebug, cmd.Value)
+			return nil
+		}
+	}
+	return command.NewConsoleHandler("debug", false, run)
+}
+
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L600
 func logMessage(l logging.Logger) []*command.ConsoleHandler {
 	run := func(cmd *command.Command) error {
-		// TODO
+		l.Log(cmd.Name, cmd.Value)
 		return nil
 	}
 	return []*command.ConsoleHandler{
-		command.NewConsoleHandler("debug", false, run),
 		command.NewConsoleHandler("notice", false, run),
 		command.NewConsoleHandler("warning", false, run),
 		command.NewConsoleHandler("error", false, run),
@@ -168,7 +186,7 @@ func consoleSetEnv(sup executor.Supervisor) *command.ConsoleHandler {
 	run := func(cmd *command.Command) error {
 		name, ok := cmd.Params["name"]
 		if !ok || name == "" {
-			return errors.New("required field 'name' is missing in ##[set-output] command")
+			return fmt.Errorf("%w %q: required field %q is missing", command.ErrInvalidCommand, "set-env", "name")
 		}
 
 		step := sup.CurrentStep()
@@ -189,7 +207,7 @@ func consoleSetOutput(sup executor.Supervisor) *command.ConsoleHandler {
 	run := func(cmd *command.Command) error {
 		name, ok := cmd.Params["name"]
 		if !ok || name == "" {
-			return fmt.Errorf("required field 'name' in ##[set-output] command")
+			return fmt.Errorf("%w %q: required field %q is missing", command.ErrInvalidCommand, "set-output", "name")
 		}
 
 		step := sup.CurrentStep()
@@ -210,7 +228,7 @@ func consoleSaveState(sup executor.Supervisor) *command.ConsoleHandler {
 	run := func(cmd *command.Command) error {
 		name, ok := cmd.Params["name"]
 		if !ok || name == "" {
-			return fmt.Errorf("required field 'name' in ##[save-state] command")
+			return fmt.Errorf("%w %q: required field %q is missing", command.ErrInvalidCommand, "save-state", "name")
 		}
 
 		step := sup.CurrentStep()

@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"os/user"
 	"path/filepath"
 	"strings"
 
@@ -27,13 +28,25 @@ type Store interface {
 	File(ctx context.Context, repo *repository.Repository, rev, path string) (io.ReadCloser, error)
 }
 
+const (
+	folderPerm fs.FileMode = 0o755
+	remoteName string      = "anonymous"
+)
+
 func New(rootDir string) (Store, error) {
-	if err := os.MkdirAll(rootDir, 0x755); err != nil {
+	if d, err := resolveDir(rootDir); err != nil {
+		return nil, err
+	} else {
+		rootDir = d
+	}
+
+	if err := os.MkdirAll(rootDir, folderPerm); err != nil {
 		return nil, err
 	}
 
 	rs := &store{
 		rootDir: rootDir,
+		repos:   make(map[string]*git.Repository),
 	}
 	return rs, nil
 }
@@ -70,7 +83,7 @@ func (s *store) Fetch(ctx context.Context, repo *repository.Repository, token st
 }
 
 func (s *store) Read(ctx context.Context, repo *repository.Repository, rev string) (io.ReadCloser, error) {
-	id := repo.Key()
+	id := repository.FullName(repo)
 	gitRepo, ok := s.repos[id]
 	if !ok {
 		return nil, fmt.Errorf("repo %q not found", id)
@@ -109,7 +122,7 @@ func (s *store) Read(ctx context.Context, repo *repository.Repository, rev strin
 }
 
 func (s *store) File(ctx context.Context, repo *repository.Repository, rev, path string) (io.ReadCloser, error) {
-	id := repo.Key()
+	id := repository.FullName(repo)
 	gitRepo, ok := s.repos[id]
 	if !ok {
 		return nil, fmt.Errorf("repo %q not found", id)
@@ -137,7 +150,7 @@ func (s *store) File(ctx context.Context, repo *repository.Repository, rev, path
 }
 
 func (s *store) fetch(ctx context.Context, repo *repository.Repository, token, branch string) error {
-	gitRepo := s.repos[repo.Key()]
+	gitRepo := s.repos[repository.FullName(repo)]
 
 	var auth transport.AuthMethod
 	if token != "" {
@@ -146,11 +159,19 @@ func (s *store) fetch(ctx context.Context, repo *repository.Repository, token, b
 			Password: token,
 		}
 	}
+
+	remoteConfig := &config.RemoteConfig{
+		Name: remoteName,
+		URLs: []string{repository.Url(repo)},
+	}
+	remote, err := gitRepo.CreateRemoteAnonymous(remoteConfig)
+	if err != nil {
+		return err
+	}
+
 	// TODO: using treeless clone when go-git implement it
 	// https://github.blog/2020-12-21-get-up-to-speed-with-partial-clone-and-shallow-clone/
-	return gitRepo.FetchContext(ctx, &git.FetchOptions{
-		RemoteName: "anonymous",
-		RemoteURL:  url(repo),
+	fetchOptions := &git.FetchOptions{
 		RefSpecs: []config.RefSpec{
 			config.RefSpec(fmt.Sprintf("+%s:%s", repo.Ref, branch)),
 		},
@@ -159,58 +180,48 @@ func (s *store) fetch(ctx context.Context, repo *repository.Repository, token, b
 		Tags:  git.NoTags,
 		Force: true,
 		Prune: true,
-	})
+	}
+
+	return remote.FetchContext(ctx, fetchOptions)
 }
 
 func (s *store) ensureDir(repo *repository.Repository) (string, error) {
-	path := filepath.Join(s.rootDir, ensureSuffix(repo.Key(), ".git"))
+	path := repository.FullName(repo)
+	path = ensureSuffix(path, ".git")
+	path = filepath.Join(s.rootDir, path)
 	fileInfo, err := os.Stat(path)
 
 	if err != nil {
 		if os.IsNotExist(err) {
-			return path, os.MkdirAll(path, 0o755)
+			return path, os.MkdirAll(path, folderPerm)
 		}
 		return "", err
 	}
 
 	if !fileInfo.IsDir() {
-		if err := os.RemoveAll(path); err != nil {
+		if err = os.RemoveAll(path); err != nil {
 			return "", err
 		}
-		return path, os.MkdirAll(path, 0o755)
+		return path, os.MkdirAll(path, folderPerm)
 	}
 
 	return path, nil
 }
 
 func (s *store) ensureRepo(path string, repo *repository.Repository) (*git.Repository, error) {
-	id := repo.Key()
-	gitRepo, ok := s.repos[id]
-	if ok {
+	id := repository.FullName(repo)
+	if gitRepo, ok := s.repos[id]; ok {
 		return gitRepo, nil
 	}
 
 	gitRepo, err := git.PlainInit(path, true)
-	if err != nil {
-		if errors.Is(err, git.ErrRepositoryAlreadyExists) {
-			gitRepo, err = git.PlainOpen(path)
-		}
-
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		_, err = gitRepo.CreateRemoteAnonymous(&config.RemoteConfig{
-			Name: "anonymous",
-			URLs: []string{url(repo)},
-		})
-		if err != nil {
-			return nil, err
-		}
+	if errors.Is(err, git.ErrRepositoryAlreadyExists) {
+		gitRepo, err = git.PlainOpen(path)
 	}
-
-	s.repos[id] = gitRepo
-	return gitRepo, nil
+	if gitRepo != nil {
+		s.repos[id] = gitRepo
+	}
+	return gitRepo, err
 }
 
 func ensureSuffix(s, suffix string) string {
@@ -260,10 +271,24 @@ func newTarHandler(tw *tar.Writer) tarHandler {
 	return h
 }
 
-func url(repo *repository.Repository) string {
-	u := repo.Key()
-	if repo.Transport == "" {
-		return "https://" + u
+func resolveDir(path string) (string, error) {
+	if len(path) > 0 && path[0] == '~' {
+		var u *user.User
+		var err error
+		idx := strings.IndexByte(path, os.PathSeparator)
+		if idx < 0 {
+			idx = len(path)
+		}
+		if username := path[1:idx]; username == "" {
+			u, err = user.Current()
+		} else {
+			u, err = user.Lookup(username)
+		}
+		if err != nil {
+			return "", err
+		}
+		path = filepath.Join(u.HomeDir, path[idx:])
 	}
-	return repo.Transport + "://" + u
+
+	return filepath.Abs(path)
 }

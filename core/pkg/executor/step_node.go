@@ -1,7 +1,15 @@
 package executor
 
 import (
+	"path/filepath"
+	"strings"
+
+	"drassi.run/core/pkg/executor/evaluator"
+	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/model/workflows"
+	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/pkg/store/repository"
+	"drassi.run/core/pkg/util/dig"
 
 	"go.uber.org/dig"
 )
@@ -17,10 +25,28 @@ type NodeStepRun struct {
 
 	Post   string
 	PostIf workflows.Conditional
+
+	// injected values
+	exprEnv expression.Env
+	sandbox sandboxer.Sandbox
+	streams *sandboxer.Streams
+	repo    *repository.Repository
 }
 
 func (sr *NodeStepRun) Initialize(exec StepExecutor, scope *dig.Scope) error {
-	// TODO copy to sandbox
+	if err := xdig.Populate(scope, &sr.exprEnv); err != nil {
+		return err
+	}
+	if err := xdig.Populate(scope, &sr.sandbox); err != nil {
+		return err
+	}
+	if err := xdig.Populate(scope, &sr.streams); err != nil {
+		return err
+	}
+	if err := xdig.Populate(scope, &sr.repo); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -68,5 +94,39 @@ func (sr *NodeStepRun) PostTask() *Task {
 }
 
 func (sr *NodeStepRun) execute(stage Stage) TaskRun {
-	return nil
+	return func(exec StepExecutor) error {
+		ctx := exec.Context()
+
+		scriptPath := sr.computeScriptPath(stage)
+		cmd := []string{"node", scriptPath}
+
+		inputs := make(map[string]string)
+		if err := evaluator.Evaluate(sr.exprEnv, sr.Inputs, &inputs); err != nil {
+			return err
+		}
+
+		env := make(map[string]string)
+		exec.ComposeEnv(env)
+		for k, v := range inputs {
+			k = strings.ToUpper(k)
+			env["INPUT_"+k] = v
+		}
+
+		return sr.sandbox.Execute(ctx, cmd, env, "", sr.streams)
+	}
+}
+
+func (sr *NodeStepRun) computeScriptPath(stage Stage) string {
+	var script string
+	switch stage {
+	case StagePre:
+		script = sr.Pre
+	case StagePost:
+		script = sr.Post
+	case StageMain:
+		script = sr.Main
+	}
+
+	scriptPath := filepath.Join(sr.sandbox.GetActionsDir(), repository.Location(sr.repo), script)
+	return scriptPath
 }

@@ -119,20 +119,22 @@ func toActionStepRun(s *workflows.UsesStep, bsr *BaseStepRun) StepRun {
 	}
 }
 
-func FromAction(action *actions.Action) (StepRun, error) {
+func FromAction(action *actions.Action, base BaseStepRun) (StepRun, error) {
 	var sr StepRun
 	switch r := action.Runs.(type) {
 	case *actions.NodeRuns:
 		sr = &NodeStepRun{
-			Runtime: r.Using,
-			Main:    r.Main,
-			Pre:     r.Pre,
-			PreIf:   r.PreIf,
-			Post:    r.Post,
-			PostIf:  r.PostIf,
+			BaseStepRun: base,
+			Runtime:     r.Using,
+			Main:        r.Main,
+			Pre:         r.Pre,
+			PreIf:       r.PreIf,
+			Post:        r.Post,
+			PostIf:      r.PostIf,
 		}
 	case *actions.DockerRuns:
 		sr = &DockerStepRun{
+			BaseStepRun:    base,
 			Entrypoint:     r.Entrypoint,
 			PreEntrypoint:  r.PreEntrypoint,
 			PreIf:          r.PreIf,
@@ -143,16 +145,14 @@ func FromAction(action *actions.Action) (StepRun, error) {
 		stepRuns := FromSteps(r.Steps)
 
 		sr = &CompositeStepRun{
-			StepRuns: stepRuns,
+			BaseStepRun: base,
+			StepRuns:    stepRuns,
 		}
 	default:
 		return nil, fmt.Errorf("unknown action.runs %T", action.Runs)
 	}
 
 	bsr := sr.Base()
-
-	uid, _ := uuid.NewRandom()
-	bsr.Uid = uid.String()
 
 	inputTokens := make([][2]workflows.Token, 0)
 	for name, input := range action.Inputs {
@@ -170,7 +170,12 @@ func FromAction(action *actions.Action) (StepRun, error) {
 	}
 
 	if len(inputTokens) > 0 {
-		bsr.Inputs = workflows.NewMappingToken(inputTokens)
+		actionInput := workflows.NewMappingToken(inputTokens)
+		if bsr.Inputs == nil {
+			bsr.Inputs = actionInput
+		} else {
+			bsr.Inputs = workflows.NewSquashMappingToken(actionInput, bsr.Inputs)
+		}
 	}
 
 	outputTokens := make([][2]workflows.Token, 0)
@@ -182,8 +187,13 @@ func FromAction(action *actions.Action) (StepRun, error) {
 			})
 		}
 	}
-	if len(inputTokens) > 0 {
-		bsr.Outputs = workflows.NewMappingToken(outputTokens)
+	if len(outputTokens) > 0 {
+		actionOutput := workflows.NewMappingToken(outputTokens)
+		if bsr.Outputs == nil {
+			bsr.Outputs = actionOutput
+		} else {
+			bsr.Outputs = workflows.NewSquashMappingToken(actionOutput, bsr.Outputs)
+		}
 	}
 
 	return sr, nil

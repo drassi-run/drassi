@@ -58,8 +58,8 @@ func (h *hostSandboxRuntime) LaunchSandbox(ctx context.Context, request sandboxe
 	if err := os.Mkdir(sb.actionsDir, 0o755); err != nil {
 		return res, err
 	}
-	sb.actionsDir = filepath.Join(spath, "tools")
-	if err := os.Mkdir(sb.actionsDir, 0o755); err != nil {
+	sb.toolsDir = filepath.Join(spath, "tools")
+	if err := os.Mkdir(sb.toolsDir, 0o755); err != nil {
 		return res, err
 	}
 	sb.tempDir = filepath.Join(spath, "tmp")
@@ -107,6 +107,10 @@ func (h *hostSandboxRuntime) ExecuteSandbox(ctx context.Context, request sandbox
 	env := make([]string, 0, len(request.Env))
 	for k, v := range request.Env {
 		env = append(env, fmt.Sprintf("%s=%s", k, v))
+	}
+	if _, ok := request.Env["PATH"]; !ok {
+		path := os.Getenv("PATH")
+		env = append(env, fmt.Sprintf("PATH=%s", path))
 	}
 	cmd.Env = env
 
@@ -197,21 +201,23 @@ func (h *hostSandboxRuntime) CopyToSandbox(ctx context.Context, request sandboxe
 	res := sandboxer.CopyToSandboxResponse{}
 	err := utilreader.Untar(ctx, request.Content, func(hdr *tar.Header, r io.Reader) error {
 		path := filepath.Join(request.DestinationPath, hdr.Name)
+		// ensure directory existed
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			return err
+		}
+
 		switch hdr.Typeflag {
 		case tar.TypeDir:
 			return os.Mkdir(path, hdr.FileInfo().Mode())
 		case tar.TypeSymlink:
 			return os.Symlink(hdr.Linkname, path)
 		case tar.TypeReg:
-			f, err := os.Create(path)
+			// Same as os.Create(path), but with custom
+			f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, hdr.FileInfo().Mode())
 			if err != nil {
 				return err
 			}
 			defer f.Close()
-
-			if err = f.Chmod(hdr.FileInfo().Mode()); err != nil {
-				return err
-			}
 
 			// os.File implemented io.ReaderFrom, but fast path only used when reader is also a file
 			// tar.Reader implemented io.WriterTo, but it's disabled for now https://github.com/golang/go/issues/22735

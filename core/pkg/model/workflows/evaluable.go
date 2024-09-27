@@ -79,20 +79,19 @@ func (t squashMappingToken) Unravel(u Unraveler) (any, error) {
 	r := make(map[string]any)
 
 	for _, token := range t {
-		res, err := token.Unravel(u)
-		if err != nil {
+		if res, err := token.Unravel(u); err != nil {
 			return nil, err
-		}
-		if m, ok := res.(map[string]any); ok {
+		} else if m, ok := res.(map[string]any); ok {
 			maps.Copy(r, m)
+		} else {
+			return nil, fmt.Errorf("expected token return a map[string]any, got %T", res)
 		}
-		return nil, fmt.Errorf("expected token return a map[string]any, got %T", res)
 	}
 
 	return r, nil
 }
 
-func NewSquashMappingToken(tokens []Token) Token {
+func NewSquashMappingToken(tokens ...Token) Token {
 	if len(tokens) == 0 {
 		return nil
 	}

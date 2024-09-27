@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 
 	"drassi.run/core/pkg/util"
@@ -27,6 +28,7 @@ func FromFileEntries(ctx context.Context, entries ...*FileEntry) (io.Reader, err
 	logger := util.Logger(ctx)
 	buf := new(bytes.Buffer)
 	tw := tar.NewWriter(buf)
+	defer tw.Close()
 
 	for _, entry := range entries {
 		logger.Debugf("Writing entry to tarball %s len:%d", entry.Name, len(entry.Content))
@@ -42,14 +44,41 @@ func FromFileEntries(ctx context.Context, entries ...*FileEntry) (io.Reader, err
 		if err := tw.WriteHeader(hdr); err != nil {
 			return nil, err
 		}
-		if _, err := tw.Write([]byte(entry.Content)); err != nil {
+		if _, err := io.WriteString(tw, entry.Content); err != nil {
 			return nil, err
 		}
 	}
 
-	if err := tw.Close(); err != nil {
-		return nil, err
+	return buf, nil
+}
+
+func FromJsonObject(m map[string]any, compact bool) (io.Reader, error) {
+	buf := new(bytes.Buffer)
+	tw := tar.NewWriter(buf)
+	defer tw.Close()
+
+	for file, obj := range m {
+		var b []byte
+		var err error
+		if compact {
+			b, err = json.Marshal(obj)
+		} else {
+			b, err = json.MarshalIndent(obj, "", "  ")
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		hdr := &tar.Header{Name: file, Mode: 0o755, Size: int64(len(b))}
+		if err = tw.WriteHeader(hdr); err != nil {
+			return nil, err
+		}
+
+		if _, err = tw.Write(b); err != nil {
+			return nil, err
+		}
 	}
+
 	return buf, nil
 }
 

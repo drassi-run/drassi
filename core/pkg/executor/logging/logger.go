@@ -7,14 +7,14 @@ import (
 )
 
 const (
-	TagGroup    = "##[group]"
-	TagEndGroup = "##[endgroup]"
-	TagSection  = "##[section]"
-	TagCommand  = "##[command]"
-	TagError    = "##[error]"
-	TagWarning  = "##[warning]"
-	TagNotice   = "##[notice]"
-	TagDebug    = "##[debug]"
+	TagGroup    = "group"
+	TagEndGroup = "endgroup"
+	TagSection  = "section"
+	TagCommand  = "command"
+	TagError    = "error"
+	TagWarning  = "warning"
+	TagNotice   = "notice"
+	TagDebug    = "debug"
 )
 
 type Logger interface {
@@ -35,7 +35,7 @@ func (l *logger) Log(tag, format string, a ...any) {
 		message = fmt.Sprintf(format, a...)
 	}
 	if tag != "" {
-		message = tag + message
+		message = fmt.Sprintf("##[%s]%s", tag, message)
 	}
 	if !strings.HasSuffix(message, "\n") {
 		message = message + "\n"

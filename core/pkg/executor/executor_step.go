@@ -312,6 +312,7 @@ func (e *stepExecutor) ComposeEnv(m map[string]string) {
 		"GITHUB_WORKFLOW":            e.github.Workflow,
 		"GITHUB_WORKFLOW_REF":        e.github.WorkflowRef,
 		"GITHUB_WORKFLOW_SHA":        e.github.WorkflowSha,
+		"GITHUB_WORKSPACE":           e.github.Workspace,
 	}
 	maps.Copy(m, ghEnv)
 

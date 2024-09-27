@@ -34,6 +34,9 @@ func provideConsoleHandlers(scope *dig.Scope) error {
 	if err := scope.Provide(endGroupingLog, group); err != nil {
 		return err
 	}
+	if err := scope.Provide(debugMessage, group); err != nil {
+		return err
+	}
 	if err := scope.Provide(logMessage, dig.Group(wire.ConsoleCommandHandlers+",flatten")); err != nil {
 		return err
 	}

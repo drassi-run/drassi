@@ -107,6 +107,11 @@ func (s *incusSandbox) BuildImage(ctx context.Context, image string, dockerfile 
 	panic("implement me")
 }
 
+func (s *incusSandbox) Paths() []string {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (s *incusSandbox) GetWorkspaceDir() string {
 	return s.workspaceDir
 }

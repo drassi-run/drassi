@@ -124,11 +124,7 @@ func (sr *DockerStepRun) execute(stage Stage) TaskRun {
 		}
 
 		env := make(map[string]string)
-		if err = evaluator.Evaluate(sr.exprEnv, sr.Env, &env); err != nil {
-			return err
-		} else {
-			exec.ComposeEnv(env)
-		}
+		exec.ComposeEnv(env)
 		for k, v := range inputs {
 			k = strings.ToUpper(k)
 			env["INPUT_"+k] = v

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -18,6 +19,7 @@ import (
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/util/dig"
+	utilreader "drassi.run/core/pkg/util/reader"
 
 	"go.uber.org/dig"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -108,16 +110,18 @@ func (e *jobExecutor) Initialize(scope *dig.Scope) error {
 
 func (e *jobExecutor) RunJob() *records.Job {
 	e.SetStatus(records.ResultSuccess)
-	states := map[Stage]func(StepRun) *Task{
-		StagePre:  StepRun.PreTask,
-		StageMain: StepRun.MainTask,
-		StagePost: StepRun.PostTask,
+
+	if err := e.runStage(StagePre, StepRun.PreTask); err != nil {
+		e.SetStatus(records.ResultFailure)
+		//log err
 	}
-	for state, fn := range states {
-		if err := e.runStage(state, fn); err != nil {
-			e.SetStatus(records.ResultFailure)
-			//log err
-		}
+	if err := e.runStage(StageMain, StepRun.MainTask); err != nil {
+		e.SetStatus(records.ResultFailure)
+		//log err
+	}
+	if err := e.runStage(StagePost, StepRun.PostTask); err != nil {
+		e.SetStatus(records.ResultFailure)
+		//log err
 	}
 	if err := evaluator.Evaluate(e.exprEnv, e.jobRun.Outputs, &e.job.Outputs); err != nil {
 		e.SetStatus(records.ResultFailure)
@@ -261,8 +265,24 @@ func (e *jobExecutor) initializeSandbox() error {
 		return err
 	} else {
 		e.sandbox = resp.Sandbox
+
+		// set records values
 		e.jobInfo.Container = resp.Container
 		e.jobInfo.Services = resp.Services
+		e.github.Workspace = e.sandbox.GetWorkspaceDir()
+		e.runner.Workspace = e.sandbox.GetWorkspaceDir()
+		e.runner.ToolCache = e.sandbox.GetToolsDir()
+		e.runner.Temp = e.sandbox.GetTempDir()
+
+		paths := e.sandbox.Paths()
+		slices.Reverse(paths) // in-place reverse
+		_ = e.AddPath(paths)
+	}
+
+	if location, err := e.setupEventFile(e.ctx); err != nil {
+		return err
+	} else {
+		e.github.EventPath = location
 	}
 
 	// register SandboxLib (e.g hashFiles func) to expression.Env
@@ -315,6 +335,15 @@ func (e *jobExecutor) initializeScope(scope *dig.Scope) error {
 		return nil
 	}); err != nil {
 		return err
+	}
+
+	if e.runner.Debug == "1" {
+		if err := scope.Invoke(func(cmdMgr command.ConsoleManager) error {
+			cmd := &command.Command{Name: "echo", Value: "ON"}
+			return cmdMgr.Process("", cmd)
+		}); err != nil {
+			return err
+		}
 	}
 
 	err := scope.Invoke(func(cmdMgr command.FileManager) error {
@@ -423,6 +452,9 @@ func (e *jobExecutor) ComposeEnv(m map[string]string) {
 		"RUNNER_ARCH":        string(e.runner.Arch),
 		"RUNNER_OS":          string(e.runner.Os),
 		"RUNNER_ENVIRONMENT": e.runner.Environment,
+		"RUNNER_TEMP":        e.runner.Temp,
+		"RUNNER_TOOL_CACHE":  e.runner.ToolCache,
+		"RUNNER_WORKSPACE":   e.runner.Workspace,
 	}
 	if e.runner.Debug == "1" {
 		m["RUNNER_DEBUG"] = "1"
@@ -433,7 +465,8 @@ func (e *jobExecutor) ComposeEnv(m map[string]string) {
 	maps.Copy(m, supEnv)
 
 	if len(e.paths) > 0 {
-		m["PATH"] = strings.Join(e.paths, ":")
+		sep := string(e.runner.Os.PathSeparator())
+		m["PATH"] = strings.Join(e.paths, sep)
 	}
 }
 
@@ -451,12 +484,11 @@ func (e *jobExecutor) AddPath(paths []string) error {
 	if len(paths) == 0 {
 		return nil
 	}
-	slices.Reverse(paths)
 
-	newPaths := make([]string, 0, len(paths))
-	set := sets.New(paths[0])
+	newPaths := make([]string, 0, len(e.paths))
+	set := sets.New[string]()
 
-	for _, path := range paths[1:] {
+	for _, path := range slices.Backward(paths) {
 		if !set.Has(path) {
 			newPaths = append(newPaths, path)
 			set.Insert(path)
@@ -488,4 +520,19 @@ func (e *jobExecutor) SetEnv(env map[string]string) error {
 		e.env[k] = v
 	}
 	return nil
+}
+
+func (e *jobExecutor) setupEventFile(ctx context.Context) (string, error) {
+	files := map[string]any{"": e.github.Event}
+	r, err := utilreader.FromJsonObject(files, false)
+	if err != nil {
+		return "", err
+	}
+
+	location := filepath.Join(e.sandbox.GetTempDir(), "workflow", "event.json")
+	if err = e.sandbox.CopyIn(ctx, r, location); err != nil {
+		return "", err
+	}
+
+	return location, nil
 }
