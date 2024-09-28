@@ -118,7 +118,7 @@ func (sr *ScriptStepRun) expandCommand(shell model.Shell, scriptPath string) ([]
 func (sr *ScriptStepRun) computeScriptPath(exec StepExecutor, ext string) string {
 	path := sr.Id
 	for parent := exec.ParentExecutor(); parent != nil; parent = parent.ParentExecutor() {
-		path = fmt.Sprintf("%s-composite-%s", parent.StepId(), path)
+		path = fmt.Sprintf("%s-composite-%s", StepId(parent), path)
 	}
 	if !strings.HasPrefix(ext, ".") {
 		ext = "." + ext

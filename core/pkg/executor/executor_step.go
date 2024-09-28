@@ -21,9 +21,8 @@ type StepExecutor interface {
 	NewChildExecutor(stepRun StepRun) StepExecutor
 	ChildExecutor(id string) StepExecutor
 	ParentExecutor() StepExecutor
-	RootExecutor() StepExecutor
 
-	StepId() string
+	StepRun() StepRun
 	Context() context.Context
 	SetContext(ctx context.Context)
 
@@ -36,6 +35,14 @@ type StepExecutor interface {
 	CreateStepSummary(r io.Reader) error
 	SaveState(state map[string]string) error
 	SetOutput(output map[string]string) error
+}
+
+func StepId(e StepExecutor) string {
+	return e.StepRun().StepId()
+}
+
+func StepUid(e StepExecutor) string {
+	return e.StepRun().Base().Uid
 }
 
 func newStepExecutor(job JobExecutor, parent StepExecutor, stepRun StepRun) StepExecutor {
@@ -54,15 +61,19 @@ type stepExecutor struct {
 	stepRun  StepRun
 
 	// records
-	github records.Github
-	step   *records.Step
-	env    map[string]string
-	jobEnv map[string]string
-	state  map[string]string // Intra action state
+	github   records.Github
+	step     *records.Step
+	env      map[string]string
+	upperEnv map[string]string // env variables from upper layers
+	state    map[string]string // Intra action state
 
 	ctx        context.Context
 	exprEnv    expression.Env
 	supervisor Supervisor
+}
+
+func (e *stepExecutor) StepRun() StepRun {
+	return e.stepRun
 }
 
 func (e *stepExecutor) Context() context.Context {
@@ -71,14 +82,6 @@ func (e *stepExecutor) Context() context.Context {
 
 func (e *stepExecutor) SetContext(ctx context.Context) {
 	e.ctx = ctx
-}
-
-func (e *stepExecutor) StepId() string {
-	return e.stepRun.StepId()
-}
-
-func (e *stepExecutor) StepRun() StepRun {
-	return e.stepRun
 }
 
 func (e *stepExecutor) NewChildExecutor(stepRun StepRun) StepExecutor {
@@ -95,7 +98,7 @@ func (e *stepExecutor) ParentExecutor() StepExecutor {
 	return e.parent
 }
 
-func (e *stepExecutor) RootExecutor() StepExecutor {
+func (e *stepExecutor) rootExecutor() StepExecutor {
 	var exec StepExecutor = e
 	for exec.ParentExecutor() != nil {
 		exec = exec.ParentExecutor()
@@ -114,13 +117,13 @@ func (e *stepExecutor) Initialize(scope *dig.Scope) error {
 	if err := xdig.Populate(scope, &e.github); err != nil {
 		return err
 	} else {
-		e.github.Action = e.StepId()
+		e.github.Action = StepId(e)
 	}
-	if err := xdig.Populate(scope, &e.jobEnv); err != nil {
+	if err := xdig.Populate(scope, &e.upperEnv); err != nil {
 		return err
 	}
 	e.env = make(map[string]string)
-	maps.Copy(e.env, e.jobEnv)
+	maps.Copy(e.env, e.upperEnv)
 	e.step = new(records.Step)
 	e.step.Outputs = make(map[string]string)
 	e.state = make(map[string]string)
@@ -181,14 +184,14 @@ func (e *stepExecutor) RunStep(fn func(StepRun) *Task) *records.Step {
 }
 
 func (e *stepExecutor) beginTask(task *Task) error {
-	if err := e.supervisor.BeforeStepRun(e); err != nil {
+	if err := e.supervisor.BeforeStepRun(task.Stage, e); err != nil {
 		return err
 	}
 
 	base := e.stepRun.Base()
 
 	clear(e.env)
-	maps.Copy(e.env, e.jobEnv)
+	maps.Copy(e.env, e.upperEnv)
 	if err := evaluator.Evaluate(e.exprEnv, base.Env, &e.env); err != nil {
 		e.SetStatus(records.ResultFailure)
 		return err
@@ -265,12 +268,13 @@ func (e *stepExecutor) endTask(task *Task) {
 		} else if continueOnError {
 			//logger.Infof("Failed but continue next step")
 			e.step.Conclusion = records.ResultSuccess
-		} else {
-			e.step.Conclusion = e.step.Outcome
 		}
 	}
+	if e.step.Conclusion == "" {
+		e.step.Conclusion = e.step.Outcome
+	}
 
-	if err := e.supervisor.AfterStepRun(e, e.step); err != nil {
+	if err := e.supervisor.AfterStepRun(task.Stage, e, e.step); err != nil {
 		//logger.Infof("Failed but continue next step")
 	}
 }
@@ -362,10 +366,12 @@ func (e *stepExecutor) CreateStepSummary(io.Reader) error {
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L260
 // https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#sending-values-to-the-pre-and-post-actions
 func (e *stepExecutor) SaveState(state map[string]string) error {
+	// if it's embedded step, forward state to the root step
 	if e.parent != nil {
-		root := e.RootExecutor()
+		root := e.rootExecutor()
 		return root.SaveState(state)
 	}
+	// in root step, save the state
 	maps.Copy(e.state, state)
 	return nil
 }

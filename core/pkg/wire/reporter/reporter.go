@@ -6,7 +6,6 @@ import (
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/executor/reporter"
 	"drassi.run/core/pkg/executor/secret"
-	"drassi.run/core/pkg/model/records"
 	"go.uber.org/dig"
 )
 
@@ -77,29 +76,10 @@ func maskStderr(p maskStderrParams) maskStderrResult {
 }
 
 func registerCallbacks(rep reporter.Reporter, sup executor.Supervisor) error {
-	h1 := func(je executor.JobExecutor) error {
-		rep.StartJob()
-		return nil
-	}
-	sup.Register(executor.BeforeRunJobCallback(h1))
-
-	h2 := func(je executor.JobExecutor, result *records.Job) error {
-		rep.EndJob(result.Result, result.Outputs)
-		return nil
-	}
-	sup.Register(executor.AfterRunJobCallback(h2))
-
-	h3 := func(se executor.StepExecutor) error {
-		rep.StartStep(se.StepId())
-		return nil
-	}
-	sup.Register(executor.BeforeRunStepCallback(h3))
-
-	h4 := func(se executor.StepExecutor, result *records.Step) error {
-		rep.EndStep(se.StepId(), result.Outcome)
-		return nil
-	}
-	sup.Register(executor.AfterRunStepCallback(h4))
+	sup.Register(executor.BeforeRunJobCallback(rep.StartJob))
+	sup.Register(executor.AfterRunJobCallback(rep.EndJob))
+	sup.Register(executor.BeforeRunStepCallback(rep.StartStep))
+	sup.Register(executor.AfterRunStepCallback(rep.EndStep))
 
 	return nil
 }

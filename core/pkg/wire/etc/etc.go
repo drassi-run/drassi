@@ -10,12 +10,9 @@ func Wire(scope *dig.Scope) error {
 }
 
 func provideEnv(sup executor.Supervisor) {
-	fn := func() map[string]string {
-		m := map[string]string{
-			"CI":             "true",
-			"GITHUB_ACTIONS": "true",
-		}
-		return m
+	m := map[string]string{
+		"CI":             "true",
+		"GITHUB_ACTIONS": "true",
 	}
-	sup.Register(executor.EnvProvider(fn))
+	sup.Register(executor.Env(m))
 }
