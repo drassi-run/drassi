@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"slices"
+	"strings"
 
 	runnerv1 "code.gitea.io/actions-proto-go/runner/v1"
 	"drassi.run/core/pkg/executor"
@@ -144,6 +145,32 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 		return err
 	}
 	if err := wire_reporter.Wire(scope); err != nil {
+		return err
+	}
+
+	err := scope.Invoke(func(client service.GiteaClient, sup executor.Supervisor) error {
+		endpoint := client.Address()
+		endpoint = strings.TrimSuffix(endpoint, "/")
+
+		taskContext := w.task.Context.Fields
+		giteaRuntimeToken := taskContext["gitea_runtime_token"].GetStringValue()
+		if giteaRuntimeToken == "" {
+			// use task token to action api token for previous Gitea Server Versions
+			giteaRuntimeToken = github.Token
+		}
+
+		env = map[string]string{
+			"GITEA_ACTIONS":         "true",
+			"ACTIONS_RUNTIME_URL":   endpoint + "/api/actions_pipeline/",
+			"ACTIONS_RUNTIME_TOKEN": giteaRuntimeToken,
+			"ACTIONS_RESULTS_URL":   endpoint,
+			//"ACTIONS_CACHE_URL":     "", // TODO
+		}
+
+		sup.Register(executor.Env(env))
+		return nil
+	})
+	if err != nil {
 		return err
 	}
 

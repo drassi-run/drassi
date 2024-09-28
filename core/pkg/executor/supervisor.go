@@ -83,6 +83,16 @@ func EnvProvider(fn func() map[string]string) Callback {
 	}
 }
 
+func Env(m map[string]string) Callback {
+	fn := func() map[string]string {
+		return m
+	}
+
+	return func(h *hook) {
+		h.envProviders = append(h.envProviders, fn)
+	}
+}
+
 func NewSupervisor() Supervisor {
 	return new(supervisor)
 }
