@@ -1,7 +1,6 @@
 package cache
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -9,18 +8,12 @@ import (
 	"strings"
 	"time"
 
+	"drassi.run/core/pkg/store/cache/index"
 	"drassi.run/core/pkg/store/cache/storage"
 )
 
-type Index interface {
-	Create(ctx context.Context, cache *Cache) error
-	Update(ctx context.Context, cache *Cache) error
-	Get(ctx context.Context, id uint64) (*Cache, error)
-	Search(ctx context.Context, keys []string, version string) (*Cache, error)
-}
-
 type manager struct {
-	index   Index
+	index   index.Index
 	storage storage.Storage
 }
 
