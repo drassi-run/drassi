@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"drassi.run/core/pkg/store/cache"
 	"drassi.run/core/pkg/store/cache/storage"
+	"drassi.run/core/pkg/store/cache/types"
 	"drassi.run/core/pkg/util/io"
 	"drassi.run/core/pkg/util/path"
 	"github.com/go-git/go-billy/v5"
@@ -43,7 +43,7 @@ func New(rootDir string) (storage.Storage, error) {
 	return s, nil
 }
 
-func (s *fsStorage) InitObject(_ context.Context, cache *cache.Cache) error {
+func (s *fsStorage) InitObject(_ context.Context, cache *types.Cache) error {
 	path := s.path(cache)
 	if file, err := s.fsys.Create(path); err != nil {
 		return err
@@ -52,7 +52,7 @@ func (s *fsStorage) InitObject(_ context.Context, cache *cache.Cache) error {
 	}
 }
 
-func (s *fsStorage) WriteObject(ctx context.Context, cache *cache.Cache, r io.Reader, offset, length int64) error {
+func (s *fsStorage) WriteObject(ctx context.Context, cache *types.Cache, r io.Reader, offset, length int64) error {
 	path := s.path(cache)
 	file, err := s.fsys.OpenFile(path, os.O_WRONLY, filePerm)
 	if err != nil {
@@ -69,17 +69,17 @@ func (s *fsStorage) WriteObject(ctx context.Context, cache *cache.Cache, r io.Re
 	return err
 }
 
-func (s *fsStorage) CommitObject(_ context.Context, _ *cache.Cache) error {
+func (s *fsStorage) CommitObject(_ context.Context, _ *types.Cache) error {
 	// do nothing
 	return nil
 }
 
-func (s *fsStorage) ObjectLocation(_ context.Context, _ *cache.Cache) string {
+func (s *fsStorage) ObjectLocation(_ context.Context, _ *types.Cache) string {
 	// not support external direct access
 	return ""
 }
 
-func (s *fsStorage) ReadObject(ctx context.Context, cache *cache.Cache, w io.Writer, offset, length int64) error {
+func (s *fsStorage) ReadObject(ctx context.Context, cache *types.Cache, w io.Writer, offset, length int64) error {
 	path := s.path(cache)
 	file, err := s.fsys.OpenFile(path, os.O_RDONLY, filePerm)
 	if err != nil {
@@ -100,6 +100,6 @@ func (s *fsStorage) ReadObject(ctx context.Context, cache *cache.Cache, w io.Wri
 	return err
 }
 
-func (s *fsStorage) path(cache *cache.Cache) string {
+func (s *fsStorage) path(cache *types.Cache) string {
 	return filepath.Join(cache.Namespace, strconv.FormatUint(cache.ID, 10), fileName)
 }

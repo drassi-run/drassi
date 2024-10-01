@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"drassi.run/core/pkg/store/cache/types"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -12,36 +13,36 @@ import (
 	"drassi.run/core/pkg/store/cache/storage"
 )
 
-type manager struct {
+type Controller interface {
+	Mux() *http.ServeMux
+}
+
+func New(idx index.Index, s storage.Storage) Controller {
+	return &controller{
+		index:   idx,
+		storage: s,
+	}
+}
+
+type controller struct {
 	index   index.Index
 	storage storage.Storage
 }
 
-type Cache struct {
-	ID         uint64    `json:"id"` // generated
-	Key        string    `json:"key"`
-	Version    string    `json:"version"`
-	Namespace  string    `json:"namespace"`
-	Size       int64     `json:"cacheSize"`
-	Complete   bool      `json:"complete"`
-	CreatedAt  time.Time `json:"createdAt"`
-	LastUsedAt time.Time `json:"lastUsedAt"`
-}
-
 const urlBase = "/_apis/artifactcache"
 
-func (m *manager) Mux() *http.ServeMux {
+func (c *controller) Mux() *http.ServeMux {
 	mux := http.NewServeMux()
 
 	// saveCache
-	mux.HandleFunc("POST "+urlBase+"/caches", m.Reserve)
-	mux.HandleFunc("PATCH "+urlBase+"/caches/{id}", m.Upload)
-	mux.HandleFunc("POST "+urlBase+"/caches/{id}", m.Commit)
+	mux.HandleFunc("POST "+urlBase+"/caches", c.Reserve)
+	mux.HandleFunc("PATCH "+urlBase+"/caches/{id}", c.Upload)
+	mux.HandleFunc("POST "+urlBase+"/caches/{id}", c.Commit)
 	// restoreCache
-	mux.HandleFunc("GET "+urlBase+"/cache", m.Search)
+	mux.HandleFunc("GET "+urlBase+"/cache", c.Search)
 	// - custom handlers
-	mux.HandleFunc("HEAD "+urlBase+"/caches/{id}", m.Metadata)
-	mux.HandleFunc("GET "+urlBase+"/caches/{id}", m.Download)
+	mux.HandleFunc("HEAD "+urlBase+"/caches/{id}", c.Metadata)
+	mux.HandleFunc("GET "+urlBase+"/caches/{id}", c.Download)
 
 	return mux
 }
@@ -54,10 +55,10 @@ type reserveRequest struct {
 
 // Reserve cache id
 // POST /_apis/artifactcache/caches
-func (m *manager) Reserve(w http.ResponseWriter, r *http.Request) {
+func (c *controller) Reserve(w http.ResponseWriter, r *http.Request) {
 	req := new(reserveRequest)
 	if err := json.NewDecoder(r.Body).Decode(req); err != nil {
-		m.responseJSON(w, 400, err)
+		c.responseJSON(w, 400, err)
 		return
 	} else {
 		// cache keys are case-insensitive
@@ -65,7 +66,7 @@ func (m *manager) Reserve(w http.ResponseWriter, r *http.Request) {
 	}
 
 	now := time.Now()
-	cache := &Cache{
+	cache := &types.Cache{
 		Key:        req.Key,
 		Version:    req.Version,
 		Size:       req.Size,
@@ -79,18 +80,23 @@ func (m *manager) Reserve(w http.ResponseWriter, r *http.Request) {
 		cache.Size = -1
 	}
 
-	if err := m.index.Create(r.Context(), cache); err != nil {
-		m.responseJSON(w, 500, err)
+	ctx := r.Context()
+	if err := c.index.Create(ctx, cache); err != nil {
+		c.responseJSON(w, 500, err)
 	}
-	m.responseJSON(w, 200, map[string]any{
+	if err := c.storage.InitObject(ctx, cache); err != nil {
+		c.responseJSON(w, 500, err)
+	}
+
+	c.responseJSON(w, 200, map[string]any{
 		"cacheId": cache.ID,
 	})
 }
 
 // Upload chunks
 // PATCH /_apis/artifactcache/caches/{id}
-func (m *manager) Upload(w http.ResponseWriter, r *http.Request) {
-	cache := m.getCache(w, r, false)
+func (c *controller) Upload(w http.ResponseWriter, r *http.Request) {
+	cache := c.getCache(w, r, false)
 	if cache == nil {
 		return
 	}
@@ -98,43 +104,43 @@ func (m *manager) Upload(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	start, end, err := parseContentRangeHeader(r.Header)
 	if err != nil {
-		m.responseJSON(w, 400, err)
+		c.responseJSON(w, 400, err)
 		return
 	}
 
 	length := end - start + 1
-	if err = m.storage.WriteObject(ctx, cache, r.Body, start, length); err != nil {
-		m.responseJSON(w, 500, err)
+	if err = c.storage.WriteObject(ctx, cache, r.Body, start, length); err != nil {
+		c.responseJSON(w, 500, err)
 		return
 	}
 
 	cache.LastUsedAt = time.Now()
-	_ = m.index.Update(ctx, cache)
-	m.responseJSON(w, 200, nil)
+	_ = c.index.Update(ctx, cache)
+	c.responseJSON(w, 200, nil)
 }
 
 // Commit cache upload
 // POST /_apis/artifactcache/caches/{id}
-func (m *manager) Commit(w http.ResponseWriter, r *http.Request) {
-	cache := m.getCache(w, r, false)
+func (c *controller) Commit(w http.ResponseWriter, r *http.Request) {
+	cache := c.getCache(w, r, false)
 	if cache == nil {
 		return
 	}
 
 	ctx := r.Context()
-	if err := m.storage.CommitObject(ctx, cache); err != nil {
-		m.responseJSON(w, 500, err)
+	if err := c.storage.CommitObject(ctx, cache); err != nil {
+		c.responseJSON(w, 500, err)
 		return
 	}
 
 	cache.Complete = true
 	cache.LastUsedAt = time.Now()
-	if err := m.index.Update(ctx, cache); err != nil {
-		m.responseJSON(w, 500, err)
+	if err := c.index.Update(ctx, cache); err != nil {
+		c.responseJSON(w, 500, err)
 		return
 	}
 
-	m.responseJSON(w, 200, nil)
+	c.responseJSON(w, 200, nil)
 }
 
 type searchResponse struct {
@@ -145,7 +151,7 @@ type searchResponse struct {
 
 // Search cache by keys and version
 // GET /_apis/artifactcache/cache
-func (m *manager) Search(w http.ResponseWriter, r *http.Request) {
+func (c *controller) Search(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	version := q.Get("version")
 	keys := strings.Split(q.Get("keys"), ",")
@@ -155,19 +161,19 @@ func (m *manager) Search(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	cache, err := m.index.Search(ctx, keys, version)
+	cache, err := c.index.Search(ctx, keys, version)
 	if err != nil {
-		m.responseJSON(w, 500, err)
+		c.responseJSON(w, 500, err)
 		return
 	}
 	if cache == nil {
-		m.responseJSON(w, 204, nil)
+		c.responseJSON(w, 204, nil)
 		return
 	}
 
-	location := m.storage.ObjectLocation(ctx, cache)
+	location := c.storage.ObjectLocation(ctx, cache)
 	if location == "" {
-		m.responseJSON(w, 204, nil)
+		c.responseJSON(w, 204, nil)
 		return
 	}
 
@@ -176,13 +182,13 @@ func (m *manager) Search(w http.ResponseWriter, r *http.Request) {
 		Location: location,
 		Result:   "hit",
 	}
-	m.responseJSON(w, 200, res)
+	c.responseJSON(w, 200, res)
 }
 
 // Metadata return resource metadata
 // HEAD /_apis/artifactcache/caches/{id}
-func (m *manager) Metadata(w http.ResponseWriter, r *http.Request) {
-	cache := m.getCache(w, r, true)
+func (c *controller) Metadata(w http.ResponseWriter, r *http.Request) {
+	cache := c.getCache(w, r, true)
 	if cache == nil {
 		return
 	}
@@ -194,15 +200,15 @@ func (m *manager) Metadata(w http.ResponseWriter, r *http.Request) {
 
 // Download cache Segment
 // GET /_apis/artifactcache/caches/{id}
-func (m *manager) Download(w http.ResponseWriter, r *http.Request) {
-	cache := m.getCache(w, r, true)
+func (c *controller) Download(w http.ResponseWriter, r *http.Request) {
+	cache := c.getCache(w, r, true)
 	if cache == nil {
 		return
 	}
 
 	start, end, err := parseRangeHeader(r.Header)
 	if err != nil {
-		m.responseJSON(w, 400, err)
+		c.responseJSON(w, 400, err)
 		return
 	}
 
@@ -211,22 +217,22 @@ func (m *manager) Download(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Length", strconv.FormatInt(end-start+1, 10))
 
 	length := end - start + 1
-	if err = m.storage.ReadObject(r.Context(), cache, w, start, length); err != nil {
-		m.responseJSON(w, 500, err)
+	if err = c.storage.ReadObject(r.Context(), cache, w, start, length); err != nil {
+		c.responseJSON(w, 500, err)
 		return
 	}
 }
 
-func (m *manager) getCache(w http.ResponseWriter, r *http.Request, com bool) *Cache {
+func (c *controller) getCache(w http.ResponseWriter, r *http.Request, com bool) *types.Cache {
 	id, err := strconv.ParseUint(r.PathValue("id"), 10, 64)
 	if err != nil {
-		m.responseJSON(w, 400, err)
+		c.responseJSON(w, 400, err)
 		return nil
 	}
 
-	cache, err := m.index.Get(r.Context(), id)
+	cache, err := c.index.Get(r.Context(), id)
 	if err != nil {
-		m.responseJSON(w, 500, err)
+		c.responseJSON(w, 500, err)
 		return nil
 	}
 
@@ -236,7 +242,7 @@ func (m *manager) getCache(w http.ResponseWriter, r *http.Request, com bool) *Ca
 		} else {
 			err = fmt.Errorf("cache %v %q: in-complete", cache.ID, cache.Key)
 		}
-		m.responseJSON(w, 400, err)
+		c.responseJSON(w, 400, err)
 		return nil
 	}
 
@@ -245,7 +251,7 @@ func (m *manager) getCache(w http.ResponseWriter, r *http.Request, com bool) *Ca
 
 var empty = struct{}{}
 
-func (m *manager) responseJSON(w http.ResponseWriter, code int, obj any) {
+func (c *controller) responseJSON(w http.ResponseWriter, code int, obj any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(code)
 
