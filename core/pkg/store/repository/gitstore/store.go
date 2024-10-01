@@ -8,17 +8,22 @@ import (
 	"io"
 	"io/fs"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"drassi.run/core/pkg/store/repository"
 	"drassi.run/core/pkg/util/path"
+	"github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-billy/v5/osfs"
+	"github.com/go-git/go-billy/v5/util"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/cache"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
+	"github.com/go-git/go-git/v5/storage"
+	"github.com/go-git/go-git/v5/storage/filesystem"
 	"k8s.io/apimachinery/pkg/util/rand"
 )
 
@@ -45,15 +50,17 @@ func New(rootDir string) (Store, error) {
 	}
 
 	rs := &store{
-		rootDir: rootDir,
-		repos:   make(map[string]*git.Repository),
+		// Using `billy.Filesystem` instead of `rootDir` to
+		// abstract from file system implementations and simplify testing.
+		fsys:  osfs.New(rootDir),
+		repos: make(map[string]*git.Repository),
 	}
 	return rs, nil
 }
 
 type store struct {
-	rootDir string
-	repos   map[string]*git.Repository
+	fsys  billy.Filesystem
+	repos map[string]*git.Repository
 }
 
 func (s *store) Fetch(ctx context.Context, repo *repository.Repository, token string) (string, error) {
@@ -188,21 +195,20 @@ func (s *store) fetch(ctx context.Context, repo *repository.Repository, token, b
 func (s *store) ensureDir(repo *repository.Repository) (string, error) {
 	path := repository.FullName(repo)
 	path = ensureSuffix(path, ".git")
-	path = filepath.Join(s.rootDir, path)
-	fileInfo, err := os.Stat(path)
+	fileInfo, err := s.fsys.Stat(path)
 
 	if err != nil {
 		if os.IsNotExist(err) {
-			return path, os.MkdirAll(path, folderPerm)
+			return path, s.fsys.MkdirAll(path, folderPerm)
 		}
 		return "", err
 	}
 
 	if !fileInfo.IsDir() {
-		if err = os.RemoveAll(path); err != nil {
+		if err = util.RemoveAll(s.fsys, path); err != nil {
 			return "", err
 		}
-		return path, os.MkdirAll(path, folderPerm)
+		return path, s.fsys.MkdirAll(path, folderPerm)
 	}
 
 	return path, nil
@@ -214,9 +220,18 @@ func (s *store) ensureRepo(path string, repo *repository.Repository) (*git.Repos
 		return gitRepo, nil
 	}
 
-	gitRepo, err := git.PlainInit(path, true)
+	var storer storage.Storer
+	if dot, err := s.fsys.Chroot(path); err != nil {
+		return nil, err
+	} else {
+		storer = filesystem.NewStorage(dot, cache.NewObjectLRUDefault())
+	}
+
+	//gitRepo, err := git.PlainInit(path, true)
+	gitRepo, err := git.Init(storer, nil)
 	if errors.Is(err, git.ErrRepositoryAlreadyExists) {
-		gitRepo, err = git.PlainOpen(path)
+		//gitRepo, err = git.PlainOpen(path)
+		gitRepo, err = git.Open(storer, nil)
 	}
 	if gitRepo != nil {
 		s.repos[id] = gitRepo
