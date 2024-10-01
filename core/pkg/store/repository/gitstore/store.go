@@ -8,11 +8,11 @@ import (
 	"io"
 	"io/fs"
 	"os"
-	"os/user"
 	"path/filepath"
 	"strings"
 
 	"drassi.run/core/pkg/store/repository"
+	"drassi.run/core/pkg/util/path"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -34,7 +34,7 @@ const (
 )
 
 func New(rootDir string) (Store, error) {
-	if d, err := resolveDir(rootDir); err != nil {
+	if d, err := xpath.ResolveDir(rootDir); err != nil {
 		return nil, err
 	} else {
 		rootDir = d
@@ -269,26 +269,4 @@ func newTarHandler(tw *tar.Writer) tarHandler {
 		}
 	}
 	return h
-}
-
-func resolveDir(path string) (string, error) {
-	if len(path) > 0 && path[0] == '~' {
-		var u *user.User
-		var err error
-		idx := strings.IndexByte(path, os.PathSeparator)
-		if idx < 0 {
-			idx = len(path)
-		}
-		if username := path[1:idx]; username == "" {
-			u, err = user.Current()
-		} else {
-			u, err = user.Lookup(username)
-		}
-		if err != nil {
-			return "", err
-		}
-		path = filepath.Join(u.HomeDir, path[idx:])
-	}
-
-	return filepath.Abs(path)
 }
