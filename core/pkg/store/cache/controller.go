@@ -173,8 +173,7 @@ func (c *controller) Search(w http.ResponseWriter, r *http.Request) {
 
 	location := c.storage.ObjectLocation(ctx, cache)
 	if location == "" {
-		c.responseJSON(w, 204, nil)
-		return
+		location = fmt.Sprintf("%s/_apis/artifactcache/caches/%d", c.requestOrigin(r), cache.ID)
 	}
 
 	res := &searchResponse{
@@ -212,12 +211,22 @@ func (c *controller) Download(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	length := cache.Size - start
+	if 0 < end {
+		length = end - start + 1
+	}
+
 	w.Header().Set("Accept-Ranges", "bytes")
 	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Content-Length", strconv.FormatInt(end-start+1, 10))
+	w.Header().Set("Content-Length", strconv.FormatInt(length, 10))
 
-	length := end - start + 1
-	if err = c.storage.ReadObject(r.Context(), cache, w, start, length); err != nil {
+	ctx := r.Context()
+	cache.LastUsedAt = time.Now()
+	if err = c.index.Update(ctx, cache); err != nil {
+		c.responseJSON(w, 500, err)
+		return
+	}
+	if err = c.storage.ReadObject(ctx, cache, w, start, length); err != nil {
 		c.responseJSON(w, 500, err)
 		return
 	}
@@ -263,4 +272,12 @@ func (c *controller) responseJSON(w http.ResponseWriter, code int, obj any) {
 		obj = empty
 	}
 	_ = json.NewEncoder(w).Encode(obj)
+}
+
+func (c *controller) requestOrigin(r *http.Request) string {
+	o := "http"
+	if r.TLS != nil {
+		o = "https"
+	}
+	return o + "://" + r.Host
 }
