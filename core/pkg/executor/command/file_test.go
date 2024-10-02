@@ -2,8 +2,8 @@ package command
 
 import (
 	"context"
+	mock_sandboxer "drassi.run/core/mock/sandboxer"
 	"drassi.run/core/pkg/sandboxer"
-	mock_sandboxer "drassi.run/core/pkg/sandboxer/mock"
 	"errors"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
