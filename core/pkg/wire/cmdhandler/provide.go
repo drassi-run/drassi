@@ -19,37 +19,37 @@ func ProvideTo(scope *dig.Scope) error {
 
 func provideConsoleHandlers(scope *dig.Scope) error {
 	group := dig.Group(wire.ConsoleCommandHandlers)
-	if err := scope.Provide(addSecretMask, group); err != nil {
+	if err := scope.Provide(AddSecretMask, group); err != nil {
 		return err
 	}
-	if err := scope.Provide(addProblemMatcher, group); err != nil {
+	if err := scope.Provide(AddProblemMatcher, group); err != nil {
 		return err
 	}
-	if err := scope.Provide(removeProblemMatcher, group); err != nil {
+	if err := scope.Provide(RemoveProblemMatcher, group); err != nil {
 		return err
 	}
-	if err := scope.Provide(groupingLog, group); err != nil {
+	if err := scope.Provide(GroupingLog, group); err != nil {
 		return err
 	}
-	if err := scope.Provide(endGroupingLog, group); err != nil {
+	if err := scope.Provide(EndGroupingLog, group); err != nil {
 		return err
 	}
-	if err := scope.Provide(debugMessage, group); err != nil {
+	if err := scope.Provide(DebugMessage, group); err != nil {
 		return err
 	}
-	if err := scope.Provide(logMessage, dig.Group(wire.ConsoleCommandHandlers+",flatten")); err != nil {
+	if err := scope.Provide(LogMessage, dig.Group(wire.ConsoleCommandHandlers+",flatten")); err != nil {
 		return err
 	}
-	if err := scope.Provide(consoleAddPath, group); err != nil {
+	if err := scope.Provide(ConsoleAddPath, group); err != nil {
 		return err
 	}
-	if err := scope.Provide(consoleSetEnv, group); err != nil {
+	if err := scope.Provide(ConsoleSetEnv, group); err != nil {
 		return err
 	}
-	if err := scope.Provide(consoleSetOutput, group); err != nil {
+	if err := scope.Provide(ConsoleSetOutput, group); err != nil {
 		return err
 	}
-	if err := scope.Provide(consoleSaveState, group); err != nil {
+	if err := scope.Provide(ConsoleSaveState, group); err != nil {
 		return err
 	}
 	return nil
@@ -57,19 +57,19 @@ func provideConsoleHandlers(scope *dig.Scope) error {
 
 func provideFileHandlers(scope *dig.Scope) error {
 	group := dig.Group(wire.FileCommandHandlers)
-	if err := scope.Provide(fileAddPath, group); err != nil {
+	if err := scope.Provide(FileAddPath, group); err != nil {
 		return err
 	}
-	if err := scope.Provide(fileSetEnv, group); err != nil {
+	if err := scope.Provide(FileSetEnv, group); err != nil {
 		return err
 	}
-	if err := scope.Provide(fileSaveState, group); err != nil {
+	if err := scope.Provide(FileSaveState, group); err != nil {
 		return err
 	}
-	if err := scope.Provide(fileSetOutput, group); err != nil {
+	if err := scope.Provide(FileSetOutput, group); err != nil {
 		return err
 	}
-	if err := scope.Provide(createStepSummary, group); err != nil {
+	if err := scope.Provide(CreateStepSummary, group); err != nil {
 		return err
 	}
 	return nil

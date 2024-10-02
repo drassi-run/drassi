@@ -12,7 +12,7 @@ import (
 )
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L107
-func fileAddPath(sup executor.Supervisor) *command.FileHandler {
+func FileAddPath(sup executor.Supervisor) *command.FileHandler {
 	run := func(r io.Reader) error {
 		ctx := sup.Context()
 		job := sup.Job()
@@ -36,25 +36,25 @@ func fileAddPath(sup executor.Supervisor) *command.FileHandler {
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L132
-func fileSetEnv(sup executor.Supervisor) *command.FileHandler {
+func FileSetEnv(sup executor.Supervisor) *command.FileHandler {
 	run := stepCommandRun(sup, parseEnvVars, executor.StepExecutor.SetEnv)
 	return command.NewFileHandler("GITHUB_ENV", run)
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L260
-func fileSaveState(sup executor.Supervisor) *command.FileHandler {
+func FileSaveState(sup executor.Supervisor) *command.FileHandler {
 	run := stepCommandRun(sup, parseEnvVars, executor.StepExecutor.SaveState)
 	return command.NewFileHandler("GITHUB_STATE", run)
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L293
-func fileSetOutput(sup executor.Supervisor) *command.FileHandler {
+func FileSetOutput(sup executor.Supervisor) *command.FileHandler {
 	run := stepCommandRun(sup, parseEnvVars, executor.StepExecutor.SetOutput)
 	return command.NewFileHandler("GITHUB_OUTPUT", run)
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L186
-func createStepSummary(sup executor.Supervisor) *command.FileHandler {
+func CreateStepSummary(sup executor.Supervisor) *command.FileHandler {
 	run := func(r io.Reader) error {
 		step := sup.CurrentStep()
 		return step.CreateStepSummary(r)

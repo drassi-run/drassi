@@ -20,7 +20,7 @@ import (
 )
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L384
-func addSecretMask(secretMasker secret.Masker) *command.ConsoleHandler {
+func AddSecretMask(secretMasker secret.Masker) *command.ConsoleHandler {
 	run := func(cmd *command.Command) error {
 		if cmd.Value == "" {
 			return fmt.Errorf("%w %q: empty value", command.ErrInvalidCommand, "add-mask")
@@ -39,7 +39,7 @@ func addSecretMask(secretMasker secret.Masker) *command.ConsoleHandler {
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L451
-func addProblemMatcher(m map[string]problem.Matcher, sb sandboxer.Sandbox, sup executor.Supervisor) *command.ConsoleHandler {
+func AddProblemMatcher(m map[string]problem.Matcher, sb sandboxer.Sandbox, sup executor.Supervisor) *command.ConsoleHandler {
 	run := func(cmd *command.Command) error {
 		file := cmd.Value
 		if file == "" {
@@ -71,7 +71,7 @@ func addProblemMatcher(m map[string]problem.Matcher, sb sandboxer.Sandbox, sup e
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L498
-func removeProblemMatcher(m map[string]problem.Matcher, sb sandboxer.Sandbox, sup executor.Supervisor) *command.ConsoleHandler {
+func RemoveProblemMatcher(m map[string]problem.Matcher, sb sandboxer.Sandbox, sup executor.Supervisor) *command.ConsoleHandler {
 	run := func(cmd *command.Command) error {
 		file := cmd.Value
 		owner := cmd.Params["owner"]
@@ -126,7 +126,7 @@ func readProblemMatcherFile(ctx context.Context, sb sandboxer.Sandbox, file stri
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L751
-func groupingLog(l logging.Logger) *command.ConsoleHandler {
+func GroupingLog(l logging.Logger) *command.ConsoleHandler {
 	run := func(cmd *command.Command) error {
 		l.Log(logging.TagGroup, cmd.Value)
 		return nil
@@ -135,7 +135,7 @@ func groupingLog(l logging.Logger) *command.ConsoleHandler {
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L751
-func endGroupingLog(l logging.Logger) *command.ConsoleHandler {
+func EndGroupingLog(l logging.Logger) *command.ConsoleHandler {
 	run := func(cmd *command.Command) error {
 		l.Log(logging.TagEndGroup, "")
 		return nil
@@ -144,7 +144,7 @@ func endGroupingLog(l logging.Logger) *command.ConsoleHandler {
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L566
-func debugMessage(l logging.Logger, runner records.Runner) *command.ConsoleHandler {
+func DebugMessage(l logging.Logger, runner records.Runner) *command.ConsoleHandler {
 	run := func(cmd *command.Command) error { return nil }
 	if runner.Debug == "1" {
 		run = func(cmd *command.Command) error {
@@ -156,7 +156,7 @@ func debugMessage(l logging.Logger, runner records.Runner) *command.ConsoleHandl
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L600
-func logMessage(l logging.Logger) []*command.ConsoleHandler {
+func LogMessage(l logging.Logger) []*command.ConsoleHandler {
 	run := func(cmd *command.Command) error {
 		l.Log(cmd.Name, cmd.Value)
 		return nil
@@ -169,7 +169,7 @@ func logMessage(l logging.Logger) []*command.ConsoleHandler {
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L417
-func consoleAddPath(sup executor.Supervisor) *command.ConsoleHandler {
+func ConsoleAddPath(sup executor.Supervisor) *command.ConsoleHandler {
 	run := func(cmd *command.Command) error {
 		job := sup.Job()
 		if job == nil {
@@ -182,7 +182,7 @@ func consoleAddPath(sup executor.Supervisor) *command.ConsoleHandler {
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L234
-func consoleSetEnv(sup executor.Supervisor) *command.ConsoleHandler {
+func ConsoleSetEnv(sup executor.Supervisor) *command.ConsoleHandler {
 	run := func(cmd *command.Command) error {
 		name, ok := cmd.Params["name"]
 		if !ok || name == "" {
@@ -203,7 +203,7 @@ func consoleSetEnv(sup executor.Supervisor) *command.ConsoleHandler {
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L301
-func consoleSetOutput(sup executor.Supervisor) *command.ConsoleHandler {
+func ConsoleSetOutput(sup executor.Supervisor) *command.ConsoleHandler {
 	run := func(cmd *command.Command) error {
 		name, ok := cmd.Params["name"]
 		if !ok || name == "" {
@@ -224,7 +224,7 @@ func consoleSetOutput(sup executor.Supervisor) *command.ConsoleHandler {
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L336
-func consoleSaveState(sup executor.Supervisor) *command.ConsoleHandler {
+func ConsoleSaveState(sup executor.Supervisor) *command.ConsoleHandler {
 	run := func(cmd *command.Command) error {
 		name, ok := cmd.Params["name"]
 		if !ok || name == "" {
