@@ -19,7 +19,7 @@ import (
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/util/dig"
-	utilreader "drassi.run/core/pkg/util/reader"
+	"drassi.run/core/pkg/util/tar"
 
 	"go.uber.org/dig"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -528,7 +528,7 @@ func (e *jobExecutor) SetEnv(env map[string]string) error {
 
 func (e *jobExecutor) setupEventFile(ctx context.Context) (string, error) {
 	files := map[string]any{"": e.github.Event}
-	r, err := utilreader.FromJsonObject(files, false)
+	r, err := xtar.JsonObjectReader(files, false)
 	if err != nil {
 		return "", err
 	}

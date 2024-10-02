@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"drassi.run/core/pkg/sandboxer"
-	utilreader "drassi.run/core/pkg/util/reader"
+	"drassi.run/core/pkg/util/tar"
 	"github.com/gorilla/websocket"
 	incusclient "github.com/lxc/incus/client"
 	incusapi "github.com/lxc/incus/shared/api"
@@ -273,7 +273,7 @@ func (i *incusSandboxRuntime) CopyToSandbox(ctx context.Context, request sandbox
 	res := sandboxer.CopyToSandboxResponse{}
 
 	handler := newUntarHandler(i.client, request.SandboxId, request.DestinationPath)
-	err := utilreader.Untar(ctx, request.Content, handler)
+	err := xtar.Untar(ctx, request.Content, handler)
 	return res, err
 }
 
@@ -352,7 +352,7 @@ func newTarHandler(tw *tar.Writer) fileHandler {
 	return h
 }
 
-func newUntarHandler(client incusclient.InstanceServer, inst, root string) utilreader.UntarHandler {
+func newUntarHandler(client incusclient.InstanceServer, inst, root string) xtar.UntarHandler {
 	h := func(hdr *tar.Header, r io.Reader) error {
 		path := filepath.Join(root, hdr.Name)
 		args := incusclient.InstanceFileArgs{

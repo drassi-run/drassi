@@ -6,7 +6,7 @@ import (
 	mock_executor "drassi.run/core/mock/executor"
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/executor/command"
-	utilreader "drassi.run/core/pkg/util/reader"
+	"drassi.run/core/pkg/util/tar"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 	"io"
@@ -71,13 +71,13 @@ func TestFileAddPath(t *testing.T) {
 
 	t.Run("no-job", testFileNoJob(ctrl, FileAddPath))
 
-	invalidFile, _ := utilreader.FromContent(map[string]string{
+	invalidFile, _ := xtar.ContentReader(map[string]string{
 		"A_FILE": "FOOBAR=hello",
 	})
 	t.Run("invalid-file", testInvalidFile(ctrl, FileAddPath, invalidFile))
 
 	t.Run("success", func(t *testing.T) {
-		r, _ := utilreader.FromContent(map[string]string{
+		r, _ := xtar.ContentReader(map[string]string{
 			"": "/fir/path\n/second/path",
 		})
 
@@ -99,13 +99,13 @@ func TestFileSetEnv(t *testing.T) {
 
 	t.Run("no-step", testFileNoStep(ctrl, FileSetEnv))
 
-	invalidFile, _ := utilreader.FromContent(map[string]string{
+	invalidFile, _ := xtar.ContentReader(map[string]string{
 		"A_FILE": "FOOBAR=hello",
 	})
 	t.Run("invalid-file", testInvalidFile(ctrl, FileSetEnv, invalidFile))
 
 	t.Run("success", func(t *testing.T) {
-		r, _ := utilreader.FromContent(map[string]string{
+		r, _ := xtar.ContentReader(map[string]string{
 			"": mapContent,
 		})
 
@@ -127,13 +127,13 @@ func TestFileSaveState(t *testing.T) {
 
 	t.Run("no-step", testFileNoStep(ctrl, FileSaveState))
 
-	invalidFile, _ := utilreader.FromContent(map[string]string{
+	invalidFile, _ := xtar.ContentReader(map[string]string{
 		"A_FILE": "FOOBAR=hello",
 	})
 	t.Run("invalid-file", testInvalidFile(ctrl, FileSaveState, invalidFile))
 
 	t.Run("success", func(t *testing.T) {
-		r, _ := utilreader.FromContent(map[string]string{
+		r, _ := xtar.ContentReader(map[string]string{
 			"": mapContent,
 		})
 
@@ -155,13 +155,13 @@ func TestFileSetOutput(t *testing.T) {
 
 	t.Run("no-step", testFileNoStep(ctrl, FileSetOutput))
 
-	invalidFile, _ := utilreader.FromContent(map[string]string{
+	invalidFile, _ := xtar.ContentReader(map[string]string{
 		"A_FILE": "FOOBAR=hello",
 	})
 	t.Run("invalid-file", testInvalidFile(ctrl, FileSetOutput, invalidFile))
 
 	t.Run("success", func(t *testing.T) {
-		r, _ := utilreader.FromContent(map[string]string{
+		r, _ := xtar.ContentReader(map[string]string{
 			"": mapContent,
 		})
 
@@ -185,7 +185,7 @@ func TestCreateStepSummary(t *testing.T) {
 
 	t.Run("success", func(t *testing.T) {
 		content := "THIS IS A CreateStepSummary"
-		r, _ := utilreader.FromContent(map[string]string{
+		r, _ := xtar.ContentReader(map[string]string{
 			"": content,
 		})
 
@@ -193,7 +193,7 @@ func TestCreateStepSummary(t *testing.T) {
 		sup := mock_executor.NewMockSupervisor(ctrl)
 		sup.EXPECT().CurrentStep().Return(step)
 		step.EXPECT().CreateStepSummary(gomock.Any()).Do(func(reader io.Reader) error {
-			return utilreader.Untar(context.Background(), reader, func(header *tar.Header, r io.Reader) error {
+			return xtar.Untar(context.Background(), reader, func(header *tar.Header, r io.Reader) error {
 				b, err := io.ReadAll(r)
 				assert.NoError(t, err)
 				assert.Equal(t, content, string(b))

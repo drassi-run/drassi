@@ -8,7 +8,7 @@ import (
 
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/executor/command"
-	utilreader "drassi.run/core/pkg/util/reader"
+	"drassi.run/core/pkg/util/tar"
 )
 
 var (
@@ -26,7 +26,7 @@ func FileAddPath(sup executor.Supervisor) *command.FileHandler {
 			return ErrNoJobRunning
 		}
 
-		return utilreader.Untar(ctx, r, func(hdr *tar.Header, reader io.Reader) error {
+		return xtar.Untar(ctx, r, func(hdr *tar.Header, reader io.Reader) error {
 			if hdr.Name != "" {
 				return fmt.Errorf("%w: un-expected file %q", ErrInvalidFile, hdr.Name)
 			}
@@ -83,7 +83,7 @@ func stepCommandRun[R any](
 			return ErrNoStepRunning
 		}
 
-		return utilreader.Untar(ctx, r, func(hdr *tar.Header, reader io.Reader) error {
+		return xtar.Untar(ctx, r, func(hdr *tar.Header, reader io.Reader) error {
 			if hdr.Name != "" {
 				return fmt.Errorf("%w: un-expected file %q", ErrInvalidFile, hdr.Name)
 			}

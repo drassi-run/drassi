@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"drassi.run/core/pkg/sandboxer"
-	utilreader "drassi.run/core/pkg/util/reader"
+	"drassi.run/core/pkg/util/tar"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -62,15 +62,13 @@ func (mgr *fileManager) Initialize(ctx context.Context, suffix string) error {
 	}
 
 	dir := filepath.Join(mgr.sandbox.GetTempDir(), "file_commands")
-	fileEntries := make([]*utilreader.FileEntry, 0, len(mgr.registeredCommands))
+	fileEntries := make(map[string]string, len(mgr.registeredCommands))
 	for cmd := range mgr.registeredCommands {
-		fileEntries = append(fileEntries, &utilreader.FileEntry{
-			Name: cmd + suffix,
-			Mode: 0o666,
-		})
+		name := cmd + suffix
+		fileEntries[name] = ""
 	}
 
-	if r, err := utilreader.FromFileEntries(ctx, fileEntries...); err != nil {
+	if r, err := xtar.ContentReader(fileEntries); err != nil {
 		return err
 	} else {
 		return mgr.sandbox.CopyIn(ctx, r, dir)

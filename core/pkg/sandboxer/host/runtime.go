@@ -14,7 +14,7 @@ import (
 
 	"drassi.run/core/pkg/sandboxer"
 	utilio "drassi.run/core/pkg/util/io"
-	utilreader "drassi.run/core/pkg/util/reader"
+	"drassi.run/core/pkg/util/tar"
 )
 
 type hostSandboxRuntime struct {
@@ -199,7 +199,7 @@ func (h *hostSandboxRuntime) CopyFromSandbox(ctx context.Context, request sandbo
 
 func (h *hostSandboxRuntime) CopyToSandbox(ctx context.Context, request sandboxer.CopyToSandboxRequest) (sandboxer.CopyToSandboxResponse, error) {
 	res := sandboxer.CopyToSandboxResponse{}
-	err := utilreader.Untar(ctx, request.Content, func(hdr *tar.Header, r io.Reader) error {
+	err := xtar.Untar(ctx, request.Content, func(hdr *tar.Header, r io.Reader) error {
 		path := filepath.Join(request.DestinationPath, hdr.Name)
 		// ensure directory existed
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
