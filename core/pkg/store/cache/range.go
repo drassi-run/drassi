@@ -1,80 +1,89 @@
 package cache
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"regexp"
 	"strconv"
 )
 
-var contentRangeRegex = regexp.MustCompile(`^(\w+) (\d+)-(\d+)/(\*|\d+)$`)
+var (
+	reContentRange  = regexp.MustCompile(`^(\w+) (\d+)-(\d+)/(\*|\d+)$`)
+	hdrContentRange = "Content-Range"
+
+	reRange  = regexp.MustCompile(`^(\w+)=(\d+)?-(\d+)?$`)
+	hdrRange = "Range"
+
+	ErrInvalidHeader = errors.New("invalid HTTP header")
+)
 
 // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Range
 func parseContentRangeHeader(h http.Header) (int64, int64, error) {
-	s := h.Get("Content-Range")
-	m := contentRangeRegex.FindStringSubmatch(s)
-	if len(m) != contentRangeRegex.NumSubexp()+1 {
-		return 0, 0, fmt.Errorf("invalid Content-Range header: %q", s)
+	s := h.Get(hdrContentRange)
+	m := reContentRange.FindStringSubmatch(s)
+	if len(m) != reContentRange.NumSubexp()+1 {
+		return 0, 0, fmt.Errorf("%w: %q=%q", ErrInvalidHeader, hdrContentRange, s)
 	}
 
 	var start, end int64
 	if unit := m[1]; unit != "bytes" {
-		return 0, 0, fmt.Errorf("invalid Content-Range unit: %q", unit)
+		return 0, 0, fmt.Errorf("%w: %q=%q: unknown units=%q", ErrInvalidHeader, hdrContentRange, s, unit)
 	}
 
 	if num, err := strconv.ParseInt(m[2], 10, 64); err != nil {
-		return 0, 0, fmt.Errorf("invalid Content-Range start: %q", start)
+		return 0, 0, fmt.Errorf("%w: %q=%q: invalid start", ErrInvalidHeader, hdrContentRange, s)
 	} else {
 		start = num
 	}
 
 	if num, err := strconv.ParseInt(m[3], 10, 64); err != nil || start > num {
-		return 0, 0, fmt.Errorf("invalid Content-Range end: %q", end)
+		return 0, 0, fmt.Errorf("%w: %q=%q: invalid end", ErrInvalidHeader, hdrContentRange, s)
 	} else {
 		end = num
 	}
 
 	if size := m[4]; size != "*" {
 		if num, err := strconv.ParseInt(size, 10, 64); err != nil || end > num {
-			return 0, 0, fmt.Errorf("invalid Content-Range size: %q", size)
+			return 0, 0, fmt.Errorf("%w: %q=%q: invalid size", ErrInvalidHeader, hdrContentRange, s)
 		}
 	}
 
 	return start, end, nil
 }
 
-var rangeRegex = regexp.MustCompile(`^(\w+)=(\d+)?-(\d+)?$`)
-
 // NOTE: currently, only one range is supported
 // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Range
 func parseRangeHeader(h http.Header) (int64, int64, error) {
-	s := h.Get("Range")
-	m := rangeRegex.FindStringSubmatch(s)
-	if len(m) != rangeRegex.NumSubexp()+1 {
-		return 0, 0, fmt.Errorf("invalid Range header: %q", s)
+	var start, end int64 = 0, -1
+	s := h.Get(hdrRange)
+	if s == "" {
+		return start, end, nil
 	}
 
-	var start, end int64
+	m := reRange.FindStringSubmatch(s)
+	if len(m) != reRange.NumSubexp()+1 {
+		return 0, 0, fmt.Errorf("%w: %q=%q", ErrInvalidHeader, hdrRange, s)
+	}
+
 	if unit := m[1]; unit != "bytes" {
-		return 0, 0, fmt.Errorf("invalid Range unit: %q", unit)
+		return 0, 0, fmt.Errorf("%w: %q=%q: unknown units=%q", ErrInvalidHeader, hdrRange, s, unit)
 	}
 
 	if m[2] != "" {
-		if num, err := strconv.ParseInt(m[1], 10, 64); err != nil {
-			return 0, 0, fmt.Errorf("invalid Range start: %q", start)
+		if num, err := strconv.ParseInt(m[2], 10, 64); err != nil {
+			return 0, 0, fmt.Errorf("%w: %q=%q: invalid start", ErrInvalidHeader, hdrRange, s)
 		} else {
 			start = num
 		}
 	}
 
 	if m[3] != "" {
-		if num, err := strconv.ParseInt(m[2], 10, 64); err != nil {
-			return 0, 0, fmt.Errorf("invalid Range end: %q", start)
+		if num, err := strconv.ParseInt(m[3], 10, 64); err != nil || start > num {
+			return 0, 0, fmt.Errorf("%w: %q=%q: invalid end", ErrInvalidHeader, hdrRange, s)
 		} else {
-			start = num
+			end = num
 		}
-	} else {
-		end = -1
 	}
 
 	return start, end, nil

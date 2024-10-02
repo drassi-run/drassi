@@ -1,7 +1,6 @@
 package cache
 
 import (
-	"drassi.run/core/pkg/store/cache/types"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -11,6 +10,7 @@ import (
 
 	"drassi.run/core/pkg/store/cache/index"
 	"drassi.run/core/pkg/store/cache/storage"
+	"drassi.run/core/pkg/store/cache/types"
 )
 
 type Controller interface {
