@@ -9,8 +9,6 @@ import (
 
 	"drassi.run/core/pkg/util"
 	"github.com/docker/docker/pkg/archive"
-	"github.com/go-git/go-billy/v5"
-	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 )
 
 // FileEntry is a file to copy to a container
@@ -82,9 +80,23 @@ func FromJsonObject(m map[string]any, compact bool) (io.Reader, error) {
 	return buf, nil
 }
 
-func FromFilesystem(fs billy.Filesystem, path string, matcher gitignore.Matcher) (io.Reader, error) {
-	//	TODO
-	return nil, nil
+func FromContent(m map[string]string) (io.Reader, error) {
+	buf := new(bytes.Buffer)
+	tw := tar.NewWriter(buf)
+	defer tw.Close()
+
+	for file, content := range m {
+		hdr := &tar.Header{Name: file, Mode: 0o755, Size: int64(len(content))}
+		if err := tw.WriteHeader(hdr); err != nil {
+			return nil, err
+		}
+
+		if _, err := io.WriteString(tw, content); err != nil {
+			return nil, err
+		}
+	}
+
+	return buf, nil
 }
 
 type UntarHandler = func(*tar.Header, io.Reader) error

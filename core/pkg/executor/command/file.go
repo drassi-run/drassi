@@ -119,3 +119,7 @@ func (mgr *fileManager) Env(suffix string) map[string]string {
 	}
 	return env
 }
+
+func FileRun(h *FileHandler, r io.Reader) error {
+	return h.run(r)
+}

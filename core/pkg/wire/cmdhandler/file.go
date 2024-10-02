@@ -11,18 +11,24 @@ import (
 	utilreader "drassi.run/core/pkg/util/reader"
 )
 
+var (
+	ErrInvalidFile   = errors.New("invalid file")
+	ErrNoJobRunning  = errors.New("no job is running")
+	ErrNoStepRunning = errors.New("no step is running")
+)
+
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L107
 func FileAddPath(sup executor.Supervisor) *command.FileHandler {
 	run := func(r io.Reader) error {
 		ctx := sup.Context()
 		job := sup.Job()
 		if job == nil {
-			return errors.New("no job found")
+			return ErrNoJobRunning
 		}
 
 		return utilreader.Untar(ctx, r, func(hdr *tar.Header, reader io.Reader) error {
 			if hdr.Name != "" {
-				return fmt.Errorf("expected read single file with empty name, got %s", hdr.Name)
+				return fmt.Errorf("%w: un-expected file %q", ErrInvalidFile, hdr.Name)
 			}
 
 			if paths, err := readLine(reader); err != nil {
@@ -57,6 +63,9 @@ func FileSetOutput(sup executor.Supervisor) *command.FileHandler {
 func CreateStepSummary(sup executor.Supervisor) *command.FileHandler {
 	run := func(r io.Reader) error {
 		step := sup.CurrentStep()
+		if step == nil {
+			return ErrNoStepRunning
+		}
 		return step.CreateStepSummary(r)
 	}
 	return command.NewFileHandler("GITHUB_STEP_SUMMARY", run)
@@ -71,12 +80,12 @@ func stepCommandRun[R any](
 		ctx := sup.Context()
 		step := sup.CurrentStep()
 		if step == nil {
-			return errors.New("no step found")
+			return ErrNoStepRunning
 		}
 
 		return utilreader.Untar(ctx, r, func(hdr *tar.Header, reader io.Reader) error {
 			if hdr.Name != "" {
-				return fmt.Errorf("expected read single file with empty name, got %s", hdr.Name)
+				return fmt.Errorf("%w: un-expected file %q", ErrInvalidFile, hdr.Name)
 			}
 
 			if res, err := trans(reader); err != nil {

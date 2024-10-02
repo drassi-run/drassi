@@ -66,7 +66,7 @@ func testConsoleNoJob(ctrl *gomock.Controller, creator consoleHdlCreator, cmd *c
 
 		h := creator(sup)
 		err := command.ConsoleRun(h, cmd)
-		assert.ErrorContains(t, err, "no job found")
+		assert.ErrorIs(t, err, ErrNoJobRunning)
 	}
 }
 
@@ -77,7 +77,7 @@ func testConsoleNoStep(ctrl *gomock.Controller, creator consoleHdlCreator, cmd *
 
 		h := creator(sup)
 		err := command.ConsoleRun(h, cmd)
-		assert.ErrorContains(t, err, "no step found")
+		assert.ErrorIs(t, err, ErrNoStepRunning)
 	}
 }
 

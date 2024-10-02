@@ -4,7 +4,6 @@ import (
 	"archive/tar"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -177,7 +176,7 @@ func ConsoleAddPath(sup executor.Supervisor) *command.ConsoleHandler {
 
 		job := sup.Job()
 		if job == nil {
-			return errors.New("no job found")
+			return ErrNoJobRunning
 		}
 		paths := []string{cmd.Value}
 		return job.AddPath(paths)
@@ -195,7 +194,7 @@ func ConsoleSetEnv(sup executor.Supervisor) *command.ConsoleHandler {
 
 		step := sup.CurrentStep()
 		if step == nil {
-			return errors.New("no step found")
+			return ErrNoStepRunning
 		}
 
 		env := map[string]string{
@@ -216,7 +215,7 @@ func ConsoleSetOutput(sup executor.Supervisor) *command.ConsoleHandler {
 
 		step := sup.CurrentStep()
 		if step == nil {
-			return errors.New("no step found")
+			return ErrNoStepRunning
 		}
 
 		output := map[string]string{
@@ -237,7 +236,7 @@ func ConsoleSaveState(sup executor.Supervisor) *command.ConsoleHandler {
 
 		step := sup.CurrentStep()
 		if step == nil {
-			return errors.New("no step found")
+			return ErrNoStepRunning
 		}
 
 		state := map[string]string{
