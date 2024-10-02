@@ -171,6 +171,10 @@ func LogMessage(l logging.Logger) []*command.ConsoleHandler {
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L417
 func ConsoleAddPath(sup executor.Supervisor) *command.ConsoleHandler {
 	run := func(cmd *command.Command) error {
+		if cmd.Value == "" {
+			return fmt.Errorf("%w %q: missing value", command.ErrInvalidCommand, "add-path")
+		}
+
 		job := sup.Job()
 		if job == nil {
 			return errors.New("no job found")
