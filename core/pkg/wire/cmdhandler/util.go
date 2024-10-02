@@ -59,7 +59,7 @@ func parseEnvVars(reader io.Reader) (map[string]string, error) {
 		if 0 <= equalsIndex && (heredocIndex < 0 || equalsIndex < heredocIndex) {
 			key, value := line[:equalsIndex], line[equalsIndex+1:]
 			if key == "" {
-				return nil, fmt.Errorf("invalid nil key in line: %s", line)
+				return nil, fmt.Errorf("%w: line=%q nil key", ErrInvalidFile, line)
 			}
 			env[key] = value
 			continue
@@ -69,7 +69,7 @@ func parseEnvVars(reader io.Reader) (map[string]string, error) {
 		if 0 <= heredocIndex && (equalsIndex < 0 || heredocIndex < equalsIndex) {
 			key, delimiter := line[:heredocIndex], line[heredocIndex+2:]
 			if key == "" || delimiter == "" {
-				return nil, fmt.Errorf("invalid format %q. key and delimiter MUST NOT be empty", line)
+				return nil, fmt.Errorf("%w: line=%q key and delimiter MUST NOT be empty", ErrInvalidFile, line)
 			}
 			value, finish := make([]string, 0), false
 			for scanner.Scan() {
@@ -84,14 +84,14 @@ func parseEnvVars(reader io.Reader) (map[string]string, error) {
 				return nil, err
 			}
 			if !finish {
-				return nil, fmt.Errorf("invalid value. EOF marker missing new line")
+				return nil, fmt.Errorf("%w: EOF marker missing new line", ErrInvalidFile)
 			}
 
 			env[key] = strings.Join(value, "\n")
 			continue
 		}
 
-		return nil, fmt.Errorf("invalid format: %q", line)
+		return nil, fmt.Errorf("%w: line=%q invalid format", ErrInvalidFile, line)
 	}
 
 	if err := scanner.Err(); err != nil {

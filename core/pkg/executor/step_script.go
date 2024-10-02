@@ -12,7 +12,7 @@ import (
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/util/dig"
-	utilreader "drassi.run/core/pkg/util/reader"
+	"drassi.run/core/pkg/util/tar"
 
 	"go.uber.org/dig"
 )
@@ -128,12 +128,8 @@ func (sr *ScriptStepRun) computeScriptPath(exec StepExecutor, ext string) string
 }
 
 func (sr *ScriptStepRun) transferScriptIn(ctx context.Context, script, path string) error {
-	entry := &utilreader.FileEntry{
-		Name:    "",
-		Content: script,
-		Mode:    0o755,
-	}
-	if reader, err := utilreader.FromFileEntries(ctx, entry); err != nil {
+	entries := map[string]string{"": script}
+	if reader, err := xtar.ContentReader(entries); err != nil {
 		return err
 	} else {
 		return sr.sandbox.CopyIn(ctx, reader, path)

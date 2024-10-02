@@ -256,3 +256,7 @@ func (mgr *consoleManager) validStopCommandToken(token string) bool {
 	_, exists := mgr.registeredCommands[token]
 	return !exists
 }
+
+func ConsoleRun(h *ConsoleHandler, cmd *Command) error {
+	return h.run(cmd)
+}

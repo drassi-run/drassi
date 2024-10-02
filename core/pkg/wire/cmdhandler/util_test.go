@@ -2,11 +2,34 @@ package wire_cmdhandler
 
 import (
 	"github.com/stretchr/testify/assert"
+	"slices"
 	"strings"
 	"testing"
 )
 
-func TestParseEnvFile(t *testing.T) {
+func TestSplitLine(t *testing.T) {
+	content := "foobar\n\n  whitespace-prefix\r\n     \nwhitespace-suffix    \rabcxyz"
+	lines := slices.Collect(splitLine(content))
+	expected := []string{"foobar", "whitespace-prefix", "whitespace-suffix", "abcxyz"}
+	assert.EqualValues(t, expected, lines)
+}
+
+func TestReadLine(t *testing.T) {
+	content := `
+foobar
+
+# a comment
+abcxyz
+`
+	r := strings.NewReader(content)
+	actual, err := readLine(r)
+	assert.NoError(t, err)
+
+	expected := []string{"foobar", "abcxyz"}
+	assert.EqualValues(t, expected, actual)
+}
+
+func TestParseEnvVars(t *testing.T) {
 	t.Run("simple", func(tt *testing.T) {
 		data := "NODE_OPTIONS=asdf"
 		env := map[string]string{
@@ -90,6 +113,26 @@ EOF
 		}
 		testParseEnvFile(tt, data, env)
 	})
+
+	t.Run("invalid", func(tt *testing.T) {
+		data := []string{
+			"FOOBAR",
+			"=FOOBAR",
+			"FOOBAR<<",
+			`
+<<EOF
+foobar
+EOF
+`,
+			`
+FOOBAR<<EOF
+foobar
+`,
+		}
+		for _, d := range data {
+			invalidParseEnvFile(tt, d)
+		}
+	})
 }
 
 func testParseEnvFile(tt *testing.T, data string, expected map[string]string) {
@@ -97,4 +140,10 @@ func testParseEnvFile(tt *testing.T, data string, expected map[string]string) {
 	actual, err := parseEnvVars(reader)
 	assert.NoError(tt, err)
 	assert.EqualValues(tt, expected, actual)
+}
+
+func invalidParseEnvFile(tt *testing.T, data string) {
+	reader := strings.NewReader(data)
+	_, err := parseEnvVars(reader)
+	assert.ErrorIs(tt, err, ErrInvalidFile)
 }

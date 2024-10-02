@@ -4,7 +4,6 @@ import (
 	"archive/tar"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -16,11 +15,11 @@ import (
 	"drassi.run/core/pkg/executor/secret"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/sandboxer"
-	utilreader "drassi.run/core/pkg/util/reader"
+	"drassi.run/core/pkg/util/tar"
 )
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L384
-func addSecretMask(secretMasker secret.Masker) *command.ConsoleHandler {
+func AddSecretMask(secretMasker secret.Masker) *command.ConsoleHandler {
 	run := func(cmd *command.Command) error {
 		if cmd.Value == "" {
 			return fmt.Errorf("%w %q: empty value", command.ErrInvalidCommand, "add-mask")
@@ -39,7 +38,7 @@ func addSecretMask(secretMasker secret.Masker) *command.ConsoleHandler {
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L451
-func addProblemMatcher(m map[string]problem.Matcher, sb sandboxer.Sandbox, sup executor.Supervisor) *command.ConsoleHandler {
+func AddProblemMatcher(m map[string]problem.Matcher, sb sandboxer.Sandbox, sup executor.Supervisor) *command.ConsoleHandler {
 	run := func(cmd *command.Command) error {
 		file := cmd.Value
 		if file == "" {
@@ -71,7 +70,7 @@ func addProblemMatcher(m map[string]problem.Matcher, sb sandboxer.Sandbox, sup e
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L498
-func removeProblemMatcher(m map[string]problem.Matcher, sb sandboxer.Sandbox, sup executor.Supervisor) *command.ConsoleHandler {
+func RemoveProblemMatcher(m map[string]problem.Matcher, sb sandboxer.Sandbox, sup executor.Supervisor) *command.ConsoleHandler {
 	run := func(cmd *command.Command) error {
 		file := cmd.Value
 		owner := cmd.Params["owner"]
@@ -116,9 +115,9 @@ func readProblemMatcherFile(ctx context.Context, sb sandboxer.Sandbox, file stri
 	defer reader.Close()
 
 	conf := new(problem.MatcherConfigs)
-	err = utilreader.Untar(ctx, reader, func(hdr *tar.Header, tr io.Reader) error {
+	err = xtar.Untar(ctx, reader, func(hdr *tar.Header, tr io.Reader) error {
 		if hdr.Name != "" {
-			return fmt.Errorf("expected read single file with empty name, got %s", hdr.Name)
+			return fmt.Errorf("%w: un-expected file %q", ErrInvalidFile, hdr.Name)
 		}
 		return json.NewDecoder(tr).Decode(conf)
 	})
@@ -126,7 +125,7 @@ func readProblemMatcherFile(ctx context.Context, sb sandboxer.Sandbox, file stri
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L751
-func groupingLog(l logging.Logger) *command.ConsoleHandler {
+func GroupingLog(l logging.Logger) *command.ConsoleHandler {
 	run := func(cmd *command.Command) error {
 		l.Log(logging.TagGroup, cmd.Value)
 		return nil
@@ -135,7 +134,7 @@ func groupingLog(l logging.Logger) *command.ConsoleHandler {
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L751
-func endGroupingLog(l logging.Logger) *command.ConsoleHandler {
+func EndGroupingLog(l logging.Logger) *command.ConsoleHandler {
 	run := func(cmd *command.Command) error {
 		l.Log(logging.TagEndGroup, "")
 		return nil
@@ -144,7 +143,7 @@ func endGroupingLog(l logging.Logger) *command.ConsoleHandler {
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L566
-func debugMessage(l logging.Logger, runner records.Runner) *command.ConsoleHandler {
+func DebugMessage(l logging.Logger, runner records.Runner) *command.ConsoleHandler {
 	run := func(cmd *command.Command) error { return nil }
 	if runner.Debug == "1" {
 		run = func(cmd *command.Command) error {
@@ -156,7 +155,7 @@ func debugMessage(l logging.Logger, runner records.Runner) *command.ConsoleHandl
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L600
-func logMessage(l logging.Logger) []*command.ConsoleHandler {
+func LogMessage(l logging.Logger) []*command.ConsoleHandler {
 	run := func(cmd *command.Command) error {
 		l.Log(cmd.Name, cmd.Value)
 		return nil
@@ -169,11 +168,15 @@ func logMessage(l logging.Logger) []*command.ConsoleHandler {
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L417
-func consoleAddPath(sup executor.Supervisor) *command.ConsoleHandler {
+func ConsoleAddPath(sup executor.Supervisor) *command.ConsoleHandler {
 	run := func(cmd *command.Command) error {
+		if cmd.Value == "" {
+			return fmt.Errorf("%w %q: missing value", command.ErrInvalidCommand, "add-path")
+		}
+
 		job := sup.Job()
 		if job == nil {
-			return errors.New("no job found")
+			return ErrNoJobRunning
 		}
 		paths := []string{cmd.Value}
 		return job.AddPath(paths)
@@ -182,7 +185,7 @@ func consoleAddPath(sup executor.Supervisor) *command.ConsoleHandler {
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L234
-func consoleSetEnv(sup executor.Supervisor) *command.ConsoleHandler {
+func ConsoleSetEnv(sup executor.Supervisor) *command.ConsoleHandler {
 	run := func(cmd *command.Command) error {
 		name, ok := cmd.Params["name"]
 		if !ok || name == "" {
@@ -191,7 +194,7 @@ func consoleSetEnv(sup executor.Supervisor) *command.ConsoleHandler {
 
 		step := sup.CurrentStep()
 		if step == nil {
-			return errors.New("no step found")
+			return ErrNoStepRunning
 		}
 
 		env := map[string]string{
@@ -203,7 +206,7 @@ func consoleSetEnv(sup executor.Supervisor) *command.ConsoleHandler {
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L301
-func consoleSetOutput(sup executor.Supervisor) *command.ConsoleHandler {
+func ConsoleSetOutput(sup executor.Supervisor) *command.ConsoleHandler {
 	run := func(cmd *command.Command) error {
 		name, ok := cmd.Params["name"]
 		if !ok || name == "" {
@@ -212,7 +215,7 @@ func consoleSetOutput(sup executor.Supervisor) *command.ConsoleHandler {
 
 		step := sup.CurrentStep()
 		if step == nil {
-			return errors.New("no step found")
+			return ErrNoStepRunning
 		}
 
 		output := map[string]string{
@@ -224,7 +227,7 @@ func consoleSetOutput(sup executor.Supervisor) *command.ConsoleHandler {
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L336
-func consoleSaveState(sup executor.Supervisor) *command.ConsoleHandler {
+func ConsoleSaveState(sup executor.Supervisor) *command.ConsoleHandler {
 	run := func(cmd *command.Command) error {
 		name, ok := cmd.Params["name"]
 		if !ok || name == "" {
@@ -233,7 +236,7 @@ func consoleSaveState(sup executor.Supervisor) *command.ConsoleHandler {
 
 		step := sup.CurrentStep()
 		if step == nil {
-			return errors.New("no step found")
+			return ErrNoStepRunning
 		}
 
 		state := map[string]string{

@@ -1,4 +1,4 @@
-package utilreader
+package xtar
 
 import (
 	"archive/tar"
@@ -7,11 +7,10 @@ import (
 	"encoding/json"
 	"io"
 
-	"drassi.run/core/pkg/util"
 	"github.com/docker/docker/pkg/archive"
-	"github.com/go-git/go-billy/v5"
-	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 )
+
+const defaultFilePerm int64 = 0o666
 
 // FileEntry is a file to copy to a container
 type FileEntry struct {
@@ -24,14 +23,12 @@ type FileEntry struct {
 	Gname   string // Group name of owner
 }
 
-func FromFileEntries(ctx context.Context, entries ...*FileEntry) (io.Reader, error) {
-	logger := util.Logger(ctx)
+func FileEntryReader(entries ...*FileEntry) (io.Reader, error) {
 	buf := new(bytes.Buffer)
 	tw := tar.NewWriter(buf)
 	defer tw.Close()
 
 	for _, entry := range entries {
-		logger.Debugf("Writing entry to tarball %s len:%d", entry.Name, len(entry.Content))
 		hdr := &tar.Header{
 			Name:  entry.Name,
 			Mode:  entry.Mode,
@@ -52,7 +49,7 @@ func FromFileEntries(ctx context.Context, entries ...*FileEntry) (io.Reader, err
 	return buf, nil
 }
 
-func FromJsonObject(m map[string]any, compact bool) (io.Reader, error) {
+func JsonObjectReader(m map[string]any, compact bool) (io.Reader, error) {
 	buf := new(bytes.Buffer)
 	tw := tar.NewWriter(buf)
 	defer tw.Close()
@@ -69,7 +66,7 @@ func FromJsonObject(m map[string]any, compact bool) (io.Reader, error) {
 			return nil, err
 		}
 
-		hdr := &tar.Header{Name: file, Mode: 0o755, Size: int64(len(b))}
+		hdr := &tar.Header{Name: file, Mode: defaultFilePerm, Size: int64(len(b))}
 		if err = tw.WriteHeader(hdr); err != nil {
 			return nil, err
 		}
@@ -82,9 +79,23 @@ func FromJsonObject(m map[string]any, compact bool) (io.Reader, error) {
 	return buf, nil
 }
 
-func FromFilesystem(fs billy.Filesystem, path string, matcher gitignore.Matcher) (io.Reader, error) {
-	//	TODO
-	return nil, nil
+func ContentReader(m map[string]string) (io.Reader, error) {
+	buf := new(bytes.Buffer)
+	tw := tar.NewWriter(buf)
+	defer tw.Close()
+
+	for file, content := range m {
+		hdr := &tar.Header{Name: file, Mode: defaultFilePerm, Size: int64(len(content))}
+		if err := tw.WriteHeader(hdr); err != nil {
+			return nil, err
+		}
+
+		if _, err := io.WriteString(tw, content); err != nil {
+			return nil, err
+		}
+	}
+
+	return buf, nil
 }
 
 type UntarHandler = func(*tar.Header, io.Reader) error
