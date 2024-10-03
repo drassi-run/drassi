@@ -7,4 +7,5 @@
 //go:generate mockgen -source=../pkg/executor/executor_job.go -destination=executor/executor_job.go -typed
 //go:generate mockgen -source=../pkg/executor/executor_step.go -destination=executor/executor_step.go -typed
 //go:generate mockgen -source=../pkg/executor/supervisor.go -destination=executor/supervisor.go -typed
+//go:generate mockgen -source=../pkg/executor/reporter/reporter.go -destination=executor/reporter/reporter.go -typed
 package mock

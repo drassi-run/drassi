@@ -12,66 +12,88 @@ import (
 	"drassi.run/core/pkg/model/records"
 )
 
-type chainedLineHandler func(line string) (next bool, err error)
+type Middleware interface {
+	Handle(line string) (next bool, err error)
+}
 
-func processCommand(consoleMgr command.ConsoleManager, sup executor.Supervisor) chainedLineHandler {
-	return func(line string) (bool, error) {
-		cmd := consoleMgr.ParseCommand(line)
-		if cmd == nil {
-			return true, nil
-		}
-
-		err := consoleMgr.Process(line, cmd)
-		if err != nil {
-			step := sup.CurrentStep()
-			if step != nil {
-				step.SetStatus(records.ResultFailure)
-			}
-		}
-		return false, err
+func ProcessCommand(consoleMgr command.ConsoleManager, sup executor.Supervisor) Middleware {
+	return &commandProcessor{
+		consoleMgr: consoleMgr,
+		sup:        sup,
 	}
+}
+
+type commandProcessor struct {
+	consoleMgr command.ConsoleManager
+	sup        executor.Supervisor
+}
+
+func (mw *commandProcessor) Handle(line string) (bool, error) {
+	cmd := mw.consoleMgr.ParseCommand(line)
+	if cmd == nil {
+		return true, nil
+	}
+
+	err := mw.consoleMgr.Process(line, cmd)
+	if err != nil {
+		step := mw.sup.CurrentStep()
+		if step != nil {
+			step.SetStatus(records.ResultFailure)
+		}
+	}
+	return false, err
+}
+
+func ScanProblem(pm map[string]problem.Matcher, rep reporter.Reporter) Middleware {
+	return &problemScanner{
+		pm:  pm,
+		rep: rep,
+	}
+}
+
+type problemScanner struct {
+	pm  map[string]problem.Matcher
+	rep reporter.Reporter
 }
 
 // https://en.wikipedia.org/wiki/ANSI_escape_code
 var colorCodeRegex = regexp.MustCompile(`\033\[[\d;]*m`)
 
-func scanProblem(pm map[string]problem.Matcher, rep reporter.Reporter) chainedLineHandler {
-	return func(line string) (bool, error) {
-		line = colorCodeRegex.ReplaceAllLiteralString(line, "")
-		var owner string
-		var pbl *problem.Problem
+func (mw *problemScanner) Handle(line string) (bool, error) {
+	line = colorCodeRegex.ReplaceAllLiteralString(line, "")
+	var owner string
+	var pbl *problem.Problem
 
-		for o, m := range pm {
-			if p := m.Match(line); p != nil {
-				owner = o
-				pbl = p
-				break
-			}
+	for o, m := range mw.pm {
+		if p := m.Match(line); p != nil {
+			owner = o
+			pbl = p
+			break
 		}
+	}
 
-		// Not matched
-		if pbl == nil {
-			return true, nil
+	// Not matched
+	if pbl == nil {
+		return true, nil
+	}
+
+	// Matched
+	// 1. Reset other matchers
+	for o, m := range mw.pm {
+		if o != owner {
+			m.Reset()
 		}
+	}
 
-		// Matched
-		// 1. Reset other matchers
-		for o, m := range pm {
-			if o != owner {
-				m.Reset()
-			}
-		}
-
-		// 2. convert Problem to Issue
-		issue, err := toIssuer(pbl)
-		if err != nil {
-			return true, err
-		}
-
-		// 3. Report the issue
-		err = rep.AddIssue(issue)
+	// 2. convert Problem to Issue
+	issue, err := mw.toIssuer(pbl)
+	if err != nil {
 		return true, err
 	}
+
+	// 3. Report the issue
+	err = mw.rep.AddIssue(issue)
+	return true, err
 }
 
 const skippedIssueMsg = "skipped logging an issue for the matched line because of"
@@ -79,7 +101,7 @@ const skippedIssueMsg = "skipped logging an issue for the matched line because o
 var numberRegex = regexp.MustCompile(`^[+\-]?\d+$`)
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/Handlers/OutputManager.cs#L200
-func toIssuer(pbl *problem.Problem) (*reporter.Issue, error) {
+func (mw *problemScanner) toIssuer(pbl *problem.Problem) (*reporter.Issue, error) {
 	if pbl.Message == "" {
 		return nil, fmt.Errorf("%s empty message", skippedIssueMsg)
 	}
