@@ -9,10 +9,10 @@ import (
 )
 
 func ProvideTo(scope *dig.Scope) error {
-	if err := scope.Provide(processCommand, dig.Name("processCommand")); err != nil {
+	if err := scope.Provide(ProcessCommand, dig.Name("processCommand")); err != nil {
 		return err
 	}
-	if err := scope.Provide(scanProblem, dig.Name("scanProblem")); err != nil {
+	if err := scope.Provide(ProcessCommand, dig.Name("scanProblem")); err != nil {
 		return err
 	}
 
@@ -60,21 +60,21 @@ func newLog(p logParams) logging.Logger {
 type streamOutParams struct {
 	dig.In
 	Logger         logging.Logger
-	ProcessCommand chainedLineHandler `name:"processCommand"`
-	ScanProblem    chainedLineHandler `name:"scanProblem"`
-	StdOut         io.Writer          `name:"stdout"`
+	ProcessCommand Middleware `name:"processCommand"`
+	ScanProblem    Middleware `name:"scanProblem"`
+	StdOut         io.Writer  `name:"stdout"`
 }
 
 type streamErrParams struct {
 	dig.In
 	Logger         logging.Logger
-	ProcessCommand chainedLineHandler `name:"processCommand"`
-	ScanProblem    chainedLineHandler `name:"scanProblem"`
-	StdErr         io.Writer          `name:"stderr"`
+	ProcessCommand Middleware `name:"processCommand"`
+	ScanProblem    Middleware `name:"scanProblem"`
+	StdErr         io.Writer  `name:"stderr"`
 }
 
 func streamOut(p streamOutParams) io.Writer {
-	handler := streamHandler(p.StdOut, p.Logger, []chainedLineHandler{
+	handler := streamHandler(p.StdOut, p.Logger, []Middleware{
 		p.ProcessCommand,
 		p.ScanProblem,
 	})
@@ -82,17 +82,17 @@ func streamOut(p streamOutParams) io.Writer {
 }
 
 func streamErr(p streamErrParams) io.Writer {
-	handler := streamHandler(p.StdErr, p.Logger, []chainedLineHandler{
+	handler := streamHandler(p.StdErr, p.Logger, []Middleware{
 		p.ProcessCommand,
 		p.ScanProblem,
 	})
 	return logging.NewLineWriter(handler)
 }
 
-func streamHandler(w io.Writer, l logging.Logger, lineHandlers []chainedLineHandler) logging.LineHandler {
+func streamHandler(w io.Writer, l logging.Logger, middlewares []Middleware) logging.LineHandler {
 	return func(line string) error {
-		for _, h := range lineHandlers {
-			next, err := h(line)
+		for _, mw := range middlewares {
+			next, err := mw.Handle(line)
 			if err != nil {
 				l.Log(logging.TagError, err.Error())
 			}

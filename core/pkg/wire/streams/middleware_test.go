@@ -26,8 +26,8 @@ func TestProcessCommand(t *testing.T) {
 		mgr := mock_command.NewMockConsoleManager(ctrl)
 		mgr.EXPECT().ParseCommand(line).Return(nil)
 
-		h := processCommand(mgr, nil)
-		next, err := h(line)
+		mw := ProcessCommand(mgr, nil)
+		next, err := mw.Handle(line)
 		assert.NoError(t, err)
 		assert.True(t, next)
 	})
@@ -37,8 +37,8 @@ func TestProcessCommand(t *testing.T) {
 		mgr.EXPECT().ParseCommand(line).Return(cmd)
 		mgr.EXPECT().Process(line, cmd).Return(nil)
 
-		h := processCommand(mgr, nil)
-		next, err := h(line)
+		mw := ProcessCommand(mgr, nil)
+		next, err := mw.Handle(line)
 		assert.NoError(t, err)
 		assert.False(t, next)
 	})
@@ -55,8 +55,8 @@ func TestProcessCommand(t *testing.T) {
 		sup := mock_executor.NewMockSupervisor(ctrl)
 		sup.EXPECT().CurrentStep().Return(step)
 
-		h := processCommand(mgr, sup)
-		next, err := h(line)
+		mw := ProcessCommand(mgr, sup)
+		next, err := mw.Handle(line)
 		assert.ErrorIs(t, err, ex)
 		assert.False(t, next)
 	})
@@ -72,7 +72,7 @@ type ScanProblemTestSuite struct {
 	pm1  *mock_problem.MockMatcher
 	pm2  *mock_problem.MockMatcher
 	rep  *mock_reporter.MockReporter
-	h    chainedLineHandler
+	ps   *problemScanner
 }
 
 func (s *ScanProblemTestSuite) SetupTest() {
@@ -84,7 +84,7 @@ func (s *ScanProblemTestSuite) SetupTest() {
 		"second": s.pm2,
 	}
 	s.rep = mock_reporter.NewMockReporter(ctrl)
-	s.h = scanProblem(pm, s.rep)
+	s.ps = ScanProblem(pm, s.rep).(*problemScanner)
 }
 
 func (s *ScanProblemTestSuite) TestNotMatch() {
@@ -92,7 +92,7 @@ func (s *ScanProblemTestSuite) TestNotMatch() {
 	line := "first line"
 	s.pm1.EXPECT().Match(line).Return(nil)
 	s.pm2.EXPECT().Match(line).Return(nil)
-	next, err := s.h(line)
+	next, err := s.ps.Handle(line)
 	assert.NoError(t, err)
 	assert.True(t, next)
 }
@@ -108,13 +108,13 @@ func (s *ScanProblemTestSuite) TestMatchAndSuccess() {
 		Code:     "<code>hello world</code>",
 		Message:  "hello from the other side",
 	}
-	iss, _ := toIssuer(pbl)
+	iss, _ := s.ps.toIssuer(pbl)
 	s.pm1.EXPECT().Match(line).Return(nil).MinTimes(0).MaxTimes(1)
 	s.pm2.EXPECT().Match(line).Return(pbl)
 	s.pm1.EXPECT().Reset().Return() // reset other matchers
 	s.rep.EXPECT().AddIssue(iss).Return(nil)
 
-	next, err := s.h(line)
+	next, err := s.ps.Handle(line)
 	assert.NoError(t, err)
 	assert.True(t, next)
 }
@@ -129,14 +129,14 @@ func (s *ScanProblemTestSuite) TestConvertError() {
 	s.pm2.EXPECT().Match(line).Return(nil).MinTimes(0).MaxTimes(1)
 	s.pm2.EXPECT().Reset().Return()
 
-	next, err := s.h(line)
+	next, err := s.ps.Handle(line)
 	assert.Error(t, err)
 	assert.True(t, next)
 }
 
 func (s *ScanProblemTestSuite) TestReportError() {
 	t := s.T()
-	line := "third line"
+	line := "forth line"
 	pbl := &problem.Problem{
 		File:     "/path/to/file",
 		Line:     "1",
@@ -145,14 +145,14 @@ func (s *ScanProblemTestSuite) TestReportError() {
 		Code:     "<code>hello world</code>",
 		Message:  "hello from the other side",
 	}
-	iss, _ := toIssuer(pbl)
+	iss, _ := s.ps.toIssuer(pbl)
 	ex := errors.New("report-error")
 	s.pm1.EXPECT().Match(line).Return(pbl)
 	s.pm2.EXPECT().Match(line).Return(nil).MinTimes(0).MaxTimes(1)
 	s.pm2.EXPECT().Reset().Return()
 	s.rep.EXPECT().AddIssue(iss).Return(ex)
 
-	next, err := s.h(line)
+	next, err := s.ps.Handle(line)
 	assert.ErrorIs(t, err, ex)
 	assert.True(t, next)
 }
