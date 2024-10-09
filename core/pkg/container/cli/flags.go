@@ -1,36 +1,16 @@
 package cli
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
-	"os"
 	"regexp"
 	"strings"
 	"time"
 
 	"github.com/compose-spec/compose-go/v2/types"
-	"github.com/docker/cli/cli/compose/loader"
 	"github.com/docker/cli/opts"
 	"github.com/docker/docker/api/types/container"
 	"github.com/spf13/pflag"
 )
-
-const (
-	// TODO(thaJeztah): define these in the API-types, or query available defaults
-	//  from the daemon, or require "local" profiles to be an absolute path or
-	//  relative paths starting with "./". The daemon-config has consts for this
-	//  but we don't want to import that package:
-	//  https://github.com/moby/moby/blob/v23.0.0/daemon/config/config.go#L63-L67
-
-	// seccompProfileDefault is the built-in default seccomp profile.
-	seccompProfileDefault = "builtin"
-	// seccompProfileUnconfined is a special profile name for seccomp to use an
-	// "unconfined" seccomp profile.
-	seccompProfileUnconfined = "unconfined"
-)
-
-var deviceCgroupRuleRegexp = regexp.MustCompile(`^[acb] ([0-9]+|\*):([0-9]+|\*) [rwm]{1,3}$`)
 
 // containerOptions is a data object with all the options for creating a container
 // See also: https://github.com/docker/cli/blob/v27.3.1/cli/command/container/opts.go#L48-L146
@@ -339,180 +319,7 @@ func validateUlimitsOpts(opt *opts.UlimitOpt) (map[string]*types.UlimitsConfig, 
 	return ulimits, nil
 }
 
-func parseBlkioOpts(copts *containerOptions) *types.BlkioConfig {
-	if copts.blkioWeight == 0 &&
-		len(copts.blkioWeightDevice.GetList()) == 0 &&
-		len(copts.deviceReadBps.GetList()) == 0 &&
-		len(copts.deviceReadIOps.GetList()) == 0 &&
-		len(copts.deviceWriteBps.GetList()) == 0 &&
-		len(copts.deviceWriteIOps.GetList()) == 0 {
-		return nil
-	}
-	weightDevice := parseWeightDeviceOpts(copts.blkioWeightDevice)
-	deviceReadBps := parseThrottleDeviceOpts(copts.deviceReadBps)
-	deviceReadIOps := parseThrottleDeviceOpts(copts.deviceReadIOps)
-	deviceWriteBps := parseThrottleDeviceOpts(copts.deviceWriteBps)
-	deviceWriteIOps := parseThrottleDeviceOpts(copts.deviceWriteIOps)
-	return &types.BlkioConfig{
-		Weight:          copts.blkioWeight,
-		WeightDevice:    weightDevice,
-		DeviceReadBps:   deviceReadBps,
-		DeviceReadIOps:  deviceReadIOps,
-		DeviceWriteBps:  deviceWriteBps,
-		DeviceWriteIOps: deviceWriteIOps,
-	}
-}
-
-func parseWeightDeviceOpts(opt opts.WeightdeviceOpt) []types.WeightDevice {
-	if len(opt.GetList()) <= 0 {
-		return nil
-	}
-	wd := make([]types.WeightDevice, len(opt.GetList()))
-	for i, o := range opt.GetList() {
-		wd[i] = types.WeightDevice{
-			Path:   o.Path,
-			Weight: o.Weight,
-		}
-	}
-	return wd
-}
-
-func parseThrottleDeviceOpts(opt opts.ThrottledeviceOpt) []types.ThrottleDevice {
-	if len(opt.GetList()) <= 0 {
-		return nil
-	}
-	td := make([]types.ThrottleDevice, len(opt.GetList()))
-	for i, o := range opt.GetList() {
-		td[i] = types.ThrottleDevice{
-			Path: o.Path,
-			Rate: types.UnitBytes(o.Rate),
-		}
-	}
-	return td
-}
-
-func parseLoggingOpts(loggingDriver string, loggingOpts []string) (map[string]string, error) {
-	loggingOptsMap := opts.ConvertKVStringsToMap(loggingOpts)
-	if loggingDriver == "none" && len(loggingOpts) > 0 {
-		return map[string]string{}, fmt.Errorf("invalid logging opts for driver %s", loggingDriver)
-	}
-	return loggingOptsMap, nil
-}
-
-// takes a local seccomp daemon, reads the file contents for sending to the daemon
-func parseSecurityOpts(securityOpts []string) ([]string, error) {
-	for key, opt := range securityOpts {
-		k, v, ok := strings.Cut(opt, "=")
-		if !ok && k != "no-new-privileges" {
-			k, v, ok = strings.Cut(opt, ":")
-		}
-		if (!ok || v == "") && k != "no-new-privileges" {
-			// "no-new-privileges" is the only option that does not require a value.
-			return securityOpts, fmt.Errorf("Invalid --security-opt: %q", opt)
-		}
-		if k == "seccomp" {
-			switch v {
-			case seccompProfileDefault, seccompProfileUnconfined:
-				// known special names for built-in profiles, nothing to do.
-			default:
-				// value may be a filename, in which case we send the profile's
-				// content if it's valid JSON.
-				f, err := os.ReadFile(v)
-				if err != nil {
-					return securityOpts, fmt.Errorf("opening seccomp profile (%s) failed: %v", v, err)
-				}
-				b := bytes.NewBuffer(nil)
-				if err := json.Compact(b, f); err != nil {
-					return securityOpts, fmt.Errorf("compacting json for seccomp profile (%s) failed: %v", v, err)
-				}
-				securityOpts[key] = fmt.Sprintf("seccomp=%s", b.Bytes())
-			}
-		}
-	}
-
-	return securityOpts, nil
-}
-
-// parses storage options per container into a map
-func parseStorageOpts(storageOpts []string) (map[string]string, error) {
-	m := make(map[string]string)
-	for _, option := range storageOpts {
-		k, v, ok := strings.Cut(option, "=")
-		if !ok {
-			return nil, fmt.Errorf("invalid storage option")
-		}
-		m[k] = v
-	}
-	return m, nil
-}
-
-func parseVolumes(volumeOpt opts.ListOpts) ([]types.ServiceVolumeConfig, error) {
-	volumes := make([]types.ServiceVolumeConfig, 0)
-	for _, v := range volumeOpt.GetAll() {
-		parsed, err := loader.ParseVolume(v)
-		if err != nil {
-			return nil, err
-		}
-		volume := types.ServiceVolumeConfig{
-			Type:        parsed.Type,
-			Source:      parsed.Source,
-			Target:      parsed.Target,
-			ReadOnly:    parsed.ReadOnly,
-			Consistency: parsed.Consistency,
-		}
-		if parsed.Bind != nil {
-			volume.Bind = &types.ServiceVolumeBind{
-				Propagation: parsed.Bind.Propagation,
-			}
-		}
-		if parsed.Volume != nil {
-			volume.Volume = &types.ServiceVolumeVolume{
-				NoCopy: parsed.Volume.NoCopy,
-			}
-		}
-		if parsed.Tmpfs != nil {
-			volume.Tmpfs = &types.ServiceVolumeTmpfs{
-				Size: types.UnitBytes(parsed.Tmpfs.Size),
-			}
-		}
-		volumes = append(volumes, volume)
-	}
-	return volumes, nil
-}
-
-func parseMount(mountOpt opts.MountOpt) ([]types.ServiceVolumeConfig, error) {
-	volumes := make([]types.ServiceVolumeConfig, 0)
-	for _, m := range mountOpt.Value() {
-		volume := types.ServiceVolumeConfig{
-			Type:        string(m.Type),
-			Source:      m.Source,
-			Target:      m.Target,
-			ReadOnly:    m.ReadOnly,
-			Consistency: string(m.Consistency),
-		}
-		if m.BindOptions != nil {
-			volume.Bind = &types.ServiceVolumeBind{
-				Propagation: string(m.BindOptions.Propagation),
-				// TODO: other BindOptions options
-			}
-		}
-		if m.VolumeOptions != nil {
-			volume.Volume = &types.ServiceVolumeVolume{
-				NoCopy:  m.VolumeOptions.NoCopy,
-				Subpath: m.VolumeOptions.Subpath,
-				// TODO: other VolumeOptions options
-			}
-		}
-		if m.TmpfsOptions != nil {
-			volume.Tmpfs = &types.ServiceVolumeTmpfs{
-				Size: types.UnitBytes(m.TmpfsOptions.SizeBytes),
-				Mode: uint32(m.TmpfsOptions.Mode),
-			}
-		}
-		volumes = append(volumes, volume)
-	}
-	return volumes, nil
-}
+var deviceCgroupRuleRegexp = regexp.MustCompile(`^[acb] ([0-9]+|\*):([0-9]+|\*) [rwm]{1,3}$`)
 
 // validateDeviceCgroupRule validates a device cgroup rule string format
 // It will make sure 'val' is in the form:
