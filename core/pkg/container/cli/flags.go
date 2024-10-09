@@ -1,4 +1,4 @@
-package container
+package cli
 
 import (
 	"bytes"
@@ -33,6 +33,9 @@ const (
 var deviceCgroupRuleRegexp = regexp.MustCompile(`^[acb] ([0-9]+|\*):([0-9]+|\*) [rwm]{1,3}$`)
 
 // containerOptions is a data object with all the options for creating a container
+// See also: https://github.com/docker/cli/blob/v27.3.1/cli/command/container/opts.go#L48-L146
+//
+//goland:noinspection SpellCheckingInspection
 type containerOptions struct {
 	attach              opts.ListOpts
 	volumes             opts.ListOpts
@@ -134,6 +137,9 @@ type containerOptions struct {
 }
 
 // addFlags adds all command line flags that will be used by parse to the FlagSet
+// See also: https://github.com/docker/cli/blob/v27.3.1/cli/command/container/opts.go#L149-L325
+//
+//goland:noinspection GoUnhandledErrorResult
 func addFlags(flags *pflag.FlagSet) *containerOptions {
 	copts := &containerOptions{
 		aliases:           opts.NewListOpts(nil),
@@ -196,7 +202,7 @@ func addFlags(flags *pflag.FlagSet) *containerOptions {
 	flags.Var(copts.ulimits, "ulimit", "Ulimit options")
 	flags.StringVarP(&copts.user, "user", "u", "", "Username or UID (format: <name|uid>[:<group|gid>])")
 	flags.StringVarP(&copts.workingDir, "workdir", "w", "", "Working directory inside the container")
-	flags.BoolVar(&copts.autoRemove, "rm", false, "Automatically remove the container when it exits")
+	flags.BoolVar(&copts.autoRemove, "rm", false, "Automatically remove the container and its associated anonymous volumes when it exits")
 
 	// Security
 	flags.Var(&copts.capAdd, "cap-add", "Add Linux capabilities")

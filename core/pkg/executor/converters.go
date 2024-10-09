@@ -13,7 +13,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func (e *jobExecutor) toContainerConfig(ctx context.Context, container *workflows.Container) (*container.ContainerConfig, error) {
+func (e *jobExecutor) toContainerConfig(ctx context.Context, container *workflows.Container) (*container.ContainerSpec, error) {
 	return nil, nil
 }
 

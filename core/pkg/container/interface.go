@@ -17,7 +17,7 @@ type ContainerRuntime interface {
 }
 
 type LaunchContainerRequest struct {
-	Config ContainerConfig
+	Config ContainerSpec
 }
 
 type LaunchContainerResponse struct {

@@ -112,7 +112,7 @@ import "github.com/compose-spec/compose-go/v2/types"
 //	Extensions Extensions `yaml:"#extensions,inline,omitempty" json:"-"`
 //}
 
-type ContainerConfig struct {
+type ContainerSpec struct {
 	Annotations   types.Mapping `yaml:"annotations,omitempty" json:"annotations,omitempty"`
 	Labels        types.Labels  `yaml:"labels,omitempty" json:"labels,omitempty"`
 	ContainerName string        `yaml:"container_name,omitempty" json:"container_name,omitempty"`

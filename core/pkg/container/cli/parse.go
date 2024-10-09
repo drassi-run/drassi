@@ -1,4 +1,4 @@
-package container
+package cli
 
 import (
 	"fmt"
@@ -11,8 +11,20 @@ import (
 	"github.com/spf13/pflag"
 )
 
-func parse(flags *pflag.FlagSet, copts *containerOptions) (*ContainerConfig, error) {
-	config := ContainerConfig{
+func Parse(opts string) (*ContainerSpec, error) {
+	flags := pflag.NewFlagSet("docker create", pflag.ContinueOnError)
+	copts := addFlags(flags)
+
+	if args, err := shlex.Split(opts); err != nil {
+		return nil, err
+	} else if err = flags.Parse(args); err != nil {
+		return nil, err
+	}
+	return parse(flags, copts)
+}
+
+func parse(flags *pflag.FlagSet, copts *containerOptions) (*ContainerSpec, error) {
+	config := ContainerSpec{
 		Annotations: copts.annotations.GetAll(),
 		Labels:      opts.ConvertKVStringsToMap(copts.labels.GetAll()), // TODO: label-files
 		//ContainerName:
@@ -215,19 +227,4 @@ func uint32Ptr(value uint32) *uint32 {
 
 func uint64Ptr(value uint64) *uint64 {
 	return &value
-}
-
-func ParseOptions(opts string) (*ContainerConfig, error) {
-	flags := pflag.NewFlagSet("docker create", pflag.ContinueOnError)
-	copts := addFlags(flags)
-
-	args, err := shlex.Split(opts)
-	if err != nil {
-		return nil, err
-	}
-	err = flags.Parse(args)
-	if err != nil {
-		return nil, err
-	}
-	return parse(flags, copts)
 }
