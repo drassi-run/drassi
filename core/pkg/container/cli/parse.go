@@ -17,7 +17,12 @@ import (
 	"github.com/spf13/pflag"
 )
 
-func Parse(opts string) (*container.ContainerSpec, error) {
+type ParseResult struct {
+	Spec  *container.ContainerSpec
+	Stdio *container.Stdio
+}
+
+func Parse(opts string) (*ParseResult, error) {
 	flags := pflag.NewFlagSet("docker create", pflag.ContinueOnError)
 	copts := addFlags(flags)
 
@@ -30,18 +35,41 @@ func Parse(opts string) (*container.ContainerSpec, error) {
 }
 
 // See also: https://github.com/docker/cli/blob/v27.3.1/cli/command/container/opts.go#L338-L740
-func parse(flags *pflag.FlagSet, copts *containerOptions) (*container.ContainerSpec, error) {
-	spec := container.ContainerSpec{
+func parse(flags *pflag.FlagSet, copts *containerOptions) (*ParseResult, error) {
+	// https://github.com/docker/cli/blob/v27.3.1/cli/command/container/opts.go#L339-L358
+	stdio := &container.Stdio{
+		Tty:         copts.tty,
+		Interactive: copts.stdin, // --interactive
+	}
+	if copts.attach.Get("stdin") || copts.stdin {
+		stdio.Attach |= container.Stdin
+	}
+	if copts.attach.Get("stdout") {
+		stdio.Attach |= container.Stdout
+	}
+	if copts.attach.Get("stderr") {
+		stdio.Attach |= container.Stderr
+	}
+	// If -a is not set, attach to stdout and stderr
+	if copts.attach.Len() == 0 {
+		stdio.Attach |= container.Stdout | container.Stderr
+	}
+
+	spec := &container.ContainerSpec{
+		Name:        copts.name,
+		Labels:      opts.ConvertKVStringsToMap(copts.labels.GetAll()),
 		Annotations: copts.annotations.GetAll(),
-		Labels:      opts.ConvertKVStringsToMap(copts.labels.GetAll()), // TODO: label-files
-		//ContainerName:
-		//Image
-		//PullPolicy
-		//Command
-		//Entrypoint
-		Environment: opts.ConvertKVStringsToMapWithNil(copts.env.GetAll()),
-		//EnvFiles:
-		WorkingDir: copts.workingDir,
+		PullPolicy:  copts.pull,
+		Environment: opts.ConvertKVStringsToMap(copts.env.GetAll()),
+		WorkingDir:  copts.workingDir,
+	}
+
+	// https://github.com/docker/cli/blob/v27.3.1/cli/command/container/opts.go#L419-L424
+	if copts.entrypoint != "" {
+		spec.Entrypoint = []string{copts.entrypoint}
+	} else if flags.Changed("entrypoint") {
+		// if `--entrypoint=` is parsed then Entrypoint is reset
+		spec.Entrypoint = []string{""}
 	}
 
 	// Networking
@@ -222,7 +250,11 @@ func parse(flags *pflag.FlagSet, copts *containerOptions) (*container.ContainerS
 	spec.SecurityOpt = securityOpts // TODO: parseSystemPaths https://github.com/docker/cli/blob/26.0/cli/command/container/opts.go#L542
 	spec.Sysctls = copts.sysctls.GetAll()
 
-	return &spec, nil
+	result := &ParseResult{
+		Spec:  spec,
+		Stdio: stdio,
+	}
+	return result, nil
 }
 
 func durationPtr(value time.Duration) *types.Duration {

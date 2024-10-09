@@ -12,6 +12,13 @@ import (
 	"github.com/spf13/pflag"
 )
 
+// Pull constants
+const (
+	PullImageAlways  = "always"
+	PullImageMissing = "missing" // Default (matches previous behavior)
+	PullImageNever   = "never"
+)
+
 // containerOptions is a data object with all the options for creating a container
 // See also: https://github.com/docker/cli/blob/v27.3.1/cli/command/container/opts.go#L48-L146
 //
@@ -112,8 +119,15 @@ type containerOptions struct {
 	init                bool
 	annotations         *opts.MapOpts
 
-	Image string
-	Args  []string
+	//// options set from args
+	//// see: https://github.com/docker/cli/blob/v27.3.1/cli/command/container/create.go#L54-L57
+	//Image string
+	//Args  []string
+
+	// options from createOptions
+	// https://github.com/docker/cli/blob/v27.3.1/cli/command/container/create.go#L36-L42
+	name string
+	pull string // always, missing, never
 }
 
 // addFlags adds all command line flags that will be used by parse to the FlagSet
@@ -295,10 +309,15 @@ func addFlags(flags *pflag.FlagSet) *containerOptions {
 	flags.Var(copts.annotations, "annotation", "Add an annotation to the container (passed through to the OCI runtime)")
 	flags.SetAnnotation("annotation", "version", []string{"1.43"})
 
+	// options from createOptions
+	// https://github.com/docker/cli/blob/v27.3.1/cli/command/container/create.go#L69-L70
+	flags.StringVar(&copts.name, "name", "", "Assign a name to the container")
+	flags.StringVar(&copts.pull, "pull", PullImageMissing, `Pull image before creating ("`+PullImageAlways+`", "|`+PullImageMissing+`", "`+PullImageNever+`")`)
+
 	return copts
 }
 
-func validateUlimitsOpts(opt *opts.UlimitOpt) (map[string]*types.UlimitsConfig, error) {
+func validateUlimitsOpts(opt *opts.UlimitOpt) (map[string]types.UlimitsConfig, error) {
 	if opt == nil {
 		return nil, nil
 	}
@@ -306,12 +325,12 @@ func validateUlimitsOpts(opt *opts.UlimitOpt) (map[string]*types.UlimitsConfig, 
 	if len(o) <= 0 {
 		return nil, nil
 	}
-	ulimits := make(map[string]*types.UlimitsConfig)
+	ulimits := make(map[string]types.UlimitsConfig)
 	for _, u := range o {
 		if u == nil {
 			return nil, fmt.Errorf("ulimits contains NULL value")
 		}
-		ulimits[u.Name] = &types.UlimitsConfig{
+		ulimits[u.Name] = types.UlimitsConfig{
 			Soft: int(u.Soft),
 			Hard: int(u.Hard),
 		}

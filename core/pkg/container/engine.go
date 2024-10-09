@@ -29,6 +29,8 @@ type BuildOptions struct {
 }
 
 type RunOptions struct {
+	Stdio   *Stdio
+	Streams Streams
 }
 
 type ExecOptions struct {
@@ -36,6 +38,7 @@ type ExecOptions struct {
 	Env     map[string]string
 	Path    []string
 	Workdir string
+	Stdio   *Stdio
 	Streams Streams
 }
 

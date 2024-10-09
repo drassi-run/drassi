@@ -112,18 +112,17 @@ import "github.com/compose-spec/compose-go/v2/types"
 //	Extensions Extensions `yaml:"#extensions,inline,omitempty" json:"-"`
 //}
 
+//goland:noinspection GoNameStartsWithPackageName,SpellCheckingInspection
 type ContainerSpec struct {
-	Annotations   types.Mapping `yaml:"annotations,omitempty" json:"annotations,omitempty"`
-	Labels        types.Labels  `yaml:"labels,omitempty" json:"labels,omitempty"`
-	ContainerName string        `yaml:"container_name,omitempty" json:"container_name,omitempty"`
-	Image         string        `yaml:"image,omitempty" json:"image,omitempty"`
-	PullPolicy    string        `yaml:"pull_policy,omitempty" json:"pull_policy,omitempty"`
-	// NOTE: we can NOT omitempty for JSON! see ShellCommand type for details.
-	Command     types.ShellCommand      `yaml:"command,omitempty" json:"command"`
-	Entrypoint  types.ShellCommand      `yaml:"entrypoint,omitempty" json:"entrypoint"`
-	Environment types.MappingWithEquals `yaml:"environment,omitempty" json:"environment,omitempty"`
-	EnvFiles    []types.EnvFile         `yaml:"env_file,omitempty" json:"env_file,omitempty"`
-	WorkingDir  string                  `yaml:"working_dir,omitempty" json:"working_dir,omitempty"`
+	Name        string        `yaml:"container_name,omitempty" json:"container_name,omitempty"`
+	Command     []string      `yaml:"command,omitempty" json:"command"`
+	Entrypoint  []string      `yaml:"entrypoint,omitempty" json:"entrypoint"`
+	Environment types.Mapping `yaml:"environment,omitempty" json:"environment,omitempty"`
+	WorkingDir  string        `yaml:"working_dir,omitempty" json:"working_dir,omitempty"`
+	Labels      types.Labels  `yaml:"labels,omitempty" json:"labels,omitempty"`
+	Annotations types.Mapping `yaml:"annotations,omitempty" json:"annotations,omitempty"`
+	Image       string        `yaml:"image,omitempty" json:"image,omitempty"`
+	PullPolicy  string        `yaml:"pull_policy,omitempty" json:"pull_policy,omitempty"`
 
 	// Networking
 	Networks   map[string]*types.ServiceNetworkConfig `yaml:"networks,omitempty" json:"networks,omitempty"`
@@ -177,8 +176,8 @@ type ContainerSpec struct {
 	OomScoreAdj    int64           `yaml:"oom_score_adj,omitempty" json:"oom_score_adj,omitempty"`
 	PidsLimit      int64           `yaml:"pids_limit,omitempty" json:"pids_limit,omitempty"`
 
-	BlkioConfig *types.BlkioConfig              `yaml:"blkio_config,omitempty" json:"blkio_config,omitempty"`
-	Ulimits     map[string]*types.UlimitsConfig `yaml:"ulimits,omitempty" json:"ulimits,omitempty"`
+	BlkioConfig *types.BlkioConfig             `yaml:"blkio_config,omitempty" json:"blkio_config,omitempty"`
+	Ulimits     map[string]types.UlimitsConfig `yaml:"ulimits,omitempty" json:"ulimits,omitempty"`
 
 	// Namespace & CGroup
 	NetworkMode  string `yaml:"network_mode,omitempty" json:"network_mode,omitempty"`
@@ -197,4 +196,34 @@ type ContainerSpec struct {
 	Privileged  bool          `yaml:"privileged,omitempty" json:"privileged,omitempty"`
 	SecurityOpt []string      `yaml:"security_opt,omitempty" json:"security_opt,omitempty"`
 	Sysctls     types.Mapping `yaml:"sysctls,omitempty" json:"sysctls,omitempty"`
+}
+
+const (
+	Stdin = 1 << iota
+	Stdout
+	Stderr
+	None = 0 // detach mode
+)
+
+// See also: https://github.com/docker/cli/blob/v27.3.1/cli/command/container/run.go#L122-L135
+type Stdio struct {
+	Tty         bool
+	Attach      int
+	Interactive bool
+}
+
+func (s *Stdio) AttachStdin() bool {
+	return s.Attach&Stdin != 0
+}
+
+func (s *Stdio) AttachStdout() bool {
+	return s.Attach&Stdout != 0
+}
+
+func (s *Stdio) AttachStderr() bool {
+	return s.Attach&Stderr != 0
+}
+
+func (s *Stdio) Detach() bool {
+	return s.Attach == None
 }
