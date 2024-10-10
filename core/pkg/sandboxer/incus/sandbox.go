@@ -15,7 +15,7 @@ type incusSandbox struct {
 	sandboxRuntime sandboxer.SandboxRuntime
 	sandboxId      string
 
-	containerRuntime    container.ContainerRuntime
+	containerRuntime    container.Engine
 	jobContainerId      string
 	serviceContainerIds map[string]string
 	containerNetwork    string
