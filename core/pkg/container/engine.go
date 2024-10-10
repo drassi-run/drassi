@@ -8,7 +8,7 @@ import (
 type Engine interface {
 	io.Closer
 
-	ImagePull(ctx context.Context, ref string) error
+	ImagePull(ctx context.Context, ref string, opts *PullOptions) error
 	ImageBuild(ctx context.Context, context io.Reader, opts *BuildOptions) error
 
 	ContainerRun(ctx context.Context, spec *ContainerSpec, opts *RunOptions) (string, error)
@@ -24,8 +24,14 @@ type Engine interface {
 	VolumeRemove(ctx context.Context, id string) error
 }
 
+type PullOptions struct {
+	RegistryAuth RegistryAuth
+	Streams      Streams
+}
+
 type BuildOptions struct {
-	Tags []string
+	Tags    []string
+	Streams Streams
 }
 
 type RunOptions struct {
@@ -36,7 +42,6 @@ type RunOptions struct {
 type ExecOptions struct {
 	Cmd     []string
 	Env     map[string]string
-	Path    []string
 	Workdir string
 	Stdio   *Stdio
 	Streams Streams
@@ -49,6 +54,11 @@ type CopyInOptions struct {
 
 type CopyOutOptions struct {
 	SourcePath string
+}
+
+type RegistryAuth interface {
+	// Credential returns the base64 encoded credentials for the registry
+	Credential() string
 }
 
 type Streams interface {

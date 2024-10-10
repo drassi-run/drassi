@@ -45,8 +45,14 @@ func (e *engine) Close() error {
 	return e.client.Close()
 }
 
-func (e *engine) ImagePull(ctx context.Context, ref string) error {
-	reader, err := e.client.ImagePull(ctx, ref, dockerimage.PullOptions{})
+func (e *engine) ImagePull(ctx context.Context, ref string, opts *container.PullOptions) error {
+	var cred string
+	if opts.RegistryAuth != nil {
+		cred = opts.RegistryAuth.Credential()
+	}
+	reader, err := e.client.ImagePull(ctx, ref, dockerimage.PullOptions{
+		RegistryAuth: cred,
+	})
 	if err != nil {
 		return err
 	}
