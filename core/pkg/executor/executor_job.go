@@ -254,7 +254,7 @@ func (e *jobExecutor) initializeSandbox() error {
 	if err := evaluator.Evaluate(e.exprEnv, e.jobRun.Services, &serviceContainers); err != nil {
 		return err
 	} else if len(serviceContainers) > 0 {
-		services := make(map[string]*container.ContainerConfig, len(serviceContainers))
+		services := make(map[string]*container.ContainerSpec, len(serviceContainers))
 		for name, srv := range serviceContainers {
 			if con, err := e.toContainerConfig(e.ctx, srv); err != nil {
 				return err

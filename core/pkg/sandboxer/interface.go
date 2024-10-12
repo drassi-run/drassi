@@ -53,8 +53,8 @@ type SandboxRuntime interface {
 type LaunchSandboxRequest struct {
 	JobId             string
 	JobEnv            map[string]string
-	JobContainer      *container.ContainerConfig
-	ServiceContainers map[string]*container.ContainerConfig
+	JobContainer      *container.ContainerSpec
+	ServiceContainers map[string]*container.ContainerSpec
 }
 
 type LaunchSandboxResponse struct {
