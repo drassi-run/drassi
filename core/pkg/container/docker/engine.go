@@ -45,6 +45,10 @@ func (e *engine) Close() error {
 	return e.client.Close()
 }
 
+func (e *engine) Address() string {
+	return e.client.DaemonHost()
+}
+
 func (e *engine) ImagePull(ctx context.Context, ref string, opts *container.PullOptions) error {
 	var cred string
 	if opts.RegistryAuth != nil {

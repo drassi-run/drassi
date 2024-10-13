@@ -7,6 +7,7 @@ import (
 
 type Engine interface {
 	io.Closer
+	Address() string
 
 	ImagePull(ctx context.Context, ref string, opts *PullOptions) error
 	ImageBuild(ctx context.Context, context io.Reader, opts *BuildOptions) error
