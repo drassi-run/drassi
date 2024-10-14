@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
+	"time"
 
 	"drassi.run/core/pkg/container"
 	utilio "drassi.run/core/pkg/util/io"
@@ -153,6 +155,14 @@ func (e *engine) ContainerRemove(ctx context.Context, id string) error {
 		return err
 	}
 	return nil
+}
+
+func (e *engine) Stat(ctx context.Context, id string, path string) (fs.FileInfo, error) {
+	if ps, err := e.client.ContainerStatPath(ctx, id, path); err != nil {
+		return nil, err
+	} else {
+		return &fileInfo{ps}, nil
+	}
 }
 
 func (e *engine) CopyIn(ctx context.Context, id string, opts *container.CopyInOptions) error {
@@ -328,4 +338,32 @@ func (e *engine) exitCode(ctx context.Context, id string, exec bool, fn run) run
 		}
 		return err
 	}
+}
+
+type fileInfo struct {
+	dockercontainer.PathStat
+}
+
+func (fi *fileInfo) Name() string {
+	return fi.PathStat.Name
+}
+
+func (fi *fileInfo) Size() int64 {
+	return fi.PathStat.Size
+}
+
+func (fi *fileInfo) Mode() fs.FileMode {
+	return fi.PathStat.Mode
+}
+
+func (fi *fileInfo) ModTime() time.Time {
+	return fi.PathStat.Mtime
+}
+
+func (fi *fileInfo) IsDir() bool {
+	return fi.Mode().IsDir()
+}
+
+func (fi *fileInfo) Sys() any {
+	return nil
 }

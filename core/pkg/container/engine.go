@@ -3,6 +3,7 @@ package container
 import (
 	"context"
 	"io"
+	"io/fs"
 )
 
 type Engine interface {
@@ -15,6 +16,8 @@ type Engine interface {
 	ContainerRun(ctx context.Context, spec *ContainerSpec, opts *RunOptions) (string, error)
 	ContainerExec(ctx context.Context, id string, opts *ExecOptions) (string, error)
 	ContainerRemove(ctx context.Context, id string) error
+
+	Stat(ctx context.Context, id string, path string) (fs.FileInfo, error)
 	CopyIn(ctx context.Context, id string, opts *CopyInOptions) error
 	CopyOut(ctx context.Context, id string, opts *CopyOutOptions) (io.ReadCloser, error)
 
