@@ -310,6 +310,9 @@ func (e *jobExecutor) initializeScope(scope *dig.Scope) error {
 	if err := xdig.Supply(scope, e.github); err != nil {
 		return err
 	}
+	if err := xdig.Supply(scope, e.jobInfo, dig.Export(true)); err != nil {
+		return err
+	}
 	if err := xdig.Supply(scope, e.env); err != nil {
 		return err
 	}
