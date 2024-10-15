@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"maps"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -32,7 +31,7 @@ type JobExecutor interface {
 	Initialize(scope *dig.Scope) error
 	RunJob() *records.Job
 	Finalize() error
-	ComposeEnv(m map[string]string)
+	SystemPaths() []string
 	SetStatus(status records.Result)
 
 	AddPath(paths []string) error
@@ -276,10 +275,6 @@ func (e *jobExecutor) initializeSandbox() error {
 		e.runner.Workspace = e.sandbox.GetWorkspaceDir()
 		e.runner.ToolCache = e.sandbox.GetToolsDir()
 		e.runner.Temp = e.sandbox.GetTempDir()
-
-		paths := e.sandbox.Paths()
-		slices.Reverse(paths) // in-place reverse
-		_ = e.AddPath(paths)
 	}
 
 	if location, err := e.setupEventFile(e.ctx); err != nil {
@@ -381,6 +376,20 @@ func (e *jobExecutor) initializeScope(scope *dig.Scope) error {
 		return nil
 	})
 
+	runnerEnv := map[string]string{
+		"RUNNER_NAME":        e.runner.Name,
+		"RUNNER_ARCH":        string(e.runner.Arch),
+		"RUNNER_OS":          string(e.runner.Os),
+		"RUNNER_ENVIRONMENT": e.runner.Environment,
+		"RUNNER_TEMP":        e.runner.Temp,
+		"RUNNER_TOOL_CACHE":  e.runner.ToolCache,
+		"RUNNER_WORKSPACE":   e.runner.Workspace,
+	}
+	if e.runner.Debug == "1" {
+		runnerEnv["RUNNER_DEBUG"] = "1"
+	}
+	e.supervisor.Register(Env(runnerEnv))
+
 	return err
 }
 
@@ -452,28 +461,8 @@ func (e *jobExecutor) runStage(stage Stage, fn func(StepRun) *Task) error {
 	return nil
 }
 
-func (e *jobExecutor) ComposeEnv(m map[string]string) {
-	runnerEnv := map[string]string{
-		"RUNNER_NAME":        e.runner.Name,
-		"RUNNER_ARCH":        string(e.runner.Arch),
-		"RUNNER_OS":          string(e.runner.Os),
-		"RUNNER_ENVIRONMENT": e.runner.Environment,
-		"RUNNER_TEMP":        e.runner.Temp,
-		"RUNNER_TOOL_CACHE":  e.runner.ToolCache,
-		"RUNNER_WORKSPACE":   e.runner.Workspace,
-	}
-	if e.runner.Debug == "1" {
-		m["RUNNER_DEBUG"] = "1"
-	}
-	maps.Copy(m, runnerEnv)
-
-	supEnv := e.supervisor.ProvideEnv()
-	maps.Copy(m, supEnv)
-
-	if len(e.paths) > 0 {
-		sep := string(e.runner.Os.PathSeparator())
-		m["PATH"] = strings.Join(e.paths, sep)
-	}
+func (e *jobExecutor) SystemPaths() []string {
+	return slices.Clone(e.paths)
 }
 
 func (e *jobExecutor) SetStatus(status records.Result) {

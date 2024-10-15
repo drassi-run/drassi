@@ -17,6 +17,7 @@ import (
 )
 
 type StepExecutor interface {
+	JobExecutor() JobExecutor
 	NewChildExecutor(stepRun StepRun) StepExecutor
 	ChildExecutor(id string) StepExecutor
 	ParentExecutor() StepExecutor
@@ -27,7 +28,7 @@ type StepExecutor interface {
 
 	Initialize(scope *dig.Scope) error
 	RunStep(fn func(StepRun) *Task) *records.Step
-	ComposeEnv(m map[string]string)
+	ComposeEnv() map[string]string
 	SetStatus(status records.Result)
 
 	SetEnv(env map[string]string) error
@@ -81,6 +82,10 @@ func (e *stepExecutor) Context() context.Context {
 
 func (e *stepExecutor) SetContext(ctx context.Context) {
 	e.ctx = ctx
+}
+
+func (e *stepExecutor) JobExecutor() JobExecutor {
+	return e.job
 }
 
 func (e *stepExecutor) NewChildExecutor(stepRun StepRun) StepExecutor {
@@ -278,8 +283,8 @@ func (e *stepExecutor) endTask(task *Task) {
 	}
 }
 
-func (e *stepExecutor) ComposeEnv(m map[string]string) {
-	e.job.ComposeEnv(m)
+func (e *stepExecutor) ComposeEnv() map[string]string {
+	m := e.supervisor.ProvideEnv()
 
 	maps.Copy(m, e.env)
 
@@ -325,6 +330,7 @@ func (e *stepExecutor) ComposeEnv(m map[string]string) {
 		k = "STATE_" + k
 		m[k] = v
 	}
+	return m
 }
 
 func (e *stepExecutor) SetStatus(status records.Result) {
