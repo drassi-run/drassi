@@ -166,13 +166,13 @@ func parse(flags *pflag.FlagSet, copts *containerOptions) (*ParseResult, error) 
 			return nil, fmt.Errorf("--health-start-interval cannot be negative")
 		}
 
-		spec.HealthCheck = &types.HealthCheckConfig{
+		spec.HealthCheck = &container.HealthCheckConfig{
 			Test:          probe,
-			Interval:      durationPtr(copts.healthInterval),
-			Timeout:       durationPtr(copts.healthTimeout),
-			StartPeriod:   durationPtr(copts.healthStartPeriod),
-			StartInterval: durationPtr(copts.healthStartInterval),
-			Retries:       pointerOf(uint64(copts.healthRetries)),
+			Timeout:       copts.healthTimeout,
+			Interval:      copts.healthInterval,
+			Retries:       copts.healthRetries,
+			StartPeriod:   copts.healthStartPeriod,
+			StartInterval: copts.healthStartInterval,
 		}
 	}
 

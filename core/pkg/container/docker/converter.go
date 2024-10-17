@@ -84,8 +84,11 @@ func (cc *containerConfig) From(spec *container.ContainerSpec, stdio *container.
 		Labels:      spec.Labels,
 		StopSignal:  spec.StopSignal,
 		StopTimeout: cc.stopTimeoutFrom(spec.StopGracePeriod),
-		Healthcheck: cc.healCheckFrom(spec.HealthCheck),
 	}
+	if hc := spec.HealthCheck; hc != nil {
+		cc.setHealCheck(spec.HealthCheck)
+	}
+
 	cc.HostConfig = &dockercontainer.HostConfig{
 		Binds:           cc.bindFrom(spec.Volumes),
 		ContainerIDFile: "",
@@ -295,22 +298,14 @@ func (cc *containerConfig) logConfigFrom(lc *types.LoggingConfig) dockercontaine
 	}
 }
 
-func (cc *containerConfig) healCheckFrom(hc *types.HealthCheckConfig) *dockercontainer.HealthConfig {
-	if hc == nil {
-		return nil
-	}
-	if hc.Disable {
-		return &dockercontainer.HealthConfig{
-			Test: []string{"NONE"},
-		}
-	}
-	return &dockercontainer.HealthConfig{
+func (cc *containerConfig) setHealCheck(hc *container.HealthCheckConfig) {
+	cc.Config.Healthcheck = &dockercontainer.HealthConfig{
 		Test:          hc.Test,
-		Timeout:       time.Duration(nilToZero(hc.Timeout)),
-		Interval:      time.Duration(nilToZero(hc.Interval)),
-		Retries:       int(nilToZero(hc.Retries)),
-		StartPeriod:   time.Duration(nilToZero(hc.StartPeriod)),
-		StartInterval: time.Duration(nilToZero(hc.StartInterval)),
+		Timeout:       hc.Timeout,
+		Interval:      hc.Interval,
+		Retries:       hc.Retries,
+		StartPeriod:   hc.StartPeriod,
+		StartInterval: hc.StartInterval,
 	}
 }
 
