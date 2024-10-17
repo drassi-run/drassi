@@ -21,7 +21,6 @@ import (
 	"github.com/docker/docker/pkg/stdcopy"
 )
 
-type empty = struct{}
 type run = func() error
 
 type engine struct {

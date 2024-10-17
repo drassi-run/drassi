@@ -10,7 +10,6 @@ import (
 
 	"drassi.run/core/pkg/container"
 	"github.com/compose-spec/compose-go/v2/types"
-	"github.com/docker/cli/cli/compose/loader"
 	"github.com/docker/cli/opts"
 	docker "github.com/docker/docker/api/types/container"
 	"github.com/google/shlex"
@@ -84,21 +83,10 @@ func (fm *flagMapper) Map(flags *pflag.FlagSet, copts *containerOptions) error {
 	}
 
 	// Storage & Device
-	if mounts, err := parseMount(copts.mounts); err != nil {
+	if err := fm.mapStorage(copts); err != nil {
 		return err
-	} else if volumes, err := parseVolumes(copts.volumes); err != nil {
-		return err
-	} else {
-		fm.Spec.Volumes = append(mounts, volumes...)
 	}
-	fm.Spec.VolumeDriver = copts.volumeDriver
-	fm.Spec.VolumesFrom = copts.volumesFrom.GetAll()
-	fm.Spec.Tmpfs = copts.tmpfs.GetAll()
-	if storageOpts, err := parseStorageOpts(copts.storageOpt.GetAll()); err != nil {
-		return err
-	} else {
-		fm.Spec.StorageOpt = storageOpts
-	}
+
 	fm.Spec.Devices = copts.devices.GetAll() // TODO https://github.com/docker/cli/blob/26.0/cli/command/container/opts.go#L468-L493
 	fm.Spec.DeviceCgroupRules = copts.deviceCgroupRules.GetAll()
 
@@ -215,26 +203,6 @@ func (fm *flagMapper) mapStdio(copts *containerOptions) {
 	}
 }
 
-func (fm *flagMapper) mapStorage(copts *containerOptions) error {
-	//if mounts, err := parseMount(copts.mounts); err != nil {
-	//	return err
-	//} else if volumes, err := parseVolumes(copts.volumes); err != nil {
-	//	return err
-	//} else {
-	//	fm.Spec.Volumes = append(mounts, volumes...)
-	//}
-	//fm.Spec.VolumeDriver = copts.volumeDriver
-	//fm.Spec.VolumesFrom = copts.volumesFrom.GetAll()
-	//fm.Spec.Tmpfs = copts.tmpfs.GetAll()
-	//fm.Spec.ReadonlyRootfs = copts.readonlyRootfs
-	//if storageOpts, err := parseStorageOpts(copts.storageOpt.GetAll()); err != nil {
-	//	return nil, err
-	//} else {
-	//	fm.Spec.StorageOpt = storageOpts
-	//}
-	return nil
-}
-
 func (fm *flagMapper) mapLogging(copts *containerOptions) error {
 	if copts.loggingDriver == "" && copts.loggingOpts.Len() == 0 {
 		return nil
@@ -307,74 +275,6 @@ func durationPtr(value time.Duration) *types.Duration {
 	return &result
 }
 
-func parseVolumes(volumeOpt opts.ListOpts) ([]types.ServiceVolumeConfig, error) {
-	volumes := make([]types.ServiceVolumeConfig, 0)
-	for _, v := range volumeOpt.GetAll() {
-		parsed, err := loader.ParseVolume(v)
-		if err != nil {
-			return nil, err
-		}
-		volume := types.ServiceVolumeConfig{
-			Type:        parsed.Type,
-			Source:      parsed.Source,
-			Target:      parsed.Target,
-			ReadOnly:    parsed.ReadOnly,
-			Consistency: parsed.Consistency,
-		}
-		if parsed.Bind != nil {
-			volume.Bind = &types.ServiceVolumeBind{
-				Propagation: parsed.Bind.Propagation,
-			}
-		}
-		if parsed.Volume != nil {
-			volume.Volume = &types.ServiceVolumeVolume{
-				NoCopy: parsed.Volume.NoCopy,
-			}
-		}
-		if parsed.Tmpfs != nil {
-			volume.Tmpfs = &types.ServiceVolumeTmpfs{
-				Size: types.UnitBytes(parsed.Tmpfs.Size),
-			}
-		}
-		volumes = append(volumes, volume)
-	}
-	return volumes, nil
-}
-
-func parseMount(mountOpt opts.MountOpt) ([]types.ServiceVolumeConfig, error) {
-	volumes := make([]types.ServiceVolumeConfig, 0)
-	for _, m := range mountOpt.Value() {
-		volume := types.ServiceVolumeConfig{
-			Type:        string(m.Type),
-			Source:      m.Source,
-			Target:      m.Target,
-			ReadOnly:    m.ReadOnly,
-			Consistency: string(m.Consistency),
-		}
-		if m.BindOptions != nil {
-			volume.Bind = &types.ServiceVolumeBind{
-				Propagation: string(m.BindOptions.Propagation),
-				// TODO: other BindOptions options
-			}
-		}
-		if m.VolumeOptions != nil {
-			volume.Volume = &types.ServiceVolumeVolume{
-				NoCopy:  m.VolumeOptions.NoCopy,
-				Subpath: m.VolumeOptions.Subpath,
-				// TODO: other VolumeOptions options
-			}
-		}
-		if m.TmpfsOptions != nil {
-			volume.Tmpfs = &types.ServiceVolumeTmpfs{
-				Size: types.UnitBytes(m.TmpfsOptions.SizeBytes),
-				Mode: uint32(m.TmpfsOptions.Mode),
-			}
-		}
-		volumes = append(volumes, volume)
-	}
-	return volumes, nil
-}
-
 func parseBlkioOpts(copts *containerOptions) *types.BlkioConfig {
 	if copts.blkioWeight == 0 &&
 		len(copts.blkioWeightDevice.GetList()) == 0 &&
@@ -425,20 +325,6 @@ func parseThrottleDeviceOpts(opt opts.ThrottledeviceOpt) []types.ThrottleDevice 
 		}
 	}
 	return td
-}
-
-// parses storage options per container into a map
-// https://github.com/docker/cli/blob/v27.3.1/cli/command/container/opts.go#L974-L984
-func parseStorageOpts(storageOpts []string) (map[string]string, error) {
-	m := make(map[string]string)
-	for _, option := range storageOpts {
-		k, v, ok := strings.Cut(option, "=")
-		if !ok {
-			return nil, fmt.Errorf("invalid storage option")
-		}
-		m[k] = v
-	}
-	return m, nil
 }
 
 const (

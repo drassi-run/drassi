@@ -2,8 +2,6 @@ package docker
 
 import (
 	"fmt"
-	"io/fs"
-	"strings"
 	"time"
 
 	"drassi.run/core/pkg/container"
@@ -77,7 +75,7 @@ func (cc *containerConfig) From(spec *container.ContainerSpec, stdio *container.
 		Env:          convertMapToKVString(spec.Environment),
 		Cmd:          spec.Command,
 		Image:        spec.Image,
-		Volumes:      cc.volumeFrom(spec.Volumes),
+		Volumes:      nil,
 		//MacAddress:   spec.MacAddress,
 		Entrypoint:  spec.Entrypoint,
 		WorkingDir:  spec.WorkingDir,
@@ -90,7 +88,7 @@ func (cc *containerConfig) From(spec *container.ContainerSpec, stdio *container.
 	}
 
 	cc.HostConfig = &dockercontainer.HostConfig{
-		Binds:           cc.bindFrom(spec.Volumes),
+		Binds:           nil,
 		ContainerIDFile: "",
 		OomScoreAdj:     int(spec.OomScoreAdj),
 		//AutoRemove:      spec.AutoRemove,
@@ -113,22 +111,23 @@ func (cc *containerConfig) From(spec *container.ContainerSpec, stdio *container.
 		CapDrop:      spec.CapDrop,
 		GroupAdd:     spec.GroupAdd,
 		//RestartPolicy:  restartPolicy,
-		SecurityOpt: spec.SecurityOpt,
-		StorageOpt:  spec.StorageOpt,
-		//ReadonlyRootfs: spec.readonlyRootfs,
-		LogConfig:    cc.logConfigFrom(spec.Logging),
-		VolumeDriver: spec.VolumeDriver,
-		Isolation:    dockercontainer.Isolation(spec.Isolation),
-		ShmSize:      int64(spec.ShmSize),
-		Resources:    resources,
-		Tmpfs:        cc.tmpfsFrom(spec.Volumes),
-		Sysctls:      spec.Sysctls,
-		Runtime:      spec.Runtime,
-		Mounts:       cc.mountFrom(spec.Volumes),
+		SecurityOpt:    spec.SecurityOpt,
+		StorageOpt:     spec.StorageOpt,
+		ReadonlyRootfs: spec.ReadonlyRootfs,
+		LogConfig:      cc.logConfigFrom(spec.Logging),
+		Isolation:      dockercontainer.Isolation(spec.Isolation),
+		ShmSize:        int64(spec.ShmSize),
+		Resources:      resources,
+		Sysctls:        spec.Sysctls,
+		Runtime:        spec.Runtime,
 		//MaskedPaths:   maskedPaths,
 		//ReadonlyPaths: readonlyPaths,
 		Annotations: spec.Annotations,
 	}
+	if len(spec.Mounts) > 0 {
+		cc.setMount(spec.Mounts)
+	}
+
 	cc.NetworkingConfig = &dockernetwork.NetworkingConfig{
 		EndpointsConfig: cc.networkEndpointsFrom(spec.Networks),
 	}
@@ -170,50 +169,7 @@ func (cc *containerConfig) portBindingsFrom(ports []types.ServicePortConfig) nat
 	return nil
 }
 
-func (cc *containerConfig) bindFrom(volumes []types.ServiceVolumeConfig) []string {
-	m := make([]string, 0)
-	for _, v := range volumes {
-		if v.Type == string(dockermount.TypeBind) {
-			b := v.Source + ":" + v.Target
-			m = append(m, b)
-		}
-	}
-	return m
-}
-
-func (cc *containerConfig) volumeFrom(volumes []types.ServiceVolumeConfig) map[string]empty {
-	m := make(map[string]struct{})
-	for _, v := range volumes {
-		if v.Type == string(dockermount.TypeVolume) {
-			m[v.Source] = empty{}
-		}
-	}
-	return m
-}
-
-func (cc *containerConfig) tmpfsFrom(volumes []types.ServiceVolumeConfig) map[string]string {
-	m := make(map[string]string)
-	for _, v := range volumes {
-		if v.Type == string(dockermount.TypeTmpfs) {
-			var opt []string
-			if v.ReadOnly {
-				opt = append(opt, "ro")
-			}
-			if c := v.Tmpfs; c != nil {
-				if size := c.Size; size != 0 {
-					opt = append(opt, fmt.Sprintf("size=%d", size))
-				}
-				if mode := c.Mode; mode != 0 {
-					opt = append(opt, fmt.Sprintf("mode=%d", mode))
-				}
-			}
-			m[v.Target] = strings.Join(opt, ",")
-		}
-	}
-	return m
-}
-
-func (cc *containerConfig) mountFrom(volumes []types.ServiceVolumeConfig) []dockermount.Mount {
+func (cc *containerConfig) setMount(volumes []*container.Mount) {
 	mounts := make([]dockermount.Mount, len(volumes))
 	for i, v := range volumes {
 		m := dockermount.Mount{
@@ -223,26 +179,40 @@ func (cc *containerConfig) mountFrom(volumes []types.ServiceVolumeConfig) []dock
 			ReadOnly:    v.ReadOnly,
 			Consistency: dockermount.Consistency(v.Consistency),
 		}
-		if bind := v.Bind; bind != nil {
+		if bind := v.BindOptions; bind != nil {
 			m.BindOptions = &dockermount.BindOptions{
-				Propagation: dockermount.Propagation(bind.Propagation),
+				Propagation:      dockermount.Propagation(bind.Propagation),
+				CreateMountpoint: bind.CreateHostPath,
 			}
 		}
-		if volume := v.Volume; volume != nil {
+		if volume := v.VolumeOptions; volume != nil {
 			m.VolumeOptions = &dockermount.VolumeOptions{
 				NoCopy:  volume.NoCopy,
-				Subpath: volume.Subpath,
+				Subpath: volume.SubPath,
 			}
 		}
-		if tmpfs := v.Tmpfs; tmpfs != nil {
+		if tmpfs := v.TmpfsOptions; tmpfs != nil {
 			m.TmpfsOptions = &dockermount.TmpfsOptions{
-				SizeBytes: int64(tmpfs.Size),
-				Mode:      fs.FileMode(tmpfs.Mode),
+				SizeBytes: tmpfs.Size,
+				Mode:      tmpfs.Mode,
 			}
 		}
 		mounts[i] = m
 	}
-	return mounts
+	cc.HostConfig.Mounts = mounts
+	// anonymous volumes, e.g.
+	// -v /path/in/container
+	// --mount type=volume,destination=/path/in/container
+	cc.Config.Volumes = nil
+	// -v named-volume:/path/in/container
+	// -v /path/on/host:/path/in/container
+	// --mount type=volume,source=my-volume,destination=/path/in/container
+	// --mount type=bind,source=/path/on/host,destination=/path/in/container
+	cc.HostConfig.Binds = nil
+	cc.HostConfig.VolumeDriver = ""
+	// --tmpfs /tmp:rw,size=787448k,mode=1777
+	// --mount type=tmpfs,destination=/path/in/container
+	cc.HostConfig.Tmpfs = nil
 }
 
 func (cc *containerConfig) blkioWeightDeviceFrom(wd []types.WeightDevice) []*blkiodev.WeightDevice {
@@ -327,13 +297,6 @@ func convertMapToKVString(m map[string]string) []string {
 		r = append(r, fmt.Sprintf("%s=%s", k, v))
 	}
 	return r
-}
-
-func nilToZero[V any](v *V) V {
-	if v == nil {
-		v = new(V)
-	}
-	return *v
 }
 
 func pointerOf[V any](value V) *V {

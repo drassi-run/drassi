@@ -2,6 +2,7 @@ package container
 
 import (
 	"github.com/compose-spec/compose-go/v2/types"
+	"io/fs"
 	"time"
 )
 
@@ -139,13 +140,9 @@ type ContainerSpec struct {
 	ExtraHosts types.HostsList                        `yaml:"extra_hosts,omitempty" json:"extra_hosts,omitempty"`
 
 	// Storage & Device
-	Volumes           []types.ServiceVolumeConfig `yaml:"volumes,omitempty" json:"volumes,omitempty"`
-	VolumeDriver      string                      `yaml:"volume_driver,omitempty" json:"volume_driver,omitempty"`
-	VolumesFrom       []string                    `yaml:"volumes_from,omitempty" json:"volumes_from,omitempty"`
-	Tmpfs             types.StringList            `yaml:"tmpfs,omitempty" json:"tmpfs,omitempty"`
-	StorageOpt        map[string]string           `yaml:"storage_opt,omitempty" json:"storage_opt,omitempty"`
-	Devices           []string                    `yaml:"devices,omitempty" json:"devices,omitempty"`
-	DeviceCgroupRules []string                    `yaml:"device_cgroup_rules,omitempty" json:"device_cgroup_rules,omitempty"`
+	ContainerStorage
+	Devices           []string `yaml:"devices,omitempty" json:"devices,omitempty"`
+	DeviceCgroupRules []string `yaml:"device_cgroup_rules,omitempty" json:"device_cgroup_rules,omitempty"`
 
 	// Runtime
 	Runtime         string             `yaml:"runtime,omitempty" json:"runtime,omitempty"`
@@ -199,6 +196,60 @@ type ContainerSpec struct {
 	Privileged  bool          `yaml:"privileged,omitempty" json:"privileged,omitempty"`
 	SecurityOpt []string      `yaml:"security_opt,omitempty" json:"security_opt,omitempty"`
 	Sysctls     types.Mapping `yaml:"sysctls,omitempty" json:"sysctls,omitempty"`
+}
+
+type ContainerStorage struct {
+	Mounts         []*Mount
+	VolumesFrom    []string
+	StorageOpt     map[string]string
+	ReadonlyRootfs bool
+}
+
+// Mount represents a mount (volume).
+// [github.com/docker/docker/api/types/mount.Mount]
+// [github.com/docker/docker/api/types.MountPoint]
+// [github.com/compose-spec/compose-go/v2/types.ServiceVolumeConfig]
+type Mount struct {
+	Type        string
+	Source      string
+	Target      string
+	ReadOnly    bool
+	Consistency string
+
+	BindOptions   *BindOptions
+	VolumeOptions *VolumeOptions
+	TmpfsOptions  *TmpfsOptions
+}
+
+// BindOptions defines options specific to mounts of type "bind".
+// [github.com/docker/docker/api/types/mount.BindOptions]
+// [github.com/compose-spec/compose-go/v2/types.ServiceVolumeBind]
+type BindOptions struct {
+	Propagation    string
+	CreateHostPath bool
+}
+
+// VolumeOptions represents the options for a mount of type volume.
+// [github.com/docker/docker/api/types/mount.VolumeOptions]
+// [github.com/compose-spec/compose-go/v2/types.ServiceVolumeVolume]
+type VolumeOptions struct {
+	NoCopy  bool
+	Labels  map[string]string
+	SubPath string
+
+	// Driver config for volume mount.
+	// [github.com/docker/docker/api/types/mount.Driver]
+	Driver  string
+	Options map[string]string
+}
+
+// TmpfsOptions defines options specific to mounts of type "tmpfs".
+// [github.com/docker/docker/api/types/mount.TmpfsOptions]
+// [github.com/compose-spec/compose-go/v2/types.ServiceVolumeTmpfs]
+type TmpfsOptions struct {
+	Size    int64
+	Mode    fs.FileMode
+	Options [][]string
 }
 
 // LoggingConfig is identical with compose LoggingConfig
