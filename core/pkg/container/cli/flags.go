@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/docker/cli/opts"
 	"github.com/docker/docker/api/types/container"
 	"github.com/spf13/pflag"
@@ -315,27 +314,6 @@ func addFlags(flags *pflag.FlagSet) *containerOptions {
 	flags.StringVar(&copts.pull, "pull", PullImageMissing, `Pull image before creating ("`+PullImageAlways+`", "|`+PullImageMissing+`", "`+PullImageNever+`")`)
 
 	return copts
-}
-
-func validateUlimitsOpts(opt *opts.UlimitOpt) (map[string]types.UlimitsConfig, error) {
-	if opt == nil {
-		return nil, nil
-	}
-	o := opt.GetList()
-	if len(o) <= 0 {
-		return nil, nil
-	}
-	ulimits := make(map[string]types.UlimitsConfig)
-	for _, u := range o {
-		if u == nil {
-			return nil, fmt.Errorf("ulimits contains NULL value")
-		}
-		ulimits[u.Name] = types.UlimitsConfig{
-			Soft: int(u.Soft),
-			Hard: int(u.Hard),
-		}
-	}
-	return ulimits, nil
 }
 
 var deviceCgroupRuleRegexp = regexp.MustCompile(`^[acb] ([0-9]+|\*):([0-9]+|\*) [rwm]{1,3}$`)

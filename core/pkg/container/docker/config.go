@@ -39,10 +39,10 @@ func (cc *containerConfig) From(spec *container.ContainerSpec, stdio *container.
 		CPURealtimePeriod:  spec.CPURTPeriod,
 		CPURealtimeRuntime: spec.CPURTRuntime,
 		PidsLimit:          &spec.PidsLimit,
-		//IOMaximumIOps:      spec.ioMaxIOps,
-		//IOMaximumBandwidth: uint64(spec.ioMaxBandwidth),
-		Ulimits:           cc.ulimitsFrom(spec.Ulimits),
-		DeviceCgroupRules: spec.DeviceCgroupRules,
+		IOMaximumIOps:      spec.IOMaximumIOps,
+		IOMaximumBandwidth: spec.IOMaximumBandwidth,
+		Ulimits:            spec.Ulimits,
+		DeviceCgroupRules:  spec.DeviceCgroupRules,
 		//Devices:           spec.Devices,
 		//DeviceRequests:    deviceRequests,
 	}
@@ -215,7 +215,7 @@ func (cc *containerConfig) setMount(volumes []*container.Mount) {
 	cc.HostConfig.Tmpfs = nil
 }
 
-func (cc *containerConfig) blkioWeightDeviceFrom(wd []types.WeightDevice) []*blkiodev.WeightDevice {
+func (cc *containerConfig) blkioWeightDeviceFrom(wd []container.WeightDevice) []*blkiodev.WeightDevice {
 	if len(wd) == 0 {
 		return nil
 	}
@@ -229,7 +229,7 @@ func (cc *containerConfig) blkioWeightDeviceFrom(wd []types.WeightDevice) []*blk
 	return a
 }
 
-func (cc *containerConfig) blkioThrottleDeviceFrom(td []types.ThrottleDevice) []*blkiodev.ThrottleDevice {
+func (cc *containerConfig) blkioThrottleDeviceFrom(td []container.ThrottleDevice) []*blkiodev.ThrottleDevice {
 	if len(td) == 0 {
 		return nil
 	}
@@ -237,25 +237,10 @@ func (cc *containerConfig) blkioThrottleDeviceFrom(td []types.ThrottleDevice) []
 	for i, t := range td {
 		a[i] = &blkiodev.ThrottleDevice{
 			Path: t.Path,
-			Rate: uint64(t.Rate),
+			Rate: t.Rate,
 		}
 	}
 	return a
-}
-
-func (cc *containerConfig) ulimitsFrom(m map[string]types.UlimitsConfig) []*dockercontainer.Ulimit {
-	if len(m) == 0 {
-		return nil
-	}
-	ulimits := make([]*dockercontainer.Ulimit, 0, len(m))
-	for k, v := range m {
-		ulimits = append(ulimits, &dockercontainer.Ulimit{
-			Name: k,
-			Soft: int64(v.Soft),
-			Hard: int64(v.Hard),
-		})
-	}
-	return ulimits
 }
 
 func (cc *containerConfig) logConfigFrom(lc *container.LoggingConfig) dockercontainer.LogConfig {

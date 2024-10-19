@@ -107,36 +107,6 @@ func (fm *flagMapper) Map(flags *pflag.FlagSet, copts *containerOptions) error {
 		return err
 	}
 
-	// Resources
-	//// Applicable to all platforms
-	fm.Spec.CPUShares = copts.cpuShares
-	fm.Spec.CPUS = copts.cpus.String()
-	fm.Spec.Memory = types.UnitBytes(copts.memory)
-	//// Applicable to Windows
-	fm.Spec.CPUCount = copts.cpuCount
-	fm.Spec.CPUPercent = float32(copts.cpuPercent) / 100.0
-	//// Applicable to UNIX
-	fm.Spec.CPUPeriod = copts.cpuPeriod
-	fm.Spec.CPUQuota = copts.cpuQuota
-	fm.Spec.CPURTPeriod = copts.cpuRealtimePeriod
-	fm.Spec.CPURTRuntime = copts.cpuRealtimeRuntime
-	fm.Spec.CpusetCpus = copts.cpusetCpus
-	fm.Spec.CpusetMems = copts.cpusetMems
-	fm.Spec.MemReservation = types.UnitBytes(copts.memoryReservation)
-	fm.Spec.MemSwapLimit = types.UnitBytes(copts.memorySwap)
-	fm.Spec.MemSwappiness = types.UnitBytes(copts.swappiness)
-	fm.Spec.ShmSize = types.UnitBytes(copts.shmSize)
-	fm.Spec.OomKillDisable = copts.oomKillDisable
-	fm.Spec.OomScoreAdj = int64(copts.oomScoreAdj)
-	fm.Spec.PidsLimit = copts.pidsLimit
-
-	fm.Spec.BlkioConfig = parseBlkioOpts(copts)
-	if ulimits, err := validateUlimitsOpts(copts.ulimits); err != nil {
-		return err
-	} else {
-		fm.Spec.Ulimits = ulimits
-	}
-
 	// Namespace & CGroup
 	networkMode := docker.NetworkMode(copts.netMode.NetworkMode())
 	fm.Spec.NetworkMode = string(networkMode)
@@ -273,58 +243,6 @@ func (fm *flagMapper) mapHealth(copts *containerOptions) error {
 func durationPtr(value time.Duration) *types.Duration {
 	result := types.Duration(value)
 	return &result
-}
-
-func parseBlkioOpts(copts *containerOptions) *types.BlkioConfig {
-	if copts.blkioWeight == 0 &&
-		len(copts.blkioWeightDevice.GetList()) == 0 &&
-		len(copts.deviceReadBps.GetList()) == 0 &&
-		len(copts.deviceReadIOps.GetList()) == 0 &&
-		len(copts.deviceWriteBps.GetList()) == 0 &&
-		len(copts.deviceWriteIOps.GetList()) == 0 {
-		return nil
-	}
-	weightDevice := parseWeightDeviceOpts(copts.blkioWeightDevice)
-	deviceReadBps := parseThrottleDeviceOpts(copts.deviceReadBps)
-	deviceReadIOps := parseThrottleDeviceOpts(copts.deviceReadIOps)
-	deviceWriteBps := parseThrottleDeviceOpts(copts.deviceWriteBps)
-	deviceWriteIOps := parseThrottleDeviceOpts(copts.deviceWriteIOps)
-	return &types.BlkioConfig{
-		Weight:          copts.blkioWeight,
-		WeightDevice:    weightDevice,
-		DeviceReadBps:   deviceReadBps,
-		DeviceReadIOps:  deviceReadIOps,
-		DeviceWriteBps:  deviceWriteBps,
-		DeviceWriteIOps: deviceWriteIOps,
-	}
-}
-
-func parseWeightDeviceOpts(opt opts.WeightdeviceOpt) []types.WeightDevice {
-	if len(opt.GetList()) <= 0 {
-		return nil
-	}
-	wd := make([]types.WeightDevice, len(opt.GetList()))
-	for i, o := range opt.GetList() {
-		wd[i] = types.WeightDevice{
-			Path:   o.Path,
-			Weight: o.Weight,
-		}
-	}
-	return wd
-}
-
-func parseThrottleDeviceOpts(opt opts.ThrottledeviceOpt) []types.ThrottleDevice {
-	if len(opt.GetList()) <= 0 {
-		return nil
-	}
-	td := make([]types.ThrottleDevice, len(opt.GetList()))
-	for i, o := range opt.GetList() {
-		td[i] = types.ThrottleDevice{
-			Path: o.Path,
-			Rate: types.UnitBytes(o.Rate),
-		}
-	}
-	return td
 }
 
 const (

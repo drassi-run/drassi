@@ -2,6 +2,7 @@ package container
 
 import (
 	"github.com/compose-spec/compose-go/v2/types"
+	"github.com/docker/go-units"
 	"io/fs"
 	"time"
 )
@@ -154,30 +155,7 @@ type ContainerSpec struct {
 	HealthCheck     *HealthCheckConfig `yaml:"healthcheck,omitempty" json:"healthcheck,omitempty"`
 
 	// Resources
-	//// Applicable to all platforms
-	CPUShares int64           `yaml:"cpu_shares,omitempty" json:"cpu_shares,omitempty"`
-	CPUS      string          `yaml:"cpus,omitempty" json:"cpus,omitempty"`     // TODO: allow unmarshal from number
-	Memory    types.UnitBytes `yaml:"memory,omitempty" json:"memory,omitempty"` // named `mem_limit` (deprecated) in compose.yaml
-	//// Applicable to Windows
-	CPUCount   int64   `yaml:"cpu_count,omitempty" json:"cpu_count,omitempty"`
-	CPUPercent float32 `yaml:"cpu_percent,omitempty" json:"cpu_percent,omitempty"`
-	//// Applicable to UNIX
-	CPUPeriod      int64           `yaml:"cpu_period,omitempty" json:"cpu_period,omitempty"`
-	CPUQuota       int64           `yaml:"cpu_quota,omitempty" json:"cpu_quota,omitempty"`
-	CPURTPeriod    int64           `yaml:"cpu_rt_period,omitempty" json:"cpu_rt_period,omitempty"`
-	CPURTRuntime   int64           `yaml:"cpu_rt_runtime,omitempty" json:"cpu_rt_runtime,omitempty"`
-	CpusetCpus     string          `yaml:"cpuset_cpus,omitempty" json:"cpuset_cpus,omitempty"` // named `cpuset` in compose.yaml
-	CpusetMems     string          `yaml:"cpuset_mems,omitempty" json:"cpuset_mems,omitempty"` // not yet available in compose.yaml
-	MemReservation types.UnitBytes `yaml:"mem_reservation,omitempty" json:"mem_reservation,omitempty"`
-	MemSwapLimit   types.UnitBytes `yaml:"memswap_limit,omitempty" json:"memswap_limit,omitempty"`
-	MemSwappiness  types.UnitBytes `yaml:"mem_swappiness,omitempty" json:"mem_swappiness,omitempty"`
-	ShmSize        types.UnitBytes `yaml:"shm_size,omitempty" json:"shm_size,omitempty"`
-	OomKillDisable bool            `yaml:"oom_kill_disable,omitempty" json:"oom_kill_disable,omitempty"`
-	OomScoreAdj    int64           `yaml:"oom_score_adj,omitempty" json:"oom_score_adj,omitempty"`
-	PidsLimit      int64           `yaml:"pids_limit,omitempty" json:"pids_limit,omitempty"`
-
-	BlkioConfig *types.BlkioConfig             `yaml:"blkio_config,omitempty" json:"blkio_config,omitempty"`
-	Ulimits     map[string]types.UlimitsConfig `yaml:"ulimits,omitempty" json:"ulimits,omitempty"`
+	ContainerResource
 
 	// Namespace & CGroup
 	NetworkMode  string `yaml:"network_mode,omitempty" json:"network_mode,omitempty"`
@@ -196,6 +174,49 @@ type ContainerSpec struct {
 	Privileged  bool          `yaml:"privileged,omitempty" json:"privileged,omitempty"`
 	SecurityOpt []string      `yaml:"security_opt,omitempty" json:"security_opt,omitempty"`
 	Sysctls     types.Mapping `yaml:"sysctls,omitempty" json:"sysctls,omitempty"`
+}
+
+//goland:noinspection GoNameStartsWithPackageName,SpellCheckingInspection
+type ContainerResource struct {
+	//// Applicable to all platforms
+	CPUShares int64
+	CPUS      string
+	Memory    int64
+
+	//// Applicable to Windows
+	CPUCount           int64
+	CPUPercent         float32
+	IOMaximumIOps      uint64
+	IOMaximumBandwidth uint64
+
+	//// Applicable to UNIX
+	CPUPeriod      int64
+	CPUQuota       int64
+	CPURTPeriod    int64
+	CPURTRuntime   int64
+	CpusetCpus     string
+	CpusetMems     string
+	MemReservation int64
+	MemSwapLimit   int64
+	MemSwappiness  int64
+	ShmSize        int64
+	OomKillDisable bool
+	OomScoreAdj    int64
+	PidsLimit      int64
+
+	BlkioConfig *BlkioConfig
+	Ulimits     []*units.Ulimit
+}
+
+// BlkioConfig define blkio config
+// [github.com/compose-spec/compose-go/v2/types.BlkioConfig]
+type BlkioConfig struct {
+	Weight          uint16
+	WeightDevice    []WeightDevice
+	DeviceReadBps   []ThrottleDevice
+	DeviceReadIOps  []ThrottleDevice
+	DeviceWriteBps  []ThrottleDevice
+	DeviceWriteIOps []ThrottleDevice
 }
 
 type ContainerStorage struct {
