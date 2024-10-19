@@ -174,11 +174,11 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 		return err
 	}
 
-	return scope.Invoke(func(streams *sandboxer.Streams) {
-		if closer, ok := streams.Out.(io.Closer); ok {
+	return scope.Invoke(func(streams sandboxer.Streams) {
+		if closer, ok := streams.Out().(io.Closer); ok {
 			w.addCleaner(closer.Close)
 		}
-		if closer, ok := streams.Err.(io.Closer); ok {
+		if closer, ok := streams.Err().(io.Closer); ok {
 			w.addCleaner(closer.Close)
 		}
 	})
