@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"drassi.run/core/pkg/container"
+	"drassi.run/core/pkg/container/types"
 	"github.com/docker/cli/cli/compose/loader"
 	dockermount "github.com/docker/docker/api/types/mount"
 	"github.com/docker/go-units"
@@ -40,7 +40,7 @@ func (fm *flagMapper) mapStorage(copts *containerOptions) error {
 				continue
 			}
 			if m.VolumeOptions == nil {
-				m.VolumeOptions = new(container.VolumeOptions)
+				m.VolumeOptions = new(types.VolumeOptions)
 			}
 			m.VolumeOptions.Driver = driver
 		}
@@ -57,12 +57,12 @@ func (fm *flagMapper) mapStorage(copts *containerOptions) error {
 	return nil
 }
 
-func parseVolume(v string) (*container.Mount, error) {
+func parseVolume(v string) (*types.Mount, error) {
 	parsed, err := loader.ParseVolume(v)
 	if err != nil {
 		return nil, err
 	}
-	mount := &container.Mount{
+	mount := &types.Mount{
 		Type:        parsed.Type,
 		Source:      parsed.Source,
 		Target:      parsed.Target,
@@ -70,25 +70,25 @@ func parseVolume(v string) (*container.Mount, error) {
 		Consistency: parsed.Consistency,
 	}
 	if bind := parsed.Bind; bind != nil {
-		mount.BindOptions = &container.BindOptions{
+		mount.BindOptions = &types.BindOptions{
 			Propagation: bind.Propagation,
 		}
 	}
 	if volume := parsed.Volume; volume != nil {
-		mount.VolumeOptions = &container.VolumeOptions{
+		mount.VolumeOptions = &types.VolumeOptions{
 			NoCopy: volume.NoCopy,
 		}
 	}
 	if tmp := parsed.Tmpfs; tmp != nil {
-		mount.TmpfsOptions = &container.TmpfsOptions{
+		mount.TmpfsOptions = &types.TmpfsOptions{
 			Size: tmp.Size,
 		}
 	}
 	return mount, nil
 }
 
-func parseMount(m dockermount.Mount) *container.Mount {
-	mount := &container.Mount{
+func parseMount(m dockermount.Mount) *types.Mount {
+	mount := &types.Mount{
 		Type:        string(m.Type),
 		Source:      m.Source,
 		Target:      m.Target,
@@ -96,13 +96,13 @@ func parseMount(m dockermount.Mount) *container.Mount {
 		Consistency: string(m.Consistency),
 	}
 	if bo := m.BindOptions; bo != nil {
-		mount.BindOptions = &container.BindOptions{
+		mount.BindOptions = &types.BindOptions{
 			Propagation:    string(bo.Propagation),
 			CreateHostPath: bo.CreateMountpoint,
 		}
 	}
 	if vo := m.VolumeOptions; vo != nil {
-		mount.VolumeOptions = &container.VolumeOptions{
+		mount.VolumeOptions = &types.VolumeOptions{
 			NoCopy:  vo.NoCopy,
 			SubPath: vo.Subpath,
 		}
@@ -112,7 +112,7 @@ func parseMount(m dockermount.Mount) *container.Mount {
 		}
 	}
 	if to := m.TmpfsOptions; to != nil {
-		mount.TmpfsOptions = &container.TmpfsOptions{
+		mount.TmpfsOptions = &types.TmpfsOptions{
 			Size:    to.SizeBytes,
 			Mode:    to.Mode,
 			Options: to.Options,
@@ -121,20 +121,20 @@ func parseMount(m dockermount.Mount) *container.Mount {
 	return mount
 }
 
-func parseTmpfs(t string) (*container.Mount, error) {
+func parseTmpfs(t string) (*types.Mount, error) {
 	split := strings.Split(t, ":")
 	target := split[0]
 	if err := validateVolumeContainerDir(target); err != nil {
 		return nil, err
 	}
-	mount := &container.Mount{
+	mount := &types.Mount{
 		Type:   "tmpfs",
 		Target: target,
 	}
 
 	if len(split) > 1 {
 		options := strings.Split(split[1], ",")
-		mount.TmpfsOptions = &container.TmpfsOptions{}
+		mount.TmpfsOptions = &types.TmpfsOptions{}
 		for _, opt := range options {
 			k, v, _ := strings.Cut(opt, "=")
 			k = strings.ToLower(k)

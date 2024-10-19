@@ -1,9 +1,8 @@
-package container
+package types
 
 import (
 	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/docker/go-units"
-	"io/fs"
 	"time"
 )
 
@@ -219,60 +218,6 @@ type BlkioConfig struct {
 	DeviceWriteIOps []ThrottleDevice
 }
 
-type ContainerStorage struct {
-	Mounts         []*Mount
-	VolumesFrom    []string
-	StorageOpt     map[string]string
-	ReadonlyRootfs bool
-}
-
-// Mount represents a mount (volume).
-// [github.com/docker/docker/api/types/mount.Mount]
-// [github.com/docker/docker/api/types.MountPoint]
-// [github.com/compose-spec/compose-go/v2/types.ServiceVolumeConfig]
-type Mount struct {
-	Type        string
-	Source      string
-	Target      string
-	ReadOnly    bool
-	Consistency string
-
-	BindOptions   *BindOptions
-	VolumeOptions *VolumeOptions
-	TmpfsOptions  *TmpfsOptions
-}
-
-// BindOptions defines options specific to mounts of type "bind".
-// [github.com/docker/docker/api/types/mount.BindOptions]
-// [github.com/compose-spec/compose-go/v2/types.ServiceVolumeBind]
-type BindOptions struct {
-	Propagation    string
-	CreateHostPath bool
-}
-
-// VolumeOptions represents the options for a mount of type volume.
-// [github.com/docker/docker/api/types/mount.VolumeOptions]
-// [github.com/compose-spec/compose-go/v2/types.ServiceVolumeVolume]
-type VolumeOptions struct {
-	NoCopy  bool
-	Labels  map[string]string
-	SubPath string
-
-	// Driver config for volume mount.
-	// [github.com/docker/docker/api/types/mount.Driver]
-	Driver  string
-	Options map[string]string
-}
-
-// TmpfsOptions defines options specific to mounts of type "tmpfs".
-// [github.com/docker/docker/api/types/mount.TmpfsOptions]
-// [github.com/compose-spec/compose-go/v2/types.ServiceVolumeTmpfs]
-type TmpfsOptions struct {
-	Size    int64
-	Mode    fs.FileMode
-	Options [][]string
-}
-
 // LoggingConfig is identical with compose LoggingConfig
 // [github.com/docker/docker/api/types/container.LogConfig]
 // [github.com/compose-spec/compose-go/v2/types.LoggingConfig]
@@ -292,34 +237,4 @@ type HealthCheckConfig struct {
 	Retries       int
 	StartPeriod   time.Duration
 	StartInterval time.Duration
-}
-
-const (
-	Stdin = 1 << iota
-	Stdout
-	Stderr
-	None = 0 // detach mode
-)
-
-// See also: https://github.com/docker/cli/blob/v27.3.1/cli/command/container/run.go#L122-L135
-type Stdio struct {
-	Tty         bool
-	Attach      int
-	Interactive bool
-}
-
-func (s *Stdio) AttachStdin() bool {
-	return s.Attach&Stdin != 0
-}
-
-func (s *Stdio) AttachStdout() bool {
-	return s.Attach&Stdout != 0
-}
-
-func (s *Stdio) AttachStderr() bool {
-	return s.Attach&Stderr != 0
-}
-
-func (s *Stdio) Detach() bool {
-	return s.Attach == None
 }

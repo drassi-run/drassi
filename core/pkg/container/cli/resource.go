@@ -1,7 +1,7 @@
 package cli
 
 import (
-	"drassi.run/core/pkg/container"
+	"drassi.run/core/pkg/container/types"
 	"github.com/docker/cli/opts"
 )
 
@@ -36,7 +36,7 @@ func (fm *flagMapper) mapResource(copts *containerOptions) error {
 	return nil
 }
 
-func parseBlkioOpts(copts *containerOptions) *container.BlkioConfig {
+func parseBlkioOpts(copts *containerOptions) *types.BlkioConfig {
 	if copts.blkioWeight == 0 &&
 		len(copts.blkioWeightDevice.GetList()) == 0 &&
 		len(copts.deviceReadBps.GetList()) == 0 &&
@@ -50,7 +50,7 @@ func parseBlkioOpts(copts *containerOptions) *container.BlkioConfig {
 	deviceReadIOps := parseThrottleDeviceOpts(copts.deviceReadIOps)
 	deviceWriteBps := parseThrottleDeviceOpts(copts.deviceWriteBps)
 	deviceWriteIOps := parseThrottleDeviceOpts(copts.deviceWriteIOps)
-	return &container.BlkioConfig{
+	return &types.BlkioConfig{
 		Weight:          copts.blkioWeight,
 		WeightDevice:    weightDevice,
 		DeviceReadBps:   deviceReadBps,
@@ -60,13 +60,13 @@ func parseBlkioOpts(copts *containerOptions) *container.BlkioConfig {
 	}
 }
 
-func parseWeightDeviceOpts(opt opts.WeightdeviceOpt) []container.WeightDevice {
+func parseWeightDeviceOpts(opt opts.WeightdeviceOpt) []types.WeightDevice {
 	if len(opt.GetList()) <= 0 {
 		return nil
 	}
-	wd := make([]container.WeightDevice, len(opt.GetList()))
+	wd := make([]types.WeightDevice, len(opt.GetList()))
 	for i, o := range opt.GetList() {
-		wd[i] = container.WeightDevice{
+		wd[i] = types.WeightDevice{
 			Path:   o.Path,
 			Weight: o.Weight,
 		}
@@ -74,13 +74,13 @@ func parseWeightDeviceOpts(opt opts.WeightdeviceOpt) []container.WeightDevice {
 	return wd
 }
 
-func parseThrottleDeviceOpts(opt opts.ThrottledeviceOpt) []container.ThrottleDevice {
+func parseThrottleDeviceOpts(opt opts.ThrottledeviceOpt) []types.ThrottleDevice {
 	if len(opt.GetList()) <= 0 {
 		return nil
 	}
-	td := make([]container.ThrottleDevice, len(opt.GetList()))
+	td := make([]types.ThrottleDevice, len(opt.GetList()))
 	for i, o := range opt.GetList() {
-		td[i] = container.ThrottleDevice{
+		td[i] = types.ThrottleDevice{
 			Path: o.Path,
 			Rate: o.Rate,
 		}

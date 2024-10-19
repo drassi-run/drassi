@@ -4,7 +4,7 @@ import (
 	"context"
 	"io"
 
-	"drassi.run/core/pkg/container"
+	"drassi.run/core/pkg/container/types"
 	"drassi.run/core/pkg/model/records"
 )
 
@@ -53,8 +53,8 @@ type SandboxRuntime interface {
 type LaunchSandboxRequest struct {
 	JobId             string
 	JobEnv            map[string]string
-	JobContainer      *container.ContainerSpec
-	ServiceContainers map[string]*container.ContainerSpec
+	JobContainer      *types.ContainerSpec
+	ServiceContainers map[string]*types.ContainerSpec
 }
 
 type LaunchSandboxResponse struct {

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"drassi.run/core/pkg/container"
-	"github.com/compose-spec/compose-go/v2/types"
+	"drassi.run/core/pkg/container/types"
+	composetypes "github.com/compose-spec/compose-go/v2/types"
 	dockeropts "github.com/docker/cli/opts"
 	"github.com/docker/docker/api/types/blkiodev"
 	dockercontainer "github.com/docker/docker/api/types/container"
@@ -20,13 +20,13 @@ type containerConfig struct {
 	NetworkingConfig *dockernetwork.NetworkingConfig
 }
 
-func (cc *containerConfig) From(spec *container.ContainerSpec, stdio *container.Stdio) error {
+func (cc *containerConfig) From(spec *types.ContainerSpec, stdio *types.Stdio) error {
 	resources := dockercontainer.Resources{
 		CgroupParent:      spec.CgroupParent,
-		Memory:            int64(spec.Memory),
-		MemoryReservation: int64(spec.MemReservation),
-		MemorySwap:        int64(spec.MemSwapLimit),
-		MemorySwappiness:  pointerOf(int64(spec.MemSwappiness)),
+		Memory:            spec.Memory,
+		MemoryReservation: spec.MemReservation,
+		MemorySwap:        spec.MemSwapLimit,
+		MemorySwappiness:  pointerOf(spec.MemSwappiness),
 		//KernelMemory:         spec.kernelMemory,
 		OomKillDisable:     &spec.OomKillDisable,
 		CPUCount:           spec.CPUCount,
@@ -134,7 +134,7 @@ func (cc *containerConfig) From(spec *container.ContainerSpec, stdio *container.
 	return nil
 }
 
-func (cc *containerConfig) networkEndpointsFrom(m map[string]*types.ServiceNetworkConfig) map[string]*dockernetwork.EndpointSettings {
+func (cc *containerConfig) networkEndpointsFrom(m map[string]*composetypes.ServiceNetworkConfig) map[string]*dockernetwork.EndpointSettings {
 	if len(m) == 0 {
 		return nil
 	}
@@ -161,15 +161,15 @@ func (cc *containerConfig) networkEndpointsFrom(m map[string]*types.ServiceNetwo
 	return networks
 }
 
-func (cc *containerConfig) exposedPortsFrom(ports []types.ServicePortConfig) nat.PortSet {
+func (cc *containerConfig) exposedPortsFrom(ports []composetypes.ServicePortConfig) nat.PortSet {
 	return nil
 }
 
-func (cc *containerConfig) portBindingsFrom(ports []types.ServicePortConfig) nat.PortMap {
+func (cc *containerConfig) portBindingsFrom(ports []composetypes.ServicePortConfig) nat.PortMap {
 	return nil
 }
 
-func (cc *containerConfig) setMount(volumes []*container.Mount) {
+func (cc *containerConfig) setMount(volumes []*types.Mount) {
 	mounts := make([]dockermount.Mount, len(volumes))
 	for i, v := range volumes {
 		m := dockermount.Mount{
@@ -215,7 +215,7 @@ func (cc *containerConfig) setMount(volumes []*container.Mount) {
 	cc.HostConfig.Tmpfs = nil
 }
 
-func (cc *containerConfig) blkioWeightDeviceFrom(wd []container.WeightDevice) []*blkiodev.WeightDevice {
+func (cc *containerConfig) blkioWeightDeviceFrom(wd []types.WeightDevice) []*blkiodev.WeightDevice {
 	if len(wd) == 0 {
 		return nil
 	}
@@ -229,7 +229,7 @@ func (cc *containerConfig) blkioWeightDeviceFrom(wd []container.WeightDevice) []
 	return a
 }
 
-func (cc *containerConfig) blkioThrottleDeviceFrom(td []container.ThrottleDevice) []*blkiodev.ThrottleDevice {
+func (cc *containerConfig) blkioThrottleDeviceFrom(td []types.ThrottleDevice) []*blkiodev.ThrottleDevice {
 	if len(td) == 0 {
 		return nil
 	}
@@ -243,7 +243,7 @@ func (cc *containerConfig) blkioThrottleDeviceFrom(td []container.ThrottleDevice
 	return a
 }
 
-func (cc *containerConfig) logConfigFrom(lc *container.LoggingConfig) dockercontainer.LogConfig {
+func (cc *containerConfig) logConfigFrom(lc *types.LoggingConfig) dockercontainer.LogConfig {
 	if lc == nil {
 		return dockercontainer.LogConfig{}
 	}
@@ -253,7 +253,7 @@ func (cc *containerConfig) logConfigFrom(lc *container.LoggingConfig) dockercont
 	}
 }
 
-func (cc *containerConfig) setHealCheck(hc *container.HealthCheckConfig) {
+func (cc *containerConfig) setHealCheck(hc *types.HealthCheckConfig) {
 	cc.Config.Healthcheck = &dockercontainer.HealthConfig{
 		Test:          hc.Test,
 		Timeout:       hc.Timeout,
@@ -264,7 +264,7 @@ func (cc *containerConfig) setHealCheck(hc *container.HealthCheckConfig) {
 	}
 }
 
-func (cc *containerConfig) stopTimeoutFrom(d *types.Duration) *int {
+func (cc *containerConfig) stopTimeoutFrom(d *composetypes.Duration) *int {
 	if d == nil {
 		return nil
 	}

@@ -4,6 +4,8 @@ import (
 	"context"
 	"io"
 	"io/fs"
+
+	"drassi.run/core/pkg/container/types"
 )
 
 type Engine interface {
@@ -13,19 +15,19 @@ type Engine interface {
 	ImagePull(ctx context.Context, ref string, opts *PullOptions) error
 	ImageBuild(ctx context.Context, context io.Reader, opts *BuildOptions) error
 
-	ContainerRun(ctx context.Context, spec *ContainerSpec, opts *RunOptions) (string, error)
+	ContainerRun(ctx context.Context, spec *types.ContainerSpec, opts *RunOptions) (string, error)
 	ContainerExec(ctx context.Context, id string, opts *ExecOptions) (string, error)
 	ContainerRemove(ctx context.Context, opts *RemoveOptions) error
-	ContainerInspect(ctx context.Context, id string) (*ContainerSpec, error)
+	ContainerInspect(ctx context.Context, id string) (*types.ContainerSpec, error)
 
 	Stat(ctx context.Context, id string, path string) (fs.FileInfo, error)
 	CopyIn(ctx context.Context, id string, opts *CopyInOptions) error
 	CopyOut(ctx context.Context, id string, opts *CopyOutOptions) (io.ReadCloser, error)
 
-	NetworkCreate(ctx context.Context, spec *NetworkSpec) (string, error)
+	NetworkCreate(ctx context.Context, spec *types.NetworkSpec) (string, error)
 	NetworkRemove(ctx context.Context, opts *RemoveOptions) error
 
-	VolumeCreate(ctx context.Context, spec *VolumeSpec) (string, error)
+	VolumeCreate(ctx context.Context, spec *types.VolumeSpec) (string, error)
 	VolumeRemove(ctx context.Context, opts *RemoveOptions) error
 }
 
@@ -40,7 +42,7 @@ type BuildOptions struct {
 }
 
 type RunOptions struct {
-	Stdio   *Stdio
+	Stdio   *types.Stdio
 	Streams Streams
 }
 
@@ -48,7 +50,7 @@ type ExecOptions struct {
 	Cmd     []string
 	Env     map[string]string
 	Workdir string
-	Stdio   *Stdio
+	Stdio   *types.Stdio
 	Streams Streams
 }
 

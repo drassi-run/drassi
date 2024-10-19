@@ -8,15 +8,15 @@ import (
 	"strings"
 	"time"
 
-	"drassi.run/core/pkg/container"
-	"github.com/compose-spec/compose-go/v2/types"
+	"drassi.run/core/pkg/container/types"
+	composetypes "github.com/compose-spec/compose-go/v2/types"
 	"github.com/docker/cli/opts"
 	docker "github.com/docker/docker/api/types/container"
 	"github.com/google/shlex"
 	"github.com/spf13/pflag"
 )
 
-func Parse(opts string) (*container.ContainerSpec, *container.Stdio, error) {
+func Parse(opts string) (*types.ContainerSpec, *types.Stdio, error) {
 	flags := pflag.NewFlagSet("docker create", pflag.ContinueOnError)
 	copts := addFlags(flags)
 
@@ -35,8 +35,8 @@ func Parse(opts string) (*container.ContainerSpec, *container.Stdio, error) {
 }
 
 type flagMapper struct {
-	Spec  container.ContainerSpec
-	Stdio container.Stdio
+	Spec  types.ContainerSpec
+	Stdio types.Stdio
 }
 
 // Map function convert flags and copts to Spec and Stdio
@@ -63,7 +63,7 @@ func (fm *flagMapper) Map(flags *pflag.FlagSet, copts *containerOptions) error {
 	//TODO: networks
 	if publishOpts := copts.publish.GetAll(); len(publishOpts) > 0 {
 		for _, opt := range publishOpts {
-			if conf, err := types.ParsePortConfig(opt); err != nil {
+			if conf, err := composetypes.ParsePortConfig(opt); err != nil {
 				return err
 			} else {
 				fm.Spec.Ports = append(fm.Spec.Ports, conf...)
@@ -76,7 +76,7 @@ func (fm *flagMapper) Map(flags *pflag.FlagSet, copts *containerOptions) error {
 	fm.Spec.DNSSearch = copts.dnsSearch.GetAll()
 	fm.Spec.DomainName = copts.domainname
 	fm.Spec.Hostname = copts.hostname
-	if extraHosts, err := types.NewHostsList(copts.extraHosts.GetAll()); err != nil {
+	if extraHosts, err := composetypes.NewHostsList(copts.extraHosts.GetAll()); err != nil {
 		return err
 	} else {
 		fm.Spec.ExtraHosts = extraHosts
@@ -159,17 +159,17 @@ func (fm *flagMapper) mapStdio(copts *containerOptions) {
 	fm.Stdio.Tty = copts.tty
 	fm.Stdio.Interactive = copts.stdin // --interactive
 	if copts.attach.Get("stdin") || copts.stdin {
-		fm.Stdio.Attach |= container.Stdin
+		fm.Stdio.Attach |= types.Stdin
 	}
 	if copts.attach.Get("stdout") {
-		fm.Stdio.Attach |= container.Stdout
+		fm.Stdio.Attach |= types.Stdout
 	}
 	if copts.attach.Get("stderr") {
-		fm.Stdio.Attach |= container.Stderr
+		fm.Stdio.Attach |= types.Stderr
 	}
 	// If -a is not set, attach to stdout and stderr
 	if copts.attach.Len() == 0 {
-		fm.Stdio.Attach |= container.Stdout | container.Stderr
+		fm.Stdio.Attach |= types.Stdout | types.Stderr
 	}
 }
 
@@ -185,7 +185,7 @@ func (fm *flagMapper) mapLogging(copts *containerOptions) error {
 		return fmt.Errorf("invalid logging opts for driver %s", driver)
 	}
 
-	fm.Spec.Logging = &container.LoggingConfig{
+	fm.Spec.Logging = &types.LoggingConfig{
 		Driver:  driver,
 		Options: options,
 	}
@@ -228,7 +228,7 @@ func (fm *flagMapper) mapHealth(copts *containerOptions) error {
 		return fmt.Errorf("--health-start-interval cannot be negative")
 	}
 
-	fm.Spec.HealthCheck = &container.HealthCheckConfig{
+	fm.Spec.HealthCheck = &types.HealthCheckConfig{
 		Test:          probe,
 		Timeout:       copts.healthTimeout,
 		Interval:      copts.healthInterval,
@@ -240,8 +240,8 @@ func (fm *flagMapper) mapHealth(copts *containerOptions) error {
 	return nil
 }
 
-func durationPtr(value time.Duration) *types.Duration {
-	result := types.Duration(value)
+func durationPtr(value time.Duration) *composetypes.Duration {
+	result := composetypes.Duration(value)
 	return &result
 }
 

@@ -2,6 +2,7 @@ package docker
 
 import (
 	"context"
+	"drassi.run/core/pkg/container/types"
 	"errors"
 	"fmt"
 	"io"
@@ -78,7 +79,7 @@ func (e *engine) ImageBuild(ctx context.Context, context io.Reader, opts *contai
 	panic("implement me")
 }
 
-func (e *engine) ContainerRun(ctx context.Context, spec *container.ContainerSpec, opts *container.RunOptions) (string, error) {
+func (e *engine) ContainerRun(ctx context.Context, spec *types.ContainerSpec, opts *container.RunOptions) (string, error) {
 	stdio := opts.Stdio
 	cc := new(containerConfig)
 	if err := cc.From(spec, stdio); err != nil {
@@ -187,7 +188,7 @@ func (e *engine) containerRemove(ctx context.Context, id string) error {
 	return nil
 }
 
-func (e *engine) ContainerInspect(ctx context.Context, id string) (*container.ContainerSpec, error) {
+func (e *engine) ContainerInspect(ctx context.Context, id string) (*types.ContainerSpec, error) {
 	res, err := e.client.ContainerInspect(ctx, id)
 	if err != nil {
 		return nil, err
@@ -216,7 +217,7 @@ func (e *engine) CopyOut(ctx context.Context, id string, opts *container.CopyOut
 	return r, err
 }
 
-func (e *engine) NetworkCreate(ctx context.Context, spec *container.NetworkSpec) (string, error) {
+func (e *engine) NetworkCreate(ctx context.Context, spec *types.NetworkSpec) (string, error) {
 	config := dockernetwork.CreateOptions{
 		Labels:  spec.Labels,
 		Driver:  spec.Driver,
@@ -264,7 +265,7 @@ func (e *engine) NetworkRemove(ctx context.Context, opts *container.RemoveOption
 	return nil
 }
 
-func (e *engine) VolumeCreate(ctx context.Context, spec *container.VolumeSpec) (string, error) {
+func (e *engine) VolumeCreate(ctx context.Context, spec *types.VolumeSpec) (string, error) {
 	config := dockervolume.CreateOptions{
 		Name:       spec.Name,
 		Labels:     spec.Labels,
@@ -307,7 +308,7 @@ func (e *engine) VolumeRemove(ctx context.Context, opts *container.RemoveOptions
 	return nil
 }
 
-func (e *engine) streamingStdio(ctx context.Context, id string, exec bool, stdio *container.Stdio, streams container.Streams, fn run) run {
+func (e *engine) streamingStdio(ctx context.Context, id string, exec bool, stdio *types.Stdio, streams container.Streams, fn run) run {
 	ctx, cancel := context.WithCancel(ctx)
 
 	return func() (err error) {

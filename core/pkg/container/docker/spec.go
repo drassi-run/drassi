@@ -1,13 +1,13 @@
 package docker
 
 import (
-	"drassi.run/core/pkg/container"
+	"drassi.run/core/pkg/container/types"
 	dockertypes "github.com/docker/docker/api/types"
 	dockermount "github.com/docker/docker/api/types/mount"
 )
 
 type containerSpec struct {
-	Spec container.ContainerSpec
+	Spec types.ContainerSpec
 }
 
 func (cs *containerSpec) From(info dockertypes.ContainerJSON) error {
@@ -24,7 +24,7 @@ func (cs *containerSpec) From(info dockertypes.ContainerJSON) error {
 
 func (cs *containerSpec) setMounts(info dockertypes.ContainerJSON) {
 	for _, m := range info.Mounts {
-		mount := &container.Mount{
+		mount := &types.Mount{
 			Type:     string(m.Type),
 			Target:   m.Destination,
 			ReadOnly: !m.RW,
@@ -32,7 +32,7 @@ func (cs *containerSpec) setMounts(info dockertypes.ContainerJSON) {
 		if m.Type == dockermount.TypeVolume {
 			mount.Source = m.Name
 			if driver := m.Driver; driver != "" {
-				mount.VolumeOptions = &container.VolumeOptions{
+				mount.VolumeOptions = &types.VolumeOptions{
 					Driver: driver,
 				}
 			}

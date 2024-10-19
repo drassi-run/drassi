@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"drassi.run/core/pkg/container"
+	"drassi.run/core/pkg/container/types"
 	"drassi.run/core/pkg/executor/command"
 	"drassi.run/core/pkg/executor/evaluator"
 	"drassi.run/core/pkg/expression"
@@ -254,7 +254,7 @@ func (e *jobExecutor) initializeSandbox() error {
 	if err := evaluator.Evaluate(e.exprEnv, e.jobRun.Services, &serviceContainers); err != nil {
 		return err
 	} else if len(serviceContainers) > 0 {
-		services := make(map[string]*container.ContainerSpec, len(serviceContainers))
+		services := make(map[string]*types.ContainerSpec, len(serviceContainers))
 		for name, srv := range serviceContainers {
 			if con, err := e.toContainerConfig(e.ctx, srv); err != nil {
 				return err
