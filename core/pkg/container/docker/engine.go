@@ -156,6 +156,18 @@ func (e *engine) ContainerRemove(ctx context.Context, id string) error {
 	return nil
 }
 
+func (e *engine) ContainerInspect(ctx context.Context, id string) (*container.ContainerSpec, error) {
+	res, err := e.client.ContainerInspect(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	cs := new(containerSpec)
+	if err = cs.From(res); err != nil {
+		return nil, err
+	}
+	return &cs.Spec, nil
+}
+
 func (e *engine) Stat(ctx context.Context, id string, path string) (fs.FileInfo, error) {
 	if ps, err := e.client.ContainerStatPath(ctx, id, path); err != nil {
 		return nil, err

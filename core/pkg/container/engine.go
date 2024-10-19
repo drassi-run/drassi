@@ -16,6 +16,7 @@ type Engine interface {
 	ContainerRun(ctx context.Context, spec *ContainerSpec, opts *RunOptions) (string, error)
 	ContainerExec(ctx context.Context, id string, opts *ExecOptions) (string, error)
 	ContainerRemove(ctx context.Context, id string) error
+	ContainerInspect(ctx context.Context, id string) (*ContainerSpec, error)
 
 	Stat(ctx context.Context, id string, path string) (fs.FileInfo, error)
 	CopyIn(ctx context.Context, id string, opts *CopyInOptions) error
