@@ -247,7 +247,7 @@ func (fm *flagMapper) mapLogging(copts *containerOptions) error {
 		return fmt.Errorf("invalid logging opts for driver %s", driver)
 	}
 
-	fm.Spec.Logging = &types.LoggingConfig{
+	fm.Spec.Logging = &container.LoggingConfig{
 		Driver:  driver,
 		Options: options,
 	}

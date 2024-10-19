@@ -288,7 +288,7 @@ func (cc *containerConfig) ulimitsFrom(m map[string]types.UlimitsConfig) []*dock
 	return ulimits
 }
 
-func (cc *containerConfig) logConfigFrom(lc *types.LoggingConfig) dockercontainer.LogConfig {
+func (cc *containerConfig) logConfigFrom(lc *container.LoggingConfig) dockercontainer.LogConfig {
 	if lc == nil {
 		return dockercontainer.LogConfig{}
 	}
