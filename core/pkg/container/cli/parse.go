@@ -8,405 +8,241 @@ import (
 	"strings"
 	"time"
 
-	"drassi.run/core/pkg/container"
-	"github.com/compose-spec/compose-go/v2/types"
-	"github.com/docker/cli/cli/compose/loader"
+	"drassi.run/core/pkg/container/types"
+	composetypes "github.com/compose-spec/compose-go/v2/types"
 	"github.com/docker/cli/opts"
 	docker "github.com/docker/docker/api/types/container"
 	"github.com/google/shlex"
 	"github.com/spf13/pflag"
 )
 
-type ParseResult struct {
-	Spec  *container.ContainerSpec
-	Stdio *container.Stdio
-}
-
-func Parse(opts string) (*ParseResult, error) {
+func Parse(opts string) (*types.ContainerSpec, *types.Stdio, error) {
 	flags := pflag.NewFlagSet("docker create", pflag.ContinueOnError)
 	copts := addFlags(flags)
 
 	if args, err := shlex.Split(opts); err != nil {
-		return nil, err
+		return nil, nil, err
 	} else if err = flags.Parse(args); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return parse(flags, copts)
+
+	fm := new(flagMapper)
+	if err := fm.Map(flags, copts); err != nil {
+		return nil, nil, err
+	}
+
+	return &fm.Spec, &fm.Stdio, nil
 }
 
-// See also: https://github.com/docker/cli/blob/v27.3.1/cli/command/container/opts.go#L338-L740
-func parse(flags *pflag.FlagSet, copts *containerOptions) (*ParseResult, error) {
-	// https://github.com/docker/cli/blob/v27.3.1/cli/command/container/opts.go#L339-L358
-	stdio := &container.Stdio{
-		Tty:         copts.tty,
-		Interactive: copts.stdin, // --interactive
-	}
-	if copts.attach.Get("stdin") || copts.stdin {
-		stdio.Attach |= container.Stdin
-	}
-	if copts.attach.Get("stdout") {
-		stdio.Attach |= container.Stdout
-	}
-	if copts.attach.Get("stderr") {
-		stdio.Attach |= container.Stderr
-	}
-	// If -a is not set, attach to stdout and stderr
-	if copts.attach.Len() == 0 {
-		stdio.Attach |= container.Stdout | container.Stderr
-	}
+type flagMapper struct {
+	Spec  types.ContainerSpec
+	Stdio types.Stdio
+}
 
-	spec := &container.ContainerSpec{
-		Name:        copts.name,
-		Labels:      opts.ConvertKVStringsToMap(copts.labels.GetAll()),
-		Annotations: copts.annotations.GetAll(),
-		PullPolicy:  copts.pull,
-		Environment: opts.ConvertKVStringsToMap(copts.env.GetAll()),
-		WorkingDir:  copts.workingDir,
-	}
+// Map function convert flags and copts to Spec and Stdio
+// See also: https://github.com/docker/cli/blob/v27.3.1/cli/command/container/opts.go#L338-L740
+func (fm *flagMapper) Map(flags *pflag.FlagSet, copts *containerOptions) error {
+	fm.mapStdio(copts)
+
+	fm.Spec.Name = copts.name
+	fm.Spec.Labels = opts.ConvertKVStringsToMap(copts.labels.GetAll())
+	fm.Spec.Annotations = copts.annotations.GetAll()
+	fm.Spec.PullPolicy = copts.pull
+	fm.Spec.Environment = opts.ConvertKVStringsToMap(copts.env.GetAll())
+	fm.Spec.WorkingDir = copts.workingDir
 
 	// https://github.com/docker/cli/blob/v27.3.1/cli/command/container/opts.go#L419-L424
 	if copts.entrypoint != "" {
-		spec.Entrypoint = []string{copts.entrypoint}
+		fm.Spec.Entrypoint = []string{copts.entrypoint}
 	} else if flags.Changed("entrypoint") {
 		// if `--entrypoint=` is parsed then Entrypoint is reset
-		spec.Entrypoint = []string{""}
+		fm.Spec.Entrypoint = []string{""}
 	}
 
 	// Networking
 	//TODO: networks
 	if publishOpts := copts.publish.GetAll(); len(publishOpts) > 0 {
 		for _, opt := range publishOpts {
-			if conf, err := types.ParsePortConfig(opt); err != nil {
-				return nil, err
+			if conf, err := composetypes.ParsePortConfig(opt); err != nil {
+				return err
 			} else {
-				spec.Ports = append(spec.Ports, conf...)
+				fm.Spec.Ports = append(fm.Spec.Ports, conf...)
 			}
 		}
 	}
-	spec.Expose = copts.expose.GetAll()
-	spec.DNS = copts.dns.GetAll()
-	spec.DNSOpts = copts.dnsOptions.GetAll()
-	spec.DNSSearch = copts.dnsSearch.GetAll()
-	spec.DomainName = copts.domainname
-	spec.Hostname = copts.hostname
-	if extraHosts, err := types.NewHostsList(copts.extraHosts.GetAll()); err != nil {
-		return nil, err
+	fm.Spec.Expose = copts.expose.GetAll()
+	fm.Spec.DNS = copts.dns.GetAll()
+	fm.Spec.DNSOpts = copts.dnsOptions.GetAll()
+	fm.Spec.DNSSearch = copts.dnsSearch.GetAll()
+	fm.Spec.DomainName = copts.domainname
+	fm.Spec.Hostname = copts.hostname
+	if extraHosts, err := composetypes.NewHostsList(copts.extraHosts.GetAll()); err != nil {
+		return err
 	} else {
-		spec.ExtraHosts = extraHosts
+		fm.Spec.ExtraHosts = extraHosts
 	}
 
 	// Storage & Device
-	if mounts, err := parseMount(copts.mounts); err != nil {
-		return nil, err
-	} else if volumes, err := parseVolumes(copts.volumes); err != nil {
-		return nil, err
-	} else {
-		spec.Volumes = append(mounts, volumes...)
+	if err := fm.mapStorage(copts); err != nil {
+		return err
 	}
-	spec.VolumeDriver = copts.volumeDriver
-	spec.VolumesFrom = copts.volumesFrom.GetAll()
-	spec.Tmpfs = copts.tmpfs.GetAll()
-	if storageOpts, err := parseStorageOpts(copts.storageOpt.GetAll()); err != nil {
-		return nil, err
-	} else {
-		spec.StorageOpt = storageOpts
-	}
-	spec.Devices = copts.devices.GetAll() // TODO https://github.com/docker/cli/blob/26.0/cli/command/container/opts.go#L468-L493
-	spec.DeviceCgroupRules = copts.deviceCgroupRules.GetAll()
+
+	fm.Spec.Devices = copts.devices.GetAll() // TODO https://github.com/docker/cli/blob/26.0/cli/command/container/opts.go#L468-L493
+	fm.Spec.DeviceCgroupRules = copts.deviceCgroupRules.GetAll()
 
 	// Runtime
-	spec.Runtime = copts.runtime
-	//spec.Platform = copts.platform
-	spec.Isolation = copts.isolation
-	spec.StopSignal = copts.stopSignal
+	fm.Spec.Runtime = copts.runtime
+	//fm.Spec.Platform = copts.platform
+	fm.Spec.Isolation = copts.isolation
+	fm.Spec.StopSignal = copts.stopSignal
 	if flags.Changed("stop-timeout") {
 		d := time.Duration(copts.stopTimeout) * time.Second
-		spec.StopGracePeriod = durationPtr(d)
+		fm.Spec.StopGracePeriod = durationPtr(d)
 	}
 
-	if copts.loggingDriver != "" || copts.loggingOpts.Len() > 0 {
-		loggingOpts, err := parseLoggingOpts(copts.loggingDriver, copts.loggingOpts.GetAll())
-		if err != nil {
-			return nil, err
-		}
-		spec.Logging = &types.LoggingConfig{
-			Driver:  copts.loggingDriver,
-			Options: loggingOpts,
-		}
+	if err := fm.mapLogging(copts); err != nil {
+		return err
+	}
+	if err := fm.mapHealth(copts); err != nil {
+		return err
 	}
 
+	// Namespace & CGroup
+	networkMode := docker.NetworkMode(copts.netMode.NetworkMode())
+	fm.Spec.NetworkMode = string(networkMode)
+
+	if pidMode := docker.PidMode(copts.pidMode); !pidMode.Valid() {
+		return fmt.Errorf("--pid: invalid PID mode")
+	} else {
+		fm.Spec.PidMode = string(pidMode)
+	}
+
+	if utsMode := docker.UTSMode(copts.utsMode); !utsMode.Valid() {
+		return fmt.Errorf("--uts: invalid UTS mode")
+	} else {
+		fm.Spec.UTSMode = string(utsMode)
+	}
+
+	if usernsMode := docker.UsernsMode(copts.usernsMode); !usernsMode.Valid() {
+		return fmt.Errorf("--userns: invalid USER mode")
+	} else {
+		fm.Spec.UserMode = string(usernsMode)
+	}
+
+	if cgroupnsMode := docker.CgroupnsMode(copts.cgroupnsMode); !cgroupnsMode.Valid() {
+		return fmt.Errorf("--cgroupns: invalid CGROUP mode")
+	} else {
+		fm.Spec.CgroupMode = string(cgroupnsMode)
+	}
+	fm.Spec.CgroupParent = copts.cgroupParent
+
+	// Security
+	fm.Spec.User = copts.user
+	fm.Spec.GroupAdd = copts.groupAdd.GetAll()
+	fm.Spec.CapAdd = copts.capAdd.GetAll()
+	fm.Spec.CapDrop = copts.capDrop.GetAll()
+	fm.Spec.Privileged = copts.privileged
+	fm.Spec.SecurityOpt = copts.securityOpt.GetAll()
+
+	securityOpts, err := parseSecurityOpts(copts.securityOpt.GetAll())
+	if err != nil {
+		return err
+	}
+	fm.Spec.SecurityOpt = securityOpts // TODO: parseSystemPaths https://github.com/docker/cli/blob/26.0/cli/command/container/opts.go#L542
+	fm.Spec.Sysctls = copts.sysctls.GetAll()
+
+	return nil
+}
+
+func (fm *flagMapper) mapStdio(copts *containerOptions) {
+	// https://github.com/docker/cli/blob/v27.3.1/cli/command/container/opts.go#L339-L358
+	fm.Stdio.Tty = copts.tty
+	fm.Stdio.Interactive = copts.stdin // --interactive
+	if copts.attach.Get("stdin") || copts.stdin {
+		fm.Stdio.Attach |= types.Stdin
+	}
+	if copts.attach.Get("stdout") {
+		fm.Stdio.Attach |= types.Stdout
+	}
+	if copts.attach.Get("stderr") {
+		fm.Stdio.Attach |= types.Stderr
+	}
+	// If -a is not set, attach to stdout and stderr
+	if copts.attach.Len() == 0 {
+		fm.Stdio.Attach |= types.Stdout | types.Stderr
+	}
+}
+
+func (fm *flagMapper) mapLogging(copts *containerOptions) error {
+	if copts.loggingDriver == "" && copts.loggingOpts.Len() == 0 {
+		return nil
+	}
+
+	// https://github.com/docker/cli/blob/v27.3.1/cli/command/container/opts.go#L912-L918
+	driver := copts.loggingDriver
+	options := opts.ConvertKVStringsToMap(copts.loggingOpts.GetAll())
+	if driver == "none" && len(options) > 0 {
+		return fmt.Errorf("invalid logging opts for driver %s", driver)
+	}
+
+	fm.Spec.Logging = &types.LoggingConfig{
+		Driver:  driver,
+		Options: options,
+	}
+	return nil
+}
+
+func (fm *flagMapper) mapHealth(copts *containerOptions) error {
 	haveHealthSettings := copts.healthCmd != "" ||
 		copts.healthInterval != 0 ||
 		copts.healthTimeout != 0 ||
 		copts.healthStartPeriod != 0 ||
 		copts.healthRetries != 0 ||
 		copts.healthStartInterval != 0
+
+	if !haveHealthSettings {
+		return nil
+	}
+
 	if copts.noHealthcheck {
-		if haveHealthSettings {
-			return nil, fmt.Errorf("--no-healthcheck conflicts with --health-* options")
-		}
-	} else if haveHealthSettings {
-		var probe []string
-		if copts.healthCmd != "" {
-			probe = []string{"CMD-SHELL", copts.healthCmd}
-		}
-		if copts.healthInterval < 0 {
-			return nil, fmt.Errorf("--health-interval cannot be negative")
-		}
-		if copts.healthTimeout < 0 {
-			return nil, fmt.Errorf("--health-timeout cannot be negative")
-		}
-		if copts.healthRetries < 0 {
-			return nil, fmt.Errorf("--health-retries cannot be negative")
-		}
-		if copts.healthStartPeriod < 0 {
-			return nil, fmt.Errorf("--health-start-period cannot be negative")
-		}
-		if copts.healthStartInterval < 0 {
-			return nil, fmt.Errorf("--health-start-interval cannot be negative")
-		}
-
-		spec.HealthCheck = &types.HealthCheckConfig{
-			Test:          probe,
-			Interval:      durationPtr(copts.healthInterval),
-			Timeout:       durationPtr(copts.healthTimeout),
-			StartPeriod:   durationPtr(copts.healthStartPeriod),
-			StartInterval: durationPtr(copts.healthStartInterval),
-			Retries:       pointerOf(uint64(copts.healthRetries)),
-		}
+		return fmt.Errorf("--no-healthcheck conflicts with --health-* options")
 	}
 
-	// Resources
-	//// Applicable to all platforms
-	spec.CPUShares = copts.cpuShares
-	spec.CPUS = copts.cpus.String()
-	spec.Memory = types.UnitBytes(copts.memory)
-	//// Applicable to Windows
-	spec.CPUCount = copts.cpuCount
-	spec.CPUPercent = float32(copts.cpuPercent) / 100.0
-	//// Applicable to UNIX
-	spec.CPUPeriod = copts.cpuPeriod
-	spec.CPUQuota = copts.cpuQuota
-	spec.CPURTPeriod = copts.cpuRealtimePeriod
-	spec.CPURTRuntime = copts.cpuRealtimeRuntime
-	spec.CpusetCpus = copts.cpusetCpus
-	spec.CpusetMems = copts.cpusetMems
-	spec.MemReservation = types.UnitBytes(copts.memoryReservation)
-	spec.MemSwapLimit = types.UnitBytes(copts.memorySwap)
-	spec.MemSwappiness = types.UnitBytes(copts.swappiness)
-	spec.ShmSize = types.UnitBytes(copts.shmSize)
-	spec.OomKillDisable = copts.oomKillDisable
-	spec.OomScoreAdj = int64(copts.oomScoreAdj)
-	spec.PidsLimit = copts.pidsLimit
-
-	spec.BlkioConfig = parseBlkioOpts(copts)
-	if ulimits, err := validateUlimitsOpts(copts.ulimits); err != nil {
-		return nil, err
-	} else {
-		spec.Ulimits = ulimits
+	var probe []string
+	if copts.healthCmd != "" {
+		probe = []string{"CMD-SHELL", copts.healthCmd}
+	}
+	if copts.healthInterval < 0 {
+		return fmt.Errorf("--health-interval cannot be negative")
+	}
+	if copts.healthTimeout < 0 {
+		return fmt.Errorf("--health-timeout cannot be negative")
+	}
+	if copts.healthRetries < 0 {
+		return fmt.Errorf("--health-retries cannot be negative")
+	}
+	if copts.healthStartPeriod < 0 {
+		return fmt.Errorf("--health-start-period cannot be negative")
+	}
+	if copts.healthStartInterval < 0 {
+		return fmt.Errorf("--health-start-interval cannot be negative")
 	}
 
-	// Namespace & CGroup
-	networkMode := docker.NetworkMode(copts.netMode.NetworkMode())
-	spec.NetworkMode = string(networkMode)
-
-	if pidMode := docker.PidMode(copts.pidMode); !pidMode.Valid() {
-		return nil, fmt.Errorf("--pid: invalid PID mode")
-	} else {
-		spec.PidMode = string(pidMode)
+	fm.Spec.HealthCheck = &types.HealthCheckConfig{
+		Test:          probe,
+		Timeout:       copts.healthTimeout,
+		Interval:      copts.healthInterval,
+		Retries:       copts.healthRetries,
+		StartPeriod:   copts.healthStartPeriod,
+		StartInterval: copts.healthStartInterval,
 	}
 
-	if utsMode := docker.UTSMode(copts.utsMode); !utsMode.Valid() {
-		return nil, fmt.Errorf("--uts: invalid UTS mode")
-	} else {
-		spec.UTSMode = string(utsMode)
-	}
-
-	if usernsMode := docker.UsernsMode(copts.usernsMode); !usernsMode.Valid() {
-		return nil, fmt.Errorf("--userns: invalid USER mode")
-	} else {
-		spec.UserMode = string(usernsMode)
-	}
-
-	if cgroupnsMode := docker.CgroupnsMode(copts.cgroupnsMode); !cgroupnsMode.Valid() {
-		return nil, fmt.Errorf("--cgroupns: invalid CGROUP mode")
-	} else {
-		spec.CgroupMode = string(cgroupnsMode)
-	}
-	spec.CgroupParent = copts.cgroupParent
-
-	// Security
-	spec.User = copts.user
-	spec.GroupAdd = copts.groupAdd.GetAll()
-	spec.CapAdd = copts.capAdd.GetAll()
-	spec.CapDrop = copts.capDrop.GetAll()
-	spec.Privileged = copts.privileged
-	spec.SecurityOpt = copts.securityOpt.GetAll()
-
-	securityOpts, err := parseSecurityOpts(copts.securityOpt.GetAll())
-	if err != nil {
-		return nil, err
-	}
-	spec.SecurityOpt = securityOpts // TODO: parseSystemPaths https://github.com/docker/cli/blob/26.0/cli/command/container/opts.go#L542
-	spec.Sysctls = copts.sysctls.GetAll()
-
-	result := &ParseResult{
-		Spec:  spec,
-		Stdio: stdio,
-	}
-	return result, nil
+	return nil
 }
 
-func durationPtr(value time.Duration) *types.Duration {
-	result := types.Duration(value)
+func durationPtr(value time.Duration) *composetypes.Duration {
+	result := composetypes.Duration(value)
 	return &result
-}
-
-func pointerOf[V any](value V) *V {
-	return &value
-}
-
-func parseVolumes(volumeOpt opts.ListOpts) ([]types.ServiceVolumeConfig, error) {
-	volumes := make([]types.ServiceVolumeConfig, 0)
-	for _, v := range volumeOpt.GetAll() {
-		parsed, err := loader.ParseVolume(v)
-		if err != nil {
-			return nil, err
-		}
-		volume := types.ServiceVolumeConfig{
-			Type:        parsed.Type,
-			Source:      parsed.Source,
-			Target:      parsed.Target,
-			ReadOnly:    parsed.ReadOnly,
-			Consistency: parsed.Consistency,
-		}
-		if parsed.Bind != nil {
-			volume.Bind = &types.ServiceVolumeBind{
-				Propagation: parsed.Bind.Propagation,
-			}
-		}
-		if parsed.Volume != nil {
-			volume.Volume = &types.ServiceVolumeVolume{
-				NoCopy: parsed.Volume.NoCopy,
-			}
-		}
-		if parsed.Tmpfs != nil {
-			volume.Tmpfs = &types.ServiceVolumeTmpfs{
-				Size: types.UnitBytes(parsed.Tmpfs.Size),
-			}
-		}
-		volumes = append(volumes, volume)
-	}
-	return volumes, nil
-}
-
-func parseMount(mountOpt opts.MountOpt) ([]types.ServiceVolumeConfig, error) {
-	volumes := make([]types.ServiceVolumeConfig, 0)
-	for _, m := range mountOpt.Value() {
-		volume := types.ServiceVolumeConfig{
-			Type:        string(m.Type),
-			Source:      m.Source,
-			Target:      m.Target,
-			ReadOnly:    m.ReadOnly,
-			Consistency: string(m.Consistency),
-		}
-		if m.BindOptions != nil {
-			volume.Bind = &types.ServiceVolumeBind{
-				Propagation: string(m.BindOptions.Propagation),
-				// TODO: other BindOptions options
-			}
-		}
-		if m.VolumeOptions != nil {
-			volume.Volume = &types.ServiceVolumeVolume{
-				NoCopy:  m.VolumeOptions.NoCopy,
-				Subpath: m.VolumeOptions.Subpath,
-				// TODO: other VolumeOptions options
-			}
-		}
-		if m.TmpfsOptions != nil {
-			volume.Tmpfs = &types.ServiceVolumeTmpfs{
-				Size: types.UnitBytes(m.TmpfsOptions.SizeBytes),
-				Mode: uint32(m.TmpfsOptions.Mode),
-			}
-		}
-		volumes = append(volumes, volume)
-	}
-	return volumes, nil
-}
-
-func parseBlkioOpts(copts *containerOptions) *types.BlkioConfig {
-	if copts.blkioWeight == 0 &&
-		len(copts.blkioWeightDevice.GetList()) == 0 &&
-		len(copts.deviceReadBps.GetList()) == 0 &&
-		len(copts.deviceReadIOps.GetList()) == 0 &&
-		len(copts.deviceWriteBps.GetList()) == 0 &&
-		len(copts.deviceWriteIOps.GetList()) == 0 {
-		return nil
-	}
-	weightDevice := parseWeightDeviceOpts(copts.blkioWeightDevice)
-	deviceReadBps := parseThrottleDeviceOpts(copts.deviceReadBps)
-	deviceReadIOps := parseThrottleDeviceOpts(copts.deviceReadIOps)
-	deviceWriteBps := parseThrottleDeviceOpts(copts.deviceWriteBps)
-	deviceWriteIOps := parseThrottleDeviceOpts(copts.deviceWriteIOps)
-	return &types.BlkioConfig{
-		Weight:          copts.blkioWeight,
-		WeightDevice:    weightDevice,
-		DeviceReadBps:   deviceReadBps,
-		DeviceReadIOps:  deviceReadIOps,
-		DeviceWriteBps:  deviceWriteBps,
-		DeviceWriteIOps: deviceWriteIOps,
-	}
-}
-
-func parseWeightDeviceOpts(opt opts.WeightdeviceOpt) []types.WeightDevice {
-	if len(opt.GetList()) <= 0 {
-		return nil
-	}
-	wd := make([]types.WeightDevice, len(opt.GetList()))
-	for i, o := range opt.GetList() {
-		wd[i] = types.WeightDevice{
-			Path:   o.Path,
-			Weight: o.Weight,
-		}
-	}
-	return wd
-}
-
-func parseThrottleDeviceOpts(opt opts.ThrottledeviceOpt) []types.ThrottleDevice {
-	if len(opt.GetList()) <= 0 {
-		return nil
-	}
-	td := make([]types.ThrottleDevice, len(opt.GetList()))
-	for i, o := range opt.GetList() {
-		td[i] = types.ThrottleDevice{
-			Path: o.Path,
-			Rate: types.UnitBytes(o.Rate),
-		}
-	}
-	return td
-}
-
-// https://github.com/docker/cli/blob/v27.3.1/cli/command/container/opts.go#L912-L918
-func parseLoggingOpts(loggingDriver string, loggingOpts []string) (map[string]string, error) {
-	loggingOptsMap := opts.ConvertKVStringsToMap(loggingOpts)
-	if loggingDriver == "none" && len(loggingOpts) > 0 {
-		return map[string]string{}, fmt.Errorf("invalid logging opts for driver %s", loggingDriver)
-	}
-	return loggingOptsMap, nil
-}
-
-// parses storage options per container into a map
-// https://github.com/docker/cli/blob/v27.3.1/cli/command/container/opts.go#L974-L984
-func parseStorageOpts(storageOpts []string) (map[string]string, error) {
-	m := make(map[string]string)
-	for _, option := range storageOpts {
-		k, v, ok := strings.Cut(option, "=")
-		if !ok {
-			return nil, fmt.Errorf("invalid storage option")
-		}
-		m[k] = v
-	}
-	return m, nil
 }
 
 const (

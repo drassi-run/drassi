@@ -1,6 +1,10 @@
-package container
+package types
 
-import "github.com/compose-spec/compose-go/v2/types"
+import (
+	"github.com/compose-spec/compose-go/v2/types"
+	"github.com/docker/go-units"
+	"time"
+)
 
 //// [x]: supported     [~]: renamed     [-]: not supported     [ ]: WIP
 //type ServiceConfig struct {
@@ -136,48 +140,21 @@ type ContainerSpec struct {
 	ExtraHosts types.HostsList                        `yaml:"extra_hosts,omitempty" json:"extra_hosts,omitempty"`
 
 	// Storage & Device
-	Volumes           []types.ServiceVolumeConfig `yaml:"volumes,omitempty" json:"volumes,omitempty"`
-	VolumeDriver      string                      `yaml:"volume_driver,omitempty" json:"volume_driver,omitempty"`
-	VolumesFrom       []string                    `yaml:"volumes_from,omitempty" json:"volumes_from,omitempty"`
-	Tmpfs             types.StringList            `yaml:"tmpfs,omitempty" json:"tmpfs,omitempty"`
-	StorageOpt        map[string]string           `yaml:"storage_opt,omitempty" json:"storage_opt,omitempty"`
-	Devices           []string                    `yaml:"devices,omitempty" json:"devices,omitempty"`
-	DeviceCgroupRules []string                    `yaml:"device_cgroup_rules,omitempty" json:"device_cgroup_rules,omitempty"`
+	ContainerStorage
+	Devices           []string `yaml:"devices,omitempty" json:"devices,omitempty"`
+	DeviceCgroupRules []string `yaml:"device_cgroup_rules,omitempty" json:"device_cgroup_rules,omitempty"`
 
 	// Runtime
-	Runtime         string                   `yaml:"runtime,omitempty" json:"runtime,omitempty"`
-	Platform        string                   `yaml:"platform,omitempty" json:"platform,omitempty"`
-	Isolation       string                   `yaml:"isolation,omitempty" json:"isolation,omitempty"` // Windows only
-	StopSignal      string                   `yaml:"stop_signal,omitempty" json:"stop_signal,omitempty"`
-	StopGracePeriod *types.Duration          `yaml:"stop_grace_period,omitempty" json:"stop_grace_period,omitempty"`
-	Logging         *types.LoggingConfig     `yaml:"logging,omitempty" json:"logging,omitempty"`
-	HealthCheck     *types.HealthCheckConfig `yaml:"healthcheck,omitempty" json:"healthcheck,omitempty"`
+	Runtime         string             `yaml:"runtime,omitempty" json:"runtime,omitempty"`
+	Platform        string             `yaml:"platform,omitempty" json:"platform,omitempty"`
+	Isolation       string             `yaml:"isolation,omitempty" json:"isolation,omitempty"` // Windows only
+	StopSignal      string             `yaml:"stop_signal,omitempty" json:"stop_signal,omitempty"`
+	StopGracePeriod *types.Duration    `yaml:"stop_grace_period,omitempty" json:"stop_grace_period,omitempty"`
+	Logging         *LoggingConfig     `yaml:"logging,omitempty" json:"logging,omitempty"`
+	HealthCheck     *HealthCheckConfig `yaml:"healthcheck,omitempty" json:"healthcheck,omitempty"`
 
 	// Resources
-	//// Applicable to all platforms
-	CPUShares int64           `yaml:"cpu_shares,omitempty" json:"cpu_shares,omitempty"`
-	CPUS      string          `yaml:"cpus,omitempty" json:"cpus,omitempty"`     // TODO: allow unmarshal from number
-	Memory    types.UnitBytes `yaml:"memory,omitempty" json:"memory,omitempty"` // named `mem_limit` (deprecated) in compose.yaml
-	//// Applicable to Windows
-	CPUCount   int64   `yaml:"cpu_count,omitempty" json:"cpu_count,omitempty"`
-	CPUPercent float32 `yaml:"cpu_percent,omitempty" json:"cpu_percent,omitempty"`
-	//// Applicable to UNIX
-	CPUPeriod      int64           `yaml:"cpu_period,omitempty" json:"cpu_period,omitempty"`
-	CPUQuota       int64           `yaml:"cpu_quota,omitempty" json:"cpu_quota,omitempty"`
-	CPURTPeriod    int64           `yaml:"cpu_rt_period,omitempty" json:"cpu_rt_period,omitempty"`
-	CPURTRuntime   int64           `yaml:"cpu_rt_runtime,omitempty" json:"cpu_rt_runtime,omitempty"`
-	CpusetCpus     string          `yaml:"cpuset_cpus,omitempty" json:"cpuset_cpus,omitempty"` // named `cpuset` in compose.yaml
-	CpusetMems     string          `yaml:"cpuset_mems,omitempty" json:"cpuset_mems,omitempty"` // not yet available in compose.yaml
-	MemReservation types.UnitBytes `yaml:"mem_reservation,omitempty" json:"mem_reservation,omitempty"`
-	MemSwapLimit   types.UnitBytes `yaml:"memswap_limit,omitempty" json:"memswap_limit,omitempty"`
-	MemSwappiness  types.UnitBytes `yaml:"mem_swappiness,omitempty" json:"mem_swappiness,omitempty"`
-	ShmSize        types.UnitBytes `yaml:"shm_size,omitempty" json:"shm_size,omitempty"`
-	OomKillDisable bool            `yaml:"oom_kill_disable,omitempty" json:"oom_kill_disable,omitempty"`
-	OomScoreAdj    int64           `yaml:"oom_score_adj,omitempty" json:"oom_score_adj,omitempty"`
-	PidsLimit      int64           `yaml:"pids_limit,omitempty" json:"pids_limit,omitempty"`
-
-	BlkioConfig *types.BlkioConfig             `yaml:"blkio_config,omitempty" json:"blkio_config,omitempty"`
-	Ulimits     map[string]types.UlimitsConfig `yaml:"ulimits,omitempty" json:"ulimits,omitempty"`
+	ContainerResource
 
 	// Namespace & CGroup
 	NetworkMode  string `yaml:"network_mode,omitempty" json:"network_mode,omitempty"`
@@ -198,32 +175,66 @@ type ContainerSpec struct {
 	Sysctls     types.Mapping `yaml:"sysctls,omitempty" json:"sysctls,omitempty"`
 }
 
-const (
-	Stdin = 1 << iota
-	Stdout
-	Stderr
-	None = 0 // detach mode
-)
+//goland:noinspection GoNameStartsWithPackageName,SpellCheckingInspection
+type ContainerResource struct {
+	//// Applicable to all platforms
+	CPUShares int64
+	CPUS      string
+	Memory    int64
 
-// See also: https://github.com/docker/cli/blob/v27.3.1/cli/command/container/run.go#L122-L135
-type Stdio struct {
-	Tty         bool
-	Attach      int
-	Interactive bool
+	//// Applicable to Windows
+	CPUCount           int64
+	CPUPercent         float32
+	IOMaximumIOps      uint64
+	IOMaximumBandwidth uint64
+
+	//// Applicable to UNIX
+	CPUPeriod      int64
+	CPUQuota       int64
+	CPURTPeriod    int64
+	CPURTRuntime   int64
+	CpusetCpus     string
+	CpusetMems     string
+	MemReservation int64
+	MemSwapLimit   int64
+	MemSwappiness  int64
+	ShmSize        int64
+	OomKillDisable bool
+	OomScoreAdj    int64
+	PidsLimit      int64
+
+	BlkioConfig *BlkioConfig
+	Ulimits     []*units.Ulimit
 }
 
-func (s *Stdio) AttachStdin() bool {
-	return s.Attach&Stdin != 0
+// BlkioConfig define blkio config
+// [github.com/compose-spec/compose-go/v2/types.BlkioConfig]
+type BlkioConfig struct {
+	Weight          uint16
+	WeightDevice    []WeightDevice
+	DeviceReadBps   []ThrottleDevice
+	DeviceReadIOps  []ThrottleDevice
+	DeviceWriteBps  []ThrottleDevice
+	DeviceWriteIOps []ThrottleDevice
 }
 
-func (s *Stdio) AttachStdout() bool {
-	return s.Attach&Stdout != 0
+// LoggingConfig is identical with compose LoggingConfig
+// [github.com/docker/docker/api/types/container.LogConfig]
+// [github.com/compose-spec/compose-go/v2/types.LoggingConfig]
+type LoggingConfig struct {
+	Driver  string
+	Options map[string]string
 }
 
-func (s *Stdio) AttachStderr() bool {
-	return s.Attach&Stderr != 0
-}
-
-func (s *Stdio) Detach() bool {
-	return s.Attach == None
+// HealthCheckConfig is identical with docker's HealthConfig
+// [github.com/docker/docker/api/types/container.HealthConfig]
+// [github.com/compose-spec/compose-go/v2/types.HealthCheckConfig]
+// [github.com/containers/image/v5/manifest.Schema2HealthConfig]
+type HealthCheckConfig struct {
+	Test          []string
+	Timeout       time.Duration
+	Interval      time.Duration
+	Retries       int
+	StartPeriod   time.Duration
+	StartInterval time.Duration
 }

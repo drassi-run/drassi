@@ -6,14 +6,14 @@ import (
 	"strconv"
 	"strings"
 
-	"drassi.run/core/pkg/container"
+	"drassi.run/core/pkg/container/types"
 	"drassi.run/core/pkg/model/actions"
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/store/repository"
 	"github.com/google/uuid"
 )
 
-func (e *jobExecutor) toContainerConfig(ctx context.Context, container *workflows.Container) (*container.ContainerSpec, error) {
+func (e *jobExecutor) toContainerConfig(ctx context.Context, container *workflows.Container) (*types.ContainerSpec, error) {
 	return nil, nil
 }
 
