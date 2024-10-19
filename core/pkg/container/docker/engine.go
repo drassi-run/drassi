@@ -7,12 +7,14 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"sync"
 	"time"
 
 	"drassi.run/core/pkg/container"
 	utilio "drassi.run/core/pkg/util/io"
 	dockertypes "github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
+	dockerfilters "github.com/docker/docker/api/types/filters"
 	dockerimage "github.com/docker/docker/api/types/image"
 	dockernetwork "github.com/docker/docker/api/types/network"
 	dockervolume "github.com/docker/docker/api/types/volume"
@@ -136,7 +138,36 @@ func (e *engine) ContainerExec(ctx context.Context, id string, opts *container.E
 	return execID, err
 }
 
-func (e *engine) ContainerRemove(ctx context.Context, id string) error {
+func (e *engine) ContainerRemove(ctx context.Context, opts *container.RemoveOptions) error {
+	if id := opts.Id; id != "" {
+		if err := e.containerRemove(ctx, id); err != nil {
+			return err
+		}
+	}
+
+	if labels := opts.Labels; len(labels) > 0 {
+		filter := e.filterOf(labels)
+		if _, err := e.client.ContainersPrune(ctx, filter); err != nil {
+			return err
+		}
+
+		containers, err := e.client.ContainerList(ctx, dockercontainer.ListOptions{
+			All:     true,
+			Filters: filter,
+		})
+		if err != nil {
+			return err
+		}
+
+		return parallel(containers, func(ctn *dockertypes.Container) error {
+			return e.containerRemove(ctx, ctn.ID)
+		})
+	}
+
+	return nil
+}
+
+func (e *engine) containerRemove(ctx context.Context, id string) error {
 	err := e.client.ContainerStop(ctx, id, dockercontainer.StopOptions{})
 	if err != nil {
 		if dockererr.IsNotFound(err) {
@@ -205,8 +236,32 @@ func (e *engine) NetworkCreate(ctx context.Context, spec *container.NetworkSpec)
 	}
 }
 
-func (e *engine) NetworkRemove(ctx context.Context, id string) error {
-	return e.client.NetworkRemove(ctx, id)
+func (e *engine) NetworkRemove(ctx context.Context, opts *container.RemoveOptions) error {
+	if id := opts.Id; id != "" {
+		if err := e.client.NetworkRemove(ctx, id); err != nil {
+			return err
+		}
+	}
+
+	if labels := opts.Labels; len(labels) > 0 {
+		filter := e.filterOf(labels)
+		if _, err := e.client.NetworksPrune(ctx, filter); err != nil {
+			return err
+		}
+
+		networks, err := e.client.NetworkList(ctx, dockernetwork.ListOptions{
+			Filters: filter,
+		})
+		if err != nil {
+			return err
+		}
+
+		return parallel(networks, func(net *dockernetwork.Summary) error {
+			return e.client.NetworkRemove(ctx, net.ID)
+		})
+	}
+
+	return nil
 }
 
 func (e *engine) VolumeCreate(ctx context.Context, spec *container.VolumeSpec) (string, error) {
@@ -224,8 +279,32 @@ func (e *engine) VolumeCreate(ctx context.Context, spec *container.VolumeSpec) (
 	}
 }
 
-func (e *engine) VolumeRemove(ctx context.Context, id string) error {
-	return e.client.VolumeRemove(ctx, id, true)
+func (e *engine) VolumeRemove(ctx context.Context, opts *container.RemoveOptions) error {
+	if id := opts.Id; id != "" {
+		if err := e.client.VolumeRemove(ctx, id, true); err != nil {
+			return err
+		}
+	}
+
+	if labels := opts.Labels; len(labels) > 0 {
+		filter := e.filterOf(labels)
+		if _, err := e.client.VolumesPrune(ctx, filter); err != nil {
+			return err
+		}
+
+		resp, err := e.client.VolumeList(ctx, dockervolume.ListOptions{
+			Filters: filter,
+		})
+		if err != nil {
+			return err
+		}
+
+		return parallel(resp.Volumes, func(vol **dockervolume.Volume) error {
+			return e.client.VolumeRemove(ctx, (*vol).Name, true)
+		})
+	}
+
+	return nil
 }
 
 func (e *engine) streamingStdio(ctx context.Context, id string, exec bool, stdio *container.Stdio, streams container.Streams, fn run) run {
@@ -349,6 +428,41 @@ func (e *engine) exitCode(ctx context.Context, id string, exec bool, fn run) run
 		}
 		return err
 	}
+}
+
+// Docker currently supported filters are:
+//
+//   - until (<timestamp>) - only remove images created before given timestamp
+//   - label (label=<key>, label=<key>=<value>, label!=<key>, or label!=<key>=<value>) -
+//     only remove images with (or without, in case label!=... is used) the specified labels.
+//
+// See: https://docs.docker.com/reference/cli/docker/image/prune/#filter
+func (e *engine) filterOf(labels map[string]string) dockerfilters.Args {
+	args := dockerfilters.NewArgs()
+	for k, v := range labels {
+		args.Add("label", fmt.Sprintf("%s=%s", k, v))
+	}
+	return args
+}
+
+func parallel[E any](list []E, op func(*E) error) error {
+	if len(list) == 0 {
+		return nil
+	}
+
+	var wg sync.WaitGroup
+	errs := make([]error, len(list))
+
+	for i := 0; i < len(list); i++ {
+		wg.Add(1)
+		go func(i int, e *E) {
+			defer wg.Done()
+			errs[i] = op(e)
+		}(i, &list[i]) // using pointer to avoid copy data
+	}
+
+	wg.Wait()
+	return errors.Join(errs...)
 }
 
 type fileInfo struct {

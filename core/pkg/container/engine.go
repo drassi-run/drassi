@@ -15,7 +15,7 @@ type Engine interface {
 
 	ContainerRun(ctx context.Context, spec *ContainerSpec, opts *RunOptions) (string, error)
 	ContainerExec(ctx context.Context, id string, opts *ExecOptions) (string, error)
-	ContainerRemove(ctx context.Context, id string) error
+	ContainerRemove(ctx context.Context, opts *RemoveOptions) error
 	ContainerInspect(ctx context.Context, id string) (*ContainerSpec, error)
 
 	Stat(ctx context.Context, id string, path string) (fs.FileInfo, error)
@@ -23,10 +23,10 @@ type Engine interface {
 	CopyOut(ctx context.Context, id string, opts *CopyOutOptions) (io.ReadCloser, error)
 
 	NetworkCreate(ctx context.Context, spec *NetworkSpec) (string, error)
-	NetworkRemove(ctx context.Context, id string) error
+	NetworkRemove(ctx context.Context, opts *RemoveOptions) error
 
 	VolumeCreate(ctx context.Context, spec *VolumeSpec) (string, error)
-	VolumeRemove(ctx context.Context, id string) error
+	VolumeRemove(ctx context.Context, opts *RemoveOptions) error
 }
 
 type PullOptions struct {
@@ -50,6 +50,11 @@ type ExecOptions struct {
 	Workdir string
 	Stdio   *Stdio
 	Streams Streams
+}
+
+type RemoveOptions struct {
+	Id     string
+	Labels map[string]string
 }
 
 type CopyInOptions struct {
