@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"path/filepath"
 
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/executor/command"
@@ -15,6 +14,7 @@ import (
 	"drassi.run/core/pkg/executor/secret"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/util/path"
 	"drassi.run/core/util/tar"
 )
 
@@ -103,10 +103,8 @@ func RemoveProblemMatcher(m map[string]problem.Matcher, sb sandboxer.Sandbox, su
 }
 
 func readProblemMatcherFile(ctx context.Context, sb sandboxer.Sandbox, file string) (*problem.MatcherConfigs, error) {
-	if filepath.IsLocal(file) {
-		ws := sb.GetWorkspaceDir()
-		file = filepath.Join(ws, file)
-	}
+	layout := sb.Layout()
+	file = xpath.Abs(file, layout.Workspace)
 
 	reader, err := sb.CopyOut(ctx, file)
 	if err != nil {

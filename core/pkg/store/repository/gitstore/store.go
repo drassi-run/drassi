@@ -3,15 +3,11 @@ package gitstore
 import (
 	"archive/tar"
 	"context"
-	"errors"
-	"fmt"
-	"io"
-	"io/fs"
-	"os"
-	"strings"
-
 	"drassi.run/core/pkg/store/repository"
 	"drassi.run/core/util/path"
+	xstring "drassi.run/core/util/string"
+	"errors"
+	"fmt"
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-billy/v5/util"
@@ -24,7 +20,10 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/storage"
 	"github.com/go-git/go-git/v5/storage/filesystem"
+	"io"
+	"io/fs"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"os"
 )
 
 type Store interface {
@@ -194,7 +193,7 @@ func (s *store) fetch(ctx context.Context, repo *repository.Repository, token, b
 
 func (s *store) ensureDir(repo *repository.Repository) (string, error) {
 	path := repository.FullName(repo)
-	path = ensureSuffix(path, ".git")
+	path = xstring.EnsureSuffix(path, ".git")
 	fileInfo, err := s.fsys.Stat(path)
 
 	if err != nil {
@@ -237,13 +236,6 @@ func (s *store) ensureRepo(path string, repo *repository.Repository) (*git.Repos
 		s.repos[id] = gitRepo
 	}
 	return gitRepo, err
-}
-
-func ensureSuffix(s, suffix string) string {
-	if strings.HasSuffix(s, suffix) {
-		return s
-	}
-	return s + suffix
 }
 
 type tarHandler = func(f *object.File) error

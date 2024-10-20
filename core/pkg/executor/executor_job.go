@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"drassi.run/core/pkg/container/types"
 	"drassi.run/core/pkg/executor/command"
 	"drassi.run/core/pkg/executor/evaluator"
 	"drassi.run/core/pkg/expression"
@@ -66,7 +65,6 @@ type jobExecutor struct {
 
 	ctx           context.Context
 	exprEnv       expression.Env
-	runtime       sandboxer.SandboxRuntime
 	sandbox       sandboxer.Sandbox
 	stepExecutors map[string]StepExecutor
 	supervisor    Supervisor
@@ -99,7 +97,7 @@ func (e *jobExecutor) Initialize(scope *dig.Scope) error {
 		return err
 	}
 
-	if err := e.initializeSandbox(); err != nil {
+	if err := e.initializeSandbox(scope); err != nil {
 		return err
 	}
 
@@ -159,19 +157,12 @@ func (e *jobExecutor) Finalize() (err error) {
 		defer cancel()
 	}
 
-	req := sandboxer.TerminateSandboxRequest{
-		Sandbox: e.sandbox,
-	}
-	_, err = e.runtime.TerminateSandbox(ctx, req)
-	return
+	return e.sandbox.Terminate(ctx)
 }
 
 func (e *jobExecutor) initializeJob(scope *dig.Scope) error {
 	// inject dependencies
 	if err := xdig.Populate(scope, &e.supervisor); err != nil {
-		return err
-	}
-	if err := xdig.Populate(scope, &e.runtime); err != nil {
 		return err
 	}
 	if err := xdig.Populate(scope, &e.exprEnv); err != nil {
@@ -234,47 +225,52 @@ func (e *jobExecutor) initializeJob(scope *dig.Scope) error {
 	return nil
 }
 
-func (e *jobExecutor) initializeSandbox() error {
-	req := sandboxer.LaunchSandboxRequest{JobId: e.jobRun.Id}
+func (e *jobExecutor) initializeSandbox(scope *dig.Scope) error {
+	var runtime sandboxer.Engine
+	if err := xdig.Populate(scope, &runtime); err != nil {
+		return err
+	}
+
+	req := &sandboxer.LaunchRequest{
+		Uid:    JobUid(e),
+		Github: &e.github,
+	}
 
 	var jobContainer *workflows.Container
 	if err := evaluator.Evaluate(e.exprEnv, e.jobRun.Container, &jobContainer); err != nil {
 		return err
-	} else if jobContainer != nil {
-		if con, err := e.toContainerConfig(e.ctx, jobContainer); err != nil {
-			return err
-		} else {
-			req.JobContainer = con
-		}
+	} else {
+		req.JobContainer = jobContainer
 	}
 
 	var serviceContainers = make(map[string]*workflows.Container)
 	if err := evaluator.Evaluate(e.exprEnv, e.jobRun.Services, &serviceContainers); err != nil {
 		return err
 	} else if len(serviceContainers) > 0 {
-		services := make(map[string]*types.ContainerSpec, len(serviceContainers))
-		for name, srv := range serviceContainers {
-			if con, err := e.toContainerConfig(e.ctx, srv); err != nil {
-				return err
-			} else {
-				services[name] = con
-			}
-		}
-		req.ServiceContainers = services
+		req.ServiceContainers = serviceContainers
 	}
 
-	if resp, err := e.runtime.LaunchSandbox(e.ctx, req); err != nil {
+	if resp, err := runtime.Launch(e.ctx, req); err != nil {
 		return err
 	} else {
 		e.sandbox = resp.Sandbox
 
 		// set records values
-		e.jobInfo.Container = resp.Container
-		e.jobInfo.Services = resp.Services
-		e.github.Workspace = e.sandbox.GetWorkspaceDir()
-		e.runner.Workspace = e.sandbox.GetWorkspaceDir()
-		e.runner.ToolCache = e.sandbox.GetToolsDir()
-		e.runner.Temp = e.sandbox.GetTempDir()
+		e.jobInfo.Container = resp.JobContainer
+		e.jobInfo.Services = resp.ServiceContainers
+
+		layout := e.sandbox.Layout()
+		e.github.Workspace = layout.Workspace
+		e.runner.Workspace = layout.Workspace
+		e.runner.ToolCache = layout.Tools
+		e.runner.Temp = layout.Temp
+
+		if err = xdig.Supply(scope, resp.ContainerEngine, dig.Export(true)); err != nil {
+			return err
+		}
+		if err = xdig.Supply(scope, resp.Sandbox, dig.Export(true)); err != nil {
+			return err
+		}
 	}
 
 	if location, err := e.setupEventFile(e.ctx); err != nil {
@@ -283,7 +279,7 @@ func (e *jobExecutor) initializeSandbox() error {
 		e.github.EventPath = location
 	}
 
-	// register SandboxLib (e.g hashFiles func) to expression.Env
+	// register SandboxLib (e.g. hashFiles func) to expression.Env
 	opts := []expression.Option{
 		expression.WithLibrary(libraries.SandboxLib(e.supervisor, e.sandbox)),
 	}
@@ -308,9 +304,6 @@ func (e *jobExecutor) initializeScope(scope *dig.Scope) error {
 		return err
 	}
 	if err := xdig.Supply(scope, e.env); err != nil {
-		return err
-	}
-	if err := xdig.Supply(scope, e.sandbox, dig.Export(true)); err != nil {
 		return err
 	}
 
@@ -524,7 +517,7 @@ func (e *jobExecutor) setupEventFile(ctx context.Context) (string, error) {
 		return "", err
 	}
 
-	location := filepath.Join(e.sandbox.GetTempDir(), "workflow", "event.json")
+	location := filepath.Join(e.runner.Temp, "workflow", "event.json")
 	if err = e.sandbox.CopyIn(ctx, r, location); err != nil {
 		return "", err
 	}
