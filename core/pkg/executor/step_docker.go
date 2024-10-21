@@ -5,9 +5,9 @@ import (
 	"strings"
 
 	"drassi.run/core/pkg/executor/evaluator"
+	"drassi.run/core/pkg/executor/runtime"
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/model/workflows"
-	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/util/dig"
 	"go.uber.org/dig"
 )
@@ -34,17 +34,14 @@ type DockerStepRun struct {
 	PostIf         workflows.Conditional
 
 	resolvedImage string
+
 	// injected values
-	sandbox sandboxer.Sandbox
-	streams *sandboxer.Streams
+	runtime runtime.Container
 	exprEnv expression.Env
 }
 
 func (sr *DockerStepRun) Initialize(exec StepExecutor, scope *dig.Scope) error {
-	if err := xdig.Populate(scope, &sr.sandbox); err != nil {
-		return err
-	}
-	if err := xdig.Populate(scope, &sr.streams); err != nil {
+	if err := xdig.Populate(scope, &sr.runtime); err != nil {
 		return err
 	}
 	if err := xdig.Populate(scope, &sr.exprEnv); err != nil {
@@ -54,10 +51,10 @@ func (sr *DockerStepRun) Initialize(exec StepExecutor, scope *dig.Scope) error {
 	ctx := exec.Context()
 	if image, ok := strings.CutPrefix(sr.Image, "docker://"); ok {
 		sr.resolvedImage = image
-		return sr.sandbox.PullImage(ctx, image)
+		return sr.runtime.Pull(ctx, image)
+	} else {
+		return sr.runtime.Build(ctx)
 	}
-	// TODO: build image based on Dockerfile
-	return nil
 }
 
 func (sr *DockerStepRun) PreTask() *Task {
@@ -122,14 +119,13 @@ func (sr *DockerStepRun) execute(stage Stage) TaskRun {
 			return err
 		}
 
-		env := make(map[string]string)
-		exec.ComposeEnv(env)
+		env := exec.ComposeEnv()
 		for k, v := range inputs {
 			k = strings.ToUpper(k)
 			env["INPUT_"+k] = v
 		}
 
-		return sr.sandbox.RunContainer(ctx, sr.resolvedImage, entrypoint, args, env, "")
+		return sr.runtime.Run(ctx, sr.resolvedImage, entrypoint, args, env)
 	}
 }
 

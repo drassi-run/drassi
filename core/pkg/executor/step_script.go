@@ -12,6 +12,7 @@ import (
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/util/dig"
+	"drassi.run/core/util/string"
 	"drassi.run/core/util/tar"
 	"go.uber.org/dig"
 )
@@ -25,7 +26,7 @@ type ScriptStepRun struct {
 
 	// injected values
 	sandbox  sandboxer.Sandbox
-	streams  *sandboxer.Streams
+	streams  sandboxer.Streams
 	exprEnv  expression.Env
 	defaults workflows.Defaults
 }
@@ -95,10 +96,9 @@ func (sr *ScriptStepRun) executeMain(exec StepExecutor) error {
 		return nil
 	}
 
-	env := make(map[string]string)
-	exec.ComposeEnv(env)
-
-	return sr.sandbox.Execute(ctx, cmd, env, workdir, sr.streams)
+	env := exec.ComposeEnv()
+	paths := exec.JobExecutor().SystemPaths()
+	return sr.sandbox.Execute(ctx, cmd, paths, env, workdir, sr.streams)
 }
 
 func (sr *ScriptStepRun) expandCommand(shell model.Shell, scriptPath string) ([]string, error) {
@@ -119,11 +119,11 @@ func (sr *ScriptStepRun) computeScriptPath(exec StepExecutor, ext string) string
 	for parent := exec.ParentExecutor(); parent != nil; parent = parent.ParentExecutor() {
 		path = fmt.Sprintf("%s-composite-%s", StepId(parent), path)
 	}
-	if !strings.HasPrefix(ext, ".") {
-		ext = "." + ext
-	}
+	ext = xstring.EnsurePrefix(ext, ".")
 	path += ext
-	return filepath.Join(sr.sandbox.GetTempDir(), "scripts", path)
+
+	layout := sr.sandbox.Layout()
+	return filepath.Join(layout.Temp, "scripts", path)
 }
 
 func (sr *ScriptStepRun) transferScriptIn(ctx context.Context, script, path string) error {

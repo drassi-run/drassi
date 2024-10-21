@@ -28,7 +28,7 @@ type NodeStepRun struct {
 	// injected values
 	exprEnv expression.Env
 	sandbox sandboxer.Sandbox
-	streams *sandboxer.Streams
+	streams sandboxer.Streams
 	repo    *repository.Repository
 }
 
@@ -104,14 +104,14 @@ func (sr *NodeStepRun) execute(stage Stage) TaskRun {
 			return err
 		}
 
-		env := make(map[string]string)
-		exec.ComposeEnv(env)
+		env := exec.ComposeEnv()
 		for k, v := range inputs {
 			k = strings.ToUpper(k)
 			env["INPUT_"+k] = v
 		}
 
-		return sr.sandbox.Execute(ctx, cmd, env, "", sr.streams)
+		paths := exec.JobExecutor().SystemPaths()
+		return sr.sandbox.Execute(ctx, cmd, paths, env, "", sr.streams)
 	}
 }
 
@@ -126,6 +126,7 @@ func (sr *NodeStepRun) computeScriptPath(stage Stage) string {
 		script = sr.Main
 	}
 
-	scriptPath := filepath.Join(sr.sandbox.GetActionsDir(), repository.Location(sr.repo), script)
+	layout := sr.sandbox.Layout()
+	scriptPath := filepath.Join(layout.Actions, repository.Location(sr.repo), script)
 	return scriptPath
 }

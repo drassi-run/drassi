@@ -5,9 +5,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/util/string"
 	"drassi.run/core/util/tar"
 	"golang.org/x/sync/errgroup"
 )
@@ -57,11 +57,9 @@ func (mgr *fileManager) Initialize(ctx context.Context, suffix string) error {
 	if len(mgr.registeredCommands) == 0 {
 		return nil
 	}
-	if !strings.HasPrefix(suffix, "_") {
-		suffix = "_" + suffix
-	}
+	suffix = xstring.EnsurePrefix(suffix, "_")
+	dir := mgr.dir()
 
-	dir := filepath.Join(mgr.sandbox.GetTempDir(), "file_commands")
 	fileEntries := make(map[string]string, len(mgr.registeredCommands))
 	for cmd := range mgr.registeredCommands {
 		name := cmd + suffix
@@ -79,11 +77,8 @@ func (mgr *fileManager) Process(ctx context.Context, suffix string) error {
 	if len(mgr.registeredCommands) == 0 {
 		return nil
 	}
-	if !strings.HasPrefix(suffix, "_") {
-		suffix = "_" + suffix
-	}
-
-	dir := filepath.Join(mgr.sandbox.GetTempDir(), "file_commands")
+	suffix = xstring.EnsurePrefix(suffix, "_")
+	dir := mgr.dir()
 
 	g, ctx := errgroup.WithContext(ctx)
 	for cmd, h := range mgr.registeredCommands {
@@ -106,16 +101,22 @@ func (mgr *fileManager) Process(ctx context.Context, suffix string) error {
 }
 
 func (mgr *fileManager) Env(suffix string) map[string]string {
-	if !strings.HasPrefix(suffix, "_") {
-		suffix = "_" + suffix
+	if len(mgr.registeredCommands) == 0 {
+		return nil
 	}
+	suffix = xstring.EnsurePrefix(suffix, "_")
+	dir := mgr.dir()
 
-	dir := filepath.Join(mgr.sandbox.GetTempDir(), "file_commands")
 	env := make(map[string]string, len(mgr.registeredCommands))
 	for cmd := range mgr.registeredCommands {
 		env[cmd] = filepath.Join(dir, cmd+suffix)
 	}
 	return env
+}
+
+func (mgr *fileManager) dir() string {
+	layout := mgr.sandbox.Layout()
+	return filepath.Join(layout.Temp, "file_commands")
 }
 
 func FileRun(h *FileHandler, r io.Reader) error {

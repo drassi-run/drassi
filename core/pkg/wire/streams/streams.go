@@ -3,6 +3,7 @@ package wire_streams
 import (
 	"io"
 
+	"drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/executor/logging"
 	"drassi.run/core/pkg/sandboxer"
 	"go.uber.org/dig"
@@ -40,12 +41,12 @@ type streamsParams struct {
 	StdErr io.Writer `name:"streamErr"`
 }
 
-func newStream(p streamsParams) *sandboxer.Streams {
-	return &sandboxer.Streams{
-		In:  p.StdIn,
-		Out: p.StdOut,
-		Err: p.StdErr,
-	}
+func newStream(p streamsParams) sandboxer.Streams {
+	return container.NewStreams(
+		container.WithStdin(p.StdIn),
+		container.WithStdout(p.StdOut),
+		container.WithStderr(p.StdErr),
+	)
 }
 
 type logParams struct {

@@ -73,8 +73,17 @@ type RegistryAuth interface {
 	Credential() string
 }
 
-type Streams interface {
-	In() io.Reader
-	Out() io.Writer
-	Err() io.Writer
+func NewBasicAuth(username, password string) RegistryAuth {
+	return &basicAuth{
+		username: username,
+		password: password,
+	}
+}
+
+type basicAuth struct {
+	username, password string
+}
+
+func (auth *basicAuth) Credential() string {
+	return auth.username + ":" + auth.password
 }

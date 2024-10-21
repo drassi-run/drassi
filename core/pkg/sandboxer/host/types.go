@@ -2,7 +2,7 @@ package host
 
 import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-type Host struct {
+type HostSandboxer struct {
 	metav1.TypeMeta   `json:",inline" yaml:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty" yaml:"metadata,omitempty"`
 
@@ -10,6 +10,6 @@ type Host struct {
 }
 
 type HostSpec struct {
-	RootDir string `json:"rootDir" yaml:"rootDir"`
-	Path    string `json:"path,omitempty" yaml:"path,omitempty"`
+	RootDir    string `json:"rootDir" yaml:"rootDir"`
+	RuntimeDir string `json:"runtimeDir" yaml:"runtimeDir"`
 }

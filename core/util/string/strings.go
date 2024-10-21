@@ -20,7 +20,7 @@ func Rand(n int) string {
 var nonAlphanumericRegex = regexp.MustCompile(`[^a-zA-Z0-9.\-_]+`)
 
 func Normalize(s string) string {
-	s = nonAlphanumericRegex.ReplaceAllString(s, "")
+	s = nonAlphanumericRegex.ReplaceAllString(s, "-")
 	s = strings.ToLower(s)
 	return s
 }

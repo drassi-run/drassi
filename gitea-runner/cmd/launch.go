@@ -24,13 +24,12 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/dig"
 	"golang.org/x/time/rate"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type launchCommand struct {
 	runnerInfo RunnerInfo
 	client     service.GiteaClient
-	runtime    sandboxer.SandboxRuntime
+	runtime    sandboxer.Engine
 	store      gitstore.Store
 
 	// tasksVersion used to store the version of the last task fetched from the Gitea.
@@ -88,8 +87,12 @@ func (c *launchCommand) initialize(ctx context.Context) error {
 		c.store = store
 	}
 
-	c.runtime = getRuntime()
-	return c.runtime.Connect(ctx)
+	if engine, err := getRuntime(); err != nil {
+		return err
+	} else {
+		c.runtime = engine
+		return nil
+	}
 }
 
 func (c *launchCommand) run(ctx context.Context) error {
@@ -185,7 +188,7 @@ func (c *launchCommand) runTask(ctx context.Context, task *runnerv1.Task) error 
 func (c *launchCommand) finalize(ctx context.Context) {
 }
 
-func getRuntime() sandboxer.SandboxRuntime {
+func getRuntime() (sandboxer.Engine, error) {
 	//config := &incus.Incus{
 	//	TypeMeta: metav1.TypeMeta{
 	//		APIVersion: "sandboxer.drasi.run/v1",
@@ -210,19 +213,10 @@ func getRuntime() sandboxer.SandboxRuntime {
 	//}
 	//return incus.NewSandboxRuntime(config)
 
-	config := &host.Host{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "sandboxer.drasi.run/v1",
-			Kind:       "Host",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "default",
-		},
-		Spec: host.HostSpec{
-			RootDir: "/tmp/gitea-runner",
-		},
+	spec := &host.HostSpec{
+		RootDir: "/tmp/gitea-runner",
 	}
-	return host.NewSandboxRuntime(config)
+	return host.New(spec)
 }
 
 func loadJson(file string, object any) error {

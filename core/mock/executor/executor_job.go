@@ -80,42 +80,6 @@ func (c *MockJobExecutorAddPathCall) DoAndReturn(f func([]string) error) *MockJo
 	return c
 }
 
-// ComposeEnv mocks base method.
-func (m_2 *MockJobExecutor) ComposeEnv(m map[string]string) {
-	m_2.ctrl.T.Helper()
-	m_2.ctrl.Call(m_2, "ComposeEnv", m)
-}
-
-// ComposeEnv indicates an expected call of ComposeEnv.
-func (mr *MockJobExecutorMockRecorder) ComposeEnv(m any) *MockJobExecutorComposeEnvCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ComposeEnv", reflect.TypeOf((*MockJobExecutor)(nil).ComposeEnv), m)
-	return &MockJobExecutorComposeEnvCall{Call: call}
-}
-
-// MockJobExecutorComposeEnvCall wrap *gomock.Call
-type MockJobExecutorComposeEnvCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockJobExecutorComposeEnvCall) Return() *MockJobExecutorComposeEnvCall {
-	c.Call = c.Call.Return()
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockJobExecutorComposeEnvCall) Do(f func(map[string]string)) *MockJobExecutorComposeEnvCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockJobExecutorComposeEnvCall) DoAndReturn(f func(map[string]string)) *MockJobExecutorComposeEnvCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // Context mocks base method.
 func (m *MockJobExecutor) Context() context.Context {
 	m.ctrl.T.Helper()
@@ -412,6 +376,44 @@ func (c *MockJobExecutorSetStatusCall) Do(f func(records.Result)) *MockJobExecut
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockJobExecutorSetStatusCall) DoAndReturn(f func(records.Result)) *MockJobExecutorSetStatusCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SystemPaths mocks base method.
+func (m *MockJobExecutor) SystemPaths() []string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SystemPaths")
+	ret0, _ := ret[0].([]string)
+	return ret0
+}
+
+// SystemPaths indicates an expected call of SystemPaths.
+func (mr *MockJobExecutorMockRecorder) SystemPaths() *MockJobExecutorSystemPathsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SystemPaths", reflect.TypeOf((*MockJobExecutor)(nil).SystemPaths))
+	return &MockJobExecutorSystemPathsCall{Call: call}
+}
+
+// MockJobExecutorSystemPathsCall wrap *gomock.Call
+type MockJobExecutorSystemPathsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockJobExecutorSystemPathsCall) Return(arg0 []string) *MockJobExecutorSystemPathsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockJobExecutorSystemPathsCall) Do(f func() []string) *MockJobExecutorSystemPathsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockJobExecutorSystemPathsCall) DoAndReturn(f func() []string) *MockJobExecutorSystemPathsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
