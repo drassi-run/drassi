@@ -14,8 +14,7 @@ import (
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/store/repository"
 	"drassi.run/core/pkg/store/repository/gitstore"
-	"drassi.run/core/pkg/util/dig"
-
+	"drassi.run/core/util/dig"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"go.uber.org/dig"
 	"gopkg.in/yaml.v3"

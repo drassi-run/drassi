@@ -9,8 +9,7 @@ import (
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/store/repository"
-	"drassi.run/core/pkg/util/dig"
-
+	"drassi.run/core/util/dig"
 	"go.uber.org/dig"
 )
 

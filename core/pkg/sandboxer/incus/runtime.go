@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"drassi.run/core/pkg/sandboxer"
-	"drassi.run/core/pkg/util/tar"
+	"drassi.run/core/util/tar"
 	"github.com/gorilla/websocket"
 	incusclient "github.com/lxc/incus/client"
 	incusapi "github.com/lxc/incus/shared/api"

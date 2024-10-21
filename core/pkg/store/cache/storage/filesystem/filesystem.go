@@ -10,8 +10,8 @@ import (
 
 	"drassi.run/core/pkg/store/cache/storage"
 	"drassi.run/core/pkg/store/cache/types"
-	"drassi.run/core/pkg/util/io"
-	"drassi.run/core/pkg/util/path"
+	"drassi.run/core/util/io"
+	"drassi.run/core/util/path"
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/osfs"
 )
@@ -64,7 +64,7 @@ func (s *fsStorage) WriteObject(ctx context.Context, cache *types.Cache, r io.Re
 		return err
 	}
 
-	r = utilio.NewContextReader(ctx, r)
+	r = xio.NewContextReader(ctx, r)
 	_, err = io.CopyN(file, r, length)
 	return err
 }
@@ -91,7 +91,7 @@ func (s *fsStorage) ReadObject(ctx context.Context, cache *types.Cache, w io.Wri
 		return err
 	}
 
-	w = utilio.NewContextWriter(ctx, w)
+	w = xio.NewContextWriter(ctx, w)
 	if length > 0 {
 		_, err = io.CopyN(w, file, length)
 	} else {

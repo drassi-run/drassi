@@ -14,7 +14,7 @@ import (
 	"syscall"
 	"time"
 
-	"drassi.run/core/pkg/util/oauth2/clientcredentials"
+	"drassi.run/core/util/oauth2/clientcredentials"
 	"drassi.run/gha-runner/pkg/gha"
 	"drassi.run/gha-runner/pkg/message"
 	"github.com/spf13/cobra"

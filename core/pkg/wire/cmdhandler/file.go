@@ -8,7 +8,7 @@ import (
 
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/executor/command"
-	"drassi.run/core/pkg/util/tar"
+	"drassi.run/core/util/tar"
 )
 
 var (

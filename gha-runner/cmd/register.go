@@ -14,7 +14,7 @@ import (
 	"os"
 	"strings"
 
-	"drassi.run/core/pkg/util/http"
+	"drassi.run/core/util/http"
 	"drassi.run/gha-runner/pkg/gha"
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"

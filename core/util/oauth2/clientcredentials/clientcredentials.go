@@ -25,7 +25,7 @@ import (
 	"strings"
 	"time"
 
-	"drassi.run/core/pkg/util/oauth2/internal"
+	"drassi.run/core/util/oauth2/internal"
 	"golang.org/x/oauth2"
 )
 

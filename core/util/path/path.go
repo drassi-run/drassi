@@ -28,3 +28,10 @@ func ResolveDir(path string) (string, error) {
 
 	return filepath.Abs(path)
 }
+
+func Abs(path, cwd string) string {
+	if !filepath.IsAbs(path) {
+		return filepath.Join(cwd, path)
+	}
+	return filepath.Clean(path)
+}

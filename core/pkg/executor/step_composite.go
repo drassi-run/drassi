@@ -8,7 +8,7 @@ import (
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/model/workflows"
-	"drassi.run/core/pkg/util/dig"
+	"drassi.run/core/util/dig"
 	"go.uber.org/dig"
 )
 

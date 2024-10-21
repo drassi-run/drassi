@@ -15,7 +15,7 @@ import (
 	"drassi.run/core/pkg/executor/secret"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/sandboxer"
-	"drassi.run/core/pkg/util/tar"
+	"drassi.run/core/util/tar"
 )
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L384

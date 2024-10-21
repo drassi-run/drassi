@@ -20,11 +20,11 @@ import (
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
-	"drassi.run/core/pkg/util/dig"
 	"drassi.run/core/pkg/wire/cmdhandler"
 	"drassi.run/core/pkg/wire/etc"
 	"drassi.run/core/pkg/wire/reporter"
 	"drassi.run/core/pkg/wire/streams"
+	"drassi.run/core/util/dig"
 	"drassi.run/gitea-runner/pkg/service"
 	"go.uber.org/dig"
 )

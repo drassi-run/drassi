@@ -13,8 +13,8 @@ import (
 	"path/filepath"
 
 	"drassi.run/core/pkg/sandboxer"
-	utilio "drassi.run/core/pkg/util/io"
-	"drassi.run/core/pkg/util/tar"
+	"drassi.run/core/util/io"
+	"drassi.run/core/util/tar"
 )
 
 type hostSandboxRuntime struct {
@@ -184,7 +184,7 @@ func (h *hostSandboxRuntime) CopyFromSandbox(ctx context.Context, request sandbo
 			// os.File implemented io.WriterTo, but fast path only used when writer is also a file
 			// tar.Writer implemented io.ReaderFrom, but it's disabled for now https://github.com/golang/go/issues/22735
 			// => ctx is added to the reader
-			if _, err := io.Copy(tw, utilio.NewContextReader(ctx, f)); err != nil {
+			if _, err := io.Copy(tw, xio.NewContextReader(ctx, f)); err != nil {
 				return err
 			}
 		}
@@ -222,7 +222,7 @@ func (h *hostSandboxRuntime) CopyToSandbox(ctx context.Context, request sandboxe
 			// os.File implemented io.ReaderFrom, but fast path only used when reader is also a file
 			// tar.Reader implemented io.WriterTo, but it's disabled for now https://github.com/golang/go/issues/22735
 			// => ctx is added to the writer
-			_, err = io.Copy(utilio.NewContextWriter(ctx, f), r)
+			_, err = io.Copy(xio.NewContextWriter(ctx, f), r)
 			return err
 		default:
 			return fmt.Errorf("unsupported file type %v", hdr.Typeflag)

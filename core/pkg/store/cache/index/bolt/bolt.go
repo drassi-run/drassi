@@ -13,7 +13,7 @@ import (
 
 	"drassi.run/core/pkg/store/cache/index"
 	"drassi.run/core/pkg/store/cache/types"
-	"drassi.run/core/pkg/util/path"
+	"drassi.run/core/util/path"
 	"github.com/timshannon/bolthold"
 	"go.etcd.io/bbolt"
 )

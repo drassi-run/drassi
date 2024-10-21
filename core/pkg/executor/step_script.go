@@ -11,9 +11,8 @@ import (
 	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
-	"drassi.run/core/pkg/util/dig"
-	"drassi.run/core/pkg/util/tar"
-
+	"drassi.run/core/util/dig"
+	"drassi.run/core/util/tar"
 	"go.uber.org/dig"
 )
 

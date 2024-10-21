@@ -6,7 +6,7 @@ import (
 	mock_executor "drassi.run/core/mock/executor"
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/executor/command"
-	"drassi.run/core/pkg/util/tar"
+	"drassi.run/core/util/tar"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 	"io"

@@ -18,7 +18,7 @@ import (
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/sandboxer/host"
 	"drassi.run/core/pkg/store/repository/gitstore"
-	"drassi.run/core/pkg/util/dig"
+	"drassi.run/core/util/dig"
 	"drassi.run/gitea-runner/pkg/service"
 	"drassi.run/gitea-runner/pkg/worker"
 	"github.com/spf13/cobra"

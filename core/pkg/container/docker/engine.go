@@ -2,7 +2,6 @@ package docker
 
 import (
 	"context"
-	"drassi.run/core/pkg/container/types"
 	"errors"
 	"fmt"
 	"io"
@@ -12,7 +11,8 @@ import (
 	"time"
 
 	"drassi.run/core/pkg/container"
-	utilio "drassi.run/core/pkg/util/io"
+	"drassi.run/core/pkg/container/types"
+	"drassi.run/core/util/io"
 	dockertypes "github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	dockerfilters "github.com/docker/docker/api/types/filters"
@@ -337,7 +337,7 @@ func (e *engine) streamingStdio(ctx context.Context, id string, exec bool, stdio
 			defer close(errC)
 			defer hijackedResp.Close()
 
-			reader := utilio.NewContextReader(ctx, hijackedResp.Reader)
+			reader := xio.NewContextReader(ctx, hijackedResp.Reader)
 			outWriter := streams.Out()
 			errWriter := streams.Err()
 

@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"drassi.run/core/pkg/sandboxer"
-	"drassi.run/core/pkg/util/tar"
+	"drassi.run/core/util/tar"
 	"golang.org/x/sync/errgroup"
 )
 
