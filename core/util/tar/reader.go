@@ -5,7 +5,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
+	"io/fs"
 
 	"github.com/docker/docker/pkg/archive"
 )
@@ -14,8 +16,8 @@ const defaultFilePerm int64 = 0o666
 
 // FileEntry is a file to copy to a container
 type FileEntry struct {
-	Name    string // Name of file entry
-	Mode    int64  // Permission and mode bits
+	Name    string      // Name of file entry
+	Mode    fs.FileMode // Permission and mode bits
 	Content string
 	Uid     int    // User ID of owner
 	Gid     int    // Group ID of owner
@@ -31,12 +33,17 @@ func FileEntryReader(entries ...*FileEntry) (io.Reader, error) {
 	for _, entry := range entries {
 		hdr := &tar.Header{
 			Name:  entry.Name,
-			Mode:  entry.Mode,
+			Mode:  int64(entry.Mode),
 			Size:  int64(len(entry.Content)),
 			Uid:   entry.Uid,
 			Gid:   entry.Gid,
 			Uname: entry.Uname,
 			Gname: entry.Gname,
+		}
+		if typ, err := fileType(entry.Mode); err != nil {
+			return nil, err
+		} else {
+			hdr.Typeflag = typ
 		}
 		if err := tw.WriteHeader(hdr); err != nil {
 			return nil, err
@@ -47,6 +54,29 @@ func FileEntryReader(entries ...*FileEntry) (io.Reader, error) {
 	}
 
 	return buf, nil
+}
+
+func fileType(mod fs.FileMode) (byte, error) {
+	var typ byte
+	switch m := mod.Type(); m {
+	case 0:
+		typ = tar.TypeReg
+	case fs.ModeDir:
+		typ = tar.TypeDir
+	case fs.ModeSymlink:
+		typ = tar.TypeSymlink
+	case fs.ModeNamedPipe:
+		typ = tar.TypeFifo
+	case fs.ModeSocket:
+		typ = tar.TypeFifo
+	case fs.ModeDevice:
+		typ = tar.TypeBlock
+	case fs.ModeCharDevice:
+		typ = tar.TypeChar
+	default: // fs.ModeIrregular:
+		return 0, fmt.Errorf("unknown filetype %q", m)
+	}
+	return typ, nil
 }
 
 func JsonObjectReader(m map[string]any, compact bool) (io.Reader, error) {
