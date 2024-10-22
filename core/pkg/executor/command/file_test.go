@@ -55,7 +55,7 @@ func TestFileManager_Initialize(t *testing.T) {
 	t.Run("normal", func(tt *testing.T) {
 		sandbox := mock_sandboxer.NewMockSandbox(ctrl)
 		sandbox.EXPECT().Layout().Return(layout).AnyTimes()
-		sandbox.EXPECT().CopyIn(gomock.Any(), gomock.Any(), "/tmp/sandbox/file_commands").Return(nil)
+		sandbox.EXPECT().CopyIn(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 		mgr := setupFileCmdMgr(sandbox)
 		_ = mgr.Register(NewFileHandler("FIRST", noopHandler))

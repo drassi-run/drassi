@@ -3,11 +3,16 @@ package gitstore
 import (
 	"archive/tar"
 	"context"
-	"drassi.run/core/pkg/store/repository"
-	"drassi.run/core/util/path"
-	xstring "drassi.run/core/util/string"
 	"errors"
 	"fmt"
+	"io"
+	"io/fs"
+	"os"
+	"path"
+
+	"drassi.run/core/pkg/store/repository"
+	"drassi.run/core/util/path"
+	"drassi.run/core/util/string"
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-billy/v5/util"
@@ -20,15 +25,12 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/storage"
 	"github.com/go-git/go-git/v5/storage/filesystem"
-	"io"
-	"io/fs"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"os"
 )
 
 type Store interface {
 	Fetch(ctx context.Context, repo *repository.Repository, token string) (rev string, err error)
-	Read(ctx context.Context, repo *repository.Repository, rev string) (io.ReadCloser, error)
+	Read(ctx context.Context, repo *repository.Repository, rev, dir string) (io.ReadCloser, error)
 	File(ctx context.Context, repo *repository.Repository, rev, path string) (io.ReadCloser, error)
 }
 
@@ -88,7 +90,7 @@ func (s *store) Fetch(ctx context.Context, repo *repository.Repository, token st
 	return hash.String(), nil
 }
 
-func (s *store) Read(ctx context.Context, repo *repository.Repository, rev string) (io.ReadCloser, error) {
+func (s *store) Read(ctx context.Context, repo *repository.Repository, rev string, dir string) (io.ReadCloser, error) {
 	id := repository.FullName(repo)
 	gitRepo, ok := s.repos[id]
 	if !ok {
@@ -119,7 +121,7 @@ func (s *store) Read(ctx context.Context, repo *repository.Repository, rev strin
 		defer close(ch)
 		tw := tar.NewWriter(writer)
 		defer tw.Close()
-		handler := newTarHandler(tw)
+		handler := newTarHandler(tw, dir)
 
 		err := files.ForEach(handler)
 		_ = writer.CloseWithError(err)
@@ -240,9 +242,9 @@ func (s *store) ensureRepo(path string, repo *repository.Repository) (*git.Repos
 
 type tarHandler = func(f *object.File) error
 
-func newTarHandler(tw *tar.Writer) tarHandler {
+func newTarHandler(tw *tar.Writer, dir string) tarHandler {
 	h := func(f *object.File) error {
-		name := f.Name
+		name := path.Join(dir, f.Name)
 		mode, err := f.Mode.ToOSFileMode()
 		if err != nil {
 			return err

@@ -147,15 +147,14 @@ func (sr *ActionStepRun) createDockerfileAction(dockerfile string) error {
 }
 
 func (sr *ActionStepRun) transferAction(ctx context.Context, store gitstore.Store, sandbox sandboxer.Sandbox) error {
-	r, err := store.Read(ctx, sr.Repo, sr.rev)
+	location := repository.FullName(sr.Repo) + "@" + sr.Repo.Ref
+	r, err := store.Read(ctx, sr.Repo, sr.rev, location)
 	if err != nil {
 		return err
 	}
 	defer r.Close()
 
-	location := repository.FullName(sr.Repo) + "@" + sr.Repo.Ref
-	location = filepath.Join(sandbox.Layout().Actions, location)
-	return sandbox.CopyIn(ctx, r, location)
+	return sandbox.CopyIn(ctx, r, sandbox.Layout().Actions)
 }
 
 func (sr *ActionStepRun) serverDomain(s string) string {
