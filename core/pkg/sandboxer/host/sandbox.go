@@ -23,21 +23,20 @@ type sandbox struct {
 	layout sandboxer.Layout
 }
 
-func newSandbox(jobDir string, runtimeDir string) (sandboxer.Sandbox, error) {
-	// - if jobDir is not absolute it will be joined with the cwd
+func newSandbox(dir string) (*sandbox, error) {
+	// - if dir is not absolute it will be joined with the cwd
 	// - clean the result
-	if d, err := filepath.Abs(jobDir); err != nil {
+	if d, err := filepath.Abs(dir); err != nil {
 		return nil, err
 	} else {
-		jobDir = d
+		dir = d
 	}
 
 	layout := sandboxer.Layout{
-		Workspace: filepath.Join(jobDir, "workspace"),
-		Temp:      filepath.Join(jobDir, "temp"),
-		Actions:   filepath.Join(jobDir, "actions"),
-		Tools:     filepath.Join(jobDir, "tools"),
-		Runtimes:  runtimeDir,
+		Workspace: filepath.Join(dir, "workspace"),
+		Temp:      filepath.Join(dir, "temp"),
+		Actions:   filepath.Join(dir, "actions"),
+		Tools:     filepath.Join(dir, "tools"),
 	}
 
 	dirs := []string{
@@ -45,8 +44,8 @@ func newSandbox(jobDir string, runtimeDir string) (sandboxer.Sandbox, error) {
 		layout.Actions,
 		layout.Tools,
 	}
-	for _, dir := range dirs {
-		if err := os.MkdirAll(dir, folderPerm); err != nil {
+	for _, d := range dirs {
+		if err := os.MkdirAll(d, folderPerm); err != nil {
 			return nil, err
 		}
 	}
