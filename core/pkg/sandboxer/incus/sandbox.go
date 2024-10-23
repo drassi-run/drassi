@@ -1,8 +1,6 @@
 package incus
 
 import (
-	"archive/tar"
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -13,7 +11,7 @@ import (
 
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/util/path"
-	"drassi.run/core/util/tar"
+	"drassi.run/core/util/sftp"
 	"github.com/gorilla/websocket"
 	incusclient "github.com/lxc/incus/v6/client"
 	incusapi "github.com/lxc/incus/v6/shared/api"
@@ -95,20 +93,12 @@ func (sb *sandbox) Stat(_ context.Context, path string) (fs.FileInfo, error) {
 }
 
 func (sb *sandbox) CopyIn(ctx context.Context, reader io.Reader, dst string) error {
-	return xtar.Untar(ctx, reader, sb.newUntarHandler(dst))
+	return xsftp.Write(ctx, sb.sftpClient, reader, dst)
 }
 
 func (sb *sandbox) CopyOut(ctx context.Context, src string) (io.ReadCloser, error) {
-	buf := new(bytes.Buffer)
-	tw := tar.NewWriter(buf)
-	defer tw.Close()
-
-	h := newTarHandler(tw)
-	if err := sb.walk(src, "", h); err != nil {
-		return nil, err
-	}
-
-	return io.NopCloser(buf), nil
+	r := xsftp.Read(ctx, sb.sftpClient, src)
+	return r, nil
 }
 
 func (sb *sandbox) Execute(ctx context.Context, cmd, path []string, env map[string]string, workdir string, streams sandboxer.Streams) error {
@@ -184,111 +174,4 @@ func (sb *sandbox) Terminate(ctx context.Context) error {
 		return fmt.Errorf("failed deleting instance %s: %s", sb.instanceName, err)
 	}
 	return nil
-}
-
-type fileHandler = func(string, io.Reader, *incusclient.InstanceFileResponse) error
-
-func (sb *sandbox) walk(root, name string, h fileHandler) error {
-	path := filepath.Join(root, name)
-	buf, resp, err := sb.client.GetInstanceFile(sb.instanceName, path)
-	if err != nil {
-		return err
-	}
-	if buf != nil {
-		defer buf.Close()
-	}
-
-	if err = h(name, buf, resp); err != nil {
-		return err
-	}
-
-	if resp.Type == "directory" {
-		for _, ent := range resp.Entries {
-			next := filepath.Join(name, ent)
-			if err = sb.walk(root, next, h); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func newTarHandler(tw *tar.Writer) fileHandler {
-	h := func(name string, r io.Reader, resp *incusclient.InstanceFileResponse) error {
-		var buf *bytes.Buffer
-		hdr := &tar.Header{
-			Name: name,
-			Mode: int64(resp.Mode),
-			Uid:  int(resp.UID),
-			Gid:  int(resp.GID),
-		}
-
-		switch resp.Type {
-		case "file":
-			buf = new(bytes.Buffer)
-			size, err := buf.ReadFrom(r)
-			if err != nil {
-				return err
-			}
-
-			hdr.Typeflag = tar.TypeReg
-			hdr.Size = size
-		case "directory":
-			hdr.Typeflag = tar.TypeDir
-			hdr.Name += "/"
-		case "symlink":
-			linkTarget, err := io.ReadAll(r) // BUG from incus, SHOULD not resolve symlink to absolute path
-			if err != nil {
-				return err
-			}
-
-			hdr.Typeflag = tar.TypeSymlink
-			hdr.Linkname = string(linkTarget)
-		default:
-			return fmt.Errorf("file %s type %s is unsupported", name, resp.Type)
-		}
-
-		if err := tw.WriteHeader(hdr); err != nil {
-			return err
-		}
-		if buf != nil {
-			if _, err := buf.WriteTo(tw); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-	return h
-}
-
-func (sb *sandbox) newUntarHandler(root string) xtar.UntarHandler {
-	h := func(hdr *tar.Header, r io.Reader) error {
-		path := filepath.Join(root, hdr.Name)
-		args := incusclient.InstanceFileArgs{
-			UID:       int64(hdr.Uid),
-			GID:       int64(hdr.Gid),
-			Mode:      int(hdr.Mode),
-			WriteMode: "overwrite",
-		}
-
-		switch hdr.Typeflag {
-		case tar.TypeReg:
-			args.Type = "file"
-			if b, err := io.ReadAll(r); err != nil {
-				return err
-			} else {
-				args.Content = bytes.NewReader(b)
-			}
-		case tar.TypeDir:
-			args.Type = "directory"
-		case tar.TypeSymlink:
-			args.Type = "symlink" // BUG from incus, symlink always have uid=0 gid=0
-			args.Content = strings.NewReader(hdr.Linkname)
-		default:
-			return fmt.Errorf("file %s type %b is unsupported", hdr.Name, hdr.Typeflag)
-		}
-
-		return sb.client.CreateInstanceFile(sb.instanceName, path, args)
-	}
-	return h
 }
