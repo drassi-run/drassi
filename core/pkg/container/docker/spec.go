@@ -2,6 +2,7 @@ package docker
 
 import (
 	"drassi.run/core/pkg/container/types"
+	"github.com/docker/cli/opts"
 	dockertypes "github.com/docker/docker/api/types"
 	dockermount "github.com/docker/docker/api/types/mount"
 )
@@ -16,6 +17,7 @@ func (cs *containerSpec) From(info dockertypes.ContainerJSON) error {
 	cs.Spec.Command = info.Args
 	cs.Spec.Image = info.Image
 	cs.Spec.Hostname = info.Config.Hostname
+	cs.Spec.Environment = opts.ConvertKVStringsToMap(info.Config.Env)
 
 	cs.setMounts(info)
 

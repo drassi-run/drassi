@@ -23,21 +23,20 @@ type sandbox struct {
 	layout sandboxer.Layout
 }
 
-func newSandbox(jobDir string, runtimeDir string) (sandboxer.Sandbox, error) {
-	// - if jobDir is not absolute it will be joined with the cwd
+func newSandbox(dir string) (*sandbox, error) {
+	// - if dir is not absolute it will be joined with the cwd
 	// - clean the result
-	if d, err := filepath.Abs(jobDir); err != nil {
+	if d, err := filepath.Abs(dir); err != nil {
 		return nil, err
 	} else {
-		jobDir = d
+		dir = d
 	}
 
 	layout := sandboxer.Layout{
-		Workspace: filepath.Join(jobDir, "workspace"),
-		Temp:      filepath.Join(jobDir, "temp"),
-		Actions:   filepath.Join(jobDir, "actions"),
-		Tools:     filepath.Join(jobDir, "tools"),
-		Runtimes:  runtimeDir,
+		Workspace: filepath.Join(dir, "workspace"),
+		Temp:      filepath.Join(dir, "temp"),
+		Actions:   filepath.Join(dir, "actions"),
+		Tools:     filepath.Join(dir, "tools"),
 	}
 
 	dirs := []string{
@@ -45,8 +44,8 @@ func newSandbox(jobDir string, runtimeDir string) (sandboxer.Sandbox, error) {
 		layout.Actions,
 		layout.Tools,
 	}
-	for _, dir := range dirs {
-		if err := os.MkdirAll(dir, folderPerm); err != nil {
+	for _, d := range dirs {
+		if err := os.MkdirAll(d, folderPerm); err != nil {
 			return nil, err
 		}
 	}
@@ -109,13 +108,12 @@ func (sb *sandbox) CopyOut(ctx context.Context, src string) (io.ReadCloser, erro
 	defer zw.Close()
 	defer tw.Close()
 
-	fsys := os.DirFS("/")
-	root, err := filepath.Rel("/", src)
-	if err != nil {
-		return nil, err
-	}
+	src = filepath.Clean(src)
+	dir := filepath.Dir(src)
+	base := filepath.Base(src)
 
-	err = fs.WalkDir(fsys, root, func(path string, d fs.DirEntry, err error) error {
+	fsys := os.DirFS(dir)
+	err := fs.WalkDir(fsys, base, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -129,8 +127,8 @@ func (sb *sandbox) CopyOut(ctx context.Context, src string) (io.ReadCloser, erro
 		}
 		mode := info.Mode()
 		link := ""
-		if mode&os.ModeSymlink != 0 {
-			if link, err = os.Readlink(path); err != nil {
+		if mode&fs.ModeSymlink != 0 {
+			if link, err = os.Readlink(filepath.Join(dir, path)); err != nil {
 				return err
 			}
 		}
@@ -138,12 +136,9 @@ func (sb *sandbox) CopyOut(ctx context.Context, src string) (io.ReadCloser, erro
 		hdr, err := tar.FileInfoHeader(info, link)
 		if err != nil {
 			return err
-		} else if rpath, err := filepath.Rel(root, path); err != nil {
-			return err
-		} else if rpath == "." {
-			hdr.Name = ""
 		} else {
-			hdr.Name = rpath
+			// info only contains file's base, but we want the path
+			hdr.Name = path
 		}
 
 		if err = tw.WriteHeader(hdr); err != nil {
@@ -159,7 +154,7 @@ func (sb *sandbox) CopyOut(ctx context.Context, src string) (io.ReadCloser, erro
 			// os.File implemented io.WriterTo, but fast path only used when writer is also a file
 			// tar.Writer implemented io.ReaderFrom, but it's disabled for now https://github.com/golang/go/issues/22735
 			// => ctx is added to the reader
-			if _, err := io.Copy(tw, xio.NewContextReader(ctx, f)); err != nil {
+			if _, err = io.Copy(tw, xio.NewContextReader(ctx, f)); err != nil {
 				return err
 			}
 		}

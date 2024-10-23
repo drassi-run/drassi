@@ -3,7 +3,7 @@ package executor
 import (
 	"context"
 	"fmt"
-	"path/filepath"
+	"path"
 	"strings"
 
 	"drassi.run/core/pkg/executor/evaluator"
@@ -85,14 +85,14 @@ func (sr *ScriptStepRun) executeMain(exec StepExecutor) error {
 	}
 
 	script = shell.FixupScript(script)
-	path := sr.computeScriptPath(exec, shell.Extension())
+	scriptPath := sr.computeScriptPath(exec, shell.Extension())
 
-	cmd, err := sr.expandCommand(shell, path)
+	cmd, err := sr.expandCommand(shell, scriptPath)
 	if err != nil {
 		return err
 	}
 
-	if err = sr.transferScriptIn(ctx, script, path); err != nil {
+	if err = sr.transferScriptIn(ctx, script, scriptPath); err != nil {
 		return nil
 	}
 
@@ -107,6 +107,7 @@ func (sr *ScriptStepRun) expandCommand(shell model.Shell, scriptPath string) ([]
 		return nil, err
 	}
 
+	scriptPath = path.Join(sr.sandbox.Layout().Temp, scriptPath)
 	cmd := make([]string, len(command))
 	for i, c := range command {
 		cmd[i] = strings.Replace(c, `{0}`, scriptPath, 1)
@@ -115,22 +116,21 @@ func (sr *ScriptStepRun) expandCommand(shell model.Shell, scriptPath string) ([]
 }
 
 func (sr *ScriptStepRun) computeScriptPath(exec StepExecutor, ext string) string {
-	path := sr.Id
+	file := sr.Id
 	for parent := exec.ParentExecutor(); parent != nil; parent = parent.ParentExecutor() {
-		path = fmt.Sprintf("%s-composite-%s", StepId(parent), path)
+		file = fmt.Sprintf("%s-composite-%s", StepId(parent), file)
 	}
 	ext = xstring.EnsurePrefix(ext, ".")
-	path += ext
+	file += ext
 
-	layout := sr.sandbox.Layout()
-	return filepath.Join(layout.Temp, "scripts", path)
+	return path.Join("scripts", file)
 }
 
 func (sr *ScriptStepRun) transferScriptIn(ctx context.Context, script, path string) error {
-	entries := map[string]string{"": script}
+	entries := map[string]string{path: script}
 	if reader, err := xtar.ContentReader(entries); err != nil {
 		return err
 	} else {
-		return sr.sandbox.CopyIn(ctx, reader, path)
+		return sr.sandbox.CopyIn(ctx, reader, sr.sandbox.Layout().Temp)
 	}
 }

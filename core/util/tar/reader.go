@@ -5,7 +5,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
+	"io/fs"
 
 	"github.com/docker/docker/pkg/archive"
 )
@@ -14,8 +16,8 @@ const defaultFilePerm int64 = 0o666
 
 // FileEntry is a file to copy to a container
 type FileEntry struct {
-	Name    string // Name of file entry
-	Mode    int64  // Permission and mode bits
+	Name    string      // Name of file entry
+	Mode    fs.FileMode // Permission and mode bits
 	Content string
 	Uid     int    // User ID of owner
 	Gid     int    // Group ID of owner
@@ -31,12 +33,17 @@ func FileEntryReader(entries ...*FileEntry) (io.Reader, error) {
 	for _, entry := range entries {
 		hdr := &tar.Header{
 			Name:  entry.Name,
-			Mode:  entry.Mode,
+			Mode:  int64(entry.Mode),
 			Size:  int64(len(entry.Content)),
 			Uid:   entry.Uid,
 			Gid:   entry.Gid,
 			Uname: entry.Uname,
 			Gname: entry.Gname,
+		}
+		if typ, err := fileType(entry.Mode); err != nil {
+			return nil, err
+		} else {
+			hdr.Typeflag = typ
 		}
 		if err := tw.WriteHeader(hdr); err != nil {
 			return nil, err
@@ -47,6 +54,28 @@ func FileEntryReader(entries ...*FileEntry) (io.Reader, error) {
 	}
 
 	return buf, nil
+}
+
+// see [archive/tar.FileInfoHeader]
+func fileType(mod fs.FileMode) (byte, error) {
+	var typ byte
+	switch m := mod.Type(); m {
+	case 0:
+		typ = tar.TypeReg
+	case fs.ModeDir:
+		typ = tar.TypeDir
+	case fs.ModeSymlink:
+		typ = tar.TypeSymlink
+	case fs.ModeNamedPipe:
+		typ = tar.TypeFifo
+	case fs.ModeDevice:
+		typ = tar.TypeBlock
+	case fs.ModeCharDevice:
+		typ = tar.TypeChar
+	default: // fs.ModeIrregular, fs.ModeSocket
+		return 0, fmt.Errorf("unknown filetype %q", m)
+	}
+	return typ, nil
 }
 
 func JsonObjectReader(m map[string]any, compact bool) (io.Reader, error) {
@@ -124,4 +153,33 @@ func Untar(ctx context.Context, r io.Reader, h UntarHandler) error {
 	}
 
 	return nil
+}
+
+func FileType(typ byte) string {
+	switch typ {
+	case tar.TypeReg, tar.TypeRegA:
+		return "regular"
+	case tar.TypeLink:
+		return "hardlink"
+	case tar.TypeSymlink:
+		return "symlink"
+	case tar.TypeChar:
+		return "character device"
+	case tar.TypeBlock:
+		return "block device"
+	case tar.TypeDir:
+		return "directory"
+	case tar.TypeFifo:
+		return "fifo"
+	default:
+		return "unknown"
+	}
+}
+
+func IsRegular(hdr *tar.Header) bool {
+	return hdr.Typeflag == tar.TypeReg || hdr.Typeflag == tar.TypeRegA
+}
+
+func IsDir(hdr *tar.Header) bool {
+	return hdr.Typeflag == tar.TypeDir
 }

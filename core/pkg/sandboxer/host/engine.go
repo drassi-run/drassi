@@ -38,12 +38,13 @@ func (e *engine) Close() error {
 }
 
 func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*sandboxer.LaunchResponse, error) {
-	path := e.sandboxPath(req)
-	path = filepath.Join(e.spec.RootDir, path)
+	sandboxDir := e.sandboxDir(req)
+	sandboxDir = filepath.Join(e.spec.RootDir, sandboxDir)
 
-	if sb, err := newSandbox(path, e.spec.RuntimeDir); err != nil {
+	if sb, err := newSandbox(sandboxDir); err != nil {
 		return nil, err
 	} else {
+		sb.layout.Runtimes = e.spec.RuntimeDir
 		res := &sandboxer.LaunchResponse{
 			Sandbox: sb,
 		}
@@ -51,7 +52,7 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*san
 	}
 }
 
-func (e *engine) sandboxPath(req *sandboxer.LaunchRequest) string {
+func (e *engine) sandboxDir(req *sandboxer.LaunchRequest) string {
 	var server string
 	if u, err := url.Parse(req.Github.ServerUrl); err == nil {
 		server = u.Host

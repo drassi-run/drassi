@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"path/filepath"
+	"path"
 	"slices"
 	"strings"
 	"time"
@@ -511,16 +511,16 @@ func (e *jobExecutor) SetEnv(env map[string]string) error {
 }
 
 func (e *jobExecutor) setupEventFile(ctx context.Context) (string, error) {
-	files := map[string]any{"": e.github.Event}
+	files := map[string]any{"workflow/event.json": e.github.Event}
 	r, err := xtar.JsonObjectReader(files, false)
 	if err != nil {
 		return "", err
 	}
 
-	location := filepath.Join(e.runner.Temp, "workflow", "event.json")
-	if err = e.sandbox.CopyIn(ctx, r, location); err != nil {
+	if err = e.sandbox.CopyIn(ctx, r, e.runner.Temp); err != nil {
 		return "", err
 	}
 
+	location := path.Join(e.runner.Temp, "workflow", "event.json")
 	return location, nil
 }

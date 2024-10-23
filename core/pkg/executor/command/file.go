@@ -4,7 +4,7 @@ import (
 	"context"
 	"io"
 	"os"
-	"path/filepath"
+	"path"
 
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/util/string"
@@ -58,18 +58,17 @@ func (mgr *fileManager) Initialize(ctx context.Context, suffix string) error {
 		return nil
 	}
 	suffix = xstring.EnsurePrefix(suffix, "_")
-	dir := mgr.dir()
 
 	fileEntries := make(map[string]string, len(mgr.registeredCommands))
 	for cmd := range mgr.registeredCommands {
-		name := cmd + suffix
+		name := path.Join("file_commands", cmd+suffix)
 		fileEntries[name] = ""
 	}
 
 	if r, err := xtar.ContentReader(fileEntries); err != nil {
 		return err
 	} else {
-		return mgr.sandbox.CopyIn(ctx, r, dir)
+		return mgr.sandbox.CopyIn(ctx, r, mgr.sandbox.Layout().Temp)
 	}
 }
 
@@ -83,10 +82,10 @@ func (mgr *fileManager) Process(ctx context.Context, suffix string) error {
 	g, ctx := errgroup.WithContext(ctx)
 	for cmd, h := range mgr.registeredCommands {
 		handler := h
-		path := filepath.Join(dir, cmd+suffix)
+		filePath := path.Join(dir, cmd+suffix)
 
 		g.Go(func() error {
-			r, err := mgr.sandbox.CopyOut(ctx, path)
+			r, err := mgr.sandbox.CopyOut(ctx, filePath)
 			if err != nil {
 				if os.IsNotExist(err) {
 					return nil
@@ -109,14 +108,14 @@ func (mgr *fileManager) Env(suffix string) map[string]string {
 
 	env := make(map[string]string, len(mgr.registeredCommands))
 	for cmd := range mgr.registeredCommands {
-		env[cmd] = filepath.Join(dir, cmd+suffix)
+		env[cmd] = path.Join(dir, cmd+suffix)
 	}
 	return env
 }
 
 func (mgr *fileManager) dir() string {
 	layout := mgr.sandbox.Layout()
-	return filepath.Join(layout.Temp, "file_commands")
+	return path.Join(layout.Temp, "file_commands")
 }
 
 func FileRun(h *FileHandler, r io.Reader) error {
