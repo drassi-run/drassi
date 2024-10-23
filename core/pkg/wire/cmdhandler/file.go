@@ -26,10 +26,15 @@ func FileAddPath(sup executor.Supervisor) *command.FileHandler {
 			return ErrNoJobRunning
 		}
 
+		found := false
 		return xtar.Untar(ctx, r, func(hdr *tar.Header, reader io.Reader) error {
-			if hdr.Name != "" {
-				return fmt.Errorf("%w: un-expected file %q", ErrInvalidFile, hdr.Name)
+			if !xtar.IsRegular(hdr) {
+				return fmt.Errorf("%w: un-expected %s file", ErrInvalidFile, xtar.FileType(hdr.Typeflag))
 			}
+			if found {
+				return fmt.Errorf("%w: un-expected multiple files", ErrInvalidFile)
+			}
+			found = true
 
 			if paths, err := readLine(reader); err != nil {
 				return err
@@ -83,10 +88,15 @@ func stepCommandRun[R any](
 			return ErrNoStepRunning
 		}
 
+		found := false
 		return xtar.Untar(ctx, r, func(hdr *tar.Header, reader io.Reader) error {
-			if hdr.Name != "" {
-				return fmt.Errorf("%w: un-expected file %q", ErrInvalidFile, hdr.Name)
+			if !xtar.IsRegular(hdr) {
+				return fmt.Errorf("%w: un-expected %s file", ErrInvalidFile, xtar.FileType(hdr.Typeflag))
 			}
+			if found {
+				return fmt.Errorf("%w: un-expected multiple files", ErrInvalidFile)
+			}
+			found = true
 
 			if res, err := trans(reader); err != nil {
 				return err

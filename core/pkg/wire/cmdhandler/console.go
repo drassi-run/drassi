@@ -112,11 +112,16 @@ func readProblemMatcherFile(ctx context.Context, sb sandboxer.Sandbox, file stri
 	}
 	defer reader.Close()
 
+	found := false
 	conf := new(problem.MatcherConfigs)
 	err = xtar.Untar(ctx, reader, func(hdr *tar.Header, tr io.Reader) error {
-		if hdr.Name != "" {
-			return fmt.Errorf("%w: un-expected file %q", ErrInvalidFile, hdr.Name)
+		if !xtar.IsRegular(hdr) {
+			return fmt.Errorf("%w: un-expected %s file", ErrInvalidFile, xtar.FileType(hdr.Typeflag))
 		}
+		if found {
+			return fmt.Errorf("%w: un-expected multiple files", ErrInvalidFile)
+		}
+		found = true
 		return json.NewDecoder(tr).Decode(conf)
 	})
 	return conf, err

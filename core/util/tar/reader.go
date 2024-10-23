@@ -56,6 +56,7 @@ func FileEntryReader(entries ...*FileEntry) (io.Reader, error) {
 	return buf, nil
 }
 
+// see [archive/tar.FileInfoHeader]
 func fileType(mod fs.FileMode) (byte, error) {
 	var typ byte
 	switch m := mod.Type(); m {
@@ -67,13 +68,11 @@ func fileType(mod fs.FileMode) (byte, error) {
 		typ = tar.TypeSymlink
 	case fs.ModeNamedPipe:
 		typ = tar.TypeFifo
-	case fs.ModeSocket:
-		typ = tar.TypeFifo
 	case fs.ModeDevice:
 		typ = tar.TypeBlock
 	case fs.ModeCharDevice:
 		typ = tar.TypeChar
-	default: // fs.ModeIrregular:
+	default: // fs.ModeIrregular, fs.ModeSocket
 		return 0, fmt.Errorf("unknown filetype %q", m)
 	}
 	return typ, nil
@@ -154,4 +153,33 @@ func Untar(ctx context.Context, r io.Reader, h UntarHandler) error {
 	}
 
 	return nil
+}
+
+func FileType(typ byte) string {
+	switch typ {
+	case tar.TypeReg, tar.TypeRegA:
+		return "regular"
+	case tar.TypeLink:
+		return "hardlink"
+	case tar.TypeSymlink:
+		return "symlink"
+	case tar.TypeChar:
+		return "character device"
+	case tar.TypeBlock:
+		return "block device"
+	case tar.TypeDir:
+		return "directory"
+	case tar.TypeFifo:
+		return "fifo"
+	default:
+		return "unknown"
+	}
+}
+
+func IsRegular(hdr *tar.Header) bool {
+	return hdr.Typeflag == tar.TypeReg || hdr.Typeflag == tar.TypeRegA
+}
+
+func IsDir(hdr *tar.Header) bool {
+	return hdr.Typeflag == tar.TypeDir
 }
