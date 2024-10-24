@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/util/fs"
 	"drassi.run/core/util/io"
 	"drassi.run/core/util/path"
 	"drassi.run/core/util/tar"
@@ -45,11 +46,11 @@ func newSandbox(dir string) (*sandbox, error) {
 		layout.Tools,
 	}
 	for _, d := range dirs {
-		if err := os.MkdirAll(d, folderPerm); err != nil {
+		if err := os.MkdirAll(d, xfs.DirPerm); err != nil {
 			return nil, err
 		}
 	}
-	if err := os.MkdirAll(layout.Temp, 0o777); err != nil {
+	if err := os.MkdirAll(layout.Temp, xfs.AllPerm); err != nil {
 		return nil, err
 	}
 
@@ -72,7 +73,7 @@ func (sb *sandbox) CopyIn(ctx context.Context, reader io.Reader, dst string) err
 	return xtar.Untar(ctx, reader, func(hdr *tar.Header, r io.Reader) error {
 		path := filepath.Join(dst, hdr.Name)
 		// ensure directory existed
-		if err := os.MkdirAll(filepath.Dir(path), folderPerm); err != nil {
+		if err := os.MkdirAll(filepath.Dir(path), xfs.DirPerm); err != nil {
 			return err
 		}
 

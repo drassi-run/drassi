@@ -18,8 +18,6 @@ import (
 	incusapi "github.com/lxc/incus/v6/shared/api"
 )
 
-const folderPerm fs.FileMode = 0o755
-
 type sandbox struct {
 	client       incusclient.InstanceServer
 	fsys         *sftpfs.SftpFS
@@ -60,11 +58,11 @@ func newSandbox(client incusclient.InstanceServer, inst string) (*sandbox, error
 	// init layout
 	layout := &sb.layout
 	dirs := map[string]fs.FileMode{
-		dir:              folderPerm,
-		layout.Workspace: folderPerm,
-		layout.Temp:      fs.FileMode(0o777),
-		layout.Actions:   folderPerm,
-		layout.Tools:     folderPerm,
+		dir:              xfs.DirPerm,
+		layout.Workspace: xfs.DirPerm,
+		layout.Temp:      xfs.AllPerm,
+		layout.Actions:   xfs.DirPerm,
+		layout.Tools:     xfs.DirPerm,
 	}
 	for d, pem := range dirs {
 		fileArgs := incusclient.InstanceFileArgs{

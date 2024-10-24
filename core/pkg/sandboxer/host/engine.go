@@ -2,18 +2,16 @@ package host
 
 import (
 	"context"
-	"io/fs"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/util/fs"
 	"drassi.run/core/util/path"
 	"drassi.run/core/util/string"
 )
-
-const folderPerm fs.FileMode = 0o755
 
 type engine struct {
 	spec *HostSpec
@@ -26,7 +24,7 @@ func New(spec *HostSpec) (sandboxer.Engine, error) {
 		spec.RootDir = d
 	}
 
-	if err := os.MkdirAll(spec.RootDir, folderPerm); err != nil {
+	if err := os.MkdirAll(spec.RootDir, xfs.DirPerm); err != nil {
 		return nil, err
 	}
 
