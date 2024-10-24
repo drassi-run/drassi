@@ -10,19 +10,19 @@ import (
 	"strings"
 
 	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/util/fs"
+	"drassi.run/core/util/fs/sftpfs"
 	"drassi.run/core/util/path"
-	"drassi.run/core/util/sftp"
 	"github.com/gorilla/websocket"
 	incusclient "github.com/lxc/incus/v6/client"
 	incusapi "github.com/lxc/incus/v6/shared/api"
-	"github.com/pkg/sftp"
 )
 
 const folderPerm fs.FileMode = 0o755
 
 type sandbox struct {
 	client       incusclient.InstanceServer
-	sftpClient   *sftp.Client
+	fsys         *sftpfs.SftpFS
 	instanceName string
 
 	layout   sandboxer.Layout
@@ -50,11 +50,11 @@ func newSandbox(client incusclient.InstanceServer, inst string) (*sandbox, error
 		sb.path = path
 	}
 
-	// init sftpClient
+	// init fsys
 	if sftpClient, err := client.GetInstanceFileSFTP(inst); err != nil {
 		return nil, err
 	} else {
-		sb.sftpClient = sftpClient
+		sb.fsys = sftpfs.New(sftpClient)
 	}
 
 	// init layout
@@ -89,15 +89,15 @@ func (sb *sandbox) ContainerInfo(ctx context.Context) (*sandboxer.ContainerInfo,
 }
 
 func (sb *sandbox) Stat(_ context.Context, path string) (fs.FileInfo, error) {
-	return sb.sftpClient.Stat(path)
+	return sb.fsys.Stat(path)
 }
 
 func (sb *sandbox) CopyIn(ctx context.Context, reader io.Reader, dst string) error {
-	return xsftp.Write(ctx, sb.sftpClient, reader, dst)
+	return xfs.Write(ctx, sb.fsys, reader, dst)
 }
 
 func (sb *sandbox) CopyOut(ctx context.Context, src string) (io.ReadCloser, error) {
-	r := xsftp.Read(ctx, sb.sftpClient, src)
+	r := xfs.Read(ctx, sb.fsys, src)
 	return r, nil
 }
 
@@ -148,7 +148,7 @@ func (sb *sandbox) Execute(ctx context.Context, cmd, path []string, env map[stri
 }
 
 func (sb *sandbox) Terminate(ctx context.Context) error {
-	_ = sb.sftpClient.Close()
+	_ = sb.fsys.Close()
 
 	if inst, _, err := sb.client.GetInstance(sb.instanceName); err != nil {
 		return err
