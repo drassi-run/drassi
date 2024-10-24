@@ -11,11 +11,10 @@ import (
 	"drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/container/types"
 	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/util/fs"
 	"drassi.run/core/util/path"
 	"drassi.run/core/util/tar"
 )
-
-const folderPerm fs.FileMode = 0o755
 
 type sandbox struct {
 	engine      container.Engine
@@ -39,10 +38,10 @@ func newSandbox(ctx context.Context, engine container.Engine, containerId string
 
 	layout := &sb.layout
 	r, err := xtar.FileEntryReader(
-		&xtar.FileEntry{Name: layout.Workspace, Mode: fs.ModeDir | folderPerm},
-		&xtar.FileEntry{Name: layout.Temp, Mode: fs.ModeDir | 0o777},
-		&xtar.FileEntry{Name: layout.Actions, Mode: fs.ModeDir | folderPerm},
-		&xtar.FileEntry{Name: layout.Tools, Mode: fs.ModeDir | folderPerm},
+		&xtar.FileEntry{Name: layout.Workspace, Mode: fs.ModeDir | xfs.DirPerm},
+		&xtar.FileEntry{Name: layout.Temp, Mode: fs.ModeDir | xfs.AllPerm},
+		&xtar.FileEntry{Name: layout.Actions, Mode: fs.ModeDir | xfs.DirPerm},
+		&xtar.FileEntry{Name: layout.Tools, Mode: fs.ModeDir | xfs.DirPerm},
 	)
 	if err != nil {
 		return nil, err

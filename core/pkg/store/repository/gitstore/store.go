@@ -11,6 +11,7 @@ import (
 	"path"
 
 	"drassi.run/core/pkg/store/repository"
+	"drassi.run/core/util/fs"
 	"drassi.run/core/util/path"
 	"drassi.run/core/util/string"
 	"github.com/go-git/go-billy/v5"
@@ -34,10 +35,7 @@ type Store interface {
 	File(ctx context.Context, repo *repository.Repository, rev, path string) (io.ReadCloser, error)
 }
 
-const (
-	folderPerm fs.FileMode = 0o755
-	remoteName string      = "anonymous"
-)
+const remoteName string = "anonymous"
 
 func New(rootDir string) (Store, error) {
 	if d, err := xpath.ResolveDir(rootDir); err != nil {
@@ -46,7 +44,7 @@ func New(rootDir string) (Store, error) {
 		rootDir = d
 	}
 
-	if err := os.MkdirAll(rootDir, folderPerm); err != nil {
+	if err := os.MkdirAll(rootDir, xfs.DirPerm); err != nil {
 		return nil, err
 	}
 
@@ -200,7 +198,7 @@ func (s *store) ensureDir(repo *repository.Repository) (string, error) {
 
 	if err != nil {
 		if os.IsNotExist(err) {
-			return path, s.fsys.MkdirAll(path, folderPerm)
+			return path, s.fsys.MkdirAll(path, xfs.DirPerm)
 		}
 		return "", err
 	}
@@ -209,7 +207,7 @@ func (s *store) ensureDir(repo *repository.Repository) (string, error) {
 		if err = util.RemoveAll(s.fsys, path); err != nil {
 			return "", err
 		}
-		return path, s.fsys.MkdirAll(path, folderPerm)
+		return path, s.fsys.MkdirAll(path, xfs.DirPerm)
 	}
 
 	return path, nil
@@ -255,7 +253,7 @@ func newTarHandler(tw *tar.Writer, dir string) tarHandler {
 			Mode: int64(mode),
 		}
 
-		if mode&fs.ModeSymlink == fs.ModeSymlink {
+		if mode&fs.ModeSymlink != 0 {
 			content, err := f.Contents()
 			if err != nil {
 				return err

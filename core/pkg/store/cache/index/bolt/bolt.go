@@ -13,6 +13,7 @@ import (
 
 	"drassi.run/core/pkg/store/cache/index"
 	"drassi.run/core/pkg/store/cache/types"
+	"drassi.run/core/util/fs"
 	"drassi.run/core/util/path"
 	"github.com/timshannon/bolthold"
 	"go.etcd.io/bbolt"
@@ -54,7 +55,7 @@ func New(dir string) (index.Index, error) {
 			FreelistType: bbolt.DefaultOptions.FreelistType,
 		},
 	}
-	if db, err := bolthold.Open(file, 0o644, opts); err != nil {
+	if db, err := bolthold.Open(file, xfs.FilePerm, opts); err != nil {
 		return nil, err
 	} else {
 		idx := &idxBolt{db: db}
