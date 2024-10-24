@@ -1,9 +1,6 @@
 package host
 
 import (
-	"archive/tar"
-	"bytes"
-	"compress/gzip"
 	"context"
 	"fmt"
 	"io"
@@ -15,9 +12,8 @@ import (
 
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/util/fs"
-	"drassi.run/core/util/io"
 	"drassi.run/core/util/path"
-	"drassi.run/core/util/tar"
+	"github.com/go-git/go-billy/v5/osfs"
 )
 
 type sandbox struct {
@@ -70,102 +66,14 @@ func (sb *sandbox) Stat(_ context.Context, path string) (fs.FileInfo, error) {
 }
 
 func (sb *sandbox) CopyIn(ctx context.Context, reader io.Reader, dst string) error {
-	return xtar.Untar(ctx, reader, func(hdr *tar.Header, r io.Reader) error {
-		path := filepath.Join(dst, hdr.Name)
-		// ensure directory existed
-		if err := os.MkdirAll(filepath.Dir(path), xfs.DirPerm); err != nil {
-			return err
-		}
-
-		switch hdr.Typeflag {
-		case tar.TypeDir:
-			return os.Mkdir(path, hdr.FileInfo().Mode())
-		case tar.TypeSymlink:
-			return os.Symlink(hdr.Linkname, path)
-		case tar.TypeReg:
-			// Same as os.Create(path), but with custom mode
-			f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, hdr.FileInfo().Mode())
-			if err != nil {
-				return err
-			}
-			defer f.Close()
-
-			// os.File implemented io.ReaderFrom, but fast path only used when reader is also a file
-			// tar.Reader implemented io.WriterTo, but it's disabled for now https://github.com/golang/go/issues/22735
-			// => ctx is added to the writer
-			_, err = io.Copy(xio.NewContextWriter(ctx, f), r)
-			return err
-		default:
-			return fmt.Errorf("unsupported file type %v", hdr.Typeflag)
-		}
-	})
+	fsys := osfs.New("/")
+	return xfs.Write(ctx, fsys, reader, dst)
 }
 
 func (sb *sandbox) CopyOut(ctx context.Context, src string) (io.ReadCloser, error) {
-	// tar > gzip > buf
-	buf := new(bytes.Buffer)
-	zw := gzip.NewWriter(buf)
-	tw := tar.NewWriter(zw)
-	defer zw.Close()
-	defer tw.Close()
-
-	src = filepath.Clean(src)
-	dir := filepath.Dir(src)
-	base := filepath.Base(src)
-
-	fsys := os.DirFS(dir)
-	err := fs.WalkDir(fsys, base, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if err = ctx.Err(); err != nil {
-			return err
-		}
-
-		info, err := d.Info()
-		if err != nil {
-			return err
-		}
-		mode := info.Mode()
-		link := ""
-		if mode&fs.ModeSymlink != 0 {
-			if link, err = os.Readlink(filepath.Join(dir, path)); err != nil {
-				return err
-			}
-		}
-
-		hdr, err := tar.FileInfoHeader(info, link)
-		if err != nil {
-			return err
-		} else {
-			// info only contains file's base, but we want the path
-			hdr.Name = path
-		}
-
-		if err = tw.WriteHeader(hdr); err != nil {
-			return err
-		}
-		if mode.IsRegular() {
-			f, err := fsys.Open(path)
-			if err != nil {
-				return err
-			}
-			defer f.Close()
-
-			// os.File implemented io.WriterTo, but fast path only used when writer is also a file
-			// tar.Writer implemented io.ReaderFrom, but it's disabled for now https://github.com/golang/go/issues/22735
-			// => ctx is added to the reader
-			if _, err = io.Copy(tw, xio.NewContextReader(ctx, f)); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-
-	if err == nil {
-		return io.NopCloser(buf), nil
-	}
-	return nil, err
+	fsys := osfs.New("/")
+	r := xfs.Read(ctx, fsys, src)
+	return r, nil
 }
 
 func (sb *sandbox) Execute(ctx context.Context, cmd, path []string, env map[string]string, workdir string, streams sandboxer.Streams) error {
