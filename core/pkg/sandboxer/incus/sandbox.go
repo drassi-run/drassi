@@ -57,20 +57,17 @@ func newSandbox(client incusclient.InstanceServer, inst string) (*sandbox, error
 
 	// init layout
 	layout := &sb.layout
+	if err := sb.fsys.MkdirAll(dir, xfs.DirPerm); err != nil {
+		return nil, err
+	}
 	dirs := map[string]fs.FileMode{
-		dir:              xfs.DirPerm,
 		layout.Workspace: xfs.DirPerm,
 		layout.Temp:      xfs.AllPerm,
 		layout.Actions:   xfs.DirPerm,
 		layout.Tools:     xfs.DirPerm,
 	}
 	for d, pem := range dirs {
-		fileArgs := incusclient.InstanceFileArgs{
-			Type:      "directory",
-			Mode:      int(pem),
-			WriteMode: "overwrite",
-		}
-		if err := client.CreateInstanceFile(inst, d, fileArgs); err != nil {
+		if err := sb.fsys.Mkdir(d, pem); err != nil {
 			return nil, err
 		}
 	}
