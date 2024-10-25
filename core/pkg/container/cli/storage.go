@@ -20,7 +20,7 @@ func (fm *flagMapper) mapStorage(copts *containerOptions) error {
 		fm.Spec.Mounts = append(fm.Spec.Mounts, mount)
 	}
 	for _, v := range copts.volumes.GetAll() {
-		if mount, err := parseVolume(v); err != nil {
+		if mount, err := ParseVolume(v); err != nil {
 			return err
 		} else {
 			fm.Spec.Mounts = append(fm.Spec.Mounts, mount)
@@ -57,7 +57,7 @@ func (fm *flagMapper) mapStorage(copts *containerOptions) error {
 	return nil
 }
 
-func parseVolume(v string) (*types.Mount, error) {
+func ParseVolume(v string) (*types.Mount, error) {
 	parsed, err := loader.ParseVolume(v)
 	if err != nil {
 		return nil, err

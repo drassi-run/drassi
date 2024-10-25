@@ -2,12 +2,23 @@ package container
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"drassi.run/core/pkg/container"
+	"drassi.run/core/pkg/container/cli"
 	"drassi.run/core/pkg/container/docker"
 	"drassi.run/core/pkg/container/types"
+	"drassi.run/core/pkg/model/records"
+	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/util/string"
+	"golang.org/x/sync/errgroup"
 )
+
+type Bootstrapper interface {
+	Bootstrap(ctx context.Context, sb sandboxer.Sandbox, req *sandboxer.LaunchRequest) (*sandboxer.LaunchResponse, error)
+}
 
 type engine struct {
 	client       container.Engine
@@ -27,37 +38,190 @@ func New(spec *ContainerSpec) (sandboxer.Engine, error) {
 	return e, nil
 }
 
+func NewBootstrapper(client container.Engine) Bootstrapper {
+	return &engine{client: client}
+}
+
 func (e *engine) Close() error {
 	return e.client.Close()
 }
 
 func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*sandboxer.LaunchResponse, error) {
-	spec := &types.ContainerSpec{
-		Image:       e.defaultImage,
-		Entrypoint:  []string{"sleep"},
-		Command:     []string{"infinity"},
-		NetworkMode: "host",
+	var sb sandboxer.Sandbox
+
+	if req.JobContainer == nil {
+		spec := &types.ContainerSpec{
+			Image:       e.defaultImage,
+			Entrypoint:  []string{"sleep"},
+			Command:     []string{"infinity"},
+			NetworkMode: "host",
+		}
+		runOpts := &container.RunOptions{
+			Stdio:   new(types.Stdio),
+			Streams: container.NewStreams(),
+		}
+		if containerId, err := e.client.ContainerRun(ctx, spec, runOpts); err != nil {
+			return nil, err
+		} else if sb, err = newSandbox(ctx, e.client, containerId); err != nil {
+			return nil, err
+		}
 	}
-	runOpts := &container.RunOptions{
-		Stdio: &types.Stdio{
-			Tty:         false,
-			Interactive: false,
-			Attach:      types.None,
-		},
-		Streams: nil,
+
+	return e.Bootstrap(ctx, sb, req)
+}
+
+func (e *engine) Bootstrap(ctx context.Context, sb sandboxer.Sandbox, req *sandboxer.LaunchRequest) (resp *sandboxer.LaunchResponse, err error) {
+	resp = &sandboxer.LaunchResponse{
+		Sandbox:         sb,
+		ContainerEngine: e.client,
 	}
-	containerId, err := e.client.ContainerRun(ctx, spec, runOpts)
-	if err != nil {
-		return nil, err
+
+	if req.JobContainer == nil && len(req.ServiceContainers) == 0 {
+		if sb == nil {
+			return nil, fmt.Errorf("NIL sandbox")
+		}
+		return resp, nil
 	}
-	sb, err := newSandbox(ctx, e.client, containerId)
+
+	labels := LabelsFor(req.Github)
+	// cleanup order is matter
+	cleanups := []sandboxer.Cleanup{
+		cleanup(labels, e.client.ContainerRemove),
+		cleanup(labels, e.client.VolumeRemove),
+		cleanup(labels, e.client.NetworkRemove),
+	}
+
+	// Create network for job container, services containers and all container actions
+	networkId, err := e.client.NetworkCreate(ctx, &types.NetworkSpec{
+		Name:   e.nameFor(req.Github),
+		Driver: "bridge",
+		Labels: labels,
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	res := &sandboxer.LaunchResponse{
-		Sandbox:         sb,
-		ContainerEngine: e.client,
+	// Run job container
+	if def := req.JobContainer; def != nil {
+		refiners := []refiner{
+			setLabels(labels),
+			setNetwork(networkId),
+			setCmd([]string{"sleep"}, []string{"infinity"}),
+		}
+		containerId, err := e.runContainer(ctx, def, refiners)
+		if err != nil {
+			return nil, err
+		}
+		resp.JobContainer = &records.Container{
+			Id:      containerId,
+			Network: networkId,
+		}
+
+		if sb, err = newSandbox(ctx, e.client, containerId); err != nil {
+			return nil, err
+		}
+		sb = sandboxer.AddAfterCleanup(sb, cleanups...)
+		if resp.Sandbox != nil {
+			resp.Sandbox = sandboxer.NewLayeredSandbox(sb, resp.Sandbox)
+		}
+	} else {
+		resp.Sandbox = sandboxer.AddBeforeCleanup(resp.Sandbox, cleanups...)
 	}
-	return res, nil
+
+	// Run services container in parallel
+	if len(req.ServiceContainers) > 0 {
+		refiners := []refiner{
+			setLabels(labels),
+			setNetwork(networkId),
+		}
+		g, ctx := errgroup.WithContext(ctx)
+		g.SetLimit(8)
+		for name, def := range req.ServiceContainers {
+			name, def := name, def
+			g.Go(func() error {
+				if containerId, err := e.runContainer(ctx, def, refiners); err != nil {
+					return err
+				} else if ports, err := e.getPortsMap(containerId); err != nil {
+					return err
+				} else {
+					resp.ServiceContainers[name] = &records.Container{
+						Id:      containerId,
+						Network: networkId,
+						Ports:   ports,
+					}
+					return nil
+				}
+			})
+		}
+		if err = g.Wait(); err != nil {
+			return nil, err
+		}
+	}
+
+	return resp, nil
+}
+
+func (e *engine) parseContainer(def *workflows.Container, refiners []refiner) (spec *types.ContainerSpec, err error) {
+	if spec, _, err = cli.Parse(def.Options); err != nil {
+		return
+	}
+
+	spec.Image = def.Image
+	for _, v := range def.Volumes {
+		if vol, err := cli.ParseVolume(v); err != nil {
+			return nil, err
+		} else {
+			spec.Mounts = append(spec.Mounts, vol)
+		}
+	}
+	//for _, p := range def.Ports {
+	//	// TODO
+	//}
+
+	for _, ref := range refiners {
+		ref(spec)
+	}
+
+	return
+}
+
+func (e *engine) runContainer(ctx context.Context, def *workflows.Container, refiners []refiner) (string, error) {
+	spec, err := e.parseContainer(def, refiners)
+	if err != nil {
+		return "", err
+	}
+
+	pullOpts := &container.PullOptions{}
+	if cred := def.Credentials; cred != nil {
+		pullOpts.RegistryAuth = container.NewBasicAuth(cred.Username, cred.Password)
+	}
+	if err = e.client.ImagePull(ctx, def.Image, pullOpts); err != nil {
+		return "", err
+	}
+
+	runOpts := &container.RunOptions{
+		Stdio:   new(types.Stdio),
+		Streams: container.NewStreams(),
+	}
+	return e.client.ContainerRun(ctx, spec, runOpts)
+}
+
+func (e *engine) nameFor(gh *records.Github) string {
+	repo := xstring.Normalize(gh.Repository)
+	repo = strings.ToLower(repo)
+
+	workflow := strings.TrimSuffix(gh.Workflow, ".yml")
+	workflow = strings.TrimSuffix(workflow, ".yaml")
+	workflow = xstring.Normalize(workflow)
+
+	job := xstring.Normalize(gh.Job)
+	run := xstring.Normalize(gh.RunId)
+	attempt := xstring.Normalize(gh.RunAttempt)
+
+	name := strings.Join([]string{repo, workflow, job, run, attempt}, "-")
+	return name
+}
+
+func (e *engine) getPortsMap(id string) (map[string]string, error) {
+	return nil, nil
 }
