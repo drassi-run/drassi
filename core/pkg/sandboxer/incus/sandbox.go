@@ -136,8 +136,8 @@ func (sb *sandbox) Execute(ctx context.Context, cmd, path []string, env map[stri
 		return err
 	} else if err = op.WaitContext(ctx); err != nil {
 		return err
-	} else if exitCode, ok := op.Get().Metadata["return"].(int); ok && exitCode != 0 {
-		return fmt.Errorf("exitcode '%d': failure", exitCode)
+	} else if exitCode, ok := op.Get().Metadata["return"]; ok && exitCode != float64(0) {
+		return fmt.Errorf("exitcode '%v': failure", exitCode)
 	}
 	return nil
 }
