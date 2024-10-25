@@ -150,7 +150,7 @@ func (e *stepExecutor) Initialize(scope *dig.Scope) error {
 		expression.WithVariable("env", e.env),
 	}
 	if e.parent != nil {
-		opts = append(opts, expression.WithLibrary(libraries.StepLib(e.step)))
+		opts = append(opts, expression.WithLibrary(libraries.StatusLib(e.step)))
 	}
 	if exprEnv, err := e.exprEnv.New(opts...); err != nil {
 		return err

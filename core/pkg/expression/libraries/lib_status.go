@@ -5,15 +5,19 @@ import (
 	"drassi.run/core/pkg/model/records"
 )
 
-func JobLib(job *records.Job) expr.Library {
-	return &jobLib{job: job}
+type StatusProvider interface {
+	Status() records.Result
 }
 
-type jobLib struct {
-	job *records.Job
+func StatusLib(p StatusProvider) expr.Library {
+	return &statusLib{StatusProvider: p}
 }
 
-func (lib *jobLib) EnvOptions() []expr.Option {
+type statusLib struct {
+	StatusProvider
+}
+
+func (lib *statusLib) EnvOptions() []expr.Option {
 	opts := []expr.Option{
 		expr.WithFunction("success", nullaryFn(lib.Success)),
 		expr.WithFunction("always", nullaryFn(lib.Always)),

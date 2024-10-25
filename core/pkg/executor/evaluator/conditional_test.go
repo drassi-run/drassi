@@ -25,7 +25,7 @@ func init() {
 	var err error
 	env, err = expression.NewEnv(
 		expression.WithLibrary(libraries.StdLib()),
-		expression.WithLibrary(libraries.JobLib(job)),
+		expression.WithLibrary(libraries.StatusLib(job)),
 		expression.WithVariable("la", la),
 		expression.WithVariable("ls", ls),
 		expression.WithVariable("ms", ms),
@@ -48,7 +48,7 @@ func testConditionalSuccess(t *testing.T) {
 	fJob.Result = records.ResultFailure
 
 	fEnv, err := env.New(
-		expression.WithLibrary(libraries.JobLib(fJob)),
+		expression.WithLibrary(libraries.StatusLib(fJob)),
 	)
 	assert.NoError(t, err)
 

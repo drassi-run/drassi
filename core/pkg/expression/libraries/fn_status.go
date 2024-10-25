@@ -6,40 +6,21 @@ import (
 	"drassi.run/core/pkg/model/records"
 )
 
-func (lib *jobLib) Always() ref.Val {
+func (lib *statusLib) Always() ref.Val {
 	return types.TRUE
 }
 
-func (lib *jobLib) Success() ref.Val {
-	r := lib.job.Result == records.ResultSuccess
+func (lib *statusLib) Success() ref.Val {
+	r := lib.Status() == records.ResultSuccess
 	return types.Boolean(r)
 }
 
-func (lib *jobLib) Failure() ref.Val {
-	r := lib.job.Result == records.ResultFailure
+func (lib *statusLib) Failure() ref.Val {
+	r := lib.Status() == records.ResultFailure
 	return types.Boolean(r)
 }
 
-func (lib *jobLib) Cancelled() ref.Val {
-	r := lib.job.Result == records.ResultCancelled
-	return types.Boolean(r)
-}
-
-func (lib *stepLib) Always() ref.Val {
-	return types.TRUE
-}
-
-func (lib *stepLib) Success() ref.Val {
-	r := lib.step.Outcome == records.ResultSuccess
-	return types.Boolean(r)
-}
-
-func (lib *stepLib) Failure() ref.Val {
-	r := lib.step.Outcome == records.ResultFailure
-	return types.Boolean(r)
-}
-
-func (lib *stepLib) Cancelled() ref.Val {
-	r := lib.step.Outcome == records.ResultCancelled
+func (lib *statusLib) Cancelled() ref.Val {
+	r := lib.Status() == records.ResultCancelled
 	return types.Boolean(r)
 }
