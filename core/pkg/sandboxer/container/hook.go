@@ -42,13 +42,13 @@ func LabelsFor(gh *records.Github) map[string]string {
 	return labels
 }
 
-type refiner = func(*types.ContainerSpec)
-
 func cleanup(labels map[string]string, fn func(context.Context, *container.RemoveOptions) error) sandboxer.Cleanup {
 	return func(ctx context.Context) error {
 		return fn(ctx, &container.RemoveOptions{Labels: labels})
 	}
 }
+
+type refiner = func(*types.ContainerSpec)
 
 func setLabels(labels map[string]string) refiner {
 	return func(spec *types.ContainerSpec) {
