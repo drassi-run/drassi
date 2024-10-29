@@ -14,7 +14,7 @@ type ContainerStorage struct {
 // [github.com/docker/docker/api/types.MountPoint]
 // [github.com/compose-spec/compose-go/v2/types.ServiceVolumeConfig]
 type Mount struct {
-	Type        string
+	Type        string // "bind", "volume", "tmpfs"
 	Source      string
 	Target      string
 	ReadOnly    bool
@@ -33,7 +33,7 @@ type BindOptions struct {
 	CreateHostPath bool
 }
 
-// VolumeOptions represents the options for a mount of type volume.
+// VolumeOptions represents the options for a mount of type "volume".
 // [github.com/docker/docker/api/types/mount.VolumeOptions]
 // [github.com/compose-spec/compose-go/v2/types.ServiceVolumeVolume]
 type VolumeOptions struct {

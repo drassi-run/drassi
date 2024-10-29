@@ -16,6 +16,15 @@ import (
 	"drassi.run/core/util/tar"
 )
 
+const jobDir = "/opt/drassi/"
+
+var defaultLayout = sandboxer.Layout{
+	Workspace: filepath.Join(jobDir, "workspace"),
+	Temp:      filepath.Join(jobDir, "temp"),
+	Actions:   filepath.Join(jobDir, "actions"),
+	Tools:     filepath.Join(jobDir, "tools"),
+}
+
 type sandbox struct {
 	engine      container.Engine
 	containerId string
@@ -24,16 +33,10 @@ type sandbox struct {
 }
 
 func newSandbox(ctx context.Context, engine container.Engine, containerId string) (*sandbox, error) {
-	dir := "/opt/drassi/"
 	sb := &sandbox{
 		engine:      engine,
 		containerId: containerId,
-		layout: sandboxer.Layout{
-			Workspace: filepath.Join(dir, "workspace"),
-			Temp:      filepath.Join(dir, "temp"),
-			Actions:   filepath.Join(dir, "actions"),
-			Tools:     filepath.Join(dir, "tools"),
-		},
+		layout:      defaultLayout,
 	}
 
 	layout := &sb.layout

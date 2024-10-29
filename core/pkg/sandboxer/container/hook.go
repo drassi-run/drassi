@@ -76,11 +76,6 @@ func setLabels(labels map[string]string) refiner {
 	}
 }
 
-func setNetwork(id string) refiner {
-	return func(spec *types.ContainerSpec) {
-	}
-}
-
 func setCmd(entrypoint, command []string) refiner {
 	return func(spec *types.ContainerSpec) {
 		if entrypoint != nil {
@@ -89,5 +84,77 @@ func setCmd(entrypoint, command []string) refiner {
 		if command != nil {
 			spec.Command = command
 		}
+	}
+}
+
+func setNetwork(id string) refiner {
+	return func(spec *types.ContainerSpec) {
+	}
+}
+
+func addSandboxMounts(sb sandboxer.Sandbox) refiner {
+	mounts := make([]*types.Mount, 0)
+	if sb == nil {
+		m := &types.Mount{
+			Type:   "volume",
+			Source: "", // anonymous volume
+			Target: jobDir,
+		}
+		mounts = append(mounts, m)
+	} else {
+		layout := sb.Layout()
+		dir := map[string]string{
+			defaultLayout.Workspace: layout.Workspace,
+			defaultLayout.Temp:      layout.Temp,
+		}
+		for k, v := range dir {
+			m := &types.Mount{
+				Type:   "bind",
+				Source: v,
+				Target: k,
+			}
+			mounts = append(mounts, m)
+		}
+	}
+
+	return func(spec *types.ContainerSpec) {
+		spec.Mounts = append(spec.Mounts, mounts...)
+	}
+}
+
+func addContainerSocketMounts(c container.Engine) refiner {
+	socket := c.Address()
+	if proto, loc, ok := strings.Cut(socket, "://"); ok {
+		if proto == "unix" {
+			socket = loc
+		} else {
+			return func(container *types.ContainerSpec) {}
+		}
+	}
+	return func(spec *types.ContainerSpec) {
+		m := &types.Mount{
+			Type:   "bind",
+			Source: socket,
+			Target: socket,
+		}
+		spec.Mounts = append(spec.Mounts, m)
+	}
+}
+
+func setWorkdir(dir string) refiner {
+	return func(spec *types.ContainerSpec) {
+		if spec.WorkingDir != "" {
+			spec.WorkingDir = dir
+		}
+	}
+}
+
+func setCIEnv() refiner {
+	return func(spec *types.ContainerSpec) {
+		if spec.Environment == nil {
+			spec.Environment = make(map[string]string)
+		}
+		spec.Environment["CI"] = "true"
+		spec.Environment["GITHUB_ACTIONS"] = "true"
 	}
 }

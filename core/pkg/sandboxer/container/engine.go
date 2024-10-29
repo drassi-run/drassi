@@ -3,6 +3,7 @@ package container
 import (
 	"context"
 	"fmt"
+	"maps"
 	"strings"
 
 	"drassi.run/core/pkg/container"
@@ -104,9 +105,13 @@ func (e *engine) Bootstrap(ctx context.Context, sb sandboxer.Sandbox, req *sandb
 	// Run job container
 	if def := req.JobContainer; def != nil {
 		refiners := []refiner{
-			setLabels(labels),
-			setNetwork(networkId),
 			setCmd([]string{"sleep"}, []string{"infinity"}),
+			setWorkdir(defaultLayout.Workspace),
+			setNetwork(networkId),
+			addSandboxMounts(sb),
+			addContainerSocketMounts(e.client),
+			setLabels(labels),
+			setCIEnv(),
 		}
 		containerId, err := e.runContainer(ctx, def, refiners)
 		if err != nil {
@@ -131,8 +136,8 @@ func (e *engine) Bootstrap(ctx context.Context, sb sandboxer.Sandbox, req *sandb
 	// Run services container in parallel
 	if len(req.ServiceContainers) > 0 {
 		refiners := []refiner{
-			setLabels(labels),
 			setNetwork(networkId),
+			setLabels(labels),
 		}
 		g, ctx := errgroup.WithContext(ctx)
 		g.SetLimit(8)
@@ -167,6 +172,12 @@ func (e *engine) parseContainer(def *workflows.Container, refiners []refiner) (s
 	}
 
 	spec.Image = def.Image
+	if env := def.Env; len(env) > 0 {
+		if spec.Environment == nil {
+			spec.Environment = make(map[string]string)
+		}
+		maps.Copy(spec.Environment, env)
+	}
 	for _, v := range def.Volumes {
 		if vol, err := cli.ParseVolume(v); err != nil {
 			return nil, err
@@ -178,8 +189,8 @@ func (e *engine) parseContainer(def *workflows.Container, refiners []refiner) (s
 	//	// TODO
 	//}
 
-	for _, ref := range refiners {
-		ref(spec)
+	for _, fn := range refiners {
+		fn(spec)
 	}
 
 	return
