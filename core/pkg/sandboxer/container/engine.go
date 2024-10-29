@@ -191,6 +191,7 @@ func (e *engine) runContainer(ctx context.Context, def *workflows.Container, ref
 		return "", err
 	}
 
+	// TODO: set image PullPolicy
 	pullOpts := &container.PullOptions{}
 	if cred := def.Credentials; cred != nil {
 		pullOpts.RegistryAuth = container.NewBasicAuth(cred.Username, cred.Password)

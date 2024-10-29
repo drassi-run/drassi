@@ -54,6 +54,22 @@ func (e *engine) Address() string {
 }
 
 func (e *engine) ImagePull(ctx context.Context, ref string, opts *container.PullOptions) error {
+	switch opts.PullPolicy {
+	case "never":
+		return nil
+	case "", "missing":
+		_, _, err := e.client.ImageInspectWithRaw(ctx, ref)
+		if err == nil { // image existed
+			return nil
+		}
+		if !dockererr.IsNotFound(err) {
+			return err
+		}
+	case "always":
+	default:
+		return fmt.Errorf("unknown image pull policy: %s", opts.PullPolicy)
+	}
+
 	var cred string
 	if opts.RegistryAuth != nil {
 		cred = opts.RegistryAuth.Credential()
