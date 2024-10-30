@@ -1,9 +1,9 @@
 package types
 
 import (
-	"github.com/compose-spec/compose-go/v2/types"
-	"github.com/docker/go-units"
 	"time"
+
+	"github.com/compose-spec/compose-go/v2/types"
 )
 
 //// [x]: supported     [~]: renamed     [-]: not supported     [ ]: WIP
@@ -116,7 +116,6 @@ import (
 //	Extensions Extensions `yaml:"#extensions,inline,omitempty" json:"-"`
 //}
 
-//goland:noinspection GoNameStartsWithPackageName,SpellCheckingInspection
 type ContainerSpec struct {
 	Name        string        `yaml:"container_name,omitempty" json:"container_name,omitempty"`
 	Command     []string      `yaml:"command,omitempty" json:"command"`
@@ -167,61 +166,18 @@ type ContainerSpec struct {
 	Sysctls     types.Mapping `yaml:"sysctls,omitempty" json:"sysctls,omitempty"`
 }
 
-//goland:noinspection GoNameStartsWithPackageName,SpellCheckingInspection
-type ContainerResource struct {
-	//// Applicable to all platforms
-	CPUShares int64
-	CPUS      string
-	Memory    int64
-
-	//// Applicable to Windows
-	CPUCount           int64
-	CPUPercent         float32
-	IOMaximumIOps      uint64
-	IOMaximumBandwidth uint64
-
-	//// Applicable to UNIX
-	CPUPeriod      int64
-	CPUQuota       int64
-	CPURTPeriod    int64
-	CPURTRuntime   int64
-	CpusetCpus     string
-	CpusetMems     string
-	MemReservation int64
-	MemSwapLimit   int64
-	MemSwappiness  int64
-	ShmSize        int64
-	OomKillDisable bool
-	OomScoreAdj    int64
-	PidsLimit      int64
-
-	BlkioConfig *BlkioConfig
-	Ulimits     []*units.Ulimit
-}
-
-// BlkioConfig define blkio config
-// [github.com/compose-spec/compose-go/v2/types.BlkioConfig]
-type BlkioConfig struct {
-	Weight          uint16
-	WeightDevice    []WeightDevice
-	DeviceReadBps   []ThrottleDevice
-	DeviceReadIOps  []ThrottleDevice
-	DeviceWriteBps  []ThrottleDevice
-	DeviceWriteIOps []ThrottleDevice
-}
-
 // LoggingConfig is identical with compose LoggingConfig
-// [github.com/docker/docker/api/types/container.LogConfig]
-// [github.com/compose-spec/compose-go/v2/types.LoggingConfig]
+//   - [github.com/docker/docker/api/types/container.LogConfig]
+//   - [github.com/compose-spec/compose-go/v2/types.LoggingConfig]
 type LoggingConfig struct {
 	Driver  string
 	Options map[string]string
 }
 
 // HealthCheckConfig is identical with docker's HealthConfig
-// [github.com/docker/docker/api/types/container.HealthConfig]
-// [github.com/compose-spec/compose-go/v2/types.HealthCheckConfig]
-// [github.com/containers/image/v5/manifest.Schema2HealthConfig]
+//   - [github.com/docker/docker/api/types/container.HealthConfig]
+//   - [github.com/compose-spec/compose-go/v2/types.HealthCheckConfig]
+//   - [github.com/containers/image/v5/manifest.Schema2HealthConfig]
 type HealthCheckConfig struct {
 	Test          []string
 	Timeout       time.Duration

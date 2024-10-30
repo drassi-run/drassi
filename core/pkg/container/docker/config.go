@@ -6,8 +6,6 @@ import (
 
 	"drassi.run/core/pkg/container/types"
 	composetypes "github.com/compose-spec/compose-go/v2/types"
-	dockeropts "github.com/docker/cli/opts"
-	"github.com/docker/docker/api/types/blkiodev"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	dockernetwork "github.com/docker/docker/api/types/network"
 )
@@ -19,47 +17,6 @@ type containerConfig struct {
 }
 
 func (cc *containerConfig) From(spec *types.ContainerSpec, stdio *types.Stdio) error {
-	resources := dockercontainer.Resources{
-		CgroupParent:      spec.CgroupParent,
-		Memory:            spec.Memory,
-		MemoryReservation: spec.MemReservation,
-		MemorySwap:        spec.MemSwapLimit,
-		MemorySwappiness:  pointerOf(spec.MemSwappiness),
-		//KernelMemory:         spec.kernelMemory,
-		OomKillDisable:     &spec.OomKillDisable,
-		CPUCount:           spec.CPUCount,
-		CPUPercent:         int64(spec.CPUPercent * 100),
-		CPUShares:          spec.CPUShares,
-		CPUPeriod:          spec.CPUPeriod,
-		CpusetCpus:         spec.CpusetCpus,
-		CpusetMems:         spec.CpusetMems,
-		CPUQuota:           spec.CPUQuota,
-		CPURealtimePeriod:  spec.CPURTPeriod,
-		CPURealtimeRuntime: spec.CPURTRuntime,
-		PidsLimit:          &spec.PidsLimit,
-		IOMaximumIOps:      spec.IOMaximumIOps,
-		IOMaximumBandwidth: spec.IOMaximumBandwidth,
-		Ulimits:            spec.Ulimits,
-		DeviceCgroupRules:  spec.DeviceCgroupRules,
-		//Devices:           spec.Devices,
-		//DeviceRequests:    deviceRequests,
-	}
-	if spec.CPUS != "" {
-		if cpu, err := dockeropts.ParseCPUs(spec.CPUS); err != nil {
-			return err
-		} else {
-			resources.NanoCPUs = cpu
-		}
-	}
-	if blkio := spec.BlkioConfig; blkio != nil {
-		resources.BlkioWeight = blkio.Weight
-		resources.BlkioWeightDevice = cc.blkioWeightDeviceFrom(blkio.WeightDevice)
-		resources.BlkioDeviceReadBps = cc.blkioThrottleDeviceFrom(blkio.DeviceReadBps)
-		resources.BlkioDeviceWriteBps = cc.blkioThrottleDeviceFrom(blkio.DeviceWriteBps)
-		resources.BlkioDeviceReadIOps = cc.blkioThrottleDeviceFrom(blkio.DeviceReadIOps)
-		resources.BlkioDeviceWriteIOps = cc.blkioThrottleDeviceFrom(blkio.DeviceWriteIOps)
-	}
-
 	cc.Config = &dockercontainer.Config{
 		User:         spec.User,
 		Tty:          stdio.Tty,
@@ -78,13 +35,8 @@ func (cc *containerConfig) From(spec *types.ContainerSpec, stdio *types.Stdio) e
 		StopSignal:  spec.StopSignal,
 		StopTimeout: cc.stopTimeoutFrom(spec.StopGracePeriod),
 	}
-	if hc := spec.HealthCheck; hc != nil {
-		cc.setHealCheck(spec.HealthCheck)
-	}
 
 	cc.HostConfig = &dockercontainer.HostConfig{
-		ContainerIDFile: "",
-		OomScoreAdj:     int(spec.OomScoreAdj),
 		//AutoRemove:      spec.AutoRemove,
 		Privileged:   spec.Privileged,
 		IpcMode:      dockercontainer.IpcMode(spec.IpcMode),
@@ -100,46 +52,24 @@ func (cc *containerConfig) From(spec *types.ContainerSpec, stdio *types.Stdio) e
 		SecurityOpt: spec.SecurityOpt,
 		LogConfig:   cc.logConfigFrom(spec.Logging),
 		Isolation:   dockercontainer.Isolation(spec.Isolation),
-		ShmSize:     int64(spec.ShmSize),
-		Resources:   resources,
 		Sysctls:     spec.Sysctls,
 		Runtime:     spec.Runtime,
 		//MaskedPaths:   maskedPaths,
 		Annotations: spec.Annotations,
 	}
 
+	if hc := spec.HealthCheck; hc != nil {
+		cc.setHealCheck(spec.HealthCheck)
+	}
+
+	if err := cc.setResources(&spec.ContainerResource); err != nil {
+		return err
+	}
+
 	cc.setStorage(&spec.ContainerStorage)
 	cc.setNetwork(&spec.ContainerNetwork)
 
 	return nil
-}
-
-func (cc *containerConfig) blkioWeightDeviceFrom(wd []types.WeightDevice) []*blkiodev.WeightDevice {
-	if len(wd) == 0 {
-		return nil
-	}
-	a := make([]*blkiodev.WeightDevice, len(wd))
-	for i, w := range wd {
-		a[i] = &blkiodev.WeightDevice{
-			Path:   w.Path,
-			Weight: w.Weight,
-		}
-	}
-	return a
-}
-
-func (cc *containerConfig) blkioThrottleDeviceFrom(td []types.ThrottleDevice) []*blkiodev.ThrottleDevice {
-	if len(td) == 0 {
-		return nil
-	}
-	a := make([]*blkiodev.ThrottleDevice, len(td))
-	for i, t := range td {
-		a[i] = &blkiodev.ThrottleDevice{
-			Path: t.Path,
-			Rate: t.Rate,
-		}
-	}
-	return a
 }
 
 func (cc *containerConfig) logConfigFrom(lc *types.LoggingConfig) dockercontainer.LogConfig {
@@ -181,8 +111,4 @@ func convertMapToKVString(m map[string]string) []string {
 		r = append(r, fmt.Sprintf("%s=%s", k, v))
 	}
 	return r
-}
-
-func pointerOf[V any](value V) *V {
-	return &value
 }
