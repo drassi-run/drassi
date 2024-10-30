@@ -2,10 +2,8 @@ package docker
 
 import (
 	"fmt"
-	"time"
 
 	"drassi.run/core/pkg/container/types"
-	composetypes "github.com/compose-spec/compose-go/v2/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	dockernetwork "github.com/docker/docker/api/types/network"
 )
@@ -28,16 +26,12 @@ func (cc *containerConfig) From(spec *types.ContainerSpec, stdio *types.Stdio) e
 		Cmd:          spec.Command,
 		Image:        spec.Image,
 		Volumes:      nil,
-		//MacAddress:   spec.MacAddress,
-		Entrypoint:  spec.Entrypoint,
-		WorkingDir:  spec.WorkingDir,
-		Labels:      spec.Labels,
-		StopSignal:  spec.StopSignal,
-		StopTimeout: cc.stopTimeoutFrom(spec.StopGracePeriod),
+		Entrypoint:   spec.Entrypoint,
+		WorkingDir:   spec.WorkingDir,
+		Labels:       spec.Labels,
 	}
 
 	cc.HostConfig = &dockercontainer.HostConfig{
-		//AutoRemove:      spec.AutoRemove,
 		Privileged:   spec.Privileged,
 		IpcMode:      dockercontainer.IpcMode(spec.IpcMode),
 		NetworkMode:  dockercontainer.NetworkMode(spec.NetworkMode),
@@ -48,57 +42,20 @@ func (cc *containerConfig) From(spec *types.ContainerSpec, stdio *types.Stdio) e
 		CapAdd:       spec.CapAdd,
 		CapDrop:      spec.CapDrop,
 		GroupAdd:     spec.GroupAdd,
-		//RestartPolicy:  restartPolicy,
-		SecurityOpt: spec.SecurityOpt,
-		LogConfig:   cc.logConfigFrom(spec.Logging),
-		Isolation:   dockercontainer.Isolation(spec.Isolation),
-		Sysctls:     spec.Sysctls,
-		Runtime:     spec.Runtime,
+		SecurityOpt:  spec.SecurityOpt,
+		Sysctls:      spec.Sysctls,
 		//MaskedPaths:   maskedPaths,
 		Annotations: spec.Annotations,
-	}
-
-	if hc := spec.HealthCheck; hc != nil {
-		cc.setHealCheck(spec.HealthCheck)
 	}
 
 	if err := cc.setResources(&spec.ContainerResource); err != nil {
 		return err
 	}
-
+	cc.setRuntime(&spec.ContainerRuntime)
 	cc.setStorage(&spec.ContainerStorage)
 	cc.setNetwork(&spec.ContainerNetwork)
 
 	return nil
-}
-
-func (cc *containerConfig) logConfigFrom(lc *types.LoggingConfig) dockercontainer.LogConfig {
-	if lc == nil {
-		return dockercontainer.LogConfig{}
-	}
-	return dockercontainer.LogConfig{
-		Type:   lc.Driver,
-		Config: lc.Options,
-	}
-}
-
-func (cc *containerConfig) setHealCheck(hc *types.HealthCheckConfig) {
-	cc.Config.Healthcheck = &dockercontainer.HealthConfig{
-		Test:          hc.Test,
-		Timeout:       hc.Timeout,
-		Interval:      hc.Interval,
-		Retries:       hc.Retries,
-		StartPeriod:   hc.StartPeriod,
-		StartInterval: hc.StartInterval,
-	}
-}
-
-func (cc *containerConfig) stopTimeoutFrom(d *composetypes.Duration) *int {
-	if d == nil {
-		return nil
-	}
-	s := int(time.Duration(*d).Seconds())
-	return &s
 }
 
 func convertMapToKVString(m map[string]string) []string {

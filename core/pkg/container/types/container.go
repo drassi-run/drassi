@@ -1,8 +1,6 @@
 package types
 
 import (
-	"time"
-
 	"github.com/compose-spec/compose-go/v2/types"
 )
 
@@ -98,7 +96,7 @@ import (
 //	[x] SecurityOpt     []string                         `yaml:"security_opt,omitempty" json:"security_opt,omitempty"`
 //	[x] ShmSize         UnitBytes                        `yaml:"shm_size,omitempty" json:"shm_size,omitempty"`
 //	[ ] StdinOpen       bool                             `yaml:"stdin_open,omitempty" json:"stdin_open,omitempty"`
-//	[x] StopGracePeriod *Duration                        `yaml:"stop_grace_period,omitempty" json:"stop_grace_period,omitempty"`
+//	[x] StopTimeout *Duration                        `yaml:"stop_grace_period,omitempty" json:"stop_grace_period,omitempty"`
 //	[x] StopSignal      string                           `yaml:"stop_signal,omitempty" json:"stop_signal,omitempty"`
 //	[x] StorageOpt      map[string]string                `yaml:"storage_opt,omitempty" json:"storage_opt,omitempty"`
 //	[x] Sysctls         Mapping                          `yaml:"sysctls,omitempty" json:"sysctls,omitempty"`
@@ -136,13 +134,7 @@ type ContainerSpec struct {
 	DeviceCgroupRules []string `yaml:"device_cgroup_rules,omitempty" json:"device_cgroup_rules,omitempty"`
 
 	// Runtime
-	Runtime         string             `yaml:"runtime,omitempty" json:"runtime,omitempty"`
-	Platform        string             `yaml:"platform,omitempty" json:"platform,omitempty"`
-	Isolation       string             `yaml:"isolation,omitempty" json:"isolation,omitempty"` // Windows only
-	StopSignal      string             `yaml:"stop_signal,omitempty" json:"stop_signal,omitempty"`
-	StopGracePeriod *types.Duration    `yaml:"stop_grace_period,omitempty" json:"stop_grace_period,omitempty"`
-	Logging         *LoggingConfig     `yaml:"logging,omitempty" json:"logging,omitempty"`
-	HealthCheck     *HealthCheckConfig `yaml:"healthcheck,omitempty" json:"healthcheck,omitempty"`
+	ContainerRuntime
 
 	// Resources
 	ContainerResource
@@ -164,25 +156,4 @@ type ContainerSpec struct {
 	Privileged  bool          `yaml:"privileged,omitempty" json:"privileged,omitempty"`
 	SecurityOpt []string      `yaml:"security_opt,omitempty" json:"security_opt,omitempty"`
 	Sysctls     types.Mapping `yaml:"sysctls,omitempty" json:"sysctls,omitempty"`
-}
-
-// LoggingConfig is identical with compose LoggingConfig
-//   - [github.com/docker/docker/api/types/container.LogConfig]
-//   - [github.com/compose-spec/compose-go/v2/types.LoggingConfig]
-type LoggingConfig struct {
-	Driver  string
-	Options map[string]string
-}
-
-// HealthCheckConfig is identical with docker's HealthConfig
-//   - [github.com/docker/docker/api/types/container.HealthConfig]
-//   - [github.com/compose-spec/compose-go/v2/types.HealthCheckConfig]
-//   - [github.com/containers/image/v5/manifest.Schema2HealthConfig]
-type HealthCheckConfig struct {
-	Test          []string
-	Timeout       time.Duration
-	Interval      time.Duration
-	Retries       int
-	StartPeriod   time.Duration
-	StartInterval time.Duration
 }
