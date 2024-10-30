@@ -127,33 +127,11 @@ type ContainerSpec struct {
 
 	// Networking
 	ContainerNetwork
-
-	// Storage & Device
 	ContainerStorage
 	Devices           []string `yaml:"devices,omitempty" json:"devices,omitempty"`
 	DeviceCgroupRules []string `yaml:"device_cgroup_rules,omitempty" json:"device_cgroup_rules,omitempty"`
 
-	// Runtime
 	ContainerRuntime
-
-	// Resources
 	ContainerResource
-
-	// Namespace & CGroup
-	NetworkMode  string `yaml:"network_mode,omitempty" json:"network_mode,omitempty"`
-	IpcMode      string `yaml:"ipc,omitempty" json:"ipc,omitempty"`
-	PidMode      string `yaml:"pid,omitempty" json:"pid,omitempty"`
-	UTSMode      string `yaml:"uts,omitempty" json:"uts,omitempty"`
-	UserMode     string `yaml:"userns_mode,omitempty" json:"userns_mode,omitempty"`
-	CgroupMode   string `yaml:"cgroup,omitempty" json:"cgroup,omitempty"`
-	CgroupParent string `yaml:"cgroup_parent,omitempty" json:"cgroup_parent,omitempty"`
-
-	// Security
-	User        string        `yaml:"user,omitempty" json:"user,omitempty"`
-	GroupAdd    []string      `yaml:"group_add,omitempty" json:"group_add,omitempty"`
-	CapAdd      []string      `yaml:"cap_add,omitempty" json:"cap_add,omitempty"`
-	CapDrop     []string      `yaml:"cap_drop,omitempty" json:"cap_drop,omitempty"`
-	Privileged  bool          `yaml:"privileged,omitempty" json:"privileged,omitempty"`
-	SecurityOpt []string      `yaml:"security_opt,omitempty" json:"security_opt,omitempty"`
-	Sysctls     types.Mapping `yaml:"sysctls,omitempty" json:"sysctls,omitempty"`
+	ContainerSecurity
 }

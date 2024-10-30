@@ -1,15 +1,8 @@
 package cli
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
-	"os"
-	"strings"
-
 	"drassi.run/core/pkg/container/types"
 	"github.com/docker/cli/opts"
-	docker "github.com/docker/docker/api/types/container"
 	"github.com/google/shlex"
 	"github.com/spf13/pflag"
 )
@@ -75,49 +68,10 @@ func (fm *flagMapper) Map(flags *pflag.FlagSet, copts *containerOptions) error {
 		return err
 	}
 
-	// Namespace & CGroup
-	networkMode := docker.NetworkMode(copts.netMode.NetworkMode())
-	fm.Spec.NetworkMode = string(networkMode)
-
-	if pidMode := docker.PidMode(copts.pidMode); !pidMode.Valid() {
-		return fmt.Errorf("--pid: invalid PID mode")
-	} else {
-		fm.Spec.PidMode = string(pidMode)
-	}
-
-	if utsMode := docker.UTSMode(copts.utsMode); !utsMode.Valid() {
-		return fmt.Errorf("--uts: invalid UTS mode")
-	} else {
-		fm.Spec.UTSMode = string(utsMode)
-	}
-
-	if usernsMode := docker.UsernsMode(copts.usernsMode); !usernsMode.Valid() {
-		return fmt.Errorf("--userns: invalid USER mode")
-	} else {
-		fm.Spec.UserMode = string(usernsMode)
-	}
-
-	if cgroupnsMode := docker.CgroupnsMode(copts.cgroupnsMode); !cgroupnsMode.Valid() {
-		return fmt.Errorf("--cgroupns: invalid CGROUP mode")
-	} else {
-		fm.Spec.CgroupMode = string(cgroupnsMode)
-	}
-	fm.Spec.CgroupParent = copts.cgroupParent
-
 	// Security
-	fm.Spec.User = copts.user
-	fm.Spec.GroupAdd = copts.groupAdd.GetAll()
-	fm.Spec.CapAdd = copts.capAdd.GetAll()
-	fm.Spec.CapDrop = copts.capDrop.GetAll()
-	fm.Spec.Privileged = copts.privileged
-	fm.Spec.SecurityOpt = copts.securityOpt.GetAll()
-
-	securityOpts, err := parseSecurityOpts(copts.securityOpt.GetAll())
-	if err != nil {
+	if err := fm.mapSecurity(copts); err != nil {
 		return err
 	}
-	fm.Spec.SecurityOpt = securityOpts // TODO: parseSystemPaths https://github.com/docker/cli/blob/26.0/cli/command/container/opts.go#L542
-	fm.Spec.Sysctls = copts.sysctls.GetAll()
 
 	return nil
 }
@@ -139,47 +93,4 @@ func (fm *flagMapper) mapStdio(copts *containerOptions) {
 	if copts.attach.Len() == 0 {
 		fm.Stdio.Attach |= types.Stdout | types.Stderr
 	}
-}
-
-const (
-	// seccompProfileDefault is the built-in default seccomp profile.
-	seccompProfileDefault = "builtin"
-	// seccompProfileUnconfined is a special profile name for seccomp to use an
-	// "unconfined" seccomp profile.
-	seccompProfileUnconfined = "unconfined"
-)
-
-// takes a local seccomp daemon, reads the file contents for sending to the daemon
-// https://github.com/docker/cli/blob/v27.3.1/cli/command/container/opts.go#L921-L952
-func parseSecurityOpts(securityOpts []string) ([]string, error) {
-	for key, opt := range securityOpts {
-		k, v, ok := strings.Cut(opt, "=")
-		if !ok && k != "no-new-privileges" {
-			k, v, ok = strings.Cut(opt, ":")
-		}
-		if (!ok || v == "") && k != "no-new-privileges" {
-			// "no-new-privileges" is the only option that does not require a value.
-			return securityOpts, fmt.Errorf("invalid --security-opt: %q", opt)
-		}
-		if k == "seccomp" {
-			switch v {
-			case seccompProfileDefault, seccompProfileUnconfined:
-				// known special names for built-in profiles, nothing to do.
-			default:
-				// value may be a filename, in which case we send the profile's
-				// content if it's valid JSON.
-				f, err := os.ReadFile(v)
-				if err != nil {
-					return securityOpts, fmt.Errorf("opening seccomp profile (%s) failed: %w", v, err)
-				}
-				b := bytes.NewBuffer(nil)
-				if err := json.Compact(b, f); err != nil {
-					return securityOpts, fmt.Errorf("compacting json for seccomp profile (%s) failed: %w", v, err)
-				}
-				securityOpts[key] = fmt.Sprintf("seccomp=%s", b.Bytes())
-			}
-		}
-	}
-
-	return securityOpts, nil
 }

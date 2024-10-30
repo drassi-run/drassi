@@ -52,11 +52,11 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*san
 
 	if req.JobContainer == nil {
 		spec := &types.ContainerSpec{
-			Image:       e.defaultImage,
-			Entrypoint:  []string{"sleep"},
-			Command:     []string{"infinity"},
-			NetworkMode: "host",
+			Image:      e.defaultImage,
+			Entrypoint: []string{"sleep"},
+			Command:    []string{"infinity"},
 		}
+		spec.NetworkMode = "host"
 		runOpts := &container.RunOptions{
 			Stdio:   new(types.Stdio),
 			Streams: container.NewStreams(),
