@@ -7,7 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"drassi.run/core/pkg/container/docker"
 	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/pkg/sandboxer/container"
 	"drassi.run/core/util/fs"
 	"drassi.run/core/util/path"
 	"drassi.run/core/util/string"
@@ -39,15 +41,19 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*san
 	sandboxDir := e.sandboxDir(req)
 	sandboxDir = filepath.Join(e.spec.RootDir, sandboxDir)
 
-	if sb, err := newSandbox(sandboxDir); err != nil {
+	sb, err := newSandbox(sandboxDir)
+	if err != nil {
 		return nil, err
-	} else {
-		sb.layout.Runtimes = e.spec.RuntimeDir
-		res := &sandboxer.LaunchResponse{
-			Sandbox: sb,
-		}
-		return res, nil
 	}
+	sb.layout.Runtimes = e.spec.RuntimeDir
+
+	client, err := docker.New()
+	if err != nil {
+		return nil, err
+	}
+
+	b := container.NewBootstrapper(client)
+	return b.Bootstrap(ctx, sb, req)
 }
 
 func (e *engine) sandboxDir(req *sandboxer.LaunchRequest) string {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/util/string"
 	incusclient "github.com/lxc/incus/v6/client"
@@ -33,7 +34,7 @@ func (e *engine) Close() error {
 }
 
 func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*sandboxer.LaunchResponse, error) {
-	name := e.sandboxName(req)
+	name := e.sandboxName(req.Github)
 	iReq := incusapi.InstancesPost{
 		Name:         name,
 		Start:        true,
@@ -67,17 +68,17 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*san
 	}
 }
 
-func (e *engine) sandboxName(req *sandboxer.LaunchRequest) string {
-	repo := xstring.Normalize(req.Github.Repository)
+func (e *engine) sandboxName(gh *records.Github) string {
+	repo := xstring.Normalize(gh.Repository)
 	repo = strings.ToLower(repo)
 
-	workflow := strings.TrimSuffix(req.Github.Workflow, ".yml")
+	workflow := strings.TrimSuffix(gh.Workflow, ".yml")
 	workflow = strings.TrimSuffix(workflow, ".yaml")
 	workflow = xstring.Normalize(workflow)
 
-	job := xstring.Normalize(req.Github.Job)
-	run := xstring.Normalize(req.Github.RunId)
-	attempt := xstring.Normalize(req.Github.RunAttempt)
+	job := xstring.Normalize(gh.Job)
+	run := xstring.Normalize(gh.RunId)
+	attempt := xstring.Normalize(gh.RunAttempt)
 
 	name := strings.Join([]string{repo, workflow, job, run, attempt}, "-")
 	name = strings.ReplaceAll(name, "_", "-")
