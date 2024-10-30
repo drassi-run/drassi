@@ -60,26 +60,8 @@ func (fm *flagMapper) Map(flags *pflag.FlagSet, copts *containerOptions) error {
 	}
 
 	// Networking
-	//TODO: networks
-	if publishOpts := copts.publish.GetAll(); len(publishOpts) > 0 {
-		for _, opt := range publishOpts {
-			if conf, err := composetypes.ParsePortConfig(opt); err != nil {
-				return err
-			} else {
-				fm.Spec.Ports = append(fm.Spec.Ports, conf...)
-			}
-		}
-	}
-	fm.Spec.Expose = copts.expose.GetAll()
-	fm.Spec.DNS = copts.dns.GetAll()
-	fm.Spec.DNSOpts = copts.dnsOptions.GetAll()
-	fm.Spec.DNSSearch = copts.dnsSearch.GetAll()
-	fm.Spec.DomainName = copts.domainname
-	fm.Spec.Hostname = copts.hostname
-	if extraHosts, err := composetypes.NewHostsList(copts.extraHosts.GetAll()); err != nil {
+	if err := fm.mapNetwork(copts); err != nil {
 		return err
-	} else {
-		fm.Spec.ExtraHosts = extraHosts
 	}
 
 	// Storage & Device

@@ -129,15 +129,7 @@ type ContainerSpec struct {
 	PullPolicy  string        `yaml:"pull_policy,omitempty" json:"pull_policy,omitempty"`
 
 	// Networking
-	Networks   map[string]*types.ServiceNetworkConfig `yaml:"networks,omitempty" json:"networks,omitempty"`
-	Ports      []types.ServicePortConfig              `yaml:"ports,omitempty" json:"ports,omitempty"`
-	Expose     types.StringOrNumberList               `yaml:"expose,omitempty" json:"expose,omitempty"`
-	DNS        types.StringList                       `yaml:"dns,omitempty" json:"dns,omitempty"`
-	DNSOpts    []string                               `yaml:"dns_opt,omitempty" json:"dns_opt,omitempty"`
-	DNSSearch  types.StringList                       `yaml:"dns_search,omitempty" json:"dns_search,omitempty"`
-	DomainName string                                 `yaml:"domainname,omitempty" json:"domainname,omitempty"`
-	Hostname   string                                 `yaml:"hostname,omitempty" json:"hostname,omitempty"`
-	ExtraHosts types.HostsList                        `yaml:"extra_hosts,omitempty" json:"extra_hosts,omitempty"`
+	ContainerNetwork
 
 	// Storage & Device
 	ContainerStorage

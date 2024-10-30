@@ -11,7 +11,6 @@ import (
 	dockercontainer "github.com/docker/docker/api/types/container"
 	dockermount "github.com/docker/docker/api/types/mount"
 	dockernetwork "github.com/docker/docker/api/types/network"
-	"github.com/docker/go-connections/nat"
 )
 
 type containerConfig struct {
@@ -63,9 +62,6 @@ func (cc *containerConfig) From(spec *types.ContainerSpec, stdio *types.Stdio) e
 	}
 
 	cc.Config = &dockercontainer.Config{
-		Hostname:     spec.Hostname,
-		Domainname:   spec.DomainName,
-		ExposedPorts: cc.exposedPortsFrom(spec.Ports),
 		User:         spec.User,
 		Tty:          stdio.Tty,
 		OpenStdin:    stdio.Interactive,
@@ -92,14 +88,8 @@ func (cc *containerConfig) From(spec *types.ContainerSpec, stdio *types.Stdio) e
 		ContainerIDFile: "",
 		OomScoreAdj:     int(spec.OomScoreAdj),
 		//AutoRemove:      spec.AutoRemove,
-		Privileged:   spec.Privileged,
-		PortBindings: cc.portBindingsFrom(spec.Ports),
+		Privileged: spec.Privileged,
 		//Links:           spec.links.GetAll(),
-		//PublishAllPorts: spec.publishAll,
-		DNS:        spec.DNS,
-		DNSSearch:  spec.DNSSearch,
-		DNSOptions: spec.DNSOpts,
-		ExtraHosts: spec.ExtraHosts.AsList("="),
 		//VolumesFrom:    spec.volumesFrom.GetAll(),
 		IpcMode:      dockercontainer.IpcMode(spec.IpcMode),
 		NetworkMode:  dockercontainer.NetworkMode(spec.NetworkMode),
@@ -128,44 +118,8 @@ func (cc *containerConfig) From(spec *types.ContainerSpec, stdio *types.Stdio) e
 		cc.setMount(spec.Mounts)
 	}
 
-	cc.NetworkingConfig = &dockernetwork.NetworkingConfig{
-		EndpointsConfig: cc.networkEndpointsFrom(spec.Networks),
-	}
-	return nil
-}
+	cc.setNetwork(&spec.ContainerNetwork)
 
-func (cc *containerConfig) networkEndpointsFrom(m map[string]*composetypes.ServiceNetworkConfig) map[string]*dockernetwork.EndpointSettings {
-	if len(m) == 0 {
-		return nil
-	}
-	networks := make(map[string]*dockernetwork.EndpointSettings, len(m))
-	for k, v := range m {
-		if v == nil {
-			networks[k] = nil
-			continue
-		}
-		ep := dockernetwork.EndpointSettings{
-			Aliases:    v.Aliases,
-			MacAddress: v.MacAddress,
-			DriverOpts: v.DriverOpts,
-		}
-		if v.Ipv4Address != "" || v.Ipv6Address != "" || len(v.LinkLocalIPs) > 0 {
-			ep.IPAMConfig = &dockernetwork.EndpointIPAMConfig{
-				IPv4Address:  v.Ipv4Address,
-				IPv6Address:  v.Ipv6Address,
-				LinkLocalIPs: v.LinkLocalIPs,
-			}
-		}
-		networks[k] = &ep
-	}
-	return networks
-}
-
-func (cc *containerConfig) exposedPortsFrom(ports []composetypes.ServicePortConfig) nat.PortSet {
-	return nil
-}
-
-func (cc *containerConfig) portBindingsFrom(ports []composetypes.ServicePortConfig) nat.PortMap {
 	return nil
 }
 
