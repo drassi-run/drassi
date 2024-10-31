@@ -10,9 +10,9 @@ type ContainerStorage struct {
 }
 
 // Mount represents a mount (volume).
-// [github.com/docker/docker/api/types/mount.Mount]
-// [github.com/docker/docker/api/types.MountPoint]
-// [github.com/compose-spec/compose-go/v2/types.ServiceVolumeConfig]
+//   - [github.com/docker/docker/api/types/mount.Mount]
+//   - [github.com/docker/docker/api/types.MountPoint]
+//   - [github.com/compose-spec/compose-go/v2/types.ServiceVolumeConfig]
 type Mount struct {
 	Type     string // "bind", "volume", "tmpfs"
 	Source   string
@@ -25,8 +25,8 @@ type Mount struct {
 }
 
 // BindOptions defines options specific to mounts of type "bind".
-// [github.com/docker/docker/api/types/mount.BindOptions]
-// [github.com/compose-spec/compose-go/v2/types.ServiceVolumeBind]
+//   - [github.com/docker/docker/api/types/mount.BindOptions]
+//   - [github.com/compose-spec/compose-go/v2/types.ServiceVolumeBind]
 type BindOptions struct {
 	Propagation    string // [r]shared | [r]slave | [r]private (default=rprivate)
 	Consistency    string // consistent | delegated | cached (default=consistent)
@@ -35,8 +35,8 @@ type BindOptions struct {
 }
 
 // VolumeOptions represents the options for a mount of type "volume".
-// [github.com/docker/docker/api/types/mount.VolumeOptions]
-// [github.com/compose-spec/compose-go/v2/types.ServiceVolumeVolume]
+//   - [github.com/docker/docker/api/types/mount.VolumeOptions]
+//   - [github.com/compose-spec/compose-go/v2/types.ServiceVolumeVolume]
 type VolumeOptions struct {
 	NoCopy  bool
 	Labels  map[string]string
@@ -49,8 +49,8 @@ type VolumeOptions struct {
 }
 
 // TmpfsOptions defines options specific to mounts of type "tmpfs".
-// [github.com/docker/docker/api/types/mount.TmpfsOptions]
-// [github.com/compose-spec/compose-go/v2/types.ServiceVolumeTmpfs]
+//   - [github.com/docker/docker/api/types/mount.TmpfsOptions]
+//   - [github.com/compose-spec/compose-go/v2/types.ServiceVolumeTmpfs]
 type TmpfsOptions struct {
 	Size    int64
 	Mode    fs.FileMode

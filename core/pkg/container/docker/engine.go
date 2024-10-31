@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"drassi.run/core/pkg/container"
+	"drassi.run/core/pkg/container/cli"
 	"drassi.run/core/pkg/container/types"
 	"drassi.run/core/util/io"
 	dockertypes "github.com/docker/docker/api/types"
@@ -102,7 +103,7 @@ func (e *engine) ContainerRun(ctx context.Context, spec *types.ContainerSpec, op
 		return "", err
 	}
 
-	createResp, err := e.client.ContainerCreate(ctx, cc.Config, cc.HostConfig, cc.NetworkingConfig, nil, spec.Name)
+	createResp, err := e.client.ContainerCreate(ctx, cc.Config, cc.HostConfig, cc.NetworkingConfig, cc.Platform, cc.Name)
 	if err != nil {
 		return "", err
 	}
@@ -128,7 +129,7 @@ func (e *engine) ContainerExec(ctx context.Context, id string, opts *container.E
 	idResp, err := e.client.ContainerExecCreate(ctx, id, dockercontainer.ExecOptions{
 		Cmd:          opts.Cmd,
 		WorkingDir:   opts.Workdir,
-		Env:          convertMapToKVString(opts.Env),
+		Env:          cli.ConvertMapToKVString(opts.Env),
 		Tty:          stdio.Tty,
 		Detach:       stdio.Detach(),
 		AttachStdin:  stdio.AttachStdin(),
@@ -213,7 +214,7 @@ func (e *engine) ContainerInspect(ctx context.Context, id string) (*types.Contai
 	if err = cs.From(res); err != nil {
 		return nil, err
 	}
-	return &cs.Spec, nil
+	return cs.Spec, nil
 }
 
 func (e *engine) Stat(ctx context.Context, id string, path string) (fs.FileInfo, error) {
