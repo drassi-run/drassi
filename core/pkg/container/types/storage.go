@@ -14,11 +14,10 @@ type ContainerStorage struct {
 // [github.com/docker/docker/api/types.MountPoint]
 // [github.com/compose-spec/compose-go/v2/types.ServiceVolumeConfig]
 type Mount struct {
-	Type        string // "bind", "volume", "tmpfs"
-	Source      string
-	Target      string
-	ReadOnly    bool
-	Consistency string
+	Type     string // "bind", "volume", "tmpfs"
+	Source   string
+	Target   string
+	ReadOnly bool
 
 	BindOptions   *BindOptions
 	VolumeOptions *VolumeOptions
@@ -29,7 +28,9 @@ type Mount struct {
 // [github.com/docker/docker/api/types/mount.BindOptions]
 // [github.com/compose-spec/compose-go/v2/types.ServiceVolumeBind]
 type BindOptions struct {
-	Propagation    string
+	Propagation    string // [r]shared | [r]slave | [r]private (default=rprivate)
+	Consistency    string // consistent | delegated | cached (default=consistent)
+	Recursive      string // enabled | disabled | writable | readonly (default=enabled)
 	CreateHostPath bool
 }
 

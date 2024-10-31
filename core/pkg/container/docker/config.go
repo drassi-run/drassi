@@ -9,7 +9,6 @@ import (
 	dockeropts "github.com/docker/cli/opts"
 	"github.com/docker/docker/api/types/blkiodev"
 	dockercontainer "github.com/docker/docker/api/types/container"
-	dockermount "github.com/docker/docker/api/types/mount"
 	dockernetwork "github.com/docker/docker/api/types/network"
 )
 
@@ -84,13 +83,10 @@ func (cc *containerConfig) From(spec *types.ContainerSpec, stdio *types.Stdio) e
 	}
 
 	cc.HostConfig = &dockercontainer.HostConfig{
-		Binds:           nil,
 		ContainerIDFile: "",
 		OomScoreAdj:     int(spec.OomScoreAdj),
 		//AutoRemove:      spec.AutoRemove,
-		Privileged: spec.Privileged,
-		//Links:           spec.links.GetAll(),
-		//VolumesFrom:    spec.volumesFrom.GetAll(),
+		Privileged:   spec.Privileged,
 		IpcMode:      dockercontainer.IpcMode(spec.IpcMode),
 		NetworkMode:  dockercontainer.NetworkMode(spec.NetworkMode),
 		PidMode:      dockercontainer.PidMode(spec.PidMode),
@@ -101,72 +97,21 @@ func (cc *containerConfig) From(spec *types.ContainerSpec, stdio *types.Stdio) e
 		CapDrop:      spec.CapDrop,
 		GroupAdd:     spec.GroupAdd,
 		//RestartPolicy:  restartPolicy,
-		SecurityOpt:    spec.SecurityOpt,
-		StorageOpt:     spec.StorageOpt,
-		ReadonlyRootfs: spec.ReadonlyRootfs,
-		LogConfig:      cc.logConfigFrom(spec.Logging),
-		Isolation:      dockercontainer.Isolation(spec.Isolation),
-		ShmSize:        int64(spec.ShmSize),
-		Resources:      resources,
-		Sysctls:        spec.Sysctls,
-		Runtime:        spec.Runtime,
+		SecurityOpt: spec.SecurityOpt,
+		LogConfig:   cc.logConfigFrom(spec.Logging),
+		Isolation:   dockercontainer.Isolation(spec.Isolation),
+		ShmSize:     int64(spec.ShmSize),
+		Resources:   resources,
+		Sysctls:     spec.Sysctls,
+		Runtime:     spec.Runtime,
 		//MaskedPaths:   maskedPaths,
-		//ReadonlyPaths: readonlyPaths,
 		Annotations: spec.Annotations,
 	}
-	if len(spec.Mounts) > 0 {
-		cc.setMount(spec.Mounts)
-	}
 
+	cc.setStorage(&spec.ContainerStorage)
 	cc.setNetwork(&spec.ContainerNetwork)
 
 	return nil
-}
-
-func (cc *containerConfig) setMount(volumes []*types.Mount) {
-	mounts := make([]dockermount.Mount, len(volumes))
-	for i, v := range volumes {
-		m := dockermount.Mount{
-			Type:        dockermount.Type(v.Type),
-			Source:      v.Source,
-			Target:      v.Target,
-			ReadOnly:    v.ReadOnly,
-			Consistency: dockermount.Consistency(v.Consistency),
-		}
-		if bind := v.BindOptions; bind != nil {
-			m.BindOptions = &dockermount.BindOptions{
-				Propagation:      dockermount.Propagation(bind.Propagation),
-				CreateMountpoint: bind.CreateHostPath,
-			}
-		}
-		if volume := v.VolumeOptions; volume != nil {
-			m.VolumeOptions = &dockermount.VolumeOptions{
-				NoCopy:  volume.NoCopy,
-				Subpath: volume.SubPath,
-			}
-		}
-		if tmpfs := v.TmpfsOptions; tmpfs != nil {
-			m.TmpfsOptions = &dockermount.TmpfsOptions{
-				SizeBytes: tmpfs.Size,
-				Mode:      tmpfs.Mode,
-			}
-		}
-		mounts[i] = m
-	}
-	cc.HostConfig.Mounts = mounts
-	// anonymous volumes, e.g.
-	// -v /path/in/container
-	// --mount type=volume,destination=/path/in/container
-	cc.Config.Volumes = nil
-	// -v named-volume:/path/in/container
-	// -v /path/on/host:/path/in/container
-	// --mount type=volume,source=my-volume,destination=/path/in/container
-	// --mount type=bind,source=/path/on/host,destination=/path/in/container
-	cc.HostConfig.Binds = nil
-	cc.HostConfig.VolumeDriver = ""
-	// --tmpfs /tmp:rw,size=787448k,mode=1777
-	// --mount type=tmpfs,destination=/path/in/container
-	cc.HostConfig.Tmpfs = nil
 }
 
 func (cc *containerConfig) blkioWeightDeviceFrom(wd []types.WeightDevice) []*blkiodev.WeightDevice {
