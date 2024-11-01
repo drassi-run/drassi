@@ -2,6 +2,7 @@ package container
 
 import (
 	"context"
+	"fmt"
 	"maps"
 	"net/url"
 	"strings"
@@ -48,10 +49,10 @@ func cleanup(labels map[string]string, fn func(context.Context, *container.Remov
 	}
 }
 
-type refiner = func(*types.ContainerSpec)
+type refiner = func(*types.ContainerSpec) error
 
 func setLabels(labels map[string]string) refiner {
-	return func(spec *types.ContainerSpec) {
+	return func(spec *types.ContainerSpec) error {
 		// set labels for container
 		if spec.Labels == nil {
 			spec.Labels = maps.Clone(labels)
@@ -73,22 +74,39 @@ func setLabels(labels map[string]string) refiner {
 				maps.Copy(opts.Labels, labels)
 			}
 		}
+
+		return nil
 	}
 }
 
 func setCmd(entrypoint, command []string) refiner {
-	return func(spec *types.ContainerSpec) {
-		if entrypoint != nil {
+	return func(spec *types.ContainerSpec) error {
+		if len(entrypoint) > 0 {
 			spec.Entrypoint = entrypoint
 		}
-		if command != nil {
+		if len(command) > 0 {
 			spec.Command = command
 		}
+		return nil
 	}
 }
 
 func setNetwork(id string) refiner {
-	return func(spec *types.ContainerSpec) {
+	return func(spec *types.ContainerSpec) error {
+		switch len(spec.Endpoints) {
+		case 0:
+			endpoint := &types.Endpoint{Target: id}
+			spec.Endpoints = append(spec.Endpoints, endpoint)
+		case 1:
+			if endpoint := spec.Endpoints[0]; endpoint.Target != "" {
+				return fmt.Errorf("can't overwrite non-default network %q", endpoint.Target)
+			} else {
+				endpoint.Target = id
+			}
+		default:
+			return fmt.Errorf("only one network per container")
+		}
+		return nil
 	}
 }
 
@@ -117,8 +135,9 @@ func addSandboxMounts(sb sandboxer.Sandbox) refiner {
 		}
 	}
 
-	return func(spec *types.ContainerSpec) {
+	return func(spec *types.ContainerSpec) error {
 		spec.Mounts = append(spec.Mounts, mounts...)
+		return nil
 	}
 }
 
@@ -128,33 +147,37 @@ func addContainerSocketMounts(c container.Engine) refiner {
 		if proto == "unix" {
 			socket = loc
 		} else {
-			return func(container *types.ContainerSpec) {}
+			return func(container *types.ContainerSpec) error { return nil }
 		}
 	}
-	return func(spec *types.ContainerSpec) {
+	return func(spec *types.ContainerSpec) error {
 		m := &types.Mount{
 			Type:   "bind",
 			Source: socket,
 			Target: socket,
 		}
 		spec.Mounts = append(spec.Mounts, m)
+		return nil
 	}
 }
 
 func setWorkdir(dir string) refiner {
-	return func(spec *types.ContainerSpec) {
+	return func(spec *types.ContainerSpec) error {
 		if spec.WorkingDir != "" {
 			spec.WorkingDir = dir
 		}
+		return nil
 	}
 }
 
 func setCIEnv() refiner {
-	return func(spec *types.ContainerSpec) {
+	return func(spec *types.ContainerSpec) error {
 		if spec.Environment == nil {
 			spec.Environment = make(map[string]string)
 		}
 		spec.Environment["CI"] = "true"
 		spec.Environment["GITHUB_ACTIONS"] = "true"
+
+		return nil
 	}
 }
