@@ -6,26 +6,12 @@ import (
 )
 
 type Cleanup func(ctx context.Context) error
-type Informer func(*ContainerInfo)
 
 type decoratedSandbox struct {
 	Sandbox
 
-	informers     []Informer
 	beforeCleanup []Cleanup
 	afterCleanup  []Cleanup
-}
-
-func (s *decoratedSandbox) ContainerInfo(ctx context.Context) (*ContainerInfo, error) {
-	info, err := s.Sandbox.ContainerInfo(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, fn := range s.informers {
-		fn(info)
-	}
-	return info, nil
 }
 
 func (s *decoratedSandbox) Terminate(ctx context.Context) error {
@@ -73,21 +59,5 @@ func AddAfterCleanup(sb Sandbox, fns ...Cleanup) Sandbox {
 	return &decoratedSandbox{
 		Sandbox:      sb,
 		afterCleanup: fns,
-	}
-}
-
-func ProvideInfo(sb Sandbox, fns ...Informer) Sandbox {
-	if len(fns) == 0 {
-		return sb
-	}
-
-	if s, ok := sb.(*decoratedSandbox); ok {
-		s.informers = append(s.informers, fns...)
-		return s
-	}
-
-	return &decoratedSandbox{
-		Sandbox:   sb,
-		informers: fns,
 	}
 }

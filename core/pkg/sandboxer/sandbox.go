@@ -11,7 +11,6 @@ import (
 
 type Sandbox interface {
 	Layout() *Layout
-	ContainerInfo(ctx context.Context) (*ContainerInfo, error)
 
 	Stat(ctx context.Context, path string) (fs.FileInfo, error)
 	CopyIn(ctx context.Context, reader io.Reader, dst string) error

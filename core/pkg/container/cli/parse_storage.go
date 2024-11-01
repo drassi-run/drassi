@@ -27,7 +27,7 @@ func (fm *flagMapper) mapStorage(copts *containerOptions) error {
 		}
 	}
 	for _, t := range copts.tmpfs.GetAll() {
-		if mount, err := parseTmpfs(t); err != nil {
+		if mount, err := ParseTmpfs(t); err != nil {
 			return err
 		} else {
 			fm.Spec.Mounts = append(fm.Spec.Mounts, mount)
@@ -57,21 +57,23 @@ func (fm *flagMapper) mapStorage(copts *containerOptions) error {
 	return nil
 }
 
+// ParseVolume parses user-provided volume definitions into types.Mount format
+//   - [github.com/containers/podman/v5/pkg/specgen.GenVolumeMounts]
 func ParseVolume(v string) (*types.Mount, error) {
 	parsed, err := loader.ParseVolume(v)
 	if err != nil {
 		return nil, err
 	}
 	mount := &types.Mount{
-		Type:        parsed.Type,
-		Source:      parsed.Source,
-		Target:      parsed.Target,
-		ReadOnly:    parsed.ReadOnly,
-		Consistency: parsed.Consistency,
+		Type:     parsed.Type,
+		Source:   parsed.Source,
+		Target:   parsed.Target,
+		ReadOnly: parsed.ReadOnly,
 	}
 	if bind := parsed.Bind; bind != nil {
 		mount.BindOptions = &types.BindOptions{
 			Propagation: bind.Propagation,
+			Consistency: parsed.Consistency,
 		}
 	}
 	if volume := parsed.Volume; volume != nil {
@@ -89,15 +91,15 @@ func ParseVolume(v string) (*types.Mount, error) {
 
 func parseMount(m dockermount.Mount) *types.Mount {
 	mount := &types.Mount{
-		Type:        string(m.Type),
-		Source:      m.Source,
-		Target:      m.Target,
-		ReadOnly:    m.ReadOnly,
-		Consistency: string(m.Consistency),
+		Type:     string(m.Type),
+		Source:   m.Source,
+		Target:   m.Target,
+		ReadOnly: m.ReadOnly,
 	}
 	if bo := m.BindOptions; bo != nil {
 		mount.BindOptions = &types.BindOptions{
 			Propagation:    string(bo.Propagation),
+			Consistency:    string(m.Consistency),
 			CreateHostPath: bo.CreateMountpoint,
 		}
 	}
@@ -121,7 +123,9 @@ func parseMount(m dockermount.Mount) *types.Mount {
 	return mount
 }
 
-func parseTmpfs(t string) (*types.Mount, error) {
+// ParseTmpfs parses user-provided tmpfs definitions into types.Mount format
+//   - https://github.com/containers/podman/blob/v5.2.5/pkg/specgenutil/volumes.go#L645
+func ParseTmpfs(t string) (*types.Mount, error) {
 	split := strings.Split(t, ":")
 	target := split[0]
 	if err := validateVolumeContainerDir(target); err != nil {

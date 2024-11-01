@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"strconv"
 	"strings"
 
 	"drassi.run/core/pkg/container"
@@ -48,27 +49,41 @@ func (e *engine) Close() error {
 }
 
 func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*sandboxer.LaunchResponse, error) {
-	var sb sandboxer.Sandbox
+	var (
+		sb          sandboxer.Sandbox
+		containerId string
+	)
 
 	if req.JobContainer == nil {
 		spec := &types.ContainerSpec{
-			Image:       e.defaultImage,
-			Entrypoint:  []string{"sleep"},
-			Command:     []string{"infinity"},
-			NetworkMode: "host",
+			Image:      e.defaultImage,
+			Entrypoint: []string{"sleep"},
+			Command:    []string{"infinity"},
 		}
+		spec.NetworkMode = "host"
 		runOpts := &container.RunOptions{
 			Stdio:   new(types.Stdio),
 			Streams: container.NewStreams(),
 		}
-		if containerId, err := e.client.ContainerRun(ctx, spec, runOpts); err != nil {
+		if cid, err := e.client.ContainerRun(ctx, spec, runOpts); err != nil {
 			return nil, err
-		} else if sb, err = newSandbox(ctx, e.client, containerId); err != nil {
+		} else if sb, err = newSandbox(ctx, e.client, cid); err != nil {
 			return nil, err
+		} else {
+			containerId = cid
 		}
 	}
 
-	return e.Bootstrap(ctx, sb, req)
+	resp, err := e.Bootstrap(ctx, sb, req)
+	if err != nil {
+		return nil, err
+	}
+	if containerId != "" {
+		resp.JobContainer = &records.Container{
+			Id: containerId,
+		}
+	}
+	return resp, nil
 }
 
 func (e *engine) Bootstrap(ctx context.Context, sb sandboxer.Sandbox, req *sandboxer.LaunchRequest) (resp *sandboxer.LaunchResponse, err error) {
@@ -146,13 +161,13 @@ func (e *engine) Bootstrap(ctx context.Context, sb sandboxer.Sandbox, req *sandb
 			g.Go(func() error {
 				if containerId, err := e.runContainer(ctx, def, refiners); err != nil {
 					return err
-				} else if ports, err := e.getPortsMap(containerId); err != nil {
+				} else if portMap, err := e.getPortsMap(ctx, containerId); err != nil {
 					return err
 				} else {
 					resp.ServiceContainers[name] = &records.Container{
 						Id:      containerId,
 						Network: networkId,
-						Ports:   ports,
+						Ports:   portMap,
 					}
 					return nil
 				}
@@ -185,12 +200,24 @@ func (e *engine) parseContainer(def *workflows.Container, refiners []refiner) (s
 			spec.Mounts = append(spec.Mounts, vol)
 		}
 	}
-	//for _, p := range def.Ports {
-	//	// TODO
-	//}
+	for _, p := range def.Ports {
+		if pb, length, err := cli.ParsePublish(p); err != nil {
+			return nil, err
+		} else {
+			for i := range length {
+				binding := &types.PortBinding{HostIP: pb.HostIP, ContainerPort: pb.ContainerPort + i, Protocol: pb.Protocol}
+				if binding.HostPort != 0 {
+					binding.HostPort = binding.HostPort + i
+				}
+				spec.Publish = append(spec.Publish, binding)
+			}
+		}
+	}
 
 	for _, fn := range refiners {
-		fn(spec)
+		if err = fn(spec); err != nil {
+			return nil, err
+		}
 	}
 
 	return
@@ -202,8 +229,9 @@ func (e *engine) runContainer(ctx context.Context, def *workflows.Container, ref
 		return "", err
 	}
 
-	// TODO: set image PullPolicy
-	pullOpts := &container.PullOptions{}
+	pullOpts := &container.PullOptions{
+		PullPolicy: spec.PullPolicy,
+	}
 	if cred := def.Credentials; cred != nil {
 		pullOpts.RegistryAuth = container.NewBasicAuth(cred.Username, cred.Password)
 	}
@@ -234,6 +262,19 @@ func (e *engine) nameFor(gh *records.Github) string {
 	return name
 }
 
-func (e *engine) getPortsMap(id string) (map[string]string, error) {
-	return nil, nil
+func (e *engine) getPortsMap(ctx context.Context, id string) (map[string]string, error) {
+	spec, err := e.client.ContainerInspect(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	portMap := make(map[string]string)
+	for _, pb := range spec.Publish {
+		if pb.Protocol != "tcp" {
+			continue
+		}
+		containerPort := strconv.Itoa(int(pb.ContainerPort))
+		hostPort := strconv.Itoa(int(pb.HostPort))
+		portMap[containerPort] = hostPort
+	}
+	return portMap, nil
 }

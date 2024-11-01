@@ -57,10 +57,6 @@ func (sb *sandbox) Layout() *sandboxer.Layout {
 	return &sb.layout
 }
 
-func (sb *sandbox) ContainerInfo(context.Context) (*sandboxer.ContainerInfo, error) {
-	return nil, nil
-}
-
 func (sb *sandbox) Stat(_ context.Context, path string) (fs.FileInfo, error) {
 	return os.Stat(path)
 }
