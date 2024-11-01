@@ -49,7 +49,10 @@ func (e *engine) Close() error {
 }
 
 func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*sandboxer.LaunchResponse, error) {
-	var sb sandboxer.Sandbox
+	var (
+		sb          sandboxer.Sandbox
+		containerId string
+	)
 
 	if req.JobContainer == nil {
 		spec := &types.ContainerSpec{
@@ -62,14 +65,25 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*san
 			Stdio:   new(types.Stdio),
 			Streams: container.NewStreams(),
 		}
-		if containerId, err := e.client.ContainerRun(ctx, spec, runOpts); err != nil {
+		if cid, err := e.client.ContainerRun(ctx, spec, runOpts); err != nil {
 			return nil, err
-		} else if sb, err = newSandbox(ctx, e.client, containerId); err != nil {
+		} else if sb, err = newSandbox(ctx, e.client, cid); err != nil {
 			return nil, err
+		} else {
+			containerId = cid
 		}
 	}
 
-	return e.Bootstrap(ctx, sb, req)
+	resp, err := e.Bootstrap(ctx, sb, req)
+	if err != nil {
+		return nil, err
+	}
+	if containerId != "" {
+		resp.JobContainer = &records.Container{
+			Id: containerId,
+		}
+	}
+	return resp, nil
 }
 
 func (e *engine) Bootstrap(ctx context.Context, sb sandboxer.Sandbox, req *sandboxer.LaunchRequest) (resp *sandboxer.LaunchResponse, err error) {

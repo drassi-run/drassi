@@ -66,19 +66,6 @@ func (sb *sandbox) Layout() *sandboxer.Layout {
 	return &sb.layout
 }
 
-func (sb *sandbox) ContainerInfo(ctx context.Context) (*sandboxer.ContainerInfo, error) {
-	cinfo, err := sb.engine.ContainerInspect(ctx, sb.containerId)
-	if err != nil {
-		return nil, err
-	}
-
-	info := &sandboxer.ContainerInfo{
-		Id:     sb.containerId,
-		Mounts: cinfo.Mounts,
-	}
-	return info, nil
-}
-
 func (sb *sandbox) Stat(ctx context.Context, path string) (fs.FileInfo, error) {
 	return sb.engine.Stat(ctx, sb.containerId, path)
 }
