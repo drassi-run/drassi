@@ -5,14 +5,17 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/util/fs"
 	"drassi.run/core/util/fs/sftpfs"
 	"drassi.run/core/util/io"
+	"drassi.run/core/util/net"
 	"drassi.run/core/util/path"
 	"github.com/gorilla/websocket"
 	incusclient "github.com/lxc/incus/v6/client"
@@ -94,17 +97,28 @@ func (sb *sandbox) CopyOut(ctx context.Context, src string) (io.ReadCloser, erro
 }
 
 func (sb *sandbox) Execute(ctx context.Context, cmd, path []string, env map[string]string, workdir string, streams sandboxer.Streams) error {
-	if op, err := sb.execute(ctx, cmd, path, env, workdir, streams); err != nil {
+	op, doneC, err := sb.execute(ctx, cmd, path, env, workdir, streams)
+	if err != nil {
 		return err
-	} else if err = op.WaitContext(ctx); err != nil {
-		return err
-	} else if exitCode, ok := op.Get().Metadata["return"]; ok && exitCode != float64(0) {
-		return fmt.Errorf("exitcode '%v': failure", exitCode)
 	}
+	if err = op.WaitContext(ctx); err != nil {
+		return err
+	}
+	if metadata := op.Get().Metadata; metadata != nil {
+		if exitCode, ok := metadata["return"].(float64); ok && int(exitCode) != 0 {
+			return fmt.Errorf("exitcode '%v': failure", exitCode)
+		}
+	}
+	// Wait for any remaining I/O to be flushed
+	<-doneC
 	return nil
 }
 
-func (sb *sandbox) execute(ctx context.Context, cmd, path []string, env map[string]string, workdir string, streams sandboxer.Streams) (incusclient.Operation, error) {
+func (sb *sandbox) execute(
+	ctx context.Context,
+	cmd, path []string, env map[string]string, workdir string,
+	streams sandboxer.Streams,
+) (incusclient.Operation, <-chan bool, error) {
 	// Prepare the command
 	req := incusapi.InstanceExecPost{
 		Command:   cmd,
@@ -155,14 +169,16 @@ func (sb *sandbox) execute(ctx context.Context, cmd, path []string, env map[stri
 	}
 
 	execArgs := &incusclient.InstanceExecArgs{
-		Stdin:   stdin,
-		Stdout:  stdout,
-		Stderr:  stderr,
-		Control: sb.controlSocketHandler,
+		Stdin:    stdin,
+		Stdout:   stdout,
+		Stderr:   stderr,
+		Control:  sb.controlSocketHandler,
+		DataDone: make(chan bool),
 	}
 
 	// Run the command in the instance
-	return sb.client.ExecInstance(sb.instanceName, req, execArgs)
+	op, err := sb.client.ExecInstance(sb.instanceName, req, execArgs)
+	return op, execArgs.DataDone, err
 }
 
 // TODO: implement resize terminal & forward signal
@@ -197,4 +213,30 @@ func (sb *sandbox) Terminate(ctx context.Context) error {
 		return fmt.Errorf("failed deleting instance %s: %s", sb.instanceName, err)
 	}
 	return nil
+}
+
+func (sb *sandbox) Dialer(cmd []string) func(ctx context.Context, network, addr string) (net.Conn, error) {
+	return func(ctx context.Context, network, addr string) (net.Conn, error) {
+		inRead, inWrite := io.Pipe()
+		outRead, outWrite := io.Pipe()
+
+		streams := container.NewStreams(
+			container.WithStdin(inRead),
+			container.WithStdout(outWrite),
+		)
+		_, doneC, err := sb.execute(ctx, cmd, nil, nil, "", streams)
+		if err != nil {
+			return nil, err
+		}
+
+		go func() {
+			<-doneC
+			// Close connection when all I/O done
+			_ = inWrite.Close()
+			_ = outWrite.Close()
+		}()
+
+		conn := xnet.NewStdioConn(inWrite, outRead)
+		return conn, nil
+	}
 }

@@ -36,7 +36,8 @@ func AddBeforeCleanup(sb Sandbox, fns ...Cleanup) Sandbox {
 	}
 
 	if s, ok := sb.(*decoratedSandbox); ok {
-		s.beforeCleanup = append(s.beforeCleanup, fns...)
+		// LIFO, fns must be cleaned up first
+		s.beforeCleanup = append(fns, s.beforeCleanup...)
 		return s
 	}
 

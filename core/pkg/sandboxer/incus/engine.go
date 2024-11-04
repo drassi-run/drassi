@@ -4,9 +4,12 @@ import (
 	"context"
 	"strings"
 
+	"drassi.run/core/pkg/container/docker"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/pkg/sandboxer/container"
 	"drassi.run/core/util/string"
+	dockerclient "github.com/docker/docker/client"
 	incusclient "github.com/lxc/incus/v6/client"
 	incusapi "github.com/lxc/incus/v6/shared/api"
 )
@@ -58,14 +61,22 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*san
 		return nil, err
 	}
 
-	if sb, err := newSandbox(e.client, name); err != nil {
+	sb, err := newSandbox(e.client, name)
+	if err != nil {
 		return nil, err
-	} else {
-		resp := &sandboxer.LaunchResponse{
-			Sandbox: sb,
-		}
-		return resp, nil
 	}
+
+	dialer := sb.Dialer(docker.ProxyCommand(""))
+	client, err := docker.New(dockerclient.WithDialContext(dialer))
+	if err != nil {
+		return nil, err
+	}
+
+	s := sandboxer.AddBeforeCleanup(sb, func(context.Context) error {
+		return client.Close()
+	})
+	b := container.NewBootstrapper(client)
+	return b.Bootstrap(ctx, s, req)
 }
 
 func (e *engine) sandboxName(gh *records.Github) string {
