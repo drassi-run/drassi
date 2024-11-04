@@ -25,7 +25,16 @@ import (
 	"github.com/docker/docker/pkg/stdcopy"
 )
 
-type run = func() error
+// ProxyCommand
+//   - [github.com/docker/cli/cli/connhelper.GetConnectionHelper]
+func ProxyCommand(host string) []string {
+	cmd := []string{"docker"}
+	if host != "" {
+		cmd = append(cmd, "--host", "unix://"+host)
+	}
+	cmd = append(cmd, "system", "dial-stdio")
+	return cmd
+}
 
 type engine struct {
 	client dockerclient.APIClient
@@ -39,10 +48,10 @@ var defaultOpts = []dockerclient.Opt{
 func New(opts ...dockerclient.Opt) (container.Engine, error) {
 	opts = append(defaultOpts, opts...)
 
-	if cli, err := dockerclient.NewClientWithOpts(opts...); err != nil {
+	if client, err := dockerclient.NewClientWithOpts(opts...); err != nil {
 		return nil, err
 	} else {
-		return &engine{client: cli}, nil
+		return &engine{client: client}, nil
 	}
 }
 
@@ -324,6 +333,8 @@ func (e *engine) VolumeRemove(ctx context.Context, opts *container.RemoveOptions
 
 	return nil
 }
+
+type run = func() error
 
 func (e *engine) streamingStdio(ctx context.Context, id string, exec bool, stdio *types.Stdio, streams container.Streams, fn run) run {
 	ctx, cancel := context.WithCancel(ctx)
