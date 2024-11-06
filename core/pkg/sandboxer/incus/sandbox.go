@@ -12,6 +12,7 @@ import (
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/util/fs"
 	"drassi.run/core/util/fs/sftpfs"
+	"drassi.run/core/util/io"
 	"drassi.run/core/util/path"
 	"github.com/gorilla/websocket"
 	incusclient "github.com/lxc/incus/v6/client"
@@ -93,10 +94,23 @@ func (sb *sandbox) CopyOut(ctx context.Context, src string) (io.ReadCloser, erro
 }
 
 func (sb *sandbox) Execute(ctx context.Context, cmd, path []string, env map[string]string, workdir string, streams sandboxer.Streams) error {
+	if op, err := sb.execute(ctx, cmd, path, env, workdir, streams); err != nil {
+		return err
+	} else if err = op.WaitContext(ctx); err != nil {
+		return err
+	} else if exitCode, ok := op.Get().Metadata["return"]; ok && exitCode != float64(0) {
+		return fmt.Errorf("exitcode '%v': failure", exitCode)
+	}
+	return nil
+}
+
+func (sb *sandbox) execute(ctx context.Context, cmd, path []string, env map[string]string, workdir string, streams sandboxer.Streams) (incusclient.Operation, error) {
 	// Prepare the command
 	req := incusapi.InstanceExecPost{
-		Command:     cmd,
-		WaitForWS:   true,
+		Command:   cmd,
+		WaitForWS: true,
+		// TODO: Interactive=true if both stdin AND stdout are terminals (stderr is ignored).
+		// See: https://github.com/lxc/incus/blob/v6.6.0/cmd/incus/exec.go#L141-L157
 		Interactive: false,
 		Environment: env,
 		User:        sb.uid,
@@ -109,6 +123,9 @@ func (sb *sandbox) Execute(ctx context.Context, cmd, path []string, env map[stri
 	}
 	if len(path) > 0 {
 		p := strings.Join(path, string(os.PathListSeparator))
+		if req.Environment == nil {
+			req.Environment = make(map[string]string)
+		}
 		req.Environment["PATH"] = p
 	}
 
@@ -119,23 +136,38 @@ func (sb *sandbox) Execute(ctx context.Context, cmd, path []string, env map[stri
 		req.Cwd = xpath.Abs(workdir, sb.layout.Workspace)
 	}
 
+	// incus streams stdin/out/err not respect ctx
+	// => So we need to wrap them in ContextReader/Writer
+	// NOTE: executing command will exit when all streams terminated
+	var (
+		stdin  = streams.In()
+		stdout = streams.Out()
+		stderr = streams.Err()
+	)
+	if stdin != nil {
+		stdin = xio.NewContextReader(ctx, stdin)
+	}
+	if stdout != nil {
+		stdout = xio.NewContextWriter(ctx, stdout)
+	}
+	if stderr != nil {
+		stderr = xio.NewContextWriter(ctx, stderr)
+	}
+
 	execArgs := &incusclient.InstanceExecArgs{
-		Stdin:    streams.In(),
-		Stdout:   streams.Out(),
-		Stderr:   streams.Err(),
-		Control:  func(conn *websocket.Conn) {}, // TODO
-		DataDone: make(chan bool),
+		Stdin:   stdin,
+		Stdout:  stdout,
+		Stderr:  stderr,
+		Control: sb.controlSocketHandler,
 	}
 
 	// Run the command in the instance
-	if op, err := sb.client.ExecInstance(sb.instanceName, req, execArgs); err != nil {
-		return err
-	} else if err = op.WaitContext(ctx); err != nil {
-		return err
-	} else if exitCode, ok := op.Get().Metadata["return"]; ok && exitCode != float64(0) {
-		return fmt.Errorf("exitcode '%v': failure", exitCode)
-	}
-	return nil
+	return sb.client.ExecInstance(sb.instanceName, req, execArgs)
+}
+
+// TODO: implement resize terminal & forward signal
+// See: https://github.com/lxc/incus/blob/v6.6.0/cmd/incus/exec_unix.go#L20
+func (sb *sandbox) controlSocketHandler(control *websocket.Conn) {
 }
 
 func (sb *sandbox) Terminate(ctx context.Context) error {
