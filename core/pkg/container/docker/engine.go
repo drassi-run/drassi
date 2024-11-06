@@ -118,9 +118,7 @@ func (e *engine) ContainerRun(ctx context.Context, spec *types.ContainerSpec, op
 	}
 	ctnID := createResp.ID
 
-	fn := func() error {
-		return e.client.ContainerStart(ctx, ctnID, dockercontainer.StartOptions{})
-	}
+	fn := e.start(ctx, ctnID, false, stdio)
 	if stdio.AttachStdin() || stdio.AttachStdout() || stdio.AttachStderr() {
 		fn = e.streamingStdio(ctx, ctnID, false, stdio, opts.Streams, fn)
 	}
@@ -153,9 +151,11 @@ func (e *engine) ContainerExec(ctx context.Context, id string, opts *container.E
 	}
 	execID := idResp.ID
 
-	fn := func() error { return nil }
+	var fn run
 	if stdio.AttachStdin() || stdio.AttachStdout() || stdio.AttachStderr() {
 		fn = e.streamingStdio(ctx, execID, true, stdio, opts.Streams, fn)
+	} else {
+		fn = e.start(ctx, execID, true, stdio)
 	}
 	if stdio.AttachStdout() || stdio.AttachStderr() {
 		fn = e.exitCode(ctx, execID, true, fn)
@@ -336,6 +336,23 @@ func (e *engine) VolumeRemove(ctx context.Context, opts *container.RemoveOptions
 
 type run = func() error
 
+func (e *engine) start(ctx context.Context, id string, exec bool, stdio *types.Stdio) run {
+	// ContainerExec
+	if exec {
+		return func() error {
+			return e.client.ContainerExecStart(ctx, id, dockercontainer.ExecStartOptions{
+				Detach: stdio.Detach(),
+				Tty:    stdio.Tty,
+			})
+		}
+	}
+
+	// ContainerRun
+	return func() error {
+		return e.client.ContainerStart(ctx, id, dockercontainer.StartOptions{})
+	}
+}
+
 func (e *engine) streamingStdio(ctx context.Context, id string, exec bool, stdio *types.Stdio, streams container.Streams, fn run) run {
 	ctx, cancel := context.WithCancel(ctx)
 
@@ -379,8 +396,10 @@ func (e *engine) streamingStdio(ctx context.Context, id string, exec bool, stdio
 			errC <- err
 		}()
 
-		if err = fn(); err != nil {
-			return
+		if fn != nil {
+			if err = fn(); err != nil {
+				return
+			}
 		}
 
 		return <-errC
@@ -498,26 +517,9 @@ type fileInfo struct {
 	dockercontainer.PathStat
 }
 
-func (fi *fileInfo) Name() string {
-	return fi.PathStat.Name
-}
-
-func (fi *fileInfo) Size() int64 {
-	return fi.PathStat.Size
-}
-
-func (fi *fileInfo) Mode() fs.FileMode {
-	return fi.PathStat.Mode
-}
-
-func (fi *fileInfo) ModTime() time.Time {
-	return fi.PathStat.Mtime
-}
-
-func (fi *fileInfo) IsDir() bool {
-	return fi.Mode().IsDir()
-}
-
-func (fi *fileInfo) Sys() any {
-	return nil
-}
+func (fi *fileInfo) Name() string       { return fi.PathStat.Name }
+func (fi *fileInfo) Size() int64        { return fi.PathStat.Size }
+func (fi *fileInfo) Mode() fs.FileMode  { return fi.PathStat.Mode }
+func (fi *fileInfo) ModTime() time.Time { return fi.PathStat.Mtime }
+func (fi *fileInfo) IsDir() bool        { return fi.Mode().IsDir() }
+func (fi *fileInfo) Sys() any           { return nil }

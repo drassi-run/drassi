@@ -272,8 +272,8 @@ func (e *engine) getPortsMap(ctx context.Context, id string) (map[string]string,
 		if pb.Protocol != "tcp" {
 			continue
 		}
-		containerPort := strconv.Itoa(int(pb.ContainerPort))
-		hostPort := strconv.Itoa(int(pb.HostPort))
+		containerPort := strconv.FormatUint(uint64(pb.ContainerPort), 10)
+		hostPort := strconv.FormatUint(uint64(pb.HostPort), 10)
 		portMap[containerPort] = hostPort
 	}
 	return portMap, nil
