@@ -13,6 +13,7 @@ import (
 	"drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/container/cli"
 	"drassi.run/core/pkg/container/types"
+	"drassi.run/core/util/context"
 	"drassi.run/core/util/io"
 	dockertypes "github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
@@ -430,6 +431,10 @@ func (e *engine) waitFinish(ctx context.Context, id string, autoRemove bool, fn 
 					errC <- fmt.Errorf("container exited with status code: %d", result.StatusCode)
 				}
 			case err := <-waitErrC:
+				ctx, cancel := xcontext.ExpandTimeout(ctx)
+				defer cancel()
+				_ = e.client.ContainerKill(ctx, id, "SIGKILL")
+
 				errC <- err
 			}
 		}()
