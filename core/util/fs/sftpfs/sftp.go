@@ -1,7 +1,10 @@
 package sftpfs
 
 import (
+	"errors"
+	"io/fs"
 	"os"
+	"strings"
 
 	"drassi.run/core/util/fs"
 	"github.com/go-git/go-billy/v5"
@@ -38,14 +41,14 @@ func (fs *SftpFS) TempFile(dir, prefix string) (billy.File, error) {
 
 func (fs *SftpFS) Mkdir(name string, perm os.FileMode) error {
 	if err := fs.Client.Mkdir(name); err != nil || perm == xfs.DirPerm {
-		return err
+		return normaliseError(err)
 	}
 	return fs.Client.Chmod(name, perm)
 }
 
 func (fs *SftpFS) MkdirAll(name string, perm os.FileMode) error {
 	if err := fs.Client.MkdirAll(name); err != nil || perm == xfs.DirPerm {
-		return err
+		return normaliseError(err)
 	}
 	return fs.Client.Chmod(name, perm)
 }
@@ -60,6 +63,20 @@ func (fs *SftpFS) Chroot(string) (billy.Filesystem, error) {
 
 func (fs *SftpFS) Root() string {
 	return "/"
+}
+
+func normaliseError(err error) error {
+	//goland:noinspection GoTypeAssertionOnErrors
+	switch e := err.(type) {
+	case *sftp.StatusError:
+		if errors.Is(e.FxCode(), sftp.ErrSSHFxFailure) &&
+			strings.Contains(e.Error(), "file exists") {
+			return fs.ErrExist
+		}
+		return err
+	default:
+		return err
+	}
 }
 
 type file struct {

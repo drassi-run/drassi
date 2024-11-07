@@ -5,13 +5,17 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/util/fs"
 	"drassi.run/core/util/fs/sftpfs"
+	"drassi.run/core/util/io"
+	"drassi.run/core/util/net"
 	"drassi.run/core/util/path"
 	"github.com/gorilla/websocket"
 	incusclient "github.com/lxc/incus/v6/client"
@@ -93,10 +97,34 @@ func (sb *sandbox) CopyOut(ctx context.Context, src string) (io.ReadCloser, erro
 }
 
 func (sb *sandbox) Execute(ctx context.Context, cmd, path []string, env map[string]string, workdir string, streams sandboxer.Streams) error {
+	op, doneC, err := sb.execute(ctx, cmd, path, env, workdir, streams)
+	if err != nil {
+		return err
+	}
+	if err = op.WaitContext(ctx); err != nil {
+		return err
+	}
+	if metadata := op.Get().Metadata; metadata != nil {
+		if exitCode, ok := metadata["return"].(float64); ok && int(exitCode) != 0 {
+			return fmt.Errorf("exitcode '%v': failure", exitCode)
+		}
+	}
+	// Wait for any remaining I/O to be flushed
+	<-doneC
+	return nil
+}
+
+func (sb *sandbox) execute(
+	ctx context.Context,
+	cmd, path []string, env map[string]string, workdir string,
+	streams sandboxer.Streams,
+) (incusclient.Operation, <-chan bool, error) {
 	// Prepare the command
 	req := incusapi.InstanceExecPost{
-		Command:     cmd,
-		WaitForWS:   true,
+		Command:   cmd,
+		WaitForWS: true,
+		// TODO: Interactive=true if both stdin AND stdout are terminals (stderr is ignored).
+		// See: https://github.com/lxc/incus/blob/v6.6.0/cmd/incus/exec.go#L141-L157
 		Interactive: false,
 		Environment: env,
 		User:        sb.uid,
@@ -109,6 +137,9 @@ func (sb *sandbox) Execute(ctx context.Context, cmd, path []string, env map[stri
 	}
 	if len(path) > 0 {
 		p := strings.Join(path, string(os.PathListSeparator))
+		if req.Environment == nil {
+			req.Environment = make(map[string]string)
+		}
 		req.Environment["PATH"] = p
 	}
 
@@ -119,23 +150,40 @@ func (sb *sandbox) Execute(ctx context.Context, cmd, path []string, env map[stri
 		req.Cwd = xpath.Abs(workdir, sb.layout.Workspace)
 	}
 
+	// incus streams stdin/out/err not respect ctx
+	// => So we need to wrap them in ContextReader/Writer
+	// NOTE: executing command will exit when all streams terminated
+	var (
+		stdin  = streams.In()
+		stdout = streams.Out()
+		stderr = streams.Err()
+	)
+	if stdin != nil {
+		stdin = xio.NewContextReader(ctx, stdin)
+	}
+	if stdout != nil {
+		stdout = xio.NewContextWriter(ctx, stdout)
+	}
+	if stderr != nil {
+		stderr = xio.NewContextWriter(ctx, stderr)
+	}
+
 	execArgs := &incusclient.InstanceExecArgs{
-		Stdin:    streams.In(),
-		Stdout:   streams.Out(),
-		Stderr:   streams.Err(),
-		Control:  func(conn *websocket.Conn) {}, // TODO
+		Stdin:    stdin,
+		Stdout:   stdout,
+		Stderr:   stderr,
+		Control:  sb.controlSocketHandler,
 		DataDone: make(chan bool),
 	}
 
 	// Run the command in the instance
-	if op, err := sb.client.ExecInstance(sb.instanceName, req, execArgs); err != nil {
-		return err
-	} else if err = op.WaitContext(ctx); err != nil {
-		return err
-	} else if exitCode, ok := op.Get().Metadata["return"]; ok && exitCode != float64(0) {
-		return fmt.Errorf("exitcode '%v': failure", exitCode)
-	}
-	return nil
+	op, err := sb.client.ExecInstance(sb.instanceName, req, execArgs)
+	return op, execArgs.DataDone, err
+}
+
+// TODO: implement resize terminal & forward signal
+// See: https://github.com/lxc/incus/blob/v6.6.0/cmd/incus/exec_unix.go#L20
+func (sb *sandbox) controlSocketHandler(control *websocket.Conn) {
 }
 
 func (sb *sandbox) Terminate(ctx context.Context) error {
@@ -165,4 +213,30 @@ func (sb *sandbox) Terminate(ctx context.Context) error {
 		return fmt.Errorf("failed deleting instance %s: %s", sb.instanceName, err)
 	}
 	return nil
+}
+
+func (sb *sandbox) Dialer(cmd []string) func(ctx context.Context, network, addr string) (net.Conn, error) {
+	return func(ctx context.Context, network, addr string) (net.Conn, error) {
+		inRead, inWrite := io.Pipe()
+		outRead, outWrite := io.Pipe()
+
+		streams := container.NewStreams(
+			container.WithStdin(inRead),
+			container.WithStdout(outWrite),
+		)
+		_, doneC, err := sb.execute(ctx, cmd, nil, nil, "", streams)
+		if err != nil {
+			return nil, err
+		}
+
+		go func() {
+			<-doneC
+			// Close connection when all I/O done
+			_ = inWrite.Close()
+			_ = outWrite.Close()
+		}()
+
+		conn := xnet.NewStdioConn(inWrite, outRead)
+		return conn, nil
+	}
 }

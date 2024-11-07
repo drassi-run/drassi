@@ -13,6 +13,7 @@ import (
 	"drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/container/cli"
 	"drassi.run/core/pkg/container/types"
+	"drassi.run/core/util/context"
 	"drassi.run/core/util/io"
 	dockertypes "github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
@@ -25,7 +26,16 @@ import (
 	"github.com/docker/docker/pkg/stdcopy"
 )
 
-type run = func() error
+// ProxyCommand
+//   - [github.com/docker/cli/cli/connhelper.GetConnectionHelper]
+func ProxyCommand(host string) []string {
+	cmd := []string{"docker"}
+	if host != "" {
+		cmd = append(cmd, "--host", "unix://"+host)
+	}
+	cmd = append(cmd, "system", "dial-stdio")
+	return cmd
+}
 
 type engine struct {
 	client dockerclient.APIClient
@@ -39,10 +49,10 @@ var defaultOpts = []dockerclient.Opt{
 func New(opts ...dockerclient.Opt) (container.Engine, error) {
 	opts = append(defaultOpts, opts...)
 
-	if cli, err := dockerclient.NewClientWithOpts(opts...); err != nil {
+	if client, err := dockerclient.NewClientWithOpts(opts...); err != nil {
 		return nil, err
 	} else {
-		return &engine{client: cli}, nil
+		return &engine{client: client}, nil
 	}
 }
 
@@ -109,9 +119,7 @@ func (e *engine) ContainerRun(ctx context.Context, spec *types.ContainerSpec, op
 	}
 	ctnID := createResp.ID
 
-	fn := func() error {
-		return e.client.ContainerStart(ctx, ctnID, dockercontainer.StartOptions{})
-	}
+	fn := e.start(ctx, ctnID, false, stdio)
 	if stdio.AttachStdin() || stdio.AttachStdout() || stdio.AttachStderr() {
 		fn = e.streamingStdio(ctx, ctnID, false, stdio, opts.Streams, fn)
 	}
@@ -144,9 +152,11 @@ func (e *engine) ContainerExec(ctx context.Context, id string, opts *container.E
 	}
 	execID := idResp.ID
 
-	fn := func() error { return nil }
+	var fn run
 	if stdio.AttachStdin() || stdio.AttachStdout() || stdio.AttachStderr() {
 		fn = e.streamingStdio(ctx, execID, true, stdio, opts.Streams, fn)
+	} else {
+		fn = e.start(ctx, execID, true, stdio)
 	}
 	if stdio.AttachStdout() || stdio.AttachStderr() {
 		fn = e.exitCode(ctx, execID, true, fn)
@@ -325,6 +335,25 @@ func (e *engine) VolumeRemove(ctx context.Context, opts *container.RemoveOptions
 	return nil
 }
 
+type run = func() error
+
+func (e *engine) start(ctx context.Context, id string, exec bool, stdio *types.Stdio) run {
+	// ContainerExec
+	if exec {
+		return func() error {
+			return e.client.ContainerExecStart(ctx, id, dockercontainer.ExecStartOptions{
+				Detach: stdio.Detach(),
+				Tty:    stdio.Tty,
+			})
+		}
+	}
+
+	// ContainerRun
+	return func() error {
+		return e.client.ContainerStart(ctx, id, dockercontainer.StartOptions{})
+	}
+}
+
 func (e *engine) streamingStdio(ctx context.Context, id string, exec bool, stdio *types.Stdio, streams container.Streams, fn run) run {
 	ctx, cancel := context.WithCancel(ctx)
 
@@ -368,8 +397,10 @@ func (e *engine) streamingStdio(ctx context.Context, id string, exec bool, stdio
 			errC <- err
 		}()
 
-		if err = fn(); err != nil {
-			return
+		if fn != nil {
+			if err = fn(); err != nil {
+				return
+			}
 		}
 
 		return <-errC
@@ -400,6 +431,10 @@ func (e *engine) waitFinish(ctx context.Context, id string, autoRemove bool, fn 
 					errC <- fmt.Errorf("container exited with status code: %d", result.StatusCode)
 				}
 			case err := <-waitErrC:
+				ctx, cancel := xcontext.ExpandTimeout(ctx)
+				defer cancel()
+				_ = e.client.ContainerKill(ctx, id, "SIGKILL")
+
 				errC <- err
 			}
 		}()
@@ -487,26 +522,9 @@ type fileInfo struct {
 	dockercontainer.PathStat
 }
 
-func (fi *fileInfo) Name() string {
-	return fi.PathStat.Name
-}
-
-func (fi *fileInfo) Size() int64 {
-	return fi.PathStat.Size
-}
-
-func (fi *fileInfo) Mode() fs.FileMode {
-	return fi.PathStat.Mode
-}
-
-func (fi *fileInfo) ModTime() time.Time {
-	return fi.PathStat.Mtime
-}
-
-func (fi *fileInfo) IsDir() bool {
-	return fi.Mode().IsDir()
-}
-
-func (fi *fileInfo) Sys() any {
-	return nil
-}
+func (fi *fileInfo) Name() string       { return fi.PathStat.Name }
+func (fi *fileInfo) Size() int64        { return fi.PathStat.Size }
+func (fi *fileInfo) Mode() fs.FileMode  { return fi.PathStat.Mode }
+func (fi *fileInfo) ModTime() time.Time { return fi.PathStat.Mtime }
+func (fi *fileInfo) IsDir() bool        { return fi.Mode().IsDir() }
+func (fi *fileInfo) Sys() any           { return nil }
