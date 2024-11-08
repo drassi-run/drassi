@@ -2,11 +2,15 @@ package runtime
 
 import (
 	"context"
+	"fmt"
 	"maps"
+	"slices"
+	"strings"
 
 	"drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/container/types"
 	. "drassi.run/core/util/types"
+	"k8s.io/utils/set"
 )
 
 // Container runtime is used to run docker action
@@ -22,13 +26,74 @@ type Container interface {
 type containerRuntime struct {
 	engine  container.Engine
 	streams container.Streams
+	labels  map[string]string
 	network string
-	mounts  []Pair[string, *types.Mount] // list of (sandboxPath, *Mount) pair, sorted by sandboxPath
-	pathMap [][2]string                  // list of (containerPath, sandboxPath) pair, sorted by containerPath
+	mounts  []Pair[string, *types.Mount] // list of (sandboxPath, *Mount) pair, sorted DESC by sandboxPath
+	pathMap [][2]string                  // list of (containerPath, sandboxPath) pair, sorted DESC by containerPath
+}
+
+type ContainerRuntimeOption func(*containerRuntime)
+
+func WithLabels(labels map[string]string) ContainerRuntimeOption {
+	return func(rt *containerRuntime) {
+		rt.labels = labels
+	}
+}
+
+func WithNetwork(network string) ContainerRuntimeOption {
+	return func(rt *containerRuntime) {
+		rt.network = network
+	}
+}
+
+func WithMounts(mounts []Pair[string, *types.Mount]) ContainerRuntimeOption {
+	return func(rt *containerRuntime) {
+		rt.mounts = append(rt.mounts, mounts...)
+	}
+}
+
+func NewContainerRuntime(engine container.Engine, streams container.Streams, opts ...ContainerRuntimeOption) (Container, error) {
+	rt := &containerRuntime{
+		engine:  engine,
+		streams: streams,
+	}
+	for _, o := range opts {
+		o(rt)
+	}
+
+	containerPaths := set.New[string]()
+	sandboxerPaths := set.New[string]()
+	mounts := rt.mounts
+	pathMap := make([][2]string, 0, len(mounts))
+	for _, m := range mounts {
+		sPath, cPath := m.Key, m.Value.Target
+		if sandboxerPaths.Has(sPath) {
+			return nil, fmt.Errorf("found duplicate sandbox mount at %s", sPath)
+		} else {
+			sandboxerPaths.Insert(sPath)
+		}
+		if containerPaths.Has(cPath) {
+			return nil, fmt.Errorf("found duplicate container mount at %s", cPath)
+		} else {
+			containerPaths.Insert(cPath)
+		}
+		pathMap = append(pathMap, [...]string{m.Value.Target, m.Key})
+	}
+
+	slices.SortFunc(mounts, func(a, b Pair[string, *types.Mount]) int {
+		return strings.Compare(b.Key, a.Key) // DESC order
+	})
+	slices.SortFunc(pathMap, func(a, b [2]string) int {
+		return strings.Compare(b[0], a[0]) // DESC order
+	})
+	rt.mounts = mounts
+	rt.pathMap = pathMap
+
+	return rt, nil
 }
 
 func (rt *containerRuntime) TranslatePath(containerPath string) (sandboxPath string, ok bool) {
-	sandboxPath = mapPath(containerPath, rt.pathMapSeq)
+	sandboxPath = MapPath(containerPath, rt.pathMapSeq)
 	ok = sandboxPath != ""
 	return
 }
@@ -57,7 +122,7 @@ func (rt *containerRuntime) Run(ctx context.Context, image string, entrypoint, c
 	// clone env to avoid modify the original
 	runEnv := maps.Clone(env)
 	for k, v := range env {
-		if path := mapPath(v, rt.pathMapSeq); path != "" {
+		if path := MapPath(v, rt.pathMapSeq); path != "" {
 			runEnv[k] = path
 		}
 	}
@@ -67,7 +132,9 @@ func (rt *containerRuntime) Run(ctx context.Context, image string, entrypoint, c
 		Entrypoint:  entrypoint,
 		Command:     cmd,
 		Environment: runEnv,
+		Labels:      rt.labels,
 	}
+	spec.AutoRemove = true
 	if rt.network != "" {
 		ep := &types.Endpoint{
 			Target: rt.network,
@@ -88,8 +155,8 @@ func (rt *containerRuntime) Run(ctx context.Context, image string, entrypoint, c
 }
 
 func (rt *containerRuntime) mountMapSeq(yield func(string, string) bool) {
-	for _, mount := range rt.mounts {
-		if !yield(mount.Key, mount.Value.Target) {
+	for _, m := range rt.mounts {
+		if !yield(m.Key, m.Value.Target) {
 			return
 		}
 	}
