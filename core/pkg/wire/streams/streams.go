@@ -13,7 +13,7 @@ func ProvideTo(scope *dig.Scope) error {
 	if err := scope.Provide(ProcessCommand, dig.Name("processCommand")); err != nil {
 		return err
 	}
-	if err := scope.Provide(ProcessCommand, dig.Name("scanProblem")); err != nil {
+	if err := scope.Provide(ScanProblem, dig.Name("scanProblem")); err != nil {
 		return err
 	}
 
