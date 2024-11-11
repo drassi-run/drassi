@@ -18,6 +18,11 @@ import (
 	. "drassi.run/core/util/types"
 )
 
+const (
+	workspaceDir = "/opt/drassi/workspace"
+	tempDir      = "/opt/drassi/temp"
+)
+
 func NewContainerRuntime(
 	ctx context.Context,
 	engine container.Engine,
@@ -27,6 +32,7 @@ func NewContainerRuntime(
 	gh *records.Github,
 ) (runtime.Container, error) {
 	opts := make([]runtime.ContainerRuntimeOption, 0)
+	opts = append(opts, runtime.WithWorkDir(workspaceDir))
 	if opt := labelsOpt(gh); opt != nil {
 		opts = append(opts, opt)
 	}
@@ -35,11 +41,11 @@ func NewContainerRuntime(
 	}
 
 	layout := sandbox.Layout()
+	var mounts []*types.Mount
 	if ctn := info.Container; ctn != nil {
 		ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 		defer cancel()
 
-		var mounts []*types.Mount
 		if spec, err := engine.ContainerInspect(ctx, ctn.Id); err != nil {
 			return nil, err
 		} else {
@@ -55,6 +61,9 @@ func NewContainerRuntime(
 		opt := sandboxMountOpt(layout)
 		opts = append(opts, opt)
 	}
+
+	opt := staticMountOpt(engine.Address(), mounts)
+	opts = append(opts, opt)
 
 	return runtime.NewContainerRuntime(engine, streams, opts...)
 }
@@ -80,16 +89,53 @@ func networkOpt(info *records.JobInfo) runtime.ContainerRuntimeOption {
 	return nil
 }
 
+func staticMountOpt(path string, sbMounts []*types.Mount) runtime.ContainerRuntimeOption {
+	path = strings.TrimPrefix(path, "unix://")
+
+	if sbMounts == nil {
+		mount := &types.Mount{
+			Type:   "bind",
+			Source: path,
+			Target: path,
+		}
+		mounts := []Pair[string, *types.Mount]{
+			{Key: path, Value: mount},
+		}
+		return runtime.WithMounts(mounts)
+	}
+
+	slices.SortFunc(sbMounts, func(a, b *types.Mount) int {
+		return strings.Compare(b.Source, a.Source) // DESC order
+	})
+	seq := func(yield func(string, string) bool) {
+		for _, m := range sbMounts {
+			if !yield(m.Source, m.Target) {
+				return
+			}
+		}
+	}
+	sandboxPath := runtime.MapPath(path, seq)
+	mount := &types.Mount{
+		Type:   "bind",
+		Source: path,
+		Target: path,
+	}
+	mounts := []Pair[string, *types.Mount]{
+		{Key: sandboxPath, Value: mount},
+	}
+	return runtime.WithMounts(mounts)
+}
+
 func sandboxMountOpt(layout *sandboxer.Layout) runtime.ContainerRuntimeOption {
 	wsMount := &types.Mount{
 		Type:   "bind",
 		Source: layout.Workspace,
-		Target: "/opt/drassi/workspace",
+		Target: workspaceDir,
 	}
 	tmpMount := &types.Mount{
 		Type:   "bind",
 		Source: layout.Temp,
-		Target: "/opt/drassi/temp",
+		Target: tempDir,
 	}
 
 	mounts := []Pair[string, *types.Mount]{
@@ -101,13 +147,13 @@ func sandboxMountOpt(layout *sandboxer.Layout) runtime.ContainerRuntimeOption {
 
 func containerMountOpt(layout *sandboxer.Layout, sbMounts []*types.Mount) (runtime.ContainerRuntimeOption, error) {
 	slices.SortFunc(sbMounts, func(a, b *types.Mount) int {
-		return strings.Compare(a.Target, b.Target)
+		return strings.Compare(b.Target, a.Target) // DESC order
 	})
 
 	mounts := make([]Pair[string, *types.Mount], 0)
 	if mount, subDir := mountOf(layout.Workspace, sbMounts); mount == nil {
 		return nil, fmt.Errorf("workspace dir %s is not in a mount point", layout.Workspace)
-	} else if m, err := newMount(mount, "/opt/drassi/workspace", subDir); err != nil {
+	} else if m, err := newMount(mount, workspaceDir, subDir); err != nil {
 		return nil, err
 	} else {
 		mounts = append(mounts, Pair[string, *types.Mount]{
@@ -118,7 +164,7 @@ func containerMountOpt(layout *sandboxer.Layout, sbMounts []*types.Mount) (runti
 
 	if mount, subDir := mountOf(layout.Temp, sbMounts); mount == nil {
 		return nil, fmt.Errorf("temp dir %s is not in a mount point", layout.Workspace)
-	} else if m, err := newMount(mount, "/opt/drassi/temp", subDir); err != nil {
+	} else if m, err := newMount(mount, tempDir, subDir); err != nil {
 		return nil, err
 	} else {
 		mounts = append(mounts, Pair[string, *types.Mount]{

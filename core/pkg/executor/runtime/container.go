@@ -26,6 +26,8 @@ type Container interface {
 type containerRuntime struct {
 	engine  container.Engine
 	streams container.Streams
+
+	workdir string
 	labels  map[string]string
 	network string
 	mounts  []Pair[string, *types.Mount] // list of (sandboxPath, *Mount) pair, sorted DESC by sandboxPath
@@ -33,6 +35,12 @@ type containerRuntime struct {
 }
 
 type ContainerRuntimeOption func(*containerRuntime)
+
+func WithWorkDir(workdir string) ContainerRuntimeOption {
+	return func(rt *containerRuntime) {
+		rt.workdir = workdir
+	}
+}
 
 func WithLabels(labels map[string]string) ContainerRuntimeOption {
 	return func(rt *containerRuntime) {
@@ -132,6 +140,7 @@ func (rt *containerRuntime) Run(ctx context.Context, image string, entrypoint, c
 		Entrypoint:  entrypoint,
 		Command:     cmd,
 		Environment: runEnv,
+		WorkingDir:  rt.workdir,
 		Labels:      rt.labels,
 	}
 	spec.AutoRemove = true
