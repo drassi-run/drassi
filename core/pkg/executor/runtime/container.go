@@ -75,17 +75,17 @@ func NewContainerRuntime(engine container.Engine, streams container.Streams, opt
 	pathMap := make([][2]string, 0, len(mounts))
 	for _, m := range mounts {
 		sPath, cPath := m.Key, m.Value.Target
-		if sandboxerPaths.Has(sPath) {
-			return nil, fmt.Errorf("found duplicate sandbox mount at %s", sPath)
+		if s := strings.TrimRight(sPath, "/"); sandboxerPaths.Has(s) {
+			return nil, fmt.Errorf("found duplicate sandbox mount at %q", s)
 		} else {
-			sandboxerPaths.Insert(sPath)
+			sandboxerPaths.Insert(s)
 		}
-		if containerPaths.Has(cPath) {
-			return nil, fmt.Errorf("found duplicate container mount at %s", cPath)
+		if s := strings.TrimRight(cPath, "/"); containerPaths.Has(s) {
+			return nil, fmt.Errorf("found duplicate container mount at %q", s)
 		} else {
-			containerPaths.Insert(cPath)
+			containerPaths.Insert(s)
 		}
-		pathMap = append(pathMap, [...]string{m.Value.Target, m.Key})
+		pathMap = append(pathMap, [...]string{cPath, sPath})
 	}
 
 	slices.SortFunc(mounts, func(a, b Pair[string, *types.Mount]) int {
@@ -130,7 +130,7 @@ func (rt *containerRuntime) Run(ctx context.Context, image string, entrypoint, c
 	// clone env to avoid modify the original
 	runEnv := maps.Clone(env)
 	for k, v := range env {
-		if path := MapPath(v, rt.pathMapSeq); path != "" {
+		if path := MapPath(v, rt.mountMapSeq); path != "" {
 			runEnv[k] = path
 		}
 	}

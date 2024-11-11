@@ -1,3 +1,4 @@
+//go:generate mockgen -source=../pkg/container/engine.go -destination=container/engine.go -typed
 //go:generate mockgen -source=../pkg/sandboxer/engine.go -destination=sandboxer/engine.go -typed
 //go:generate mockgen -source=../pkg/sandboxer/sandbox.go -destination=sandboxer/sandbox.go -typed
 //go:generate mockgen -source=../pkg/executor/command/console.go -destination=executor/command/console.go -typed
