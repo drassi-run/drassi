@@ -153,7 +153,7 @@ func containerMountOpt(layout *sandboxer.Layout, sbMounts []*types.Mount) (runti
 	mounts := make([]Pair[string, *types.Mount], 0)
 	if mount, subDir := mountOf(layout.Workspace, sbMounts); mount == nil {
 		return nil, fmt.Errorf("workspace dir %s is not in a mount point", layout.Workspace)
-	} else if m, err := newMount(mount, workspaceDir, subDir); err != nil {
+	} else if m, err := chMount(mount, workspaceDir, subDir); err != nil {
 		return nil, err
 	} else {
 		mounts = append(mounts, Pair[string, *types.Mount]{
@@ -164,7 +164,7 @@ func containerMountOpt(layout *sandboxer.Layout, sbMounts []*types.Mount) (runti
 
 	if mount, subDir := mountOf(layout.Temp, sbMounts); mount == nil {
 		return nil, fmt.Errorf("temp dir %s is not in a mount point", layout.Workspace)
-	} else if m, err := newMount(mount, tempDir, subDir); err != nil {
+	} else if m, err := chMount(mount, tempDir, subDir); err != nil {
 		return nil, err
 	} else {
 		mounts = append(mounts, Pair[string, *types.Mount]{
@@ -176,11 +176,11 @@ func containerMountOpt(layout *sandboxer.Layout, sbMounts []*types.Mount) (runti
 	return runtime.WithMounts(mounts), nil
 }
 
-func newMount(m *types.Mount, point, subDir string) (*types.Mount, error) {
+func chMount(m *types.Mount, mountPoint, subDir string) (*types.Mount, error) {
 	mount := &types.Mount{
 		Type:     m.Type,
 		Source:   m.Source,
-		Target:   point,
+		Target:   mountPoint,
 		ReadOnly: m.ReadOnly,
 	}
 
