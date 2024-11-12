@@ -99,7 +99,7 @@ func (e *engine) Bootstrap(ctx context.Context, sb sandboxer.Sandbox, req *sandb
 		return resp, nil
 	}
 
-	labels := LabelsFor(req.Github)
+	labels := types.LabelsFor(req.Github)
 	// cleanup order is matter
 	cleanups := []sandboxer.Cleanup{
 		cleanup(labels, e.client.ContainerRemove),

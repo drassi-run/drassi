@@ -129,11 +129,20 @@ func FromAction(action *actions.Action, base BaseStepRun) (StepRun, error) {
 	case *actions.DockerRuns:
 		sr = &DockerStepRun{
 			BaseStepRun:    base,
+			Image:          r.Image,
 			Entrypoint:     r.Entrypoint,
+			Args:           r.Args,
 			PreEntrypoint:  r.PreEntrypoint,
 			PreIf:          r.PreIf,
 			PostEntrypoint: r.PostEntrypoint,
 			PostIf:         r.PostIf,
+		}
+		if r.Env != nil {
+			if bsr := sr.Base(); bsr.Env != nil {
+				bsr.Env = workflows.NewSquashMappingToken(bsr.Env, r.Env)
+			} else {
+				bsr.Env = r.Env
+			}
 		}
 	case *actions.CompositeRuns:
 		stepRuns := FromSteps(r.Steps)

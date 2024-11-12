@@ -9,10 +9,12 @@ import (
 	"strings"
 
 	runnerv1 "code.gitea.io/actions-proto-go/runner/v1"
+	"drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/executor/command"
 	"drassi.run/core/pkg/executor/problem"
 	"drassi.run/core/pkg/executor/reporter"
+	"drassi.run/core/pkg/executor/runtime"
 	"drassi.run/core/pkg/executor/secret"
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/expression/libraries"
@@ -23,6 +25,7 @@ import (
 	"drassi.run/core/pkg/wire/cmdhandler"
 	"drassi.run/core/pkg/wire/etc"
 	"drassi.run/core/pkg/wire/reporter"
+	"drassi.run/core/pkg/wire/runtime"
 	"drassi.run/core/pkg/wire/streams"
 	"drassi.run/core/util/dig"
 	"drassi.run/gitea-runner/pkg/service"
@@ -124,6 +127,9 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 		return err
 	}
 	if err := wire_streams.ProvideTo(scope.Scope("internal(streams)")); err != nil {
+		return err
+	}
+	if err := scope.Provide(newContainerRuntime(w.ctx, &github)); err != nil {
 		return err
 	}
 
@@ -230,4 +236,17 @@ type cmParams struct {
 
 func newCommandConsoleManager(p cmParams) command.ConsoleManager {
 	return command.NewConsoleManager(p.StdOut)
+}
+
+func newContainerRuntime(ctx context.Context, gh *records.Github) func(
+	container.Engine, container.Streams, sandboxer.Sandbox, *records.JobInfo,
+) (runtime.Container, error) {
+	return func(
+		engine container.Engine,
+		streams container.Streams,
+		sandbox sandboxer.Sandbox,
+		info *records.JobInfo,
+	) (runtime.Container, error) {
+		return wire_runtime.NewContainerRuntime(ctx, engine, streams, sandbox, info, gh)
+	}
 }

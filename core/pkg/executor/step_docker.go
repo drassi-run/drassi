@@ -51,7 +51,7 @@ func (sr *DockerStepRun) Initialize(exec StepExecutor, scope *dig.Scope) error {
 	ctx := exec.Context()
 	if image, ok := strings.CutPrefix(sr.Image, "docker://"); ok {
 		sr.resolvedImage = image
-		return sr.runtime.Pull(ctx, image)
+		return sr.runtime.Pull(ctx, image, nil)
 	} else {
 		return sr.runtime.Build(ctx)
 	}

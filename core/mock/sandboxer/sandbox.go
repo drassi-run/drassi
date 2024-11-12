@@ -42,45 +42,6 @@ func (m *MockSandbox) EXPECT() *MockSandboxMockRecorder {
 	return m.recorder
 }
 
-// ContainerInfo mocks base method.
-func (m *MockSandbox) ContainerInfo(ctx context.Context) (*sandboxer.ContainerInfo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ContainerInfo", ctx)
-	ret0, _ := ret[0].(*sandboxer.ContainerInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ContainerInfo indicates an expected call of ContainerInfo.
-func (mr *MockSandboxMockRecorder) ContainerInfo(ctx any) *MockSandboxContainerInfoCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerInfo", reflect.TypeOf((*MockSandbox)(nil).ContainerInfo), ctx)
-	return &MockSandboxContainerInfoCall{Call: call}
-}
-
-// MockSandboxContainerInfoCall wrap *gomock.Call
-type MockSandboxContainerInfoCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockSandboxContainerInfoCall) Return(arg0 *sandboxer.ContainerInfo, arg1 error) *MockSandboxContainerInfoCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockSandboxContainerInfoCall) Do(f func(context.Context) (*sandboxer.ContainerInfo, error)) *MockSandboxContainerInfoCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSandboxContainerInfoCall) DoAndReturn(f func(context.Context) (*sandboxer.ContainerInfo, error)) *MockSandboxContainerInfoCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // CopyIn mocks base method.
 func (m *MockSandbox) CopyIn(ctx context.Context, reader io.Reader, dst string) error {
 	m.ctrl.T.Helper()
