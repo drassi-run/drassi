@@ -6,6 +6,10 @@ import (
 	"io"
 	"iter"
 	"strings"
+
+	"drassi.run/core/pkg/executor"
+	"drassi.run/core/pkg/executor/runtime"
+	"drassi.run/core/util/types"
 )
 
 func splitLine(line string) iter.Seq[string] {
@@ -98,4 +102,23 @@ func parseEnvVars(reader io.Reader) (map[string]string, error) {
 		return nil, err
 	}
 	return env, nil
+}
+
+func getPathTranslator(sup executor.Supervisor) runtime.PathTranslator {
+	step := sup.CurrentStep()
+	if step == nil {
+		return nil
+	}
+
+	for sr := step.StepRun(); ; {
+		if prov, ok := sr.(interface{ PathTranslator() runtime.PathTranslator }); ok {
+			return prov.PathTranslator()
+		}
+		if uw, ok := sr.(xtypes.Unwrapper[executor.StepRun]); ok {
+			sr = uw.Unwrap()
+		} else {
+			break
+		}
+	}
+	return nil
 }

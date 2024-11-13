@@ -44,6 +44,11 @@ func AddProblemMatcher(m map[string]problem.Matcher, sb sandboxer.Sandbox, sup e
 		if file == "" {
 			return fmt.Errorf("%w %q: empty file path (in cmd value)", command.ErrInvalidCommand, "add-matcher")
 		}
+		if pt := getPathTranslator(sup); pt != nil {
+			if p, ok := pt.TranslatePath(file); ok {
+				file = p
+			}
+		}
 
 		ctx := sup.Context()
 		conf, err := readProblemMatcherFile(ctx, sb, file)
@@ -76,6 +81,13 @@ func RemoveProblemMatcher(m map[string]problem.Matcher, sb sandboxer.Sandbox, su
 		owner := cmd.Params["owner"]
 		if (file == "") == (owner == "") {
 			return fmt.Errorf("%w %q: either owner or file must be specified, but not both", command.ErrInvalidCommand, "remove-matcher")
+		}
+		if file != "" {
+			if pt := getPathTranslator(sup); pt != nil {
+				if p, ok := pt.TranslatePath(file); ok {
+					file = p
+				}
+			}
 		}
 
 		var owners []string

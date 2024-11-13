@@ -36,6 +36,10 @@ func (sr *ActionStepRun) Repository() *repository.Repository {
 	return sr.Repo
 }
 
+func (sr *ActionStepRun) Unwrap() StepRun {
+	return sr.actionRun
+}
+
 func (sr *ActionStepRun) Initialize(exec StepExecutor, scope *dig.Scope) error {
 	var (
 		github  records.Github
