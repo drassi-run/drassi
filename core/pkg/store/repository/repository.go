@@ -13,10 +13,6 @@ var (
 	hostPortRegex = regexp.MustCompile(`^(?P<host>[^:\s]+)(?::(?P<port>\d{1,5}))?$`)
 )
 
-type Repositorial interface {
-	Repository() *Repository
-}
-
 type Repository struct {
 	Scheme    string // e.g. git
 	Transport string // e.g. http, https, ssh

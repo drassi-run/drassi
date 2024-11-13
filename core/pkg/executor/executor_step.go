@@ -137,7 +137,7 @@ func (e *stepExecutor) Initialize(scope *dig.Scope) error {
 		return err
 	}
 
-	if r, ok := e.stepRun.(repository.Repositorial); ok {
+	if r, ok := e.stepRun.(interface{ Repository() *repository.Repository }); ok {
 		repo := r.Repository()
 
 		e.github.ActionRepository = repo.Name
