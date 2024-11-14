@@ -40,6 +40,10 @@ type DockerStepRun struct {
 	exprEnv expression.Env
 }
 
+func (sr *DockerStepRun) PathTranslator() runtime.PathTranslator {
+	return sr.runtime
+}
+
 func (sr *DockerStepRun) Initialize(exec StepExecutor, scope *dig.Scope) error {
 	if err := xdig.Populate(scope, &sr.runtime); err != nil {
 		return err

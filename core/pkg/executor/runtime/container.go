@@ -15,8 +15,7 @@ import (
 
 // Container runtime is used to run docker action
 type Container interface {
-	// TranslatePath map from containerPath to sandboxPath,
-	TranslatePath(containerPath string) (sandboxPath string, ok bool)
+	PathTranslator
 
 	Pull(ctx context.Context, image string, auth container.RegistryAuth) error
 	Build(ctx context.Context) error
@@ -100,6 +99,7 @@ func NewContainerRuntime(engine container.Engine, streams container.Streams, opt
 	return rt, nil
 }
 
+// TranslatePath map from containerPath to sandboxPath,
 func (rt *containerRuntime) TranslatePath(containerPath string) (sandboxPath string, ok bool) {
 	sandboxPath = MapPath(containerPath, rt.pathMapSeq)
 	ok = sandboxPath != ""

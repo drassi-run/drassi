@@ -8,6 +8,10 @@ import (
 	"drassi.run/core/util/string"
 )
 
+type PathTranslator interface {
+	TranslatePath(string) (string, bool)
+}
+
 func MapPath(origin string, m iter.Seq2[string, string]) string {
 	strippedOrigin := strings.TrimRight(origin, "/")
 	for k, v := range m {
