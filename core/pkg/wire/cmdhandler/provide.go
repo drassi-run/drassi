@@ -1,9 +1,6 @@
 package wire_cmdhandler
 
-import (
-	"drassi.run/core/pkg/wire"
-	"go.uber.org/dig"
-)
+import "go.uber.org/dig"
 
 func ProvideTo(scope *dig.Scope) error {
 	if err := provideConsoleHandlers(scope); err != nil {
@@ -18,7 +15,7 @@ func ProvideTo(scope *dig.Scope) error {
 }
 
 func provideConsoleHandlers(scope *dig.Scope) error {
-	group := dig.Group(wire.ConsoleCommandHandlers)
+	group := dig.Group(ConsoleCommandHandlers)
 	if err := scope.Provide(AddSecretMask, group); err != nil {
 		return err
 	}
@@ -37,7 +34,7 @@ func provideConsoleHandlers(scope *dig.Scope) error {
 	if err := scope.Provide(DebugMessage, group); err != nil {
 		return err
 	}
-	if err := scope.Provide(LogMessage, dig.Group(wire.ConsoleCommandHandlers+",flatten")); err != nil {
+	if err := scope.Provide(LogMessage, dig.Group(ConsoleCommandHandlers+",flatten")); err != nil {
 		return err
 	}
 	if err := scope.Provide(ConsoleAddPath, group); err != nil {
@@ -56,7 +53,7 @@ func provideConsoleHandlers(scope *dig.Scope) error {
 }
 
 func provideFileHandlers(scope *dig.Scope) error {
-	group := dig.Group(wire.FileCommandHandlers)
+	group := dig.Group(FileCommandHandlers)
 	if err := scope.Provide(FileAddPath, group); err != nil {
 		return err
 	}

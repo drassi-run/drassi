@@ -12,6 +12,11 @@ import (
 	"drassi.run/core/util/types"
 )
 
+const (
+	ConsoleCommandHandlers = "console-handlers"
+	FileCommandHandlers    = "file-handlers"
+)
+
 func splitLine(line string) iter.Seq[string] {
 	splitter := func(c rune) bool { return c == '\n' || c == '\r' }
 
