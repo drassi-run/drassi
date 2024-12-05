@@ -1,0 +1,154 @@
+version: 2
+
+project_name: drassi
+
+before:
+  hooks:
+    - go work sync
+
+source:
+  format: tar.gz
+
+builds:
+  - id: gha-runner
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    binary: gha-runner
+    dir: ./gha-runner
+    flags:
+      - -trimpath
+    ldflags:
+      # should we leave symbols or strip? 
+      # leaving symbols could be better in term of security to help scanner
+      - -s -w
+  - id: gitea-runner
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    binary: gitea-runner
+    dir: ./gitea-runner
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      
+archives:
+  - id: gha_runner_archives
+    format: binary
+    builds:
+      - gha-runner
+    name_template: "gha-runner-{{ .Os }}-{{ .Arch }}"
+    builds_info:
+      group: root
+      owner: root
+
+  - id: gitea_runner_archives
+    format: binary
+    builds:
+      - gitea-runner
+    name_template: "gitea-runner-{{ .Os }}-{{ .Arch }}"
+    builds_info:
+      group: root
+      owner: root
+
+sboms:
+  - id: drassi_sbom
+    artifacts: binary
+    documents:
+      - '{{ .ArtifactName }}.sbom'
+
+checksum:
+  name_template: "checksums.txt"
+
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+
+# changelog:
+#   use: github
+#   sort: asc
+#   filters:
+#     exclude:
+#       - "^docs:"
+#       - "^test:"
+
+release:
+  prerelease: auto
+  make_latest: false
+
+dockers:
+  # gha-runner: We publish to both GHCR.io & DockerHub
+  - image_templates:
+      - ghcr.io/drassi-run/gha-runner:{{ .Version }}-amd64
+      - '{{ if eq .Prerelease "" }}ghcr.io/drassi-run/gha-runner:latest-amd64{{ end }}'
+      - '{{ if eq .Prerelease "" }}ghcr.io/drassi-run/gha-runner:{{ .Major }}-amd64{{ end }}'
+      - '{{ if eq .Prerelease "" }}ghcr.io/drassi-run/gha-runner:{{ .Major }}.{{ .Minor }}-amd64{{ end }}'
+      - drassi-run/gha-runner:{{ .Version }}-amd64
+      - '{{ if eq .Prerelease "" }}drassi-run/gha-runner:latest-amd64{{ end }}'
+      - '{{ if eq .Prerelease "" }}drassi-run/gha-runner:{{ .Major }}-amd64{{ end }}'
+      - '{{ if eq .Prerelease "" }}drassi-run/gha-runner:{{ .Major }}.{{ .Minor }}-amd64{{ end }}'
+    use: buildx
+    dockerfile: Dockerfile.gha.runner
+    ids:
+      - gha-runner
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.name={{.ProjectName}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+
+  # gitea-runner
+  - image_templates:
+      - ghcr.io/drassi-run/gitea-runner:{{ .Version }}-arm64v8
+      - '{{ if eq .Prerelease "" }}ghcr.io/drassi-run/gitea-runner:latest-arm64v8{{ end }}'
+      - '{{ if eq .Prerelease "" }}ghcr.io/drassi-run/gitea-runner:{{ .Major }}-arm64v8{{ end }}'
+      - '{{ if eq .Prerelease "" }}ghcr.io/drassi-run/gitea-runner:{{ .Major }}.{{ .Minor }}-arm64v8{{ end }}'
+      - drassi-run/gitea-runner:{{ .Version }}-arm64v8
+      - '{{ if eq .Prerelease "" }}drassi-run/gitea-runner:latest-arm64v8{{ end }}'
+      - '{{ if eq .Prerelease "" }}drassi-run/gitea-runner:{{ .Major }}-arm64v8{{ end }}'
+      - '{{ if eq .Prerelease "" }}drassi-run/gitea-runner:{{ .Major }}.{{ .Minor }}-arm64v8{{ end }}'
+    use: buildx
+    goarch: arm64
+    dockerfile: Dockerfile.gitea.runner
+    ids:
+      - gitea-runner
+    build_flag_templates:
+      - "--platform=linux/arm64/v8"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.name={{.ProjectName}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+
+# combine into multiarch images
+docker_manifests:
+  - name_template: ghcr.io/drassi-run/gha-runner:{{ .Version }}
+    image_templates:
+      - ghcr.io/drassi-run/gha-runner:{{ .Version }}-amd64
+      - ghcr.io/drassi-run/gha-runner:{{ .Version }}-arm64v8
+
+  - name_template: ghcr.io/drassi-run/gitea-runner:{{ .Version }}
+    image_templates:
+      - ghcr.io/drassi-run/gitea-runner:{{ .Version }}-amd64
+      - ghcr.io/drassi-run/gitea-runner:{{ .Version }}-arm64v8
+
+# sign images like a gentlemen
+docker_signs:
+  - cmd: cosign
+    env:
+      - COSIGN_EXPERIMENTAL=1 # still needed?
+    artifacts: all
+    args:
+      - "sign"
+      - "${artifact}"
+      - "--yes"
