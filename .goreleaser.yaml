@@ -4,7 +4,7 @@ project_name: drassi
 
 before:
   hooks:
-    go mod tidy
+    - go work sync
 
 source:
   format: tar.gz
