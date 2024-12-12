@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/mitchellh/copystructure"
 	"github.com/mitchellh/mapstructure"
-	"gotest.tools/v3/assert"
+	"github.com/stretchr/testify/assert"
 	"reflect"
 	"testing"
 )
@@ -103,10 +103,10 @@ func TestDecodeRuns(t *testing.T) {
 		runs := runsStruct{}
 		err := model.Decode(map[string]any{}, &runs)
 
-		assert.NilError(tt, err)
-		assert.Check(tt, runs.Runs == nil)
-		assert.Check(tt, runs.ListOfRuns == nil)
-		assert.Check(tt, runs.MapOfRuns == nil)
+		assert.NoError(tt, err)
+		assert.Nil(tt, runs.Runs)
+		assert.Nil(tt, runs.ListOfRuns)
+		assert.Nil(tt, runs.MapOfRuns)
 	})
 
 	t.Run("nil", func(tt *testing.T) {
@@ -122,10 +122,10 @@ func TestDecodeRuns(t *testing.T) {
 			"mapOfRuns":  nil,
 		}, &runs)
 
-		assert.NilError(tt, err)
-		assert.Check(tt, runs.Runs == nil)
-		assert.Check(tt, runs.ListOfRuns == nil)
-		assert.Check(tt, runs.MapOfRuns == nil)
+		assert.NoError(tt, err)
+		assert.Nil(tt, runs.Runs)
+		assert.Nil(tt, runs.ListOfRuns)
+		assert.Nil(tt, runs.MapOfRuns)
 	})
 
 	t.Run("invalid-reflection", func(tt *testing.T) {
@@ -145,7 +145,7 @@ func TestDecodeRuns(t *testing.T) {
 		}
 		runs := new(NodeRuns)
 		err := model.DecodeWithOptions(input, &runs, opt)
-		assert.NilError(tt, err)
+		assert.NoError(tt, err)
 	})
 }
 
@@ -174,6 +174,6 @@ func testDecodeRuns[T any](tt *testing.T, value T, runs Runs) {
 		MapOfRuns:     map[string]Runs{"key": runs},
 		MapOfRunsPtr:  map[string]*Runs{"key": &runs},
 	}
-	assert.NilError(tt, err)
-	assert.DeepEqual(tt, actual, expected)
+	assert.NoError(tt, err)
+	assert.EqualValues(tt, actual, expected)
 }
