@@ -22,7 +22,7 @@ type engine struct {
 	source   *incusapi.InstanceSource
 }
 
-func New(spec *v1.IncusSpec) (sandboxer.Engine, error) {
+func New(spec *v1.IncusSandboxerSpec) (sandboxer.Engine, error) {
 	if client, err := incusclient.ConnectIncusUnix(spec.Endpoint, nil); err != nil {
 		return nil, err
 	} else if source, err := instanceSource(spec.Template.Image); err != nil {

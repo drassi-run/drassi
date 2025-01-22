@@ -17,10 +17,10 @@ import (
 )
 
 type engine struct {
-	spec *v1.HostSpec
+	spec *v1.HostSandboxerSpec
 }
 
-func New(spec *v1.HostSpec) (sandboxer.Engine, error) {
+func New(spec *v1.HostSandboxerSpec) (sandboxer.Engine, error) {
 	if d, err := xpath.ResolveDir(spec.RootDir); err != nil {
 		return nil, err
 	} else {

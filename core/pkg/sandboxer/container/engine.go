@@ -28,7 +28,7 @@ type engine struct {
 	defaultImage string
 }
 
-func New(spec *v1.ContainerSpec) (sandboxer.Engine, error) {
+func New(spec *v1.ContainerSandboxerSpec) (sandboxer.Engine, error) {
 	client, err := docker.New()
 	if err != nil {
 		return nil, err
