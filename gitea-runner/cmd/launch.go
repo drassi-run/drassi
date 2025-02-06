@@ -2,10 +2,8 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"os/signal"
 	"sync/atomic"
 	"syscall"
@@ -13,21 +11,28 @@ import (
 
 	"code.gitea.io/actions-proto-go/runner/v1"
 	"connectrpc.com/connect"
+	"drassi.run/core/pkg/manifest"
 	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/sandboxer"
+	sandboxerv1 "drassi.run/core/pkg/sandboxer/apis/v1"
+	"drassi.run/core/pkg/sandboxer/container"
 	"drassi.run/core/pkg/sandboxer/host"
+	"drassi.run/core/pkg/sandboxer/incus"
 	"drassi.run/core/pkg/store/repository/gitstore"
 	"drassi.run/core/util/dig"
+	giteav1 "drassi.run/gitea-runner/pkg/apis/v1"
 	"drassi.run/gitea-runner/pkg/service"
 	"drassi.run/gitea-runner/pkg/worker"
 	"github.com/spf13/cobra"
 	"go.uber.org/dig"
 	"golang.org/x/time/rate"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 type launchCommand struct {
-	runnerInfo RunnerInfo
+	runnerName string
 	client     service.GiteaClient
 	runtime    sandboxer.Engine
 	store      gitstore.Store
@@ -37,6 +42,8 @@ type launchCommand struct {
 }
 
 func NewLaunchCommand() *cobra.Command {
+	var opts commonOptions
+
 	cmd := &cobra.Command{
 		Use:   "launch",
 		Short: "Start Gitea runner to receive request from server",
@@ -51,48 +58,48 @@ func NewLaunchCommand() *cobra.Command {
 				command.finalize(ctx)
 			}()
 
-			if err := command.initialize(ctx); err != nil {
+			if err := command.initialize(ctx, &opts); err != nil {
 				return err
 			}
 			return command.run(ctx)
 		},
 	}
 
+	flags := cmd.Flags()
+	opts.foobar(flags)
+
 	return cmd
 }
 
-func (c *launchCommand) initialize(ctx context.Context) error {
-	if err := loadJson(".runner", &c.runnerInfo); err != nil {
+func (c *launchCommand) initialize(ctx context.Context, opts *commonOptions) error {
+	store, err := manifestStore(opts)
+	if err != nil {
 		return err
 	}
 
+	o, err := c.loadGiteaManifest(ctx, store, opts.name)
+	if err != nil {
+		return err
+	}
+
+	spec := o.Spec
 	c.client = service.NewClient(
-		c.runnerInfo.Address,
-		c.runnerInfo.InsecureSkipTLSVerify,
-		c.runnerInfo.UUID,
-		c.runnerInfo.Token,
+		spec.Address, spec.InsecureSkipTLSVerify,
+		spec.UUID, spec.Token,
 	)
 
 	req := &runnerv1.DeclareRequest{
 		Version: "dev",
-		Labels:  c.runnerInfo.Labels,
+		Labels:  spec.RunnerLabels,
 	}
-	if _, err := c.client.Declare(ctx, connect.NewRequest(req)); err != nil {
+	if _, err = c.client.Declare(ctx, connect.NewRequest(req)); err != nil {
 		return err
 	}
 
-	if store, err := gitstore.New(".cache"); err != nil {
+	if err = c.loadGitStore(); err != nil {
 		return err
-	} else {
-		c.store = store
 	}
-
-	if engine, err := getRuntime(); err != nil {
-		return err
-	} else {
-		c.runtime = engine
-		return nil
-	}
+	return c.loadSandboxer(ctx, store, spec.SandboxerRef)
 }
 
 func (c *launchCommand) run(ctx context.Context) error {
@@ -155,7 +162,7 @@ func (c *launchCommand) runTask(ctx context.Context, task *runnerv1.Task) error 
 
 	// Runner context
 	runner := records.Runner{
-		Name:        c.runnerInfo.Name,
+		Name:        c.runnerName,
 		Os:          model.Linux,
 		Arch:        model.X64,
 		Environment: "self-hosted",
@@ -188,41 +195,47 @@ func (c *launchCommand) runTask(ctx context.Context, task *runnerv1.Task) error 
 func (c *launchCommand) finalize(ctx context.Context) {
 }
 
-func getRuntime() (sandboxer.Engine, error) {
-	//config := &incus.Incus{
-	//	TypeMeta: metav1.TypeMeta{
-	//		APIVersion: "sandboxer.drasi.run/v1",
-	//		Kind:       "Incus",
-	//	},
-	//	ObjectMeta: metav1.ObjectMeta{
-	//		Name: "default",
-	//	},
-	//	Spec: incus.IncusSpec{
-	//		Endpoint: "unix://",
-	//		Template: incus.IncusTemplateSpec{
-	//			Source: api.InstanceSource{
-	//				Type:     "image",
-	//				Alias:    "ubuntu/22.04",
-	//				Server:   "https://images.linuxcontainers.org",
-	//				Protocol: "simplestreams",
-	//				//Mode:     "pull",
-	//			},
-	//			Type: "container",
-	//		},
-	//	},
-	//}
-	//return incus.NewSandboxRuntime(config)
+func (c *launchCommand) loadGiteaManifest(ctx context.Context, store manifest.Store, name string) (*giteav1.GiteaRunner, error) {
+	gvk := giteav1.SchemeGroupVersion.WithKind("GiteaRunner")
 
-	spec := &host.HostSpec{
-		RootDir: "/tmp/gitea-runner",
+	if o, err := store.Load(ctx, gvk, name); err != nil {
+		return nil, err
+	} else {
+		return o.(*giteav1.GiteaRunner), nil
 	}
-	return host.New(spec)
 }
 
-func loadJson(file string, object any) error {
-	f, err := os.OpenFile(file, os.O_RDONLY, os.ModePerm)
+func (c *launchCommand) loadGitStore() error {
+	if store, err := gitstore.New(".cache"); err != nil {
+		return err
+	} else {
+		c.store = store
+	}
+	return nil
+}
+
+func (c *launchCommand) loadSandboxer(ctx context.Context, store manifest.Store, ref corev1.TypedLocalObjectReference) (err error) {
+	gv := sandboxerv1.SchemeGroupVersion
+	if ref.APIGroup != nil {
+		if gv, err = schema.ParseGroupVersion(*ref.APIGroup); err != nil {
+			return err
+		}
+	}
+
+	gvk := gv.WithKind(ref.Kind)
+	o, err := store.Load(ctx, gvk, ref.Name)
 	if err != nil {
 		return err
 	}
-	return json.NewDecoder(f).Decode(object)
+
+	switch o := o.(type) {
+	case *sandboxerv1.ContainerSandboxer:
+		c.runtime, err = container.New(&o.Spec)
+	case *sandboxerv1.HostSandboxer:
+		c.runtime, err = host.New(&o.Spec)
+	case *sandboxerv1.IncusSandboxer:
+		c.runtime, err = incus.New(&o.Spec)
+	}
+
+	return
 }
