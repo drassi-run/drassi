@@ -9,6 +9,7 @@ import (
 
 	"drassi.run/core/pkg/container/docker"
 	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/pkg/sandboxer/apis/v1"
 	"drassi.run/core/pkg/sandboxer/container"
 	"drassi.run/core/util/fs"
 	"drassi.run/core/util/path"
@@ -16,10 +17,10 @@ import (
 )
 
 type engine struct {
-	spec *HostSpec
+	spec *v1.HostSandboxerSpec
 }
 
-func New(spec *HostSpec) (sandboxer.Engine, error) {
+func New(spec *v1.HostSandboxerSpec) (sandboxer.Engine, error) {
 	if d, err := xpath.ResolveDir(spec.RootDir); err != nil {
 		return nil, err
 	} else {

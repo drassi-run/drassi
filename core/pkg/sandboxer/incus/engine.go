@@ -2,11 +2,13 @@ package incus
 
 import (
 	"context"
+	"path"
 	"strings"
 
 	"drassi.run/core/pkg/container/docker"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/pkg/sandboxer/apis/v1"
 	"drassi.run/core/pkg/sandboxer/container"
 	"drassi.run/core/util/string"
 	dockerclient "github.com/docker/docker/client"
@@ -16,19 +18,23 @@ import (
 
 type engine struct {
 	client   incusclient.InstanceServer
-	template *IncusTemplate
+	template *v1.IncusTemplate
+	source   *incusapi.InstanceSource
 }
 
-func New(spec *IncusSpec) (sandboxer.Engine, error) {
-	client, err := incusclient.ConnectIncusUnix(spec.Endpoint, nil)
-	if err != nil {
+func New(spec *v1.IncusSandboxerSpec) (sandboxer.Engine, error) {
+	if client, err := incusclient.ConnectIncusUnix(spec.Endpoint, nil); err != nil {
 		return nil, err
+	} else if source, err := instanceSource(spec.Template.Image); err != nil {
+		return nil, err
+	} else {
+		e := &engine{
+			client:   client,
+			template: &spec.Template,
+			source:   source,
+		}
+		return e, nil
 	}
-	e := &engine{
-		client:   client,
-		template: &spec.Template,
-	}
-	return e, nil
 }
 
 func (e *engine) Close() error {
@@ -41,8 +47,8 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*san
 	iReq := incusapi.InstancesPost{
 		Name:         name,
 		Start:        true,
-		Source:       e.template.Source,
-		Type:         e.template.Type,
+		Source:       *e.source,
+		Type:         incusapi.InstanceTypeContainer,
 		InstanceType: e.template.InstanceSize,
 		InstancePut: incusapi.InstancePut{
 			Architecture: e.template.Architecture,
@@ -50,9 +56,6 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*san
 			Devices:      e.template.Devices,
 			Ephemeral:    e.template.Ephemeral,
 			Profiles:     e.template.Profiles,
-			Restore:      e.template.Restore,
-			Stateful:     e.template.Stateful,
-			Description:  e.template.Description,
 		},
 	}
 	if op, err := e.client.CreateInstance(iReq); err != nil {
@@ -94,4 +97,23 @@ func (e *engine) sandboxName(gh *records.Github) string {
 	name := strings.Join([]string{repo, workflow, job, run, attempt}, "-")
 	name = strings.ReplaceAll(name, "_", "-")
 	return name
+}
+
+func instanceSource(uri string) (*incusapi.InstanceSource, error) {
+	registry, image, found := strings.Cut(uri, "/")
+	if !found || !strings.Contains(registry, ".") {
+		registry = "https://docker.io"
+		if found {
+			image = uri
+		} else {
+			image = path.Join("library", uri)
+		}
+	}
+	source := &incusapi.InstanceSource{
+		Type:     "image",
+		Alias:    image,
+		Server:   registry,
+		Protocol: "oci",
+	}
+	return source, nil
 }

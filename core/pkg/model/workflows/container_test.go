@@ -2,7 +2,7 @@ package workflows
 
 import (
 	"drassi.run/core/pkg/model"
-	"gotest.tools/v3/assert"
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
@@ -56,7 +56,7 @@ func testDecodeContainer[C any](tt *testing.T, value C, con Container) {
 
 	actual := containerTestStruct{}
 	err := model.Decode(data, &actual)
-	assert.NilError(tt, err)
+	assert.NoError(tt, err)
 
 	expected := containerTestStruct{
 		Con:          con,
@@ -66,5 +66,5 @@ func testDecodeContainer[C any](tt *testing.T, value C, con Container) {
 		MapOfCon:     map[string]Container{"key": con},
 		MapOfConPtr:  map[string]*Container{"key": &con},
 	}
-	assert.DeepEqual(tt, actual, expected)
+	assert.EqualValues(tt, actual, expected)
 }

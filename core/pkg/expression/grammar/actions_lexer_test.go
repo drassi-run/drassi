@@ -2,7 +2,7 @@ package grammar
 
 import (
 	"github.com/antlr4-go/antlr/v4"
-	"gotest.tools/v3/assert"
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 

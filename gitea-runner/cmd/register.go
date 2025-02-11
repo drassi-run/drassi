@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -10,9 +9,14 @@ import (
 	pingv1 "code.gitea.io/actions-proto-go/ping/v1"
 	runnerv1 "code.gitea.io/actions-proto-go/runner/v1"
 	"connectrpc.com/connect"
+	sandboxerv1 "drassi.run/core/pkg/sandboxer/apis/v1"
+	giteav1 "drassi.run/gitea-runner/pkg/apis/v1"
 	"drassi.run/gitea-runner/pkg/service"
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/yaml"
 )
 
 type registerOptions struct {
@@ -21,6 +25,8 @@ type registerOptions struct {
 	name                  string
 	labels                []string
 	insecureSkipTLSVerify bool
+	sandboxerKind         string
+	sandboxerName         string
 }
 
 type registerCommand struct {
@@ -47,6 +53,8 @@ func NewRegisterCommand() *cobra.Command {
 	flags.StringVar(&opts.token, "token", "", "Runner registration token")
 	flags.StringVar(&opts.name, "name", "", "Runner name")
 	flags.StringSliceVar(&opts.labels, "labels", nil, "Runner tags, comma separated")
+	flags.StringVar(&opts.sandboxerKind, "sandboxer-kind", "", "Sandboxer kind")
+	flags.StringVar(&opts.sandboxerName, "sandboxer-name", "", "Sandboxer name")
 
 	return cmd
 }
@@ -105,10 +113,40 @@ func (c *registerCommand) run(ctx context.Context) error {
 	// TODO: prompt
 	c.opts.labels = []string{"ubuntu-latest", "ubuntu-22.04"}
 
-	return c.doRegister(ctx)
+	if c.opts.sandboxerKind == "" {
+		err := huh.NewInput().
+			Title("Sandboxer Kind?").
+			Value(&c.opts.sandboxerKind).
+			Validate(IsNotEmpty).
+			Run()
+		if err != nil {
+			return err
+		} else {
+			fmt.Printf("Sandboxer Kind: %s\n", c.opts.sandboxerKind)
+		}
+	}
+
+	if c.opts.sandboxerName == "" {
+		err := huh.NewInput().
+			Title("Sandboxer Name?").
+			Value(&c.opts.sandboxerName).
+			Validate(IsNotEmpty).
+			Run()
+		if err != nil {
+			return err
+		} else {
+			fmt.Printf("Sandboxer Name: %s\n", c.opts.sandboxerName)
+		}
+	}
+
+	if runner, err := c.doRegister(ctx); err != nil {
+		return err
+	} else {
+		return c.saveManifest(runner)
+	}
 }
 
-func (c *registerCommand) doRegister(ctx context.Context) error {
+func (c *registerCommand) doRegister(ctx context.Context) (*giteav1.GiteaRunner, error) {
 	client := service.NewClient(c.opts.url, c.opts.insecureSkipTLSVerify, "", "")
 
 	for {
@@ -128,20 +166,76 @@ func (c *registerCommand) doRegister(ctx context.Context) error {
 	}))
 	if err != nil {
 		fmt.Printf("cannot register new runner")
+		return nil, err
+	}
+
+	apiGroup := sandboxerv1.SchemeGroupVersion.String()
+	runner := giteav1.GiteaRunner{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: giteav1.SchemeGroupVersion.String(),
+			Kind:       "GiteaRunner",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: resp.Msg.Runner.Name,
+		},
+		Spec: giteav1.GiteaRunnerSpec{
+			UUID:                  resp.Msg.Runner.Uuid,
+			Token:                 resp.Msg.Runner.Token,
+			Address:               c.opts.url,
+			InsecureSkipTLSVerify: c.opts.insecureSkipTLSVerify,
+			RunnerLabels:          resp.Msg.Runner.Labels,
+			SandboxerRef: corev1.TypedLocalObjectReference{
+				APIGroup: &apiGroup,
+				Kind:     c.opts.sandboxerKind,
+				Name:     c.opts.sandboxerName,
+			},
+		},
+	}
+
+	return &runner, nil
+}
+
+func (c *registerCommand) saveManifest(runner *giteav1.GiteaRunner) error {
+	b, err := yaml.Marshal(runner)
+	if err != nil {
 		return err
 	}
 
-	runner := &RunnerInfo{
-		ID:                    resp.Msg.Runner.Id,
-		UUID:                  resp.Msg.Runner.Uuid,
-		Name:                  resp.Msg.Runner.Name,
-		Token:                 resp.Msg.Runner.Token,
-		Address:               c.opts.url,
-		Labels:                resp.Msg.Runner.Labels,
-		InsecureSkipTLSVerify: c.opts.insecureSkipTLSVerify,
+	fmt.Fprintln(os.Stdout, strings.Repeat("=", 50))
+	if _, err = os.Stdout.Write(b); err != nil {
+		return err
+	}
+	fmt.Fprintln(os.Stdout, strings.Repeat("=", 50))
+
+	saveToFile := false
+	err = huh.NewConfirm().
+		Title("Do you want to save it to file?").
+		Value(&saveToFile).
+		Run()
+	if err != nil {
+		return err
+	} else if !saveToFile {
+		return nil
 	}
 
-	return saveJson(".runner", runner)
+	var f string
+	err = huh.NewInput().
+		Title("Select file").
+		Value(&f).
+		Validate(IsNotEmpty).
+		Run()
+	if err != nil {
+		return err
+	}
+
+	file, err := os.OpenFile(f, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	_, err = file.Write(b)
+	return err
 }
 
 // IsNotEmpty requires a non-empty string.
@@ -151,26 +245,4 @@ func IsNotEmpty(value string) error {
 	}
 
 	return nil
-}
-
-func saveJson(file string, object any) error {
-	if f, err := os.OpenFile(file, os.O_CREATE|os.O_WRONLY, os.ModePerm); err != nil {
-		return err
-	} else {
-		defer f.Close()
-
-		enc := json.NewEncoder(f)
-		enc.SetIndent("", "  ")
-		return enc.Encode(object)
-	}
-}
-
-type RunnerInfo struct {
-	ID                    int64    `json:"id,omitempty" yaml:"id,omitempty"`
-	UUID                  string   `json:"uuid,omitempty" yaml:"uuid,omitempty"`
-	Name                  string   `json:"name,omitempty" yaml:"name,omitempty"`
-	Token                 string   `json:"token,omitempty" yaml:"token,omitempty"`
-	Address               string   `json:"address,omitempty" yaml:"address,omitempty"`
-	Labels                []string `json:"labels,omitempty" yaml:"labels,omitempty"`
-	InsecureSkipTLSVerify bool     `json:"insecureSkipTLSVerify,omitempty" yaml:"insecureSkipTLSVerify,omitempty"`
 }
