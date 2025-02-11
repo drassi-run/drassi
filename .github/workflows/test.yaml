@@ -14,7 +14,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install Go
         uses: actions/setup-go@v5
@@ -32,6 +32,4 @@ jobs:
 #          go vet ./gha-runner/...
 
       - name: Test
-        run: |
-          go test -race ./core/...
-          go test -race ./gha-runner/...
+        run: go list -m | xargs -I {} go test "{}/..."
