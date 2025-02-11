@@ -1,0 +1,28 @@
+apiVersion: runner.drassi.run/v1
+kind: GiteaRunner
+metadata:
+  name: gitea
+spec:
+  uuid: 8c6f1c42-7e60-4449-b8e2-116a7bf13e80
+  token: 3d201ffca49b3703fe437c0d4ab830049ce24f7a
+  address: http://gitea.local:3000
+  runnerLabels: [ubuntu-latest, ubuntu-22.04]
+  sandboxerRef:
+    apiGroup: sandboxer.drassi.run/v1
+    kind: HostSandboxer
+    name: host
+---
+apiVersion: sandboxer.drassi.run/v1
+kind: HostSandboxer
+metadata:
+  name: host
+spec:
+  rootDir: /tmp/drassi
+---
+apiVersion: sandboxer.drassi.run/v1
+kind: ContainerSandboxer
+metadata:
+  name: docker
+spec:
+  image: ghcr.io/drassi-run/ubuntu:22.04
+#  ...
