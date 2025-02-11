@@ -9,8 +9,8 @@ import (
 	pingv1 "code.gitea.io/actions-proto-go/ping/v1"
 	runnerv1 "code.gitea.io/actions-proto-go/runner/v1"
 	"connectrpc.com/connect"
-	sandboxerv1 "drassi.run/core/pkg/sandboxer/apis/v1"
-	giteav1 "drassi.run/gitea-runner/pkg/apis/v1"
+	sandboxerv1a1 "drassi.run/core/pkg/sandboxer/apis/v1alpha1"
+	giteav1a1 "drassi.run/gitea-runner/pkg/apis/v1alpha1"
 	"drassi.run/gitea-runner/pkg/service"
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
@@ -146,7 +146,7 @@ func (c *registerCommand) run(ctx context.Context) error {
 	}
 }
 
-func (c *registerCommand) doRegister(ctx context.Context) (*giteav1.GiteaRunner, error) {
+func (c *registerCommand) doRegister(ctx context.Context) (*giteav1a1.GiteaRunner, error) {
 	client := service.NewClient(c.opts.url, c.opts.insecureSkipTLSVerify, "", "")
 
 	for {
@@ -169,16 +169,16 @@ func (c *registerCommand) doRegister(ctx context.Context) (*giteav1.GiteaRunner,
 		return nil, err
 	}
 
-	apiGroup := sandboxerv1.SchemeGroupVersion.String()
-	runner := giteav1.GiteaRunner{
+	apiGroup := sandboxerv1a1.SchemeGroupVersion.String()
+	runner := giteav1a1.GiteaRunner{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: giteav1.SchemeGroupVersion.String(),
+			APIVersion: giteav1a1.SchemeGroupVersion.String(),
 			Kind:       "GiteaRunner",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: resp.Msg.Runner.Name,
 		},
-		Spec: giteav1.GiteaRunnerSpec{
+		Spec: giteav1a1.GiteaRunnerSpec{
 			UUID:                  resp.Msg.Runner.Uuid,
 			Token:                 resp.Msg.Runner.Token,
 			Address:               c.opts.url,
@@ -195,7 +195,7 @@ func (c *registerCommand) doRegister(ctx context.Context) (*giteav1.GiteaRunner,
 	return &runner, nil
 }
 
-func (c *registerCommand) saveManifest(runner *giteav1.GiteaRunner) error {
+func (c *registerCommand) saveManifest(runner *giteav1a1.GiteaRunner) error {
 	b, err := yaml.Marshal(runner)
 	if err != nil {
 		return err

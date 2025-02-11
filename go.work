@@ -3,5 +3,5 @@ go 1.23.0
 use (
 	./core
 	./gha-runner
-	./gitea-runner
+	./runner-gitea
 )

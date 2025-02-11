@@ -5,8 +5,8 @@ import (
 
 	"drassi.run/core/pkg/manifest"
 	"drassi.run/core/pkg/manifest/filesystem"
-	sandboxerv1 "drassi.run/core/pkg/sandboxer/apis/v1"
-	giteav1 "drassi.run/gitea-runner/pkg/apis/v1"
+	sandboxerv1a1 "drassi.run/core/pkg/sandboxer/apis/v1alpha1"
+	giteav1a1 "drassi.run/gitea-runner/pkg/apis/v1alpha1"
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -47,10 +47,10 @@ func newScheme() (*runtime.Scheme, error) {
 	if err := scheme.AddToScheme(s); err != nil {
 		return nil, err
 	}
-	if err := sandboxerv1.AddToScheme(s); err != nil {
+	if err := sandboxerv1a1.AddToScheme(s); err != nil {
 		return nil, err
 	}
-	if err := giteav1.AddToScheme(s); err != nil {
+	if err := giteav1a1.AddToScheme(s); err != nil {
 		return nil, err
 	}
 	return s, nil

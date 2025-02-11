@@ -15,13 +15,13 @@ import (
 	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/sandboxer"
-	sandboxerv1 "drassi.run/core/pkg/sandboxer/apis/v1"
+	sandboxerv1a1 "drassi.run/core/pkg/sandboxer/apis/v1alpha1"
 	"drassi.run/core/pkg/sandboxer/container"
 	"drassi.run/core/pkg/sandboxer/host"
 	"drassi.run/core/pkg/sandboxer/incus"
 	"drassi.run/core/pkg/store/repository/gitstore"
 	"drassi.run/core/util/dig"
-	giteav1 "drassi.run/gitea-runner/pkg/apis/v1"
+	giteav1a1 "drassi.run/gitea-runner/pkg/apis/v1alpha1"
 	"drassi.run/gitea-runner/pkg/service"
 	"drassi.run/gitea-runner/pkg/worker"
 	"github.com/spf13/cobra"
@@ -195,13 +195,13 @@ func (c *launchCommand) runTask(ctx context.Context, task *runnerv1.Task) error 
 func (c *launchCommand) finalize(ctx context.Context) {
 }
 
-func (c *launchCommand) loadGiteaManifest(ctx context.Context, store manifest.Store, name string) (*giteav1.GiteaRunner, error) {
-	gvk := giteav1.SchemeGroupVersion.WithKind("GiteaRunner")
+func (c *launchCommand) loadGiteaManifest(ctx context.Context, store manifest.Store, name string) (*giteav1a1.GiteaRunner, error) {
+	gvk := giteav1a1.SchemeGroupVersion.WithKind("GiteaRunner")
 
 	if o, err := store.Load(ctx, gvk, name); err != nil {
 		return nil, err
 	} else {
-		return o.(*giteav1.GiteaRunner), nil
+		return o.(*giteav1a1.GiteaRunner), nil
 	}
 }
 
@@ -215,7 +215,7 @@ func (c *launchCommand) loadGitStore() error {
 }
 
 func (c *launchCommand) loadSandboxer(ctx context.Context, store manifest.Store, ref corev1.TypedLocalObjectReference) (err error) {
-	gv := sandboxerv1.SchemeGroupVersion
+	gv := sandboxerv1a1.SchemeGroupVersion
 	if ref.APIGroup != nil {
 		if gv, err = schema.ParseGroupVersion(*ref.APIGroup); err != nil {
 			return err
@@ -229,11 +229,11 @@ func (c *launchCommand) loadSandboxer(ctx context.Context, store manifest.Store,
 	}
 
 	switch o := o.(type) {
-	case *sandboxerv1.ContainerSandboxer:
+	case *sandboxerv1a1.ContainerSandboxer:
 		c.runtime, err = container.New(&o.Spec)
-	case *sandboxerv1.HostSandboxer:
+	case *sandboxerv1a1.HostSandboxer:
 		c.runtime, err = host.New(&o.Spec)
-	case *sandboxerv1.IncusSandboxer:
+	case *sandboxerv1a1.IncusSandboxer:
 		c.runtime, err = incus.New(&o.Spec)
 	}
 
