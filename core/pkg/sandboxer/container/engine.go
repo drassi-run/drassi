@@ -14,7 +14,7 @@ import (
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
-	"drassi.run/core/pkg/sandboxer/apis/v1"
+	"drassi.run/core/pkg/sandboxer/apis/v1alpha1"
 	"drassi.run/core/util/string"
 	"golang.org/x/sync/errgroup"
 )
@@ -28,7 +28,7 @@ type engine struct {
 	defaultImage string
 }
 
-func New(spec *v1.ContainerSandboxerSpec) (sandboxer.Engine, error) {
+func New(spec *v1alpha1.ContainerSandboxerSpec) (sandboxer.Engine, error) {
 	client, err := docker.New()
 	if err != nil {
 		return nil, err

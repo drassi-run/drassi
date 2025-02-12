@@ -8,7 +8,7 @@ import (
 	"drassi.run/core/pkg/container/docker"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/sandboxer"
-	"drassi.run/core/pkg/sandboxer/apis/v1"
+	"drassi.run/core/pkg/sandboxer/apis/v1alpha1"
 	"drassi.run/core/pkg/sandboxer/container"
 	"drassi.run/core/util/string"
 	dockerclient "github.com/docker/docker/client"
@@ -18,11 +18,11 @@ import (
 
 type engine struct {
 	client   incusclient.InstanceServer
-	template *v1.IncusTemplate
+	template *v1alpha1.IncusTemplate
 	source   *incusapi.InstanceSource
 }
 
-func New(spec *v1.IncusSandboxerSpec) (sandboxer.Engine, error) {
+func New(spec *v1alpha1.IncusSandboxerSpec) (sandboxer.Engine, error) {
 	if client, err := incusclient.ConnectIncusUnix(spec.Endpoint, nil); err != nil {
 		return nil, err
 	} else if source, err := instanceSource(spec.Template.Image); err != nil {
