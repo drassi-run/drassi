@@ -10,13 +10,13 @@ require (
 	github.com/docker/go-units v0.5.0
 	github.com/go-git/go-billy/v5 v5.5.0
 	github.com/go-git/go-git/v5 v5.12.0
+	github.com/go-viper/mapstructure/v2 v2.2.1
 	github.com/google/go-cmp v0.6.0
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/lxc/incus/v6 v6.6.0
 	github.com/mitchellh/copystructure v1.2.0
-	github.com/mitchellh/mapstructure v1.5.0
 	github.com/opencontainers/image-spec v1.1.0
 	github.com/pkg/sftp v1.13.6
 	github.com/spf13/pflag v1.0.5
@@ -56,7 +56,6 @@ require (
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect
 	github.com/go-openapi/jsonreference v0.20.2 // indirect
 	github.com/go-openapi/swag v0.23.0 // indirect
-	github.com/go-viper/mapstructure/v2 v2.2.1 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.4 // indirect

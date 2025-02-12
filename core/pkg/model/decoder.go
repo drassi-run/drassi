@@ -3,11 +3,13 @@ package model
 import "reflect"
 
 // comparable to yaml.Unmarshaler, decoder allow a type to define its own custom logic to convert value
+// see https://github.com/go-viper/mapstructure/v2/pull/294
 // see https://github.com/mitchellh/mapstructure/pull/294
 type decoder interface {
 	DecodeMapstructure(any) (any, error)
 }
 
+// see https://github.com/go-viper/mapstructure/v2/issues/115#issuecomment-735287466
 // see https://github.com/mitchellh/mapstructure/issues/115#issuecomment-735287466
 // adapted to support types derived from built-in types, as DecodeMapstructure would not be able to mutate internal
 // value, so need to invoke DecodeMapstructure defined by pointer to type

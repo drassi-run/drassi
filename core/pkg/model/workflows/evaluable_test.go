@@ -2,9 +2,9 @@ package workflows
 
 import (
 	"drassi.run/core/pkg/model"
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/google/go-cmp/cmp"
 	"github.com/mitchellh/copystructure"
-	"github.com/mitchellh/mapstructure"
 	"golang.org/x/exp/maps"
 	"gotest.tools/v3/assert"
 	"reflect"

@@ -3,7 +3,7 @@ package workflows
 import (
 	"drassi.run/core/pkg/model"
 	"fmt"
-	"github.com/mitchellh/mapstructure"
+	"github.com/go-viper/mapstructure/v2"
 	"gotest.tools/v3/assert"
 	"reflect"
 	"testing"

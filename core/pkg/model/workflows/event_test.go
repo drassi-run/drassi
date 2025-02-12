@@ -2,8 +2,7 @@ package workflows
 
 import (
 	"drassi.run/core/pkg/model"
-	"github.com/mitchellh/mapstructure"
-	"gotest.tools/v3/assert"
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
@@ -16,8 +15,8 @@ func TestOn(t *testing.T) {
 		input := "push"
 		o := new(On)
 		err := model.Decode(input, o)
-		assert.NilError(t, err)
-		assert.DeepEqual(t, o, expected)
+		assert.NoError(t, err)
+		assert.EqualValues(t, expected, o)
 	})
 
 	t.Run("multiple-event", func(t *testing.T) {
@@ -29,8 +28,8 @@ func TestOn(t *testing.T) {
 		input := []any{"push", "fork"}
 		o := new(On)
 		err := model.Decode(input, o)
-		assert.NilError(t, err)
-		assert.DeepEqual(t, o, expected)
+		assert.NoError(t, err)
+		assert.EqualValues(t, expected, o)
 	})
 
 	t.Run("activity-type", func(t *testing.T) {
@@ -55,8 +54,8 @@ func TestOn(t *testing.T) {
 		}
 		o := new(On)
 		err := model.Decode(input, o)
-		assert.NilError(t, err)
-		assert.DeepEqual(t, o, expected)
+		assert.NoError(t, err)
+		assert.EqualValues(t, expected, o)
 	})
 }
 
@@ -106,19 +105,19 @@ func TestOnBranchProtectionRule(t *testing.T) {
 		obj := klass[OnBranchProtectionRule]{}
 		err := model.Decode(data, &obj)
 
-		if value == "error" {
-			assert.ErrorType(tt, err, &mapstructure.Error{})
-			return
+		if value != "error" {
+			assert.NoError(tt, err)
 		}
-		assert.NilError(tt, err)
 
 		switch value {
+		case "error":
+			assert.Error(tt, err)
 		case "default":
-			assert.DeepEqual(tt, obj.Event.Types, obj.Event.defaultActivities())
+			assert.EqualValues(tt, obj.Event.defaultActivities(), obj.Event.Types)
 		case "empty":
-			assert.DeepEqual(tt, obj.Event.Types, []EventBranchProtectionRuleActivity{})
+			assert.EqualValues(tt, []EventBranchProtectionRuleActivity{}, obj.Event.Types)
 		default:
-			assert.DeepEqual(tt, obj.Event.Types, value)
+			assert.EqualValues(tt, value, obj.Event.Types)
 		}
 	}
 
@@ -132,19 +131,19 @@ func TestOnCheckRun(t *testing.T) {
 		obj := klass[OnCheckRun]{}
 		err := model.Decode(data, &obj)
 
-		if value == "error" {
-			assert.ErrorType(tt, err, &mapstructure.Error{})
-			return
+		if value != "error" {
+			assert.NoError(tt, err)
 		}
-		assert.NilError(tt, err)
 
 		switch value {
+		case "error":
+			assert.Error(tt, err)
 		case "default":
-			assert.DeepEqual(tt, obj.Event.Types, obj.Event.defaultActivities())
+			assert.EqualValues(tt, obj.Event.defaultActivities(), obj.Event.Types)
 		case "empty":
-			assert.DeepEqual(tt, obj.Event.Types, []EventCheckRunActivity{})
+			assert.EqualValues(tt, []EventCheckRunActivity{}, obj.Event.Types)
 		default:
-			assert.DeepEqual(tt, obj.Event.Types, value)
+			assert.EqualValues(tt, value, obj.Event.Types)
 		}
 	}
 
@@ -158,19 +157,19 @@ func TestOnCheckSuite(t *testing.T) {
 		obj := klass[OnCheckSuite]{}
 		err := model.Decode(data, &obj)
 
-		if value == "error" {
-			assert.ErrorType(tt, err, &mapstructure.Error{})
-			return
+		if value != "error" {
+			assert.NoError(tt, err)
 		}
-		assert.NilError(tt, err)
 
 		switch value {
+		case "error":
+			assert.Error(tt, err)
 		case "default":
-			assert.DeepEqual(tt, obj.Event.Types, obj.Event.defaultActivities())
+			assert.EqualValues(tt, obj.Event.defaultActivities(), obj.Event.Types)
 		case "empty":
-			assert.DeepEqual(tt, obj.Event.Types, []EventCheckSuiteActivity{})
+			assert.EqualValues(tt, []EventCheckSuiteActivity{}, obj.Event.Types)
 		default:
-			assert.DeepEqual(tt, obj.Event.Types, value)
+			assert.EqualValues(tt, value, obj.Event.Types)
 		}
 	}
 
@@ -184,19 +183,19 @@ func TestOnDiscussion(t *testing.T) {
 		obj := klass[OnDiscussion]{}
 		err := model.Decode(data, &obj)
 
-		if value == "error" {
-			assert.ErrorType(tt, err, &mapstructure.Error{})
-			return
+		if value != "error" {
+			assert.NoError(tt, err)
 		}
-		assert.NilError(tt, err)
 
 		switch value {
+		case "error":
+			assert.Error(tt, err)
 		case "default":
-			assert.DeepEqual(tt, obj.Event.Types, obj.Event.defaultActivities())
+			assert.EqualValues(tt, obj.Event.defaultActivities(), obj.Event.Types)
 		case "empty":
-			assert.DeepEqual(tt, obj.Event.Types, []EventDiscussionActivity{})
+			assert.EqualValues(tt, []EventDiscussionActivity{}, obj.Event.Types)
 		default:
-			assert.DeepEqual(tt, obj.Event.Types, value)
+			assert.EqualValues(tt, value, obj.Event.Types)
 		}
 	}
 
@@ -210,19 +209,19 @@ func TestOnDiscussionComment(t *testing.T) {
 		obj := klass[OnDiscussionComment]{}
 		err := model.Decode(data, &obj)
 
-		if value == "error" {
-			assert.ErrorType(tt, err, &mapstructure.Error{})
-			return
+		if value != "error" {
+			assert.NoError(tt, err)
 		}
-		assert.NilError(tt, err)
 
 		switch value {
+		case "error":
+			assert.Error(tt, err)
 		case "default":
-			assert.DeepEqual(tt, obj.Event.Types, obj.Event.defaultActivities())
+			assert.EqualValues(tt, obj.Event.defaultActivities(), obj.Event.Types)
 		case "empty":
-			assert.DeepEqual(tt, obj.Event.Types, []EventDiscussionCommentActivity{})
+			assert.EqualValues(tt, []EventDiscussionCommentActivity{}, obj.Event.Types)
 		default:
-			assert.DeepEqual(tt, obj.Event.Types, value)
+			assert.EqualValues(tt, value, obj.Event.Types)
 		}
 	}
 
@@ -236,19 +235,19 @@ func TestOnIssueComment(t *testing.T) {
 		obj := klass[OnIssueComment]{}
 		err := model.Decode(data, &obj)
 
-		if value == "error" {
-			assert.ErrorType(tt, err, &mapstructure.Error{})
-			return
+		if value != "error" {
+			assert.NoError(tt, err)
 		}
-		assert.NilError(tt, err)
 
 		switch value {
+		case "error":
+			assert.Error(tt, err)
 		case "default":
-			assert.DeepEqual(tt, obj.Event.Types, obj.Event.defaultActivities())
+			assert.EqualValues(tt, obj.Event.defaultActivities(), obj.Event.Types)
 		case "empty":
-			assert.DeepEqual(tt, obj.Event.Types, []EventIssueCommentActivity{})
+			assert.EqualValues(tt, []EventIssueCommentActivity{}, obj.Event.Types)
 		default:
-			assert.DeepEqual(tt, obj.Event.Types, value)
+			assert.EqualValues(tt, value, obj.Event.Types)
 		}
 	}
 
@@ -262,19 +261,19 @@ func TestOnIssues(t *testing.T) {
 		obj := klass[OnIssues]{}
 		err := model.Decode(data, &obj)
 
-		if value == "error" {
-			assert.ErrorType(tt, err, &mapstructure.Error{})
-			return
+		if value != "error" {
+			assert.NoError(tt, err)
 		}
-		assert.NilError(tt, err)
 
 		switch value {
+		case "error":
+			assert.Error(tt, err)
 		case "default":
-			assert.DeepEqual(tt, obj.Event.Types, obj.Event.defaultActivities())
+			assert.EqualValues(tt, obj.Event.defaultActivities(), obj.Event.Types)
 		case "empty":
-			assert.DeepEqual(tt, obj.Event.Types, []EventIssuesActivity{})
+			assert.EqualValues(tt, []EventIssuesActivity{}, obj.Event.Types)
 		default:
-			assert.DeepEqual(tt, obj.Event.Types, value)
+			assert.EqualValues(tt, value, obj.Event.Types)
 		}
 	}
 
@@ -288,19 +287,19 @@ func TestOnLabel(t *testing.T) {
 		obj := klass[OnLabel]{}
 		err := model.Decode(data, &obj)
 
-		if value == "error" {
-			assert.ErrorType(tt, err, &mapstructure.Error{})
-			return
+		if value != "error" {
+			assert.NoError(tt, err)
 		}
-		assert.NilError(tt, err)
 
 		switch value {
+		case "error":
+			assert.Error(tt, err)
 		case "default":
-			assert.DeepEqual(tt, obj.Event.Types, obj.Event.defaultActivities())
+			assert.EqualValues(tt, obj.Event.defaultActivities(), obj.Event.Types)
 		case "empty":
-			assert.DeepEqual(tt, obj.Event.Types, []EventLabelActivity{})
+			assert.EqualValues(tt, []EventLabelActivity{}, obj.Event.Types)
 		default:
-			assert.DeepEqual(tt, obj.Event.Types, value)
+			assert.EqualValues(tt, value, obj.Event.Types)
 		}
 	}
 
@@ -314,19 +313,19 @@ func TestOnMergeGroup(t *testing.T) {
 		obj := klass[OnMergeGroup]{}
 		err := model.Decode(data, &obj)
 
-		if value == "error" {
-			assert.ErrorType(tt, err, &mapstructure.Error{})
-			return
+		if value != "error" {
+			assert.NoError(tt, err)
 		}
-		assert.NilError(tt, err)
 
 		switch value {
+		case "error":
+			assert.Error(tt, err)
 		case "default":
-			assert.DeepEqual(tt, obj.Event.Types, obj.Event.defaultActivities())
+			assert.EqualValues(tt, obj.Event.defaultActivities(), obj.Event.Types)
 		case "empty":
-			assert.DeepEqual(tt, obj.Event.Types, []EventMergeGroupActivity{})
+			assert.EqualValues(tt, []EventMergeGroupActivity{}, obj.Event.Types)
 		default:
-			assert.DeepEqual(tt, obj.Event.Types, value)
+			assert.EqualValues(tt, value, obj.Event.Types)
 		}
 	}
 
@@ -340,19 +339,19 @@ func TestOnMilestone(t *testing.T) {
 		obj := klass[OnMilestone]{}
 		err := model.Decode(data, &obj)
 
-		if value == "error" {
-			assert.ErrorType(tt, err, &mapstructure.Error{})
-			return
+		if value != "error" {
+			assert.NoError(tt, err)
 		}
-		assert.NilError(tt, err)
 
 		switch value {
+		case "error":
+			assert.Error(tt, err)
 		case "default":
-			assert.DeepEqual(tt, obj.Event.Types, obj.Event.defaultActivities())
+			assert.EqualValues(tt, obj.Event.defaultActivities(), obj.Event.Types)
 		case "empty":
-			assert.DeepEqual(tt, obj.Event.Types, []EventMilestoneActivity{})
+			assert.EqualValues(tt, []EventMilestoneActivity{}, obj.Event.Types)
 		default:
-			assert.DeepEqual(tt, obj.Event.Types, value)
+			assert.EqualValues(tt, value, obj.Event.Types)
 		}
 	}
 
@@ -366,19 +365,19 @@ func TestOnProject(t *testing.T) {
 		obj := klass[OnProject]{}
 		err := model.Decode(data, &obj)
 
-		if value == "error" {
-			assert.ErrorType(tt, err, &mapstructure.Error{})
-			return
+		if value != "error" {
+			assert.NoError(tt, err)
 		}
-		assert.NilError(tt, err)
 
 		switch value {
+		case "error":
+			assert.Error(tt, err)
 		case "default":
-			assert.DeepEqual(tt, obj.Event.Types, obj.Event.defaultActivities())
+			assert.EqualValues(tt, obj.Event.defaultActivities(), obj.Event.Types)
 		case "empty":
-			assert.DeepEqual(tt, obj.Event.Types, []EventProjectActivity{})
+			assert.EqualValues(tt, []EventProjectActivity{}, obj.Event.Types)
 		default:
-			assert.DeepEqual(tt, obj.Event.Types, value)
+			assert.EqualValues(tt, value, obj.Event.Types)
 		}
 	}
 
@@ -392,19 +391,19 @@ func TestOnProjectCard(t *testing.T) {
 		obj := klass[OnProjectCard]{}
 		err := model.Decode(data, &obj)
 
-		if value == "error" {
-			assert.ErrorType(tt, err, &mapstructure.Error{})
-			return
+		if value != "error" {
+			assert.NoError(tt, err)
 		}
-		assert.NilError(tt, err)
 
 		switch value {
+		case "error":
+			assert.Error(tt, err)
 		case "default":
-			assert.DeepEqual(tt, obj.Event.Types, obj.Event.defaultActivities())
+			assert.EqualValues(tt, obj.Event.defaultActivities(), obj.Event.Types)
 		case "empty":
-			assert.DeepEqual(tt, obj.Event.Types, []EventProjectCardActivity{})
+			assert.EqualValues(tt, []EventProjectCardActivity{}, obj.Event.Types)
 		default:
-			assert.DeepEqual(tt, obj.Event.Types, value)
+			assert.EqualValues(tt, value, obj.Event.Types)
 		}
 	}
 
@@ -418,19 +417,19 @@ func TestOnProjectColumn(t *testing.T) {
 		obj := klass[OnProjectColumn]{}
 		err := model.Decode(data, &obj)
 
-		if value == "error" {
-			assert.ErrorType(tt, err, &mapstructure.Error{})
-			return
+		if value != "error" {
+			assert.NoError(tt, err)
 		}
-		assert.NilError(tt, err)
 
 		switch value {
+		case "error":
+			assert.Error(tt, err)
 		case "default":
-			assert.DeepEqual(tt, obj.Event.Types, obj.Event.defaultActivities())
+			assert.EqualValues(tt, obj.Event.defaultActivities(), obj.Event.Types)
 		case "empty":
-			assert.DeepEqual(tt, obj.Event.Types, []EventProjectColumnActivity{})
+			assert.EqualValues(tt, []EventProjectColumnActivity{}, obj.Event.Types)
 		default:
-			assert.DeepEqual(tt, obj.Event.Types, value)
+			assert.EqualValues(tt, value, obj.Event.Types)
 		}
 	}
 
@@ -444,19 +443,19 @@ func TestOnPullRequest(t *testing.T) {
 		obj := klass[OnPullRequest]{}
 		err := model.Decode(data, &obj)
 
-		if value == "error" {
-			assert.ErrorType(tt, err, &mapstructure.Error{})
-			return
+		if value != "error" {
+			assert.NoError(tt, err)
 		}
-		assert.NilError(tt, err)
 
 		switch value {
+		case "error":
+			assert.Error(tt, err)
 		case "default":
-			assert.DeepEqual(tt, obj.Event.Types, obj.Event.defaultActivities())
+			assert.EqualValues(tt, obj.Event.defaultActivities(), obj.Event.Types)
 		case "empty":
-			assert.DeepEqual(tt, obj.Event.Types, []EventPullRequestActivity{})
+			assert.EqualValues(tt, []EventPullRequestActivity{}, obj.Event.Types)
 		default:
-			assert.DeepEqual(tt, obj.Event.Types, value)
+			assert.EqualValues(tt, value, obj.Event.Types)
 		}
 	}
 
@@ -470,19 +469,19 @@ func TestOnPullRequestReview(t *testing.T) {
 		obj := klass[OnPullRequestReview]{}
 		err := model.Decode(data, &obj)
 
-		if value == "error" {
-			assert.ErrorType(tt, err, &mapstructure.Error{})
-			return
+		if value != "error" {
+			assert.NoError(tt, err)
 		}
-		assert.NilError(tt, err)
 
 		switch value {
+		case "error":
+			assert.Error(tt, err)
 		case "default":
-			assert.DeepEqual(tt, obj.Event.Types, obj.Event.defaultActivities())
+			assert.EqualValues(tt, obj.Event.defaultActivities(), obj.Event.Types)
 		case "empty":
-			assert.DeepEqual(tt, obj.Event.Types, []EventPullRequestReviewActivity{})
+			assert.EqualValues(tt, []EventPullRequestReviewActivity{}, obj.Event.Types)
 		default:
-			assert.DeepEqual(tt, obj.Event.Types, value)
+			assert.EqualValues(tt, value, obj.Event.Types)
 		}
 	}
 
@@ -496,19 +495,19 @@ func TestOnPullRequestReviewComment(t *testing.T) {
 		obj := klass[OnPullRequestReviewComment]{}
 		err := model.Decode(data, &obj)
 
-		if value == "error" {
-			assert.ErrorType(tt, err, &mapstructure.Error{})
-			return
+		if value != "error" {
+			assert.NoError(tt, err)
 		}
-		assert.NilError(tt, err)
 
 		switch value {
+		case "error":
+			assert.Error(tt, err)
 		case "default":
-			assert.DeepEqual(tt, obj.Event.Types, obj.Event.defaultActivities())
+			assert.EqualValues(tt, obj.Event.defaultActivities(), obj.Event.Types)
 		case "empty":
-			assert.DeepEqual(tt, obj.Event.Types, []EventPullRequestReviewCommentActivity{})
+			assert.EqualValues(tt, []EventPullRequestReviewCommentActivity{}, obj.Event.Types)
 		default:
-			assert.DeepEqual(tt, obj.Event.Types, value)
+			assert.EqualValues(tt, value, obj.Event.Types)
 		}
 	}
 
@@ -522,19 +521,19 @@ func TestOnPullRequestTarget(t *testing.T) {
 		obj := klass[OnPullRequestTarget]{}
 		err := model.Decode(data, &obj)
 
-		if value == "error" {
-			assert.ErrorType(tt, err, &mapstructure.Error{})
-			return
+		if value != "error" {
+			assert.NoError(tt, err)
 		}
-		assert.NilError(tt, err)
 
 		switch value {
+		case "error":
+			assert.Error(tt, err)
 		case "default":
-			assert.DeepEqual(tt, obj.Event.Types, obj.Event.defaultActivities())
+			assert.EqualValues(tt, obj.Event.defaultActivities(), obj.Event.Types)
 		case "empty":
-			assert.DeepEqual(tt, obj.Event.Types, []EventPullRequestTargetActivity{})
+			assert.EqualValues(tt, []EventPullRequestTargetActivity{}, obj.Event.Types)
 		default:
-			assert.DeepEqual(tt, obj.Event.Types, value)
+			assert.EqualValues(tt, value, obj.Event.Types)
 		}
 	}
 
@@ -548,19 +547,19 @@ func TestOnRegistryPackage(t *testing.T) {
 		obj := klass[OnRegistryPackage]{}
 		err := model.Decode(data, &obj)
 
-		if value == "error" {
-			assert.ErrorType(tt, err, &mapstructure.Error{})
-			return
+		if value != "error" {
+			assert.NoError(tt, err)
 		}
-		assert.NilError(tt, err)
 
 		switch value {
+		case "error":
+			assert.Error(tt, err)
 		case "default":
-			assert.DeepEqual(tt, obj.Event.Types, obj.Event.defaultActivities())
+			assert.EqualValues(tt, obj.Event.defaultActivities(), obj.Event.Types)
 		case "empty":
-			assert.DeepEqual(tt, obj.Event.Types, []EventRegistryPackageActivity{})
+			assert.EqualValues(tt, []EventRegistryPackageActivity{}, obj.Event.Types)
 		default:
-			assert.DeepEqual(tt, obj.Event.Types, value)
+			assert.EqualValues(tt, value, obj.Event.Types)
 		}
 	}
 
@@ -574,19 +573,19 @@ func TestOnRelease(t *testing.T) {
 		obj := klass[OnRelease]{}
 		err := model.Decode(data, &obj)
 
-		if value == "error" {
-			assert.ErrorType(tt, err, &mapstructure.Error{})
-			return
+		if value != "error" {
+			assert.NoError(tt, err)
 		}
-		assert.NilError(tt, err)
 
 		switch value {
+		case "error":
+			assert.Error(tt, err)
 		case "default":
-			assert.DeepEqual(tt, obj.Event.Types, obj.Event.defaultActivities())
+			assert.EqualValues(tt, obj.Event.defaultActivities(), obj.Event.Types)
 		case "empty":
-			assert.DeepEqual(tt, obj.Event.Types, []EventReleaseActivity{})
+			assert.EqualValues(tt, []EventReleaseActivity{}, obj.Event.Types)
 		default:
-			assert.DeepEqual(tt, obj.Event.Types, value)
+			assert.EqualValues(tt, value, obj.Event.Types)
 		}
 	}
 
@@ -600,19 +599,19 @@ func TestOnWatch(t *testing.T) {
 		obj := klass[OnWatch]{}
 		err := model.Decode(data, &obj)
 
-		if value == "error" {
-			assert.ErrorType(tt, err, &mapstructure.Error{})
-			return
+		if value != "error" {
+			assert.NoError(tt, err)
 		}
-		assert.NilError(tt, err)
 
 		switch value {
+		case "error":
+			assert.Error(tt, err)
 		case "default":
-			assert.DeepEqual(tt, obj.Event.Types, obj.Event.defaultActivities())
+			assert.EqualValues(tt, obj.Event.defaultActivities(), obj.Event.Types)
 		case "empty":
-			assert.DeepEqual(tt, obj.Event.Types, []EventWatchActivity{})
+			assert.EqualValues(tt, []EventWatchActivity{}, obj.Event.Types)
 		default:
-			assert.DeepEqual(tt, obj.Event.Types, value)
+			assert.EqualValues(tt, value, obj.Event.Types)
 		}
 	}
 
@@ -626,19 +625,19 @@ func TestOnWorkflowRun(t *testing.T) {
 		obj := klass[OnWorkflowRun]{}
 		err := model.Decode(data, &obj)
 
-		if value == "error" {
-			assert.ErrorType(tt, err, &mapstructure.Error{})
-			return
+		if value != "error" {
+			assert.NoError(tt, err)
 		}
-		assert.NilError(tt, err)
 
 		switch value {
+		case "error":
+			assert.Error(tt, err)
 		case "default":
-			assert.DeepEqual(tt, obj.Event.Types, obj.Event.defaultActivities())
+			assert.EqualValues(tt, obj.Event.defaultActivities(), obj.Event.Types)
 		case "empty":
-			assert.DeepEqual(tt, obj.Event.Types, []EventWorkflowRunActivity{})
+			assert.EqualValues(tt, []EventWorkflowRunActivity{}, obj.Event.Types)
 		default:
-			assert.DeepEqual(tt, obj.Event.Types, value)
+			assert.EqualValues(tt, value, obj.Event.Types)
 		}
 	}
 

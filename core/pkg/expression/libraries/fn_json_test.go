@@ -4,7 +4,7 @@ import (
 	"drassi.run/core/pkg/expression/types"
 	"drassi.run/core/pkg/model"
 	"encoding/json"
-	"github.com/mitchellh/mapstructure"
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/stretchr/testify/assert"
 	"math"
 	"reflect"

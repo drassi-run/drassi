@@ -3,7 +3,7 @@ package model
 import (
 	"slices"
 
-	"github.com/mitchellh/mapstructure"
+	"github.com/go-viper/mapstructure/v2"
 )
 
 var hooks []mapstructure.DecodeHookFunc
