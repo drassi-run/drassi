@@ -9,9 +9,7 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/signal"
 	"strings"
-	"syscall"
 	"time"
 
 	"drassi.run/core/util/oauth2/clientcredentials"
@@ -42,15 +40,10 @@ func NewLaunchCommand() *cobra.Command {
 		Short: "Start GHA runner to receive request from server",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			command := launchCommand{opts: &opts}
 
-			ctx, stop := signal.NotifyContext(cmd.Context(), syscall.SIGINT, syscall.SIGTERM)
-			defer stop()
-			go func() {
-				<-ctx.Done()
-				command.finalize(ctx)
-			}()
-
+			defer command.finalize(ctx)
 			if err := command.initialize(ctx); err != nil {
 				return err
 			}

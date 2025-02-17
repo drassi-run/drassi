@@ -41,8 +41,9 @@ func NewRegisterCommand() *cobra.Command {
 		Short: "Register new runner to the Gitea server",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			command := registerCommand{opts: &opts}
 			ctx := cmd.Context()
+			command := registerCommand{opts: &opts}
+
 			return command.run(ctx)
 		},
 	}

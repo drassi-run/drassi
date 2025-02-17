@@ -4,9 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os/signal"
 	"sync/atomic"
-	"syscall"
 	"time"
 
 	"code.gitea.io/actions-proto-go/runner/v1"
@@ -49,15 +47,10 @@ func NewLaunchCommand() *cobra.Command {
 		Short: "Start Gitea runner to receive request from server",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			command := launchCommand{}
 
-			ctx, stop := signal.NotifyContext(cmd.Context(), syscall.SIGINT, syscall.SIGTERM)
-			defer stop()
-			go func() {
-				<-ctx.Done()
-				command.finalize(ctx)
-			}()
-
+			defer command.finalize(ctx)
 			if err := command.initialize(ctx, &opts); err != nil {
 				return err
 			}

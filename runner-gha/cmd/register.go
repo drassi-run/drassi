@@ -43,7 +43,8 @@ func NewRegisterCommand() *cobra.Command {
 		Short: "Register new runner to the GitHub Actions",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runRegister(cmd.Context(), &opts)
+			ctx := cmd.Context()
+			return runRegister(ctx, &opts)
 		},
 	}
 
