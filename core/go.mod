@@ -23,8 +23,9 @@ require (
 	github.com/stretchr/testify v1.10.0
 	github.com/timshannon/bolthold v0.0.0-20240314194003-30aac6950928
 	go.etcd.io/bbolt v1.3.11
+	go.opentelemetry.io/otel v1.34.0
 	go.uber.org/dig v1.18.0
-	go.uber.org/mock v0.4.0
+	go.uber.org/mock v0.5.0
 	golang.org/x/exp v0.0.0-20240909161429-701f63a606c0
 	golang.org/x/oauth2 v0.23.0
 	golang.org/x/sync v0.10.0
@@ -101,7 +102,6 @@ require (
 	github.com/zitadel/schema v1.3.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.59.0 // indirect
-	go.opentelemetry.io/otel v1.34.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.34.0 // indirect
 	go.opentelemetry.io/otel/metric v1.34.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.34.0 // indirect
@@ -129,6 +129,7 @@ require (
 )
 
 tool (
+	go.uber.org/mock/mockgen
 	k8s.io/code-generator/cmd/deepcopy-gen
 	k8s.io/code-generator/cmd/register-gen
 )

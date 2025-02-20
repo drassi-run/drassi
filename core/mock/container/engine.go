@@ -24,6 +24,7 @@ import (
 type MockEngine struct {
 	ctrl     *gomock.Controller
 	recorder *MockEngineMockRecorder
+	isgomock struct{}
 }
 
 // MockEngineMockRecorder is the mock recorder for MockEngine.
@@ -624,6 +625,7 @@ func (c *MockEngineVolumeRemoveCall) DoAndReturn(f func(context.Context, *contai
 type MockRegistryAuth struct {
 	ctrl     *gomock.Controller
 	recorder *MockRegistryAuthMockRecorder
+	isgomock struct{}
 }
 
 // MockRegistryAuthMockRecorder is the mock recorder for MockRegistryAuth.
