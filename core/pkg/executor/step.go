@@ -1,6 +1,8 @@
 package executor
 
 import (
+	"context"
+
 	"drassi.run/core/pkg/model/workflows"
 	"go.uber.org/dig"
 )
@@ -9,7 +11,7 @@ type StepRun interface {
 	StepId() string
 	Base() *BaseStepRun
 
-	Initialize(exec StepExecutor, scope *dig.Scope) error
+	Initialize(context.Context, StepExecutor, *dig.Scope) error
 	PreTask() *Task
 	MainTask() *Task
 	PostTask() *Task

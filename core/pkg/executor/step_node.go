@@ -1,6 +1,7 @@
 package executor
 
 import (
+	"context"
 	"path/filepath"
 	"strings"
 
@@ -32,7 +33,7 @@ type NodeStepRun struct {
 	repo    *repository.Repository
 }
 
-func (sr *NodeStepRun) Initialize(exec StepExecutor, scope *dig.Scope) error {
+func (sr *NodeStepRun) Initialize(ctx context.Context, exec StepExecutor, scope *dig.Scope) error {
 	if err := xdig.Populate(scope, &sr.exprEnv); err != nil {
 		return err
 	}
@@ -93,9 +94,7 @@ func (sr *NodeStepRun) PostTask() *Task {
 }
 
 func (sr *NodeStepRun) execute(stage Stage) TaskRun {
-	return func(exec StepExecutor) error {
-		ctx := exec.Context()
-
+	return func(ctx context.Context, exec StepExecutor) error {
 		scriptPath := sr.computeScriptPath(stage)
 		cmd := []string{"node", scriptPath}
 

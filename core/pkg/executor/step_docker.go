@@ -1,6 +1,7 @@
 package executor
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -44,7 +45,7 @@ func (sr *DockerStepRun) PathTranslator() runtime.PathTranslator {
 	return sr.runtime
 }
 
-func (sr *DockerStepRun) Initialize(exec StepExecutor, scope *dig.Scope) error {
+func (sr *DockerStepRun) Initialize(ctx context.Context, exec StepExecutor, scope *dig.Scope) error {
 	if err := xdig.Populate(scope, &sr.runtime); err != nil {
 		return err
 	}
@@ -52,7 +53,6 @@ func (sr *DockerStepRun) Initialize(exec StepExecutor, scope *dig.Scope) error {
 		return err
 	}
 
-	ctx := exec.Context()
 	if image, ok := strings.CutPrefix(sr.Image, "docker://"); ok {
 		sr.resolvedImage = image
 		return sr.runtime.Pull(ctx, image, nil)
@@ -106,8 +106,7 @@ func (sr *DockerStepRun) PostTask() *Task {
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/Handlers/ContainerActionHandler.cs#L22
 func (sr *DockerStepRun) execute(stage Stage) TaskRun {
-	return func(exec StepExecutor) error {
-		ctx := exec.Context()
+	return func(ctx context.Context, exec StepExecutor) error {
 		inputs := make(map[string]string)
 		if err := evaluator.Evaluate(sr.exprEnv, sr.Inputs, &inputs); err != nil {
 			return err

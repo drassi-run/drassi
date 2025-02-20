@@ -133,7 +133,7 @@ func (e *stepExecutor) Initialize(scope *dig.Scope) error {
 	e.state = make(map[string]string)
 
 	// initialize StepRun
-	if err := e.stepRun.Initialize(e, scope); err != nil {
+	if err := e.stepRun.Initialize(e.ctx, e, scope); err != nil {
 		return err
 	}
 

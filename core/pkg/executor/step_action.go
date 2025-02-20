@@ -40,12 +40,11 @@ func (sr *ActionStepRun) Unwrap() StepRun {
 	return sr.actionRun
 }
 
-func (sr *ActionStepRun) Initialize(exec StepExecutor, scope *dig.Scope) error {
+func (sr *ActionStepRun) Initialize(ctx context.Context, exec StepExecutor, scope *dig.Scope) error {
 	var (
 		github  records.Github
 		store   gitstore.Store
 		sandbox sandboxer.Sandbox
-		ctx     = exec.Context()
 	)
 
 	if err := xdig.Populate(scope, &github); err != nil {
@@ -81,7 +80,7 @@ func (sr *ActionStepRun) Initialize(exec StepExecutor, scope *dig.Scope) error {
 		return err
 	}
 
-	return sr.actionRun.Initialize(exec, scope)
+	return sr.actionRun.Initialize(ctx, exec, scope)
 }
 
 func (sr *ActionStepRun) PreTask() *Task {
