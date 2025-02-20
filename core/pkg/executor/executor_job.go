@@ -334,7 +334,7 @@ func (e *jobExecutor) initializeScope(scope *dig.Scope) error {
 	if e.runner.Debug == "1" {
 		if err := scope.Invoke(func(cmdMgr command.ConsoleManager) error {
 			cmd := &command.Command{Name: "echo", Value: "ON"}
-			return cmdMgr.Process("", cmd)
+			return cmdMgr.Process(context.Background(), "", cmd)
 		}); err != nil {
 			return err
 		}

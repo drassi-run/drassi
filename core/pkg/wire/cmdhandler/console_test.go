@@ -19,7 +19,7 @@ func TestAddSecretMask(t *testing.T) {
 		sm := mock_secret.NewMockMasker(ctrl)
 		h := AddSecretMask(sm)
 		cmd := &command.Command{Name: "add-mask", Value: ""}
-		err := command.ConsoleRun(h, cmd)
+		err := command.ConsoleRun(t.Context(), h, cmd)
 		assert.ErrorIs(t, err, command.ErrInvalidCommand)
 	})
 
@@ -29,7 +29,7 @@ func TestAddSecretMask(t *testing.T) {
 
 		h := AddSecretMask(sm)
 		cmd := &command.Command{Name: "add-mask", Value: "abc"}
-		err := command.ConsoleRun(h, cmd)
+		err := command.ConsoleRun(t.Context(), h, cmd)
 		assert.NoError(t, err)
 	})
 
@@ -43,7 +43,7 @@ func TestAddSecretMask(t *testing.T) {
 
 		h := AddSecretMask(sm)
 		cmd := &command.Command{Name: "add-mask", Value: "abc\nxyz\r\nfoo  \r  bar"}
-		err := command.ConsoleRun(h, cmd)
+		err := command.ConsoleRun(t.Context(), h, cmd)
 		assert.NoError(t, err)
 	})
 }
@@ -54,7 +54,7 @@ func testInvalidCommand(ctrl *gomock.Controller, creator consoleHdlCreator, cmd 
 	return func(t *testing.T) {
 		sup := mock_executor.NewMockSupervisor(ctrl)
 		h := creator(sup)
-		err := command.ConsoleRun(h, cmd)
+		err := command.ConsoleRun(t.Context(), h, cmd)
 		assert.ErrorIs(t, err, command.ErrInvalidCommand)
 	}
 }
@@ -65,7 +65,7 @@ func testConsoleNoJob(ctrl *gomock.Controller, creator consoleHdlCreator, cmd *c
 		sup.EXPECT().Job().Return(nil)
 
 		h := creator(sup)
-		err := command.ConsoleRun(h, cmd)
+		err := command.ConsoleRun(t.Context(), h, cmd)
 		assert.ErrorIs(t, err, ErrNoJobRunning)
 	}
 }
@@ -76,7 +76,7 @@ func testConsoleNoStep(ctrl *gomock.Controller, creator consoleHdlCreator, cmd *
 		sup.EXPECT().CurrentStep().Return(nil)
 
 		h := creator(sup)
-		err := command.ConsoleRun(h, cmd)
+		err := command.ConsoleRun(t.Context(), h, cmd)
 		assert.ErrorIs(t, err, ErrNoStepRunning)
 	}
 }
@@ -97,7 +97,7 @@ func TestConsoleAddPath(t *testing.T) {
 		h := ConsoleAddPath(sup)
 
 		job.EXPECT().AddPath([]string{"foobar"}).Return(nil)
-		err := command.ConsoleRun(h, cmd)
+		err := command.ConsoleRun(t.Context(), h, cmd)
 		assert.NoError(t, err)
 	})
 }
@@ -118,7 +118,7 @@ func TestConsoleSetEnv(t *testing.T) {
 		h := ConsoleSetEnv(sup)
 
 		step.EXPECT().SetEnv(map[string]string{"XXX": "set-env-value"}).Return(nil)
-		err := command.ConsoleRun(h, cmd)
+		err := command.ConsoleRun(t.Context(), h, cmd)
 		assert.NoError(t, err)
 	})
 }
@@ -139,7 +139,7 @@ func TestConsoleSetOutput(t *testing.T) {
 		h := ConsoleSetOutput(sup)
 
 		step.EXPECT().SetOutput(map[string]string{"XXX": "set-output-value"}).Return(nil)
-		err := command.ConsoleRun(h, cmd)
+		err := command.ConsoleRun(t.Context(), h, cmd)
 		assert.NoError(t, err)
 	})
 }
@@ -160,7 +160,7 @@ func TestConsoleSaveState(t *testing.T) {
 		h := ConsoleSaveState(sup)
 
 		step.EXPECT().SaveState(map[string]string{"XXX": "save-state-value"}).Return(nil)
-		err := command.ConsoleRun(h, cmd)
+		err := command.ConsoleRun(t.Context(), h, cmd)
 		assert.NoError(t, err)
 	})
 }

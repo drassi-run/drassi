@@ -34,7 +34,8 @@ func (mw *commandProcessor) Handle(line string) (bool, error) {
 		return true, nil
 	}
 
-	err := mw.consoleMgr.Process(line, cmd)
+	ctx := mw.sup.Context()
+	err := mw.consoleMgr.Process(ctx, line, cmd)
 	if err != nil {
 		step := mw.sup.CurrentStep()
 		if step != nil {

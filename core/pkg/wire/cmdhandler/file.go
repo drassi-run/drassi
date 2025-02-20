@@ -2,6 +2,7 @@ package wire_cmdhandler
 
 import (
 	"archive/tar"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -19,8 +20,7 @@ var (
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L107
 func FileAddPath(sup executor.Supervisor) *command.FileHandler {
-	run := func(r io.Reader) error {
-		ctx := sup.Context()
+	run := func(ctx context.Context, r io.Reader) error {
 		job := sup.Job()
 		if job == nil {
 			return ErrNoJobRunning
@@ -66,7 +66,7 @@ func FileSetOutput(sup executor.Supervisor) *command.FileHandler {
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L186
 func CreateStepSummary(sup executor.Supervisor) *command.FileHandler {
-	run := func(r io.Reader) error {
+	run := func(ctx context.Context, r io.Reader) error {
 		step := sup.CurrentStep()
 		if step == nil {
 			return ErrNoStepRunning
@@ -80,9 +80,8 @@ func stepCommandRun[R any](
 	sup executor.Supervisor,
 	trans func(r io.Reader) (R, error),
 	set func(executor.StepExecutor, R) error,
-) func(r io.Reader) error {
-	return func(r io.Reader) error {
-		ctx := sup.Context()
+) func(ctx context.Context, r io.Reader) error {
+	return func(ctx context.Context, r io.Reader) error {
 		step := sup.CurrentStep()
 		if step == nil {
 			return ErrNoStepRunning

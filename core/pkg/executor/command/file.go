@@ -14,10 +14,10 @@ import (
 
 type FileHandler struct {
 	env string
-	run func(r io.Reader) error
+	run func(ctx context.Context, r io.Reader) error
 }
 
-func NewFileHandler(env string, run func(r io.Reader) error) *FileHandler {
+func NewFileHandler(env string, run func(context.Context, io.Reader) error) *FileHandler {
 	return &FileHandler{
 		env: env,
 		run: run,
@@ -93,7 +93,7 @@ func (mgr *fileManager) Process(ctx context.Context, suffix string) error {
 				return err
 			}
 			defer r.Close()
-			return handler.run(r)
+			return handler.run(ctx, r)
 		})
 	}
 	return g.Wait()
@@ -118,6 +118,6 @@ func (mgr *fileManager) dir() string {
 	return path.Join(layout.Temp, "file_commands")
 }
 
-func FileRun(h *FileHandler, r io.Reader) error {
-	return h.run(r)
+func FileRun(ctx context.Context, h *FileHandler, r io.Reader) error {
+	return h.run(ctx, r)
 }

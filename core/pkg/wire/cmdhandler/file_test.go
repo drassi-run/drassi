@@ -29,12 +29,11 @@ func testInvalidFile(ctrl *gomock.Controller, creator fileHdlCreator, r io.Reade
 		step.EXPECT().CreateStepSummary(gomock.Any()).Return(nil).MaxTimes(1)
 
 		sup := mock_executor.NewMockSupervisor(ctrl)
-		sup.EXPECT().Context().Return(context.Background()).AnyTimes()
 		sup.EXPECT().Job().Return(job).AnyTimes()
 		sup.EXPECT().CurrentStep().Return(step).AnyTimes()
 
 		h := creator(sup)
-		err := command.FileRun(h, r)
+		err := command.FileRun(t.Context(), h, r)
 		assert.ErrorIs(t, err, ErrInvalidFile)
 	}
 }
@@ -42,11 +41,10 @@ func testInvalidFile(ctrl *gomock.Controller, creator fileHdlCreator, r io.Reade
 func testFileNoJob(ctrl *gomock.Controller, creator fileHdlCreator) func(t *testing.T) {
 	return func(t *testing.T) {
 		sup := mock_executor.NewMockSupervisor(ctrl)
-		sup.EXPECT().Context().Return(context.Background()).AnyTimes()
 		sup.EXPECT().Job().Return(nil)
 
 		h := creator(sup)
-		err := command.FileRun(h, nil)
+		err := command.FileRun(t.Context(), h, nil)
 		assert.ErrorIs(t, err, ErrNoJobRunning)
 	}
 }
@@ -54,11 +52,10 @@ func testFileNoJob(ctrl *gomock.Controller, creator fileHdlCreator) func(t *test
 func testFileNoStep(ctrl *gomock.Controller, creator fileHdlCreator) func(t *testing.T) {
 	return func(t *testing.T) {
 		sup := mock_executor.NewMockSupervisor(ctrl)
-		sup.EXPECT().Context().Return(context.Background()).AnyTimes()
 		sup.EXPECT().CurrentStep().Return(nil)
 
 		h := creator(sup)
-		err := command.FileRun(h, nil)
+		err := command.FileRun(t.Context(), h, nil)
 		assert.ErrorIs(t, err, ErrNoStepRunning)
 	}
 }
@@ -103,12 +100,11 @@ func TestFileAddPath(t *testing.T) {
 
 		job := mock_executor.NewMockJobExecutor(ctrl)
 		sup := mock_executor.NewMockSupervisor(ctrl)
-		sup.EXPECT().Context().Return(context.Background())
 		sup.EXPECT().Job().Return(job)
 		job.EXPECT().AddPath([]string{"/fir/path", "/second/path"}).Return(nil)
 
 		h := FileAddPath(sup)
-		err := command.FileRun(h, r)
+		err := command.FileRun(t.Context(), h, r)
 		assert.NoError(t, err)
 	})
 }
@@ -129,12 +125,11 @@ func TestFileSetEnv(t *testing.T) {
 
 		step := mock_executor.NewMockStepExecutor(ctrl)
 		sup := mock_executor.NewMockSupervisor(ctrl)
-		sup.EXPECT().Context().Return(context.Background())
 		sup.EXPECT().CurrentStep().Return(step)
 		step.EXPECT().SetEnv(mapContentMap).Return(nil)
 
 		h := FileSetEnv(sup)
-		err := command.FileRun(h, r)
+		err := command.FileRun(t.Context(), h, r)
 		assert.NoError(t, err)
 	})
 }
@@ -155,12 +150,11 @@ func TestFileSaveState(t *testing.T) {
 
 		step := mock_executor.NewMockStepExecutor(ctrl)
 		sup := mock_executor.NewMockSupervisor(ctrl)
-		sup.EXPECT().Context().Return(context.Background())
 		sup.EXPECT().CurrentStep().Return(step)
 		step.EXPECT().SaveState(mapContentMap).Return(nil)
 
 		h := FileSaveState(sup)
-		err := command.FileRun(h, r)
+		err := command.FileRun(t.Context(), h, r)
 		assert.NoError(t, err)
 	})
 }
@@ -181,12 +175,11 @@ func TestFileSetOutput(t *testing.T) {
 
 		step := mock_executor.NewMockStepExecutor(ctrl)
 		sup := mock_executor.NewMockSupervisor(ctrl)
-		sup.EXPECT().Context().Return(context.Background())
 		sup.EXPECT().CurrentStep().Return(step)
 		step.EXPECT().SetOutput(mapContentMap).Return(nil)
 
 		h := FileSetOutput(sup)
-		err := command.FileRun(h, r)
+		err := command.FileRun(t.Context(), h, r)
 		assert.NoError(t, err)
 	})
 }
@@ -216,7 +209,7 @@ func TestCreateStepSummary(t *testing.T) {
 		})
 
 		h := CreateStepSummary(sup)
-		err := command.FileRun(h, r)
+		err := command.FileRun(t.Context(), h, r)
 		assert.NoError(t, err)
 	})
 }

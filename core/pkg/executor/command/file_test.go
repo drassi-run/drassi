@@ -24,7 +24,7 @@ func setupFileCmdMgr(sandbox sandboxer.Sandbox) *fileManager {
 	return NewFileManager(sandbox).(*fileManager)
 }
 
-func noopHandler(io.Reader) error {
+func noopHandler(context.Context, io.Reader) error {
 	return nil
 }
 
@@ -84,8 +84,8 @@ func TestFileManager_Process(t *testing.T) {
 	})
 
 	t.Run("normal", func(tt *testing.T) {
-		stringHandler := func(t *testing.T, s string) func(r io.Reader) error {
-			return func(r io.Reader) error {
+		stringHandler := func(t *testing.T, s string) func(context.Context, io.Reader) error {
+			return func(ctx context.Context, r io.Reader) error {
 				b, err := io.ReadAll(r)
 				assert.NoError(t, err)
 				assert.Equal(t, s, string(b))
@@ -143,7 +143,7 @@ func TestFileManager_Process(t *testing.T) {
 			Return(&noopReadCloser{strings.NewReader("FIRST file content")}, nil)
 
 		mgr := setupFileCmdMgr(sandbox)
-		_ = mgr.Register(NewFileHandler("FIRST", func(r io.Reader) error {
+		_ = mgr.Register(NewFileHandler("FIRST", func(_ context.Context, _ io.Reader) error {
 			return errors.New("unexpected error")
 		}))
 
