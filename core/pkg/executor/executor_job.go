@@ -341,15 +341,13 @@ func (e *jobExecutor) initializeScope(scope *dig.Scope) error {
 	}
 
 	err := scope.Invoke(func(cmdMgr command.FileManager) error {
-		cb := func(_ *Task, exec StepExecutor) error {
-			ctx := exec.Context()
+		cb := func(ctx context.Context, _ *Task, exec StepExecutor) error {
 			suffix := StepUid(exec)
 			return cmdMgr.Initialize(ctx, suffix)
 		}
 		e.supervisor.Register(BeforeRunTaskCallback(cb))
 
-		cb = func(_ *Task, exec StepExecutor) error {
-			ctx := exec.Context()
+		cb = func(ctx context.Context, _ *Task, exec StepExecutor) error {
 			suffix := StepUid(exec)
 			return cmdMgr.Process(ctx, suffix)
 		}

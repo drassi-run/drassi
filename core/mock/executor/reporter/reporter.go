@@ -10,6 +10,7 @@
 package mock_reporter
 
 import (
+	context "context"
 	io "io"
 	reflect "reflect"
 
@@ -158,17 +159,17 @@ func (c *MockReporterCloseCall) DoAndReturn(f func() error) *MockReporterCloseCa
 }
 
 // EndJob mocks base method.
-func (m *MockReporter) EndJob(je executor.JobExecutor, result *records.Job) error {
+func (m *MockReporter) EndJob(ctx context.Context, je executor.JobExecutor, result *records.Job) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EndJob", je, result)
+	ret := m.ctrl.Call(m, "EndJob", ctx, je, result)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // EndJob indicates an expected call of EndJob.
-func (mr *MockReporterMockRecorder) EndJob(je, result any) *MockReporterEndJobCall {
+func (mr *MockReporterMockRecorder) EndJob(ctx, je, result any) *MockReporterEndJobCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EndJob", reflect.TypeOf((*MockReporter)(nil).EndJob), je, result)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EndJob", reflect.TypeOf((*MockReporter)(nil).EndJob), ctx, je, result)
 	return &MockReporterEndJobCall{Call: call}
 }
 
@@ -184,29 +185,29 @@ func (c *MockReporterEndJobCall) Return(arg0 error) *MockReporterEndJobCall {
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockReporterEndJobCall) Do(f func(executor.JobExecutor, *records.Job) error) *MockReporterEndJobCall {
+func (c *MockReporterEndJobCall) Do(f func(context.Context, executor.JobExecutor, *records.Job) error) *MockReporterEndJobCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockReporterEndJobCall) DoAndReturn(f func(executor.JobExecutor, *records.Job) error) *MockReporterEndJobCall {
+func (c *MockReporterEndJobCall) DoAndReturn(f func(context.Context, executor.JobExecutor, *records.Job) error) *MockReporterEndJobCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // EndStep mocks base method.
-func (m *MockReporter) EndStep(stage executor.Stage, se executor.StepExecutor, result *records.Step) error {
+func (m *MockReporter) EndStep(ctx context.Context, stage executor.Stage, se executor.StepExecutor, result *records.Step) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EndStep", stage, se, result)
+	ret := m.ctrl.Call(m, "EndStep", ctx, stage, se, result)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // EndStep indicates an expected call of EndStep.
-func (mr *MockReporterMockRecorder) EndStep(stage, se, result any) *MockReporterEndStepCall {
+func (mr *MockReporterMockRecorder) EndStep(ctx, stage, se, result any) *MockReporterEndStepCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EndStep", reflect.TypeOf((*MockReporter)(nil).EndStep), stage, se, result)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EndStep", reflect.TypeOf((*MockReporter)(nil).EndStep), ctx, stage, se, result)
 	return &MockReporterEndStepCall{Call: call}
 }
 
@@ -222,29 +223,29 @@ func (c *MockReporterEndStepCall) Return(arg0 error) *MockReporterEndStepCall {
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockReporterEndStepCall) Do(f func(executor.Stage, executor.StepExecutor, *records.Step) error) *MockReporterEndStepCall {
+func (c *MockReporterEndStepCall) Do(f func(context.Context, executor.Stage, executor.StepExecutor, *records.Step) error) *MockReporterEndStepCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockReporterEndStepCall) DoAndReturn(f func(executor.Stage, executor.StepExecutor, *records.Step) error) *MockReporterEndStepCall {
+func (c *MockReporterEndStepCall) DoAndReturn(f func(context.Context, executor.Stage, executor.StepExecutor, *records.Step) error) *MockReporterEndStepCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // StartJob mocks base method.
-func (m *MockReporter) StartJob(je executor.JobExecutor) error {
+func (m *MockReporter) StartJob(ctx context.Context, je executor.JobExecutor) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StartJob", je)
+	ret := m.ctrl.Call(m, "StartJob", ctx, je)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // StartJob indicates an expected call of StartJob.
-func (mr *MockReporterMockRecorder) StartJob(je any) *MockReporterStartJobCall {
+func (mr *MockReporterMockRecorder) StartJob(ctx, je any) *MockReporterStartJobCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartJob", reflect.TypeOf((*MockReporter)(nil).StartJob), je)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartJob", reflect.TypeOf((*MockReporter)(nil).StartJob), ctx, je)
 	return &MockReporterStartJobCall{Call: call}
 }
 
@@ -260,29 +261,29 @@ func (c *MockReporterStartJobCall) Return(arg0 error) *MockReporterStartJobCall 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockReporterStartJobCall) Do(f func(executor.JobExecutor) error) *MockReporterStartJobCall {
+func (c *MockReporterStartJobCall) Do(f func(context.Context, executor.JobExecutor) error) *MockReporterStartJobCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockReporterStartJobCall) DoAndReturn(f func(executor.JobExecutor) error) *MockReporterStartJobCall {
+func (c *MockReporterStartJobCall) DoAndReturn(f func(context.Context, executor.JobExecutor) error) *MockReporterStartJobCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // StartStep mocks base method.
-func (m *MockReporter) StartStep(stage executor.Stage, se executor.StepExecutor) error {
+func (m *MockReporter) StartStep(ctx context.Context, stage executor.Stage, se executor.StepExecutor) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StartStep", stage, se)
+	ret := m.ctrl.Call(m, "StartStep", ctx, stage, se)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // StartStep indicates an expected call of StartStep.
-func (mr *MockReporterMockRecorder) StartStep(stage, se any) *MockReporterStartStepCall {
+func (mr *MockReporterMockRecorder) StartStep(ctx, stage, se any) *MockReporterStartStepCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartStep", reflect.TypeOf((*MockReporter)(nil).StartStep), stage, se)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartStep", reflect.TypeOf((*MockReporter)(nil).StartStep), ctx, stage, se)
 	return &MockReporterStartStepCall{Call: call}
 }
 
@@ -298,13 +299,13 @@ func (c *MockReporterStartStepCall) Return(arg0 error) *MockReporterStartStepCal
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockReporterStartStepCall) Do(f func(executor.Stage, executor.StepExecutor) error) *MockReporterStartStepCall {
+func (c *MockReporterStartStepCall) Do(f func(context.Context, executor.Stage, executor.StepExecutor) error) *MockReporterStartStepCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockReporterStartStepCall) DoAndReturn(f func(executor.Stage, executor.StepExecutor) error) *MockReporterStartStepCall {
+func (c *MockReporterStartStepCall) DoAndReturn(f func(context.Context, executor.Stage, executor.StepExecutor) error) *MockReporterStartStepCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

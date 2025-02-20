@@ -461,3 +461,41 @@ func (c *MockSupervisorRegisterCall) DoAndReturn(f func(...executor.Callback)) *
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
+
+// StartContext mocks base method.
+func (m *MockSupervisor) StartContext(ctx context.Context) func() {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StartContext", ctx)
+	ret0, _ := ret[0].(func())
+	return ret0
+}
+
+// StartContext indicates an expected call of StartContext.
+func (mr *MockSupervisorMockRecorder) StartContext(ctx any) *MockSupervisorStartContextCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartContext", reflect.TypeOf((*MockSupervisor)(nil).StartContext), ctx)
+	return &MockSupervisorStartContextCall{Call: call}
+}
+
+// MockSupervisorStartContextCall wrap *gomock.Call
+type MockSupervisorStartContextCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockSupervisorStartContextCall) Return(arg0 func()) *MockSupervisorStartContextCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockSupervisorStartContextCall) Do(f func(context.Context) func()) *MockSupervisorStartContextCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockSupervisorStartContextCall) DoAndReturn(f func(context.Context) func()) *MockSupervisorStartContextCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}

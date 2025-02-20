@@ -75,7 +75,7 @@ func (r *GiteaReporter) Stderr() io.Writer {
 	return r.err
 }
 
-func (r *GiteaReporter) StartJob(je executor.JobExecutor) error {
+func (r *GiteaReporter) StartJob(ctx context.Context, je executor.JobExecutor) error {
 	if r.jobUid != "" {
 		if r.jobUid == executor.JobUid(je) {
 			return fmt.Errorf("job already running")
@@ -100,10 +100,10 @@ func (r *GiteaReporter) StartJob(je executor.JobExecutor) error {
 		r.stepStates[step.StepId()] = s
 	}
 
-	return r.updateTask()
+	return r.updateTask(ctx)
 }
 
-func (r *GiteaReporter) EndJob(je executor.JobExecutor, result *records.Job) error {
+func (r *GiteaReporter) EndJob(ctx context.Context, je executor.JobExecutor, result *records.Job) error {
 	if r.jobUid == "" {
 		return fmt.Errorf("no job already running")
 	}
@@ -115,10 +115,10 @@ func (r *GiteaReporter) EndJob(je executor.JobExecutor, result *records.Job) err
 	r.jobState.Result = resultMap[result.Result]
 
 	maps.Copy(r.jobOutputs, result.Outputs)
-	return r.updateTask()
+	return r.updateTask(ctx)
 }
 
-func (r *GiteaReporter) StartStep(stage executor.Stage, se executor.StepExecutor) error {
+func (r *GiteaReporter) StartStep(ctx context.Context, stage executor.Stage, se executor.StepExecutor) error {
 	if stage != executor.StageMain {
 		// Gitea only report main stage for now
 		return nil
@@ -132,10 +132,10 @@ func (r *GiteaReporter) StartStep(stage executor.Stage, se executor.StepExecutor
 	stepState.StartedAt = timestamppb.Now()
 	stepState.LogIndex = r.logOffset + int64(len(r.logRows))
 
-	return r.updateTask()
+	return r.updateTask(ctx)
 }
 
-func (r *GiteaReporter) EndStep(stage executor.Stage, se executor.StepExecutor, result *records.Step) error {
+func (r *GiteaReporter) EndStep(ctx context.Context, stage executor.Stage, se executor.StepExecutor, result *records.Step) error {
 	if stage != executor.StageMain {
 		// Gitea only report main stage for now
 		return nil
@@ -151,7 +151,7 @@ func (r *GiteaReporter) EndStep(stage executor.Stage, se executor.StepExecutor, 
 	stepState.Result = resultMap[result.Conclusion]
 	stepState.LogLength = r.logOffset + int64(len(r.logRows)) - stepState.LogIndex
 
-	return r.updateTask()
+	return r.updateTask(ctx)
 }
 
 func (r *GiteaReporter) AddIssue(issue *reporter.Issue) error {
@@ -176,7 +176,7 @@ func (r *GiteaReporter) Close() error {
 		return err
 	}
 
-	if err := r.updateTask(); err != nil {
+	if err := r.updateTask(r.ctx); err != nil {
 		return err
 	}
 
@@ -230,12 +230,12 @@ func (r *GiteaReporter) uploadLog(noMore bool) error {
 	return nil
 }
 
-func (r *GiteaReporter) updateTask() error {
+func (r *GiteaReporter) updateTask(ctx context.Context) error {
 	req := &runnerv1.UpdateTaskRequest{
 		State:   r.jobState,
 		Outputs: r.jobOutputs,
 	}
-	resp, err := r.client.UpdateTask(r.ctx, connect.NewRequest(req))
+	resp, err := r.client.UpdateTask(ctx, connect.NewRequest(req))
 	if err != nil {
 		return err
 	}
