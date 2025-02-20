@@ -13,22 +13,21 @@ import (
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/store/repository"
 	"drassi.run/core/util/dig"
+	"drassi.run/core/util/otel"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
 )
 
 type StepExecutorCreator func(stepRun StepRun) StepExecutor
 
 type StepExecutor interface {
+	StepRun() StepRun
 	JobExecutor() JobExecutor
 	ChildExecutor(id string) StepExecutor
 	ParentExecutor() StepExecutor
 
-	StepRun() StepRun
-	Context() context.Context
-	SetContext(ctx context.Context)
-
-	Initialize(scope *dig.Scope) error
-	RunStep(fn func(StepRun) *Task) *records.Step
+	Initialize(ctx context.Context, scope *dig.Scope) error
+	RunStep(ctx context.Context, fn func(StepRun) *Task) *records.Step
 	ComposeEnv() map[string]string
 	SetStatus(status records.Result)
 
@@ -40,6 +39,14 @@ type StepExecutor interface {
 
 func StepId(e StepExecutor) string {
 	return e.StepRun().StepId()
+}
+
+func FullStepId(e StepExecutor) string {
+	s := StepId(e)
+	for parent := e.ParentExecutor(); parent != nil; parent = parent.ParentExecutor() {
+		s = StepId(parent) + "/" + s
+	}
+	return s
 }
 
 func StepUid(e StepExecutor) string {
@@ -68,21 +75,12 @@ type stepExecutor struct {
 	upperEnv map[string]string // env variables from upper layers
 	state    map[string]string // Intra action state
 
-	ctx        context.Context
 	exprEnv    expression.Env
 	supervisor Supervisor
 }
 
 func (e *stepExecutor) StepRun() StepRun {
 	return e.stepRun
-}
-
-func (e *stepExecutor) Context() context.Context {
-	return e.ctx
-}
-
-func (e *stepExecutor) SetContext(ctx context.Context) {
-	e.ctx = ctx
 }
 
 func (e *stepExecutor) JobExecutor() JobExecutor {
@@ -111,11 +109,20 @@ func (e *stepExecutor) rootExecutor() StepExecutor {
 	return exec
 }
 
-func (e *stepExecutor) Initialize(scope *dig.Scope) error {
-	// inject dependencies
+func (e *stepExecutor) Initialize(ctx context.Context, scope *dig.Scope) (ex error) {
+	ctx, span := xotel.StartSpan(ctx, "StepExecutor.Initialize",
+		trace.WithAttributes(xotel.DrassiStep(FullStepId(e))),
+	)
+	defer xotel.EndSpan(span, &ex)
+
 	if err := xdig.Populate(scope, &e.supervisor); err != nil {
 		return err
+	} else {
+		stop := e.supervisor.StartContext(ctx)
+		defer stop()
 	}
+
+	// inject dependencies
 	if err := xdig.Populate(scope, &e.exprEnv); err != nil {
 		return err
 	}
@@ -137,7 +144,7 @@ func (e *stepExecutor) Initialize(scope *dig.Scope) error {
 	if err := xdig.Supply[StepExecutorCreator](scope, e.NewChildExecutor); err != nil {
 		return err
 	}
-	if err := e.stepRun.Initialize(e.ctx, scope); err != nil {
+	if err := e.stepRun.Initialize(ctx, scope); err != nil {
 		return err
 	}
 
@@ -176,16 +183,27 @@ func (e *stepExecutor) Initialize(scope *dig.Scope) error {
 	return nil
 }
 
-func (e *stepExecutor) RunStep(fn func(StepRun) *Task) *records.Step {
+func (e *stepExecutor) RunStep(ctx context.Context, fn func(StepRun) *Task) *records.Step {
 	task := fn(e.stepRun)
 	if task == nil {
 		return nil
 	}
 
+	ctx, span := xotel.StartSpan(ctx, "StepExecutor.RunStep",
+		trace.WithAttributes(
+			xotel.DrassiStage(string(task.Stage)),
+			xotel.DrassiStep(FullStepId(e)),
+		),
+	)
+	defer span.End()
+
+	stop := e.supervisor.StartContext(ctx)
+	defer stop()
+
 	defer e.endTask(task)
 	e.beginTask(task) // TODO logging error
 	if e.step.Outcome == "" {
-		e.runTask(task)
+		e.runTask(ctx, task)
 	}
 
 	return e.step
@@ -217,7 +235,7 @@ func (e *stepExecutor) beginTask(task *Task) error {
 	return nil
 }
 
-func (e *stepExecutor) runTask(task *Task) error {
+func (e *stepExecutor) runTask(ctx context.Context, task *Task) error {
 	base := e.stepRun.Base()
 
 	timeout := int64(-1)
@@ -226,9 +244,12 @@ func (e *stepExecutor) runTask(task *Task) error {
 		e.SetStatus(records.ResultFailure)
 		return err
 	} else if timeout > 0 {
-		ctx, cancel := context.WithTimeout(e.ctx, time.Duration(timeout)*time.Minute)
-		e.ctx = ctx
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(timeout)*time.Minute)
 		defer cancel()
+
+		stop := e.supervisor.StartContext(ctx)
+		defer stop()
 	}
 
 	if err := e.supervisor.BeforeTaskRun(task, e); err != nil {
@@ -239,13 +260,13 @@ func (e *stepExecutor) runTask(task *Task) error {
 
 	ch := make(chan error)
 	go func() {
-		ch <- task.Run(e)
+		ch <- task.Run(ctx, e)
 	}()
 
 	var err error
 	select {
-	case <-e.ctx.Done():
-		err = e.ctx.Err()
+	case <-ctx.Done():
+		err = ctx.Err()
 	case err = <-ch:
 	}
 

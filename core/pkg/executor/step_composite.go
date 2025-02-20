@@ -100,7 +100,7 @@ func (sr *CompositeStepRun) createStageTask(stage Stage, fn func(StepRun) *Task)
 				return fmt.Errorf("task %q has no child context", id)
 			}
 
-			res := cExec.RunStep(fn)
+			res := cExec.RunStep(ctx, fn)
 			if res != nil && res.Conclusion == records.ResultFailure {
 				exec.SetStatus(records.ResultFailure)
 				return fmt.Errorf("step %q (%s) failed", id, stage)
