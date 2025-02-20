@@ -40,7 +40,7 @@ func (sr *ActionStepRun) Unwrap() StepRun {
 	return sr.actionRun
 }
 
-func (sr *ActionStepRun) Initialize(ctx context.Context, exec StepExecutor, scope *dig.Scope) error {
+func (sr *ActionStepRun) Initialize(ctx context.Context, scope *dig.Scope) error {
 	var (
 		github  records.Github
 		store   gitstore.Store
@@ -80,7 +80,7 @@ func (sr *ActionStepRun) Initialize(ctx context.Context, exec StepExecutor, scop
 		return err
 	}
 
-	return sr.actionRun.Initialize(ctx, exec, scope)
+	return sr.actionRun.Initialize(ctx, scope)
 }
 
 func (sr *ActionStepRun) PreTask() *Task {

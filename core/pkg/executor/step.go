@@ -11,7 +11,7 @@ type StepRun interface {
 	StepId() string
 	Base() *BaseStepRun
 
-	Initialize(context.Context, StepExecutor, *dig.Scope) error
+	Initialize(context.Context, *dig.Scope) error
 	PreTask() *Task
 	MainTask() *Task
 	PostTask() *Task

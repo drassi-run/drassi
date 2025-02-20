@@ -45,7 +45,7 @@ func (sr *DockerStepRun) PathTranslator() runtime.PathTranslator {
 	return sr.runtime
 }
 
-func (sr *DockerStepRun) Initialize(ctx context.Context, exec StepExecutor, scope *dig.Scope) error {
+func (sr *DockerStepRun) Initialize(ctx context.Context, scope *dig.Scope) error {
 	if err := xdig.Populate(scope, &sr.runtime); err != nil {
 		return err
 	}

@@ -33,7 +33,7 @@ type NodeStepRun struct {
 	repo    *repository.Repository
 }
 
-func (sr *NodeStepRun) Initialize(ctx context.Context, exec StepExecutor, scope *dig.Scope) error {
+func (sr *NodeStepRun) Initialize(ctx context.Context, scope *dig.Scope) error {
 	if err := xdig.Populate(scope, &sr.exprEnv); err != nil {
 		return err
 	}

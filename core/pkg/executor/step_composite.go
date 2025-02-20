@@ -21,8 +21,12 @@ type CompositeStepRun struct {
 	inputs  map[string]string
 }
 
-func (sr *CompositeStepRun) Initialize(ctx context.Context, exec StepExecutor, scope *dig.Scope) error {
+func (sr *CompositeStepRun) Initialize(ctx context.Context, scope *dig.Scope) error {
 	sr.inputs = make(map[string]string)
+	var execCreator StepExecutorCreator
+	if err := xdig.Populate(scope, &execCreator); err != nil {
+		return err
+	}
 	if err := xdig.Populate(scope, &sr.exprEnv); err != nil {
 		return err
 	}
@@ -55,8 +59,8 @@ func (sr *CompositeStepRun) Initialize(ctx context.Context, exec StepExecutor, s
 	//return g.Wait()
 
 	for _, step := range sr.StepRuns {
-		cExec := exec.NewChildExecutor(step)
-		cScope := scope.Scope(fmt.Sprintf("step(%s)", StepId(exec)))
+		cExec := execCreator(step)
+		cScope := scope.Scope(fmt.Sprintf("step(%s)", step.StepId()))
 		if err := cExec.Initialize(ctx, cScope); err != nil {
 			return err
 		}

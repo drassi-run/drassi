@@ -16,9 +16,10 @@ import (
 	"go.uber.org/dig"
 )
 
+type StepExecutorCreator func(stepRun StepRun) StepExecutor
+
 type StepExecutor interface {
 	JobExecutor() JobExecutor
-	NewChildExecutor(stepRun StepRun) StepExecutor
 	ChildExecutor(id string) StepExecutor
 	ParentExecutor() StepExecutor
 
@@ -133,7 +134,10 @@ func (e *stepExecutor) Initialize(scope *dig.Scope) error {
 	e.state = make(map[string]string)
 
 	// initialize StepRun
-	if err := e.stepRun.Initialize(e.ctx, e, scope); err != nil {
+	if err := xdig.Supply[StepExecutorCreator](scope, e.NewChildExecutor); err != nil {
+		return err
+	}
+	if err := e.stepRun.Initialize(e.ctx, scope); err != nil {
 		return err
 	}
 

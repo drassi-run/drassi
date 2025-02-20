@@ -31,7 +31,7 @@ type ScriptStepRun struct {
 	defaults workflows.Defaults
 }
 
-func (sr *ScriptStepRun) Initialize(ctx context.Context, exec StepExecutor, scope *dig.Scope) error {
+func (sr *ScriptStepRun) Initialize(ctx context.Context, scope *dig.Scope) error {
 	if err := xdig.Populate(scope, &sr.sandbox); err != nil {
 		return err
 	}
