@@ -37,7 +37,7 @@ type Worker struct {
 	task *runnerv1.Task
 
 	exec     executor.JobExecutor
-	cleaners []func() error
+	cleaners []func(ctx context.Context) error
 }
 
 func New(ctx context.Context, task *runnerv1.Task) *Worker {
@@ -201,16 +201,14 @@ func (w *Worker) initExecutor(scope *dig.Scope) error {
 	}
 
 	w.exec = executor.NewJobExecutor(jr)
-	w.addCleaner(w.exec.Finalize)
-
+	w.addCleanerContext(w.exec.Finalize)
 	scope = scope.Scope(fmt.Sprintf("job(%s)", executor.JobId(w.exec)))
-	w.exec.SetContext(w.ctx)
 
-	return w.exec.Initialize(scope)
+	return w.exec.Initialize(w.ctx, scope)
 }
 
 func (w *Worker) Run() error {
-	r := w.exec.RunJob()
+	r := w.exec.RunJob(w.ctx)
 	if r.Result != records.ResultSuccess {
 		return fmt.Errorf("job failed")
 	}
@@ -220,12 +218,18 @@ func (w *Worker) Run() error {
 func (w *Worker) Teardown() error {
 	errs := make([]error, 0)
 	for _, cleaner := range slices.Backward(w.cleaners) {
-		errs = append(errs, cleaner())
+		errs = append(errs, cleaner(w.ctx))
 	}
 	return errors.Join(errs...)
 }
 
 func (w *Worker) addCleaner(c func() error) {
+	w.cleaners = append(w.cleaners, func(context.Context) error {
+		return c()
+	})
+}
+
+func (w *Worker) addCleanerContext(c func(ctx context.Context) error) {
 	w.cleaners = append(w.cleaners, c)
 }
 
