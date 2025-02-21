@@ -11,6 +11,8 @@ import (
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/store/repository"
 	"drassi.run/core/util/dig"
+	"drassi.run/core/util/otel"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
 )
 
@@ -95,6 +97,8 @@ func (sr *NodeStepRun) PostTask() *Task {
 
 func (sr *NodeStepRun) execute(stage Stage) TaskRun {
 	return func(ctx context.Context, exec StepExecutor) error {
+		sr.addSpanAttrs(ctx, stage)
+
 		scriptPath := sr.computeScriptPath(stage)
 		cmd := []string{"node", scriptPath}
 
@@ -128,4 +132,20 @@ func (sr *NodeStepRun) computeScriptPath(stage Stage) string {
 	layout := sr.sandbox.Layout()
 	scriptPath := filepath.Join(layout.Actions, repository.Location(sr.repo), script)
 	return scriptPath
+}
+
+func (sr *NodeStepRun) addSpanAttrs(ctx context.Context, stage Stage) {
+	span := trace.SpanFromContext(ctx)
+
+	var script string
+	switch stage {
+	case StagePre:
+		script = sr.Pre
+	case StagePost:
+		script = sr.Post
+	case StageMain:
+		script = sr.Main
+	}
+
+	span.SetAttributes(xotel.ActionScript(script))
 }
