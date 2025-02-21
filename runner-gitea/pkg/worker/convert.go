@@ -31,6 +31,9 @@ func convertJobRun(wf *workflows.Workflow) (*executor.JobRun, error) {
 	for jobId, job := range wf.Jobs {
 		if nj, ok := job.(*workflows.NormalJob); ok {
 			jr := executor.ToJobRun(jobId, nj)
+			for i, s := range jr.Steps {
+				jr.Steps[i] = executor.WithTelemetryStepRun(s)
+			}
 			return jr, nil
 		}
 		return nil, fmt.Errorf("unsupported job type %T", job)

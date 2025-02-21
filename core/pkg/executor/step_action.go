@@ -15,7 +15,9 @@ import (
 	"drassi.run/core/pkg/store/repository"
 	"drassi.run/core/pkg/store/repository/gitstore"
 	"drassi.run/core/util/dig"
+	"drassi.run/core/util/otel"
 	"github.com/go-git/go-git/v5/plumbing/object"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
 	"gopkg.in/yaml.v3"
 )
@@ -46,6 +48,9 @@ func (sr *ActionStepRun) Initialize(ctx context.Context, scope *dig.Scope) error
 		store   gitstore.Store
 		sandbox sandboxer.Sandbox
 	)
+
+	span := trace.SpanFromContext(ctx)
+	span.SetAttributes(xotel.ActionRepo(repository.Location(sr.Repo)))
 
 	if err := xdig.Populate(scope, &github); err != nil {
 		return err
@@ -96,10 +101,15 @@ func (sr *ActionStepRun) PostTask() *Task {
 }
 
 func (sr *ActionStepRun) loadAction(ctx context.Context, store gitstore.Store) error {
+	span := trace.SpanFromContext(ctx)
+
 	// 1. First, try reading "action.yml" or "action.yaml" file
 	for _, f := range []string{"action.yml", "action.yaml"} {
 		path := filepath.Join(sr.Repo.Path, f)
 		if r, err := store.File(ctx, sr.Repo, sr.rev, path); err == nil {
+			span.AddEvent("Loaded Action",
+				trace.WithAttributes(xotel.ActionPath(path)),
+			)
 			return sr.loadActionManifest(r)
 		} else if !errors.Is(err, object.ErrFileNotFound) {
 			return err
@@ -111,6 +121,9 @@ func (sr *ActionStepRun) loadAction(ctx context.Context, store gitstore.Store) e
 		path := filepath.Join(sr.Repo.Path, f)
 		if r, err := store.File(ctx, sr.Repo, sr.rev, path); err == nil {
 			r.Close()
+			span.AddEvent("Loaded Action",
+				trace.WithAttributes(xotel.ActionPath(path)),
+			)
 			return sr.createDockerfileAction(path)
 		} else if !errors.Is(err, object.ErrFileNotFound) {
 			return err
@@ -135,17 +148,18 @@ func (sr *ActionStepRun) loadActionManifest(r io.ReadCloser) error {
 	if actionRun, err := FromAction(action, sr.BaseStepRun); err != nil {
 		return err
 	} else {
-		sr.actionRun = actionRun
+		sr.actionRun = WithTelemetryStepRun(actionRun)
 	}
 
 	return nil
 }
 
 func (sr *ActionStepRun) createDockerfileAction(dockerfile string) error {
-	sr.actionRun = &DockerStepRun{
+	actionRun := &DockerStepRun{
 		BaseStepRun: sr.BaseStepRun,
 		Image:       dockerfile,
 	}
+	sr.actionRun = WithTelemetryStepRun(actionRun)
 	return nil
 }
 
