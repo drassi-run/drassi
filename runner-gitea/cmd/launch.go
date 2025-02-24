@@ -230,5 +230,6 @@ func (c *launchCommand) loadSandboxer(ctx context.Context, store manifest.Store,
 		c.runtime, err = incus.New(&o.Spec)
 	}
 
+	c.runtime = sandboxer.WithTelemetry(c.runtime)
 	return
 }
