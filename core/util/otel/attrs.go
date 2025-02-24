@@ -12,6 +12,8 @@ var (
 	ActionPathKey   = attribute.Key("drassi.action.path")
 	ActionRepoKey   = attribute.Key("drassi.action.repo")
 	ActionScriptKey = attribute.Key("drassi.action.script")
+
+	DrassiCommandKey = attribute.Key("drassi.command")
 )
 
 func DrassiWorkflow(s string) attribute.KeyValue {
@@ -44,4 +46,8 @@ func ActionRepo(s string) attribute.KeyValue {
 
 func ActionScript(s string) attribute.KeyValue {
 	return ActionScriptKey.String(s)
+}
+
+func DrassiCommand(s string) attribute.KeyValue {
+	return DrassiCommandKey.String(s)
 }
