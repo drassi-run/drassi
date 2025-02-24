@@ -7,6 +7,7 @@ import (
 	"path"
 
 	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/util/otel"
 	"drassi.run/core/util/string"
 	"drassi.run/core/util/tar"
 	"golang.org/x/sync/errgroup"
@@ -53,11 +54,14 @@ func (mgr *fileManager) Register(handler *FileHandler) error {
 	return nil
 }
 
-func (mgr *fileManager) Initialize(ctx context.Context, suffix string) error {
+func (mgr *fileManager) Initialize(ctx context.Context, suffix string) (err error) {
 	if len(mgr.registeredCommands) == 0 {
 		return nil
 	}
 	suffix = xstring.EnsurePrefix(suffix, "_")
+
+	ctx, span := xotel.StartSpan(ctx, "FileCommand.Initialize")
+	defer xotel.EndSpan(span, &err)
 
 	fileEntries := make(map[string]string, len(mgr.registeredCommands))
 	for cmd := range mgr.registeredCommands {
@@ -72,12 +76,15 @@ func (mgr *fileManager) Initialize(ctx context.Context, suffix string) error {
 	}
 }
 
-func (mgr *fileManager) Process(ctx context.Context, suffix string) error {
+func (mgr *fileManager) Process(ctx context.Context, suffix string) (err error) {
 	if len(mgr.registeredCommands) == 0 {
 		return nil
 	}
 	suffix = xstring.EnsurePrefix(suffix, "_")
 	dir := mgr.dir()
+
+	ctx, span := xotel.StartSpan(ctx, "FileCommand.Process")
+	defer xotel.EndSpan(span, &err)
 
 	g, ctx := errgroup.WithContext(ctx)
 	for cmd, h := range mgr.registeredCommands {

@@ -7,6 +7,9 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+
+	"drassi.run/core/util/otel"
+	"go.opentelemetry.io/otel/trace"
 )
 
 var builtinCommands = []string{
@@ -204,7 +207,12 @@ func (mgr *consoleManager) parseCommandParams(params, sep string, replacer *stri
 	return m
 }
 
-func (mgr *consoleManager) Process(ctx context.Context, line string, cmd *Command) error {
+func (mgr *consoleManager) Process(ctx context.Context, line string, cmd *Command) (err error) {
+	ctx, span := xotel.StartSpan(ctx, "ConsoleCommand.Process",
+		trace.WithAttributes(xotel.DrassiCommand(cmd.Name)),
+	)
+	defer xotel.EndSpan(span, &err)
+
 	handler, ok := mgr.registeredCommands[cmd.Name]
 	if !ok {
 		return fmt.Errorf("%w %q", ErrNotRegisteredCommand, cmd.Name)
