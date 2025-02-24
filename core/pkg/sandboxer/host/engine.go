@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	c "drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/container/docker"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/sandboxer/apis/v1alpha1"
@@ -52,6 +53,7 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*san
 	if err != nil {
 		return nil, err
 	}
+	client = c.WithTelemetry(client)
 
 	b := container.NewBootstrapper(client)
 	return b.Bootstrap(ctx, sb, req)
