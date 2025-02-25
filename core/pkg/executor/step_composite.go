@@ -22,9 +22,8 @@ type CompositeStepRun struct {
 }
 
 func (sr *CompositeStepRun) Initialize(ctx context.Context, scope *dig.Scope) error {
-	sr.inputs = make(map[string]string)
-	var execCreator StepExecutorCreator
-	if err := xdig.Populate(scope, &execCreator); err != nil {
+	var exec StepExecutor
+	if err := xdig.Populate(scope, &exec); err != nil {
 		return err
 	}
 	if err := xdig.Populate(scope, &sr.exprEnv); err != nil {
@@ -32,6 +31,7 @@ func (sr *CompositeStepRun) Initialize(ctx context.Context, scope *dig.Scope) er
 	}
 
 	// create a new intermediate scope to store composite values (inputs & exprEnv)
+	sr.inputs = make(map[string]string)
 	scope = scope.Scope("composite")
 	opts := []expression.Option{
 		// inputs from upper layers will NOT be passed to child steps
@@ -59,7 +59,7 @@ func (sr *CompositeStepRun) Initialize(ctx context.Context, scope *dig.Scope) er
 	//return g.Wait()
 
 	for _, step := range sr.StepRuns {
-		cExec := execCreator(step)
+		cExec := exec.NewChildExecutor(step)
 		cScope := scope.Scope(fmt.Sprintf("step(%s)", step.StepId()))
 		if err := cExec.Initialize(ctx, cScope); err != nil {
 			return err
