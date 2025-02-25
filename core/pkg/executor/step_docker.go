@@ -1,6 +1,7 @@
 package executor
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -9,6 +10,8 @@ import (
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/util/dig"
+	semconv "go.opentelemetry.io/otel/semconv/v1.27.0"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
 )
 
@@ -44,7 +47,7 @@ func (sr *DockerStepRun) PathTranslator() runtime.PathTranslator {
 	return sr.runtime
 }
 
-func (sr *DockerStepRun) Initialize(exec StepExecutor, scope *dig.Scope) error {
+func (sr *DockerStepRun) Initialize(ctx context.Context, scope *dig.Scope) error {
 	if err := xdig.Populate(scope, &sr.runtime); err != nil {
 		return err
 	}
@@ -52,7 +55,7 @@ func (sr *DockerStepRun) Initialize(exec StepExecutor, scope *dig.Scope) error {
 		return err
 	}
 
-	ctx := exec.Context()
+	defer sr.addSpanAttrs(ctx)
 	if image, ok := strings.CutPrefix(sr.Image, "docker://"); ok {
 		sr.resolvedImage = image
 		return sr.runtime.Pull(ctx, image, nil)
@@ -106,8 +109,9 @@ func (sr *DockerStepRun) PostTask() *Task {
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/Handlers/ContainerActionHandler.cs#L22
 func (sr *DockerStepRun) execute(stage Stage) TaskRun {
-	return func(exec StepExecutor) error {
-		ctx := exec.Context()
+	return func(ctx context.Context, exec StepExecutor) error {
+		sr.addSpanAttrs(ctx)
+
 		inputs := make(map[string]string)
 		if err := evaluator.Evaluate(sr.exprEnv, sr.Inputs, &inputs); err != nil {
 			return err
@@ -171,5 +175,13 @@ func (sr *DockerStepRun) computeArgs(inputs map[string]string) ([]string, error)
 		return []string{args}, nil
 	} else {
 		return nil, nil
+	}
+}
+
+func (sr *DockerStepRun) addSpanAttrs(ctx context.Context) {
+	span := trace.SpanFromContext(ctx)
+
+	if image := sr.resolvedImage; image != "" {
+		span.SetAttributes(semconv.ContainerImageName(image))
 	}
 }

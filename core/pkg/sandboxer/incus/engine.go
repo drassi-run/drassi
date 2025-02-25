@@ -5,6 +5,7 @@ import (
 	"path"
 	"strings"
 
+	c "drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/container/docker"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/sandboxer"
@@ -74,6 +75,7 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*san
 	if err != nil {
 		return nil, err
 	}
+	client = c.WithTelemetry(client)
 
 	s := sandboxer.AddBeforeCleanup(sb, func(context.Context) error {
 		return client.Close()

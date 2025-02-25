@@ -23,6 +23,7 @@ import (
 type MockSandbox struct {
 	ctrl     *gomock.Controller
 	recorder *MockSandboxMockRecorder
+	isgomock struct{}
 }
 
 // MockSandboxMockRecorder is the mock recorder for MockSandbox.

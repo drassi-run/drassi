@@ -1,6 +1,8 @@
 package executor
 
 import (
+	"context"
+
 	"drassi.run/core/pkg/model/workflows"
 )
 
@@ -12,7 +14,7 @@ const (
 	StagePost Stage = "post"
 )
 
-type TaskRun func(StepExecutor) error
+type TaskRun func(context.Context, StepExecutor) error
 
 type Task struct {
 	StepId    string

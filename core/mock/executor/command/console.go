@@ -10,6 +10,7 @@
 package mock_command
 
 import (
+	context "context"
 	reflect "reflect"
 
 	command "drassi.run/core/pkg/executor/command"
@@ -20,6 +21,7 @@ import (
 type MockConsoleManager struct {
 	ctrl     *gomock.Controller
 	recorder *MockConsoleManagerMockRecorder
+	isgomock struct{}
 }
 
 // MockConsoleManagerMockRecorder is the mock recorder for MockConsoleManager.
@@ -78,17 +80,17 @@ func (c *MockConsoleManagerParseCommandCall) DoAndReturn(f func(string) *command
 }
 
 // Process mocks base method.
-func (m *MockConsoleManager) Process(line string, cmd *command.Command) error {
+func (m *MockConsoleManager) Process(ctx context.Context, line string, cmd *command.Command) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Process", line, cmd)
+	ret := m.ctrl.Call(m, "Process", ctx, line, cmd)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Process indicates an expected call of Process.
-func (mr *MockConsoleManagerMockRecorder) Process(line, cmd any) *MockConsoleManagerProcessCall {
+func (mr *MockConsoleManagerMockRecorder) Process(ctx, line, cmd any) *MockConsoleManagerProcessCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Process", reflect.TypeOf((*MockConsoleManager)(nil).Process), line, cmd)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Process", reflect.TypeOf((*MockConsoleManager)(nil).Process), ctx, line, cmd)
 	return &MockConsoleManagerProcessCall{Call: call}
 }
 
@@ -104,13 +106,13 @@ func (c *MockConsoleManagerProcessCall) Return(arg0 error) *MockConsoleManagerPr
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockConsoleManagerProcessCall) Do(f func(string, *command.Command) error) *MockConsoleManagerProcessCall {
+func (c *MockConsoleManagerProcessCall) Do(f func(context.Context, string, *command.Command) error) *MockConsoleManagerProcessCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockConsoleManagerProcessCall) DoAndReturn(f func(string, *command.Command) error) *MockConsoleManagerProcessCall {
+func (c *MockConsoleManagerProcessCall) DoAndReturn(f func(context.Context, string, *command.Command) error) *MockConsoleManagerProcessCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

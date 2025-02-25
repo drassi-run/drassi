@@ -31,7 +31,7 @@ type ScriptStepRun struct {
 	defaults workflows.Defaults
 }
 
-func (sr *ScriptStepRun) Initialize(exec StepExecutor, scope *dig.Scope) error {
+func (sr *ScriptStepRun) Initialize(ctx context.Context, scope *dig.Scope) error {
 	if err := xdig.Populate(scope, &sr.sandbox); err != nil {
 		return err
 	}
@@ -65,8 +65,7 @@ func (sr *ScriptStepRun) PostTask() *Task {
 	return nil
 }
 
-func (sr *ScriptStepRun) executeMain(exec StepExecutor) error {
-	ctx := exec.Context()
+func (sr *ScriptStepRun) executeMain(ctx context.Context, exec StepExecutor) error {
 	shell := model.Shell(sr.defaults.Run.Shell)
 	if sr.Shell != "" {
 		shell = model.Shell(sr.Shell)

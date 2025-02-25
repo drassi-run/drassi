@@ -1,11 +1,15 @@
 package command
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"regexp"
 	"slices"
 	"strings"
+
+	"drassi.run/core/util/otel"
+	"go.opentelemetry.io/otel/trace"
 )
 
 var builtinCommands = []string{
@@ -46,10 +50,10 @@ type Command struct {
 type ConsoleHandler struct {
 	name string
 	echo bool
-	run  func(cmd *Command) error
+	run  func(ctx context.Context, cmd *Command) error
 }
 
-func NewConsoleHandler(name string, echo bool, run func(cmd *Command) error) *ConsoleHandler {
+func NewConsoleHandler(name string, echo bool, run func(context.Context, *Command) error) *ConsoleHandler {
 	return &ConsoleHandler{
 		name: name,
 		echo: echo,
@@ -60,7 +64,7 @@ func NewConsoleHandler(name string, echo bool, run func(cmd *Command) error) *Co
 type ConsoleManager interface {
 	Register(handler *ConsoleHandler) error
 	ParseCommand(line string) *Command
-	Process(line string, cmd *Command) error
+	Process(ctx context.Context, line string, cmd *Command) error
 }
 
 func NewConsoleManager(w io.Writer) ConsoleManager {
@@ -203,7 +207,12 @@ func (mgr *consoleManager) parseCommandParams(params, sep string, replacer *stri
 	return m
 }
 
-func (mgr *consoleManager) Process(line string, cmd *Command) error {
+func (mgr *consoleManager) Process(ctx context.Context, line string, cmd *Command) (err error) {
+	ctx, span := xotel.StartSpan(ctx, "ConsoleCommand.Process",
+		trace.WithAttributes(xotel.DrassiCommand(cmd.Name)),
+	)
+	defer xotel.EndSpan(span, &err)
+
 	handler, ok := mgr.registeredCommands[cmd.Name]
 	if !ok {
 		return fmt.Errorf("%w %q", ErrNotRegisteredCommand, cmd.Name)
@@ -215,11 +224,11 @@ func (mgr *consoleManager) Process(line string, cmd *Command) error {
 		}
 	}
 
-	return handler.run(cmd)
+	return handler.run(ctx, cmd)
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L765
-func (mgr *consoleManager) setEcho(cmd *Command) error {
+func (mgr *consoleManager) setEcho(_ context.Context, cmd *Command) error {
 	mod := strings.TrimSpace(cmd.Value)
 	mod = strings.ToUpper(mod)
 	switch mod {
@@ -233,7 +242,7 @@ func (mgr *consoleManager) setEcho(cmd *Command) error {
 	return nil
 }
 
-func (mgr *consoleManager) stopCommands(cmd *Command) error {
+func (mgr *consoleManager) stopCommands(_ context.Context, cmd *Command) error {
 	token := cmd.Value
 	if !mgr.validStopCommandToken(token) {
 		return fmt.Errorf("%w %q: invalid token %q", ErrInvalidCommand, "stop", token)
@@ -243,7 +252,7 @@ func (mgr *consoleManager) stopCommands(cmd *Command) error {
 	return mgr.Register(NewConsoleHandler(token, true, mgr.resumeCommands))
 }
 
-func (mgr *consoleManager) resumeCommands(cmd *Command) error {
+func (mgr *consoleManager) resumeCommands(_ context.Context, cmd *Command) error {
 	mgr.resumeCmdToken = ""
 	return mgr.Register(NewConsoleHandler(cmd.Name, true, nil))
 }
@@ -257,6 +266,6 @@ func (mgr *consoleManager) validStopCommandToken(token string) bool {
 	return !exists
 }
 
-func ConsoleRun(h *ConsoleHandler, cmd *Command) error {
-	return h.run(cmd)
+func ConsoleRun(ctx context.Context, h *ConsoleHandler, cmd *Command) error {
+	return h.run(ctx, cmd)
 }

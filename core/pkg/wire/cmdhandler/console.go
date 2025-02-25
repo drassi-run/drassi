@@ -20,7 +20,7 @@ import (
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L384
 func AddSecretMask(secretMasker secret.Masker) *command.ConsoleHandler {
-	run := func(cmd *command.Command) error {
+	run := func(ctx context.Context, cmd *command.Command) error {
 		if cmd.Value == "" {
 			return fmt.Errorf("%w %q: empty value", command.ErrInvalidCommand, "add-mask")
 		}
@@ -39,7 +39,7 @@ func AddSecretMask(secretMasker secret.Masker) *command.ConsoleHandler {
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L451
 func AddProblemMatcher(m map[string]problem.Matcher, sb sandboxer.Sandbox, sup executor.Supervisor) *command.ConsoleHandler {
-	run := func(cmd *command.Command) error {
+	run := func(ctx context.Context, cmd *command.Command) error {
 		file := cmd.Value
 		if file == "" {
 			return fmt.Errorf("%w %q: empty file path (in cmd value)", command.ErrInvalidCommand, "add-matcher")
@@ -50,7 +50,6 @@ func AddProblemMatcher(m map[string]problem.Matcher, sb sandboxer.Sandbox, sup e
 			}
 		}
 
-		ctx := sup.Context()
 		conf, err := readProblemMatcherFile(ctx, sb, file)
 		if err != nil {
 			return err
@@ -76,7 +75,7 @@ func AddProblemMatcher(m map[string]problem.Matcher, sb sandboxer.Sandbox, sup e
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L498
 func RemoveProblemMatcher(m map[string]problem.Matcher, sb sandboxer.Sandbox, sup executor.Supervisor) *command.ConsoleHandler {
-	run := func(cmd *command.Command) error {
+	run := func(ctx context.Context, cmd *command.Command) error {
 		file := cmd.Value
 		owner := cmd.Params["owner"]
 		if (file == "") == (owner == "") {
@@ -94,7 +93,6 @@ func RemoveProblemMatcher(m map[string]problem.Matcher, sb sandboxer.Sandbox, su
 		if owner != "" {
 			owners = []string{owner}
 		} else {
-			ctx := sup.Context()
 			conf, err := readProblemMatcherFile(ctx, sb, file)
 			if err != nil {
 				return err
@@ -141,7 +139,7 @@ func readProblemMatcherFile(ctx context.Context, sb sandboxer.Sandbox, file stri
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L751
 func GroupingLog(l logging.Logger) *command.ConsoleHandler {
-	run := func(cmd *command.Command) error {
+	run := func(ctx context.Context, cmd *command.Command) error {
 		l.Log(logging.TagGroup, cmd.Value)
 		return nil
 	}
@@ -150,7 +148,7 @@ func GroupingLog(l logging.Logger) *command.ConsoleHandler {
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L751
 func EndGroupingLog(l logging.Logger) *command.ConsoleHandler {
-	run := func(cmd *command.Command) error {
+	run := func(ctx context.Context, cmd *command.Command) error {
 		l.Log(logging.TagEndGroup, "")
 		return nil
 	}
@@ -159,9 +157,9 @@ func EndGroupingLog(l logging.Logger) *command.ConsoleHandler {
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L566
 func DebugMessage(l logging.Logger, runner records.Runner) *command.ConsoleHandler {
-	run := func(cmd *command.Command) error { return nil }
+	run := func(ctx context.Context, cmd *command.Command) error { return nil }
 	if runner.Debug == "1" {
-		run = func(cmd *command.Command) error {
+		run = func(ctx context.Context, cmd *command.Command) error {
 			l.Log(logging.TagDebug, cmd.Value)
 			return nil
 		}
@@ -171,7 +169,7 @@ func DebugMessage(l logging.Logger, runner records.Runner) *command.ConsoleHandl
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L600
 func LogMessage(l logging.Logger) []*command.ConsoleHandler {
-	run := func(cmd *command.Command) error {
+	run := func(ctx context.Context, cmd *command.Command) error {
 		l.Log(cmd.Name, cmd.Value)
 		return nil
 	}
@@ -184,7 +182,7 @@ func LogMessage(l logging.Logger) []*command.ConsoleHandler {
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L417
 func ConsoleAddPath(sup executor.Supervisor) *command.ConsoleHandler {
-	run := func(cmd *command.Command) error {
+	run := func(ctx context.Context, cmd *command.Command) error {
 		if cmd.Value == "" {
 			return fmt.Errorf("%w %q: missing value", command.ErrInvalidCommand, "add-path")
 		}
@@ -201,7 +199,7 @@ func ConsoleAddPath(sup executor.Supervisor) *command.ConsoleHandler {
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L234
 func ConsoleSetEnv(sup executor.Supervisor) *command.ConsoleHandler {
-	run := func(cmd *command.Command) error {
+	run := func(ctx context.Context, cmd *command.Command) error {
 		name, ok := cmd.Params["name"]
 		if !ok || name == "" {
 			return fmt.Errorf("%w %q: required field %q is missing", command.ErrInvalidCommand, "set-env", "name")
@@ -222,7 +220,7 @@ func ConsoleSetEnv(sup executor.Supervisor) *command.ConsoleHandler {
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L301
 func ConsoleSetOutput(sup executor.Supervisor) *command.ConsoleHandler {
-	run := func(cmd *command.Command) error {
+	run := func(ctx context.Context, cmd *command.Command) error {
 		name, ok := cmd.Params["name"]
 		if !ok || name == "" {
 			return fmt.Errorf("%w %q: required field %q is missing", command.ErrInvalidCommand, "set-output", "name")
@@ -243,7 +241,7 @@ func ConsoleSetOutput(sup executor.Supervisor) *command.ConsoleHandler {
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L336
 func ConsoleSaveState(sup executor.Supervisor) *command.ConsoleHandler {
-	run := func(cmd *command.Command) error {
+	run := func(ctx context.Context, cmd *command.Command) error {
 		name, ok := cmd.Params["name"]
 		if !ok || name == "" {
 			return fmt.Errorf("%w %q: required field %q is missing", command.ErrInvalidCommand, "save-state", "name")

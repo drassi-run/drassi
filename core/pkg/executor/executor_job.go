@@ -17,19 +17,19 @@ import (
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/util/dig"
+	"drassi.run/core/util/otel"
 	"drassi.run/core/util/tar"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 type JobExecutor interface {
 	JobRun() *JobRun
-	Context() context.Context
-	SetContext(ctx context.Context)
 
-	Initialize(scope *dig.Scope) error
-	RunJob() *records.Job
-	Finalize() error
+	Initialize(ctx context.Context, scope *dig.Scope) error
+	RunJob(ctx context.Context) *records.Job
+	Finalize(ctx context.Context) error
 	SystemPaths() []string
 	SetStatus(status records.Result)
 
@@ -63,7 +63,6 @@ type jobExecutor struct {
 	env     map[string]string
 	paths   []string
 
-	ctx           context.Context
 	exprEnv       expression.Env
 	sandbox       sandboxer.Sandbox
 	stepExecutors map[string]StepExecutor
@@ -84,20 +83,25 @@ func (e *jobExecutor) StepExecutor(id string) StepExecutor {
 	return e.stepExecutors[id]
 }
 
-func (e *jobExecutor) Context() context.Context {
-	return e.ctx
-}
+func (e *jobExecutor) Initialize(ctx context.Context, scope *dig.Scope) (ex error) {
+	spanName := fmt.Sprintf("JobExecutor.Initialize(%s)", JobId(e))
+	ctx, span := xotel.StartSpan(ctx, spanName,
+		trace.WithAttributes(xotel.DrassiJob(JobId(e))),
+	)
+	defer xotel.EndSpan(span, &ex)
 
-func (e *jobExecutor) SetContext(ctx context.Context) {
-	e.ctx = ctx
-}
+	if err := xdig.Populate(scope, &e.supervisor); err != nil {
+		return err
+	} else {
+		stop := e.supervisor.StartContext(ctx)
+		defer stop()
+	}
 
-func (e *jobExecutor) Initialize(scope *dig.Scope) error {
 	if err := e.initializeJob(scope); err != nil {
 		return err
 	}
 
-	if err := e.initializeSandbox(scope); err != nil {
+	if err := e.initializeSandbox(ctx, scope); err != nil {
 		return err
 	}
 
@@ -105,21 +109,30 @@ func (e *jobExecutor) Initialize(scope *dig.Scope) error {
 		return err
 	}
 
-	return e.initializeSteps(scope)
+	return e.initializeSteps(ctx, scope)
 }
 
-func (e *jobExecutor) RunJob() *records.Job {
+func (e *jobExecutor) RunJob(ctx context.Context) *records.Job {
+	spanName := fmt.Sprintf("JobExecutor.RunJob(%s)", JobId(e))
+	ctx, span := xotel.StartSpan(ctx, spanName,
+		trace.WithAttributes(xotel.DrassiJob(JobId(e))),
+	)
+	defer span.End()
+
+	stop := e.supervisor.StartContext(ctx)
+	defer stop()
+
 	e.SetStatus(records.ResultSuccess)
 
-	if err := e.runStage(StagePre, StepRun.PreTask); err != nil {
+	if err := e.runStage(ctx, StagePre, StepRun.PreTask); err != nil {
 		e.SetStatus(records.ResultFailure)
 		//log err
 	}
-	if err := e.runStage(StageMain, StepRun.MainTask); err != nil {
+	if err := e.runStage(ctx, StageMain, StepRun.MainTask); err != nil {
 		e.SetStatus(records.ResultFailure)
 		//log err
 	}
-	if err := e.runStage(StagePost, StepRun.PostTask); err != nil {
+	if err := e.runStage(ctx, StagePost, StepRun.PostTask); err != nil {
 		e.SetStatus(records.ResultFailure)
 		//log err
 	}
@@ -129,7 +142,16 @@ func (e *jobExecutor) RunJob() *records.Job {
 	return e.job
 }
 
-func (e *jobExecutor) Finalize() (err error) {
+func (e *jobExecutor) Finalize(ctx context.Context) (err error) {
+	spanName := fmt.Sprintf("JobExecutor.Finalize(%s)", JobId(e))
+	ctx, span := xotel.StartSpan(ctx, spanName,
+		trace.WithAttributes(xotel.DrassiJob(JobId(e))),
+	)
+	defer xotel.EndSpan(span, &err)
+
+	stop := e.supervisor.StartContext(ctx)
+	defer stop()
+
 	defer func() {
 		errs := make([]error, 0)
 		if err != nil {
@@ -150,7 +172,6 @@ func (e *jobExecutor) Finalize() (err error) {
 	}
 
 	// if ctx is done, a new one is created w/ timeout 5s to clean up resources
-	ctx := e.ctx
 	if ctx.Err() != nil {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
@@ -162,9 +183,6 @@ func (e *jobExecutor) Finalize() (err error) {
 
 func (e *jobExecutor) initializeJob(scope *dig.Scope) error {
 	// inject dependencies
-	if err := xdig.Populate(scope, &e.supervisor); err != nil {
-		return err
-	}
 	if err := xdig.Populate(scope, &e.exprEnv); err != nil {
 		return err
 	}
@@ -225,7 +243,7 @@ func (e *jobExecutor) initializeJob(scope *dig.Scope) error {
 	return nil
 }
 
-func (e *jobExecutor) initializeSandbox(scope *dig.Scope) error {
+func (e *jobExecutor) initializeSandbox(ctx context.Context, scope *dig.Scope) error {
 	var runtime sandboxer.Engine
 	if err := xdig.Populate(scope, &runtime); err != nil {
 		return err
@@ -250,7 +268,7 @@ func (e *jobExecutor) initializeSandbox(scope *dig.Scope) error {
 		req.ServiceContainers = serviceContainers
 	}
 
-	if resp, err := runtime.Launch(e.ctx, req); err != nil {
+	if resp, err := runtime.Launch(ctx, req); err != nil {
 		return err
 	} else {
 		e.sandbox = resp.Sandbox
@@ -273,7 +291,7 @@ func (e *jobExecutor) initializeSandbox(scope *dig.Scope) error {
 		}
 	}
 
-	if location, err := e.setupEventFile(e.ctx); err != nil {
+	if location, err := e.setupEventFile(ctx); err != nil {
 		return err
 	} else {
 		e.github.EventPath = location
@@ -334,22 +352,20 @@ func (e *jobExecutor) initializeScope(scope *dig.Scope) error {
 	if e.runner.Debug == "1" {
 		if err := scope.Invoke(func(cmdMgr command.ConsoleManager) error {
 			cmd := &command.Command{Name: "echo", Value: "ON"}
-			return cmdMgr.Process("", cmd)
+			return cmdMgr.Process(context.Background(), "", cmd)
 		}); err != nil {
 			return err
 		}
 	}
 
 	err := scope.Invoke(func(cmdMgr command.FileManager) error {
-		cb := func(_ *Task, exec StepExecutor) error {
-			ctx := exec.Context()
+		cb := func(ctx context.Context, _ *Task, exec StepExecutor) error {
 			suffix := StepUid(exec)
 			return cmdMgr.Initialize(ctx, suffix)
 		}
 		e.supervisor.Register(BeforeRunTaskCallback(cb))
 
-		cb = func(_ *Task, exec StepExecutor) error {
-			ctx := exec.Context()
+		cb = func(ctx context.Context, _ *Task, exec StepExecutor) error {
 			suffix := StepUid(exec)
 			return cmdMgr.Process(ctx, suffix)
 		}
@@ -400,16 +416,15 @@ type fileCommandParams struct {
 	Handlers []*command.FileHandler `group:"file-handlers"`
 }
 
-func (e *jobExecutor) initializeSteps(scope *dig.Scope) error {
+func (e *jobExecutor) initializeSteps(ctx context.Context, scope *dig.Scope) error {
 	e.stepExecutors = make(map[string]StepExecutor, len(e.jobRun.Steps))
 
 	// TODO: concurrent version of Initialize is temporary disable because of concurrent map writes in scope
-	//g, ctx := errgroup.WithContext(e.ctx)
+	//g, ctx := errgroup.WithContext(ctx)
 	//for _, step := range e.jobRun.Steps {
 	//	exec := e.NewStepExecutor(step)
 	//	s := scope.Scope(fmt.Sprintf("step(%s)", exec.StepId()))
 	//	g.Go(func() error {
-	//		exec.SetContext(ctx)
 	//		return exec.Initialize(s)
 	//	})
 	//}
@@ -417,16 +432,24 @@ func (e *jobExecutor) initializeSteps(scope *dig.Scope) error {
 
 	for _, step := range e.jobRun.Steps {
 		exec := e.NewStepExecutor(step)
-		s := scope.Scope(fmt.Sprintf("step(%s)", StepId(exec)))
-		exec.SetContext(e.ctx)
-		if err := exec.Initialize(s); err != nil {
+		s := scope.Scope(fmt.Sprintf("step(%s)", step.StepId()))
+		if err := exec.Initialize(ctx, s); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (e *jobExecutor) runStage(stage Stage, fn func(StepRun) *Task) error {
+func (e *jobExecutor) runStage(ctx context.Context, stage Stage, fn func(StepRun) *Task) (ex error) {
+	spanName := fmt.Sprintf("JobExecutor.runStage(%s)", stage)
+	ctx, span := xotel.StartSpan(ctx, spanName,
+		trace.WithAttributes(xotel.DrassiStage(string(stage))),
+	)
+	defer xotel.EndSpan(span, &ex)
+
+	stop := e.supervisor.StartContext(ctx)
+	defer stop()
+
 	ids := make([]string, len(e.jobRun.Steps))
 	for i, step := range e.jobRun.Steps {
 		ids[i] = step.StepId()
@@ -436,8 +459,7 @@ func (e *jobExecutor) runStage(stage Stage, fn func(StepRun) *Task) error {
 	}
 	for _, id := range ids {
 		exec := e.StepExecutor(id)
-		exec.SetContext(e.ctx)
-		res := exec.RunStep(fn)
+		res := exec.RunStep(ctx, fn)
 		if res == nil {
 			continue
 		}
@@ -476,16 +498,16 @@ func (e *jobExecutor) AddPath(paths []string) error {
 	newPaths := make([]string, 0, len(e.paths))
 	set := sets.New[string]()
 
-	for _, path := range slices.Backward(paths) {
-		if !set.Has(path) {
-			newPaths = append(newPaths, path)
-			set.Insert(path)
+	for _, p := range slices.Backward(paths) {
+		if !set.Has(p) {
+			newPaths = append(newPaths, p)
+			set.Insert(p)
 		}
 	}
-	for _, path := range e.paths {
-		if !set.Has(path) {
-			newPaths = append(newPaths, path)
-			set.Insert(path)
+	for _, p := range e.paths {
+		if !set.Has(p) {
+			newPaths = append(newPaths, p)
+			set.Insert(p)
 		}
 	}
 

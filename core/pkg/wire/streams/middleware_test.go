@@ -22,11 +22,14 @@ func TestProcessCommand(t *testing.T) {
 	line := "foobar"
 	cmd := &command.Command{Name: "foobar"}
 
+	sup := mock_executor.NewMockSupervisor(ctrl)
+	sup.EXPECT().Context().Return(t.Context()).AnyTimes()
+
 	t.Run("non-cmd", func(t *testing.T) {
 		mgr := mock_command.NewMockConsoleManager(ctrl)
 		mgr.EXPECT().ParseCommand(line).Return(nil)
 
-		mw := ProcessCommand(mgr, nil)
+		mw := ProcessCommand(mgr, sup)
 		next, err := mw.Handle(line)
 		assert.NoError(t, err)
 		assert.True(t, next)
@@ -35,9 +38,9 @@ func TestProcessCommand(t *testing.T) {
 	t.Run("process-success", func(t *testing.T) {
 		mgr := mock_command.NewMockConsoleManager(ctrl)
 		mgr.EXPECT().ParseCommand(line).Return(cmd)
-		mgr.EXPECT().Process(line, cmd).Return(nil)
+		mgr.EXPECT().Process(t.Context(), line, cmd).Return(nil)
 
-		mw := ProcessCommand(mgr, nil)
+		mw := ProcessCommand(mgr, sup)
 		next, err := mw.Handle(line)
 		assert.NoError(t, err)
 		assert.False(t, next)
@@ -47,12 +50,10 @@ func TestProcessCommand(t *testing.T) {
 		ex := errors.New("process-cmd-error")
 		mgr := mock_command.NewMockConsoleManager(ctrl)
 		mgr.EXPECT().ParseCommand(line).Return(cmd)
-		mgr.EXPECT().Process(line, cmd).Return(ex)
+		mgr.EXPECT().Process(t.Context(), line, cmd).Return(ex)
 
 		step := mock_executor.NewMockStepExecutor(ctrl)
 		step.EXPECT().SetStatus(records.ResultFailure)
-
-		sup := mock_executor.NewMockSupervisor(ctrl)
 		sup.EXPECT().CurrentStep().Return(step)
 
 		mw := ProcessCommand(mgr, sup)

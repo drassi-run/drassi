@@ -1,6 +1,7 @@
 package executor
 
 import (
+	"context"
 	"fmt"
 	"slices"
 
@@ -20,8 +21,12 @@ type CompositeStepRun struct {
 	inputs  map[string]string
 }
 
-func (sr *CompositeStepRun) Initialize(exec StepExecutor, scope *dig.Scope) error {
+func (sr *CompositeStepRun) Initialize(ctx context.Context, scope *dig.Scope) error {
 	sr.inputs = make(map[string]string)
+	var execCreator StepExecutorCreator
+	if err := xdig.Populate(scope, &execCreator); err != nil {
+		return err
+	}
 	if err := xdig.Populate(scope, &sr.exprEnv); err != nil {
 		return err
 	}
@@ -53,12 +58,10 @@ func (sr *CompositeStepRun) Initialize(exec StepExecutor, scope *dig.Scope) erro
 	//}
 	//return g.Wait()
 
-	ctx := exec.Context()
 	for _, step := range sr.StepRuns {
-		cExec := exec.NewChildExecutor(step)
-		cScope := scope.Scope(fmt.Sprintf("step(%s)", StepId(exec)))
-		cExec.SetContext(ctx)
-		if err := cExec.Initialize(cScope); err != nil {
+		cExec := execCreator(step)
+		cScope := scope.Scope(fmt.Sprintf("step(%s)", step.StepId()))
+		if err := cExec.Initialize(ctx, cScope); err != nil {
 			return err
 		}
 	}
@@ -86,20 +89,18 @@ func (sr *CompositeStepRun) createStageTask(stage Stage, fn func(StepRun) *Task)
 		slices.Reverse(taskIds) // in-place reverse
 	}
 
-	taskRun := func(exec StepExecutor) error {
+	taskRun := func(ctx context.Context, exec StepExecutor) error {
 		if err := sr.computeInputs(); err != nil {
 			return err
 		}
 
-		ctx := exec.Context()
 		for _, id := range taskIds {
 			cExec := exec.ChildExecutor(id)
 			if cExec == nil {
 				return fmt.Errorf("task %q has no child context", id)
 			}
 
-			cExec.SetContext(ctx)
-			res := cExec.RunStep(fn)
+			res := cExec.RunStep(ctx, fn)
 			if res != nil && res.Conclusion == records.ResultFailure {
 				exec.SetStatus(records.ResultFailure)
 				return fmt.Errorf("step %q (%s) failed", id, stage)

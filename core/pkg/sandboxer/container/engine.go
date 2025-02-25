@@ -33,6 +33,7 @@ func New(spec *v1alpha1.ContainerSandboxerSpec) (sandboxer.Engine, error) {
 	if err != nil {
 		return nil, err
 	}
+	client = container.WithTelemetry(client)
 
 	e := &engine{
 		client:       client,

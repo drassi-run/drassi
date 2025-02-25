@@ -11,6 +11,7 @@ type Supervisor interface {
 	Job() JobExecutor
 	CurrentStep() StepExecutor
 	Context() context.Context
+	StartContext(ctx context.Context) func()
 
 	Register(...Callback)
 
@@ -29,49 +30,49 @@ type Supervisor interface {
 type Callback func(*hook)
 
 type hook struct {
-	beforeRunJobCallbacks []func(JobExecutor) error
-	afterRunJobCallbacks  []func(JobExecutor, *records.Job) error
+	beforeRunJobCallbacks []func(context.Context, JobExecutor) error
+	afterRunJobCallbacks  []func(context.Context, JobExecutor, *records.Job) error
 
-	beforeRunStepCallbacks []func(Stage, StepExecutor) error
-	afterRunStepCallbacks  []func(Stage, StepExecutor, *records.Step) error
+	beforeRunStepCallbacks []func(context.Context, Stage, StepExecutor) error
+	afterRunStepCallbacks  []func(context.Context, Stage, StepExecutor, *records.Step) error
 
-	beforeRunTaskCallbacks []func(*Task, StepExecutor) error
-	afterRunTaskCallbacks  []func(*Task, StepExecutor) error
+	beforeRunTaskCallbacks []func(context.Context, *Task, StepExecutor) error
+	afterRunTaskCallbacks  []func(context.Context, *Task, StepExecutor) error
 
 	envProviders []func() map[string]string
 }
 
-func BeforeRunJobCallback(cb func(JobExecutor) error) Callback {
+func BeforeRunJobCallback(cb func(context.Context, JobExecutor) error) Callback {
 	return func(h *hook) {
 		h.beforeRunJobCallbacks = append(h.beforeRunJobCallbacks, cb)
 	}
 }
 
-func AfterRunJobCallback(cb func(JobExecutor, *records.Job) error) Callback {
+func AfterRunJobCallback(cb func(context.Context, JobExecutor, *records.Job) error) Callback {
 	return func(h *hook) {
 		h.afterRunJobCallbacks = append(h.afterRunJobCallbacks, cb)
 	}
 }
 
-func BeforeRunStepCallback(cb func(Stage, StepExecutor) error) Callback {
+func BeforeRunStepCallback(cb func(context.Context, Stage, StepExecutor) error) Callback {
 	return func(h *hook) {
 		h.beforeRunStepCallbacks = append(h.beforeRunStepCallbacks, cb)
 	}
 }
 
-func AfterRunStepCallback(cb func(Stage, StepExecutor, *records.Step) error) Callback {
+func AfterRunStepCallback(cb func(context.Context, Stage, StepExecutor, *records.Step) error) Callback {
 	return func(h *hook) {
 		h.afterRunStepCallbacks = append(h.afterRunStepCallbacks, cb)
 	}
 }
 
-func BeforeRunTaskCallback(cb func(*Task, StepExecutor) error) Callback {
+func BeforeRunTaskCallback(cb func(context.Context, *Task, StepExecutor) error) Callback {
 	return func(h *hook) {
 		h.beforeRunTaskCallbacks = append(h.beforeRunTaskCallbacks, cb)
 	}
 }
 
-func AfterRunTaskCallback(cb func(*Task, StepExecutor) error) Callback {
+func AfterRunTaskCallback(cb func(context.Context, *Task, StepExecutor) error) Callback {
 	return func(h *hook) {
 		h.afterRunTaskCallbacks = append(h.afterRunTaskCallbacks, cb)
 	}
@@ -94,7 +95,9 @@ func Env(m map[string]string) Callback {
 }
 
 func NewSupervisor() Supervisor {
-	return new(supervisor)
+	return &supervisor{
+		ctx: context.Background(),
+	}
 }
 
 type supervisor struct {
@@ -102,6 +105,7 @@ type supervisor struct {
 
 	job   JobExecutor
 	steps []StepExecutor
+	ctx   context.Context
 }
 
 func (s *supervisor) Job() JobExecutor {
@@ -116,14 +120,15 @@ func (s *supervisor) CurrentStep() StepExecutor {
 }
 
 func (s *supervisor) Context() context.Context {
-	if len(s.steps) > 0 {
-		step := s.CurrentStep()
-		return step.Context()
+	return s.ctx
+}
+
+func (s *supervisor) StartContext(ctx context.Context) func() {
+	cur := s.ctx
+	s.ctx = ctx
+	return func() {
+		s.ctx = cur
 	}
-	if s.job != nil {
-		return s.job.Context()
-	}
-	return context.Background()
 }
 
 func (s *supervisor) Register(callbacks ...Callback) {
@@ -134,8 +139,8 @@ func (s *supervisor) Register(callbacks ...Callback) {
 
 func (s *supervisor) BeforeJobRun(je JobExecutor) error {
 	s.job = je
-	for _, cb := range s.beforeRunJobCallbacks {
-		if err := cb(je); err != nil {
+	for _, fn := range s.beforeRunJobCallbacks {
+		if err := fn(s.ctx, je); err != nil {
 			return err
 		}
 	}
@@ -144,8 +149,8 @@ func (s *supervisor) BeforeJobRun(je JobExecutor) error {
 }
 
 func (s *supervisor) AfterJobRun(je JobExecutor, result *records.Job) error {
-	for _, cb := range s.afterRunJobCallbacks {
-		if err := cb(je, result); err != nil {
+	for _, fn := range s.afterRunJobCallbacks {
+		if err := fn(s.ctx, je, result); err != nil {
 			return err
 		}
 	}
@@ -157,8 +162,8 @@ func (s *supervisor) AfterJobRun(je JobExecutor, result *records.Job) error {
 func (s *supervisor) BeforeStepRun(stage Stage, se StepExecutor) error {
 	s.steps = append(s.steps, se)
 
-	for _, cb := range s.beforeRunStepCallbacks {
-		if err := cb(stage, se); err != nil {
+	for _, fn := range s.beforeRunStepCallbacks {
+		if err := fn(s.ctx, stage, se); err != nil {
 			return err
 		}
 	}
@@ -166,8 +171,8 @@ func (s *supervisor) BeforeStepRun(stage Stage, se StepExecutor) error {
 }
 
 func (s *supervisor) AfterStepRun(stage Stage, se StepExecutor, result *records.Step) error {
-	for _, cb := range s.afterRunStepCallbacks {
-		if err := cb(stage, se, result); err != nil {
+	for _, fn := range s.afterRunStepCallbacks {
+		if err := fn(s.ctx, stage, se, result); err != nil {
 			return err
 		}
 	}
@@ -177,8 +182,8 @@ func (s *supervisor) AfterStepRun(stage Stage, se StepExecutor, result *records.
 }
 
 func (s *supervisor) BeforeTaskRun(t *Task, se StepExecutor) error {
-	for _, cb := range s.beforeRunTaskCallbacks {
-		if err := cb(t, se); err != nil {
+	for _, fn := range s.beforeRunTaskCallbacks {
+		if err := fn(s.ctx, t, se); err != nil {
 			return err
 		}
 	}
@@ -186,8 +191,8 @@ func (s *supervisor) BeforeTaskRun(t *Task, se StepExecutor) error {
 }
 
 func (s *supervisor) AfterTaskRun(t *Task, se StepExecutor) error {
-	for _, cb := range s.afterRunTaskCallbacks {
-		if err := cb(t, se); err != nil {
+	for _, fn := range s.afterRunTaskCallbacks {
+		if err := fn(s.ctx, t, se); err != nil {
 			return err
 		}
 	}

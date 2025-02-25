@@ -7,6 +7,7 @@ import (
 	"path"
 
 	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/util/otel"
 	"drassi.run/core/util/string"
 	"drassi.run/core/util/tar"
 	"golang.org/x/sync/errgroup"
@@ -14,10 +15,10 @@ import (
 
 type FileHandler struct {
 	env string
-	run func(r io.Reader) error
+	run func(ctx context.Context, r io.Reader) error
 }
 
-func NewFileHandler(env string, run func(r io.Reader) error) *FileHandler {
+func NewFileHandler(env string, run func(context.Context, io.Reader) error) *FileHandler {
 	return &FileHandler{
 		env: env,
 		run: run,
@@ -53,11 +54,14 @@ func (mgr *fileManager) Register(handler *FileHandler) error {
 	return nil
 }
 
-func (mgr *fileManager) Initialize(ctx context.Context, suffix string) error {
+func (mgr *fileManager) Initialize(ctx context.Context, suffix string) (err error) {
 	if len(mgr.registeredCommands) == 0 {
 		return nil
 	}
 	suffix = xstring.EnsurePrefix(suffix, "_")
+
+	ctx, span := xotel.StartSpan(ctx, "FileCommand.Initialize")
+	defer xotel.EndSpan(span, &err)
 
 	fileEntries := make(map[string]string, len(mgr.registeredCommands))
 	for cmd := range mgr.registeredCommands {
@@ -72,12 +76,15 @@ func (mgr *fileManager) Initialize(ctx context.Context, suffix string) error {
 	}
 }
 
-func (mgr *fileManager) Process(ctx context.Context, suffix string) error {
+func (mgr *fileManager) Process(ctx context.Context, suffix string) (err error) {
 	if len(mgr.registeredCommands) == 0 {
 		return nil
 	}
 	suffix = xstring.EnsurePrefix(suffix, "_")
 	dir := mgr.dir()
+
+	ctx, span := xotel.StartSpan(ctx, "FileCommand.Process")
+	defer xotel.EndSpan(span, &err)
 
 	g, ctx := errgroup.WithContext(ctx)
 	for cmd, h := range mgr.registeredCommands {
@@ -93,7 +100,7 @@ func (mgr *fileManager) Process(ctx context.Context, suffix string) error {
 				return err
 			}
 			defer r.Close()
-			return handler.run(r)
+			return handler.run(ctx, r)
 		})
 	}
 	return g.Wait()
@@ -118,6 +125,6 @@ func (mgr *fileManager) dir() string {
 	return path.Join(layout.Temp, "file_commands")
 }
 
-func FileRun(h *FileHandler, r io.Reader) error {
-	return h.run(r)
+func FileRun(ctx context.Context, h *FileHandler, r io.Reader) error {
+	return h.run(ctx, r)
 }
