@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/chainguard-dev/clog"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/metric"
@@ -41,4 +42,14 @@ func EndSpan(span trace.Span, err *error) {
 		span.SetStatus(codes.Error, (*err).Error())
 	}
 	span.End()
+}
+
+func ChildLogger(ctx context.Context, args ...any) (context.Context, *clog.Logger) {
+	logger := clog.FromContext(ctx)
+	if len(args) > 0 {
+		logger = logger.With(args...)
+		ctx = clog.WithLogger(ctx, logger)
+	}
+
+	return ctx, logger
 }
