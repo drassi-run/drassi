@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"path/filepath"
 
+	"drassi.run/core/pkg/executor/logging"
 	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/actions"
 	"drassi.run/core/pkg/model/records"
@@ -32,6 +33,9 @@ type ActionStepRun struct {
 
 	rev       string
 	actionRun StepRun
+
+	// injected values
+	logger logging.Logger
 }
 
 func (sr *ActionStepRun) Repository() *repository.Repository {
@@ -52,6 +56,9 @@ func (sr *ActionStepRun) Initialize(ctx context.Context, scope *dig.Scope) error
 	span := trace.SpanFromContext(ctx)
 	span.SetAttributes(xotel.ActionRepo(repository.Location(sr.Repo)))
 
+	if err := xdig.Populate(scope, &sr.logger); err != nil {
+		return err
+	}
 	if err := xdig.Populate(scope, &github); err != nil {
 		return err
 	}
@@ -75,6 +82,7 @@ func (sr *ActionStepRun) Initialize(ctx context.Context, scope *dig.Scope) error
 	if rev, err := store.Fetch(ctx, sr.Repo, token); err != nil {
 		return err
 	} else {
+		logging.Logf(sr.logger, "Download action repository %q (SHA:%s)", repository.Location(sr.Repo), rev)
 		sr.rev = rev
 	}
 
@@ -110,6 +118,7 @@ func (sr *ActionStepRun) loadAction(ctx context.Context, store gitstore.Store) e
 			span.AddEvent("Loaded Action",
 				trace.WithAttributes(xotel.ActionPath(path)),
 			)
+			logging.Debugf(sr.logger, "Loading %q for action %q", path, sr.Id)
 			return sr.loadActionManifest(r)
 		} else if !errors.Is(err, object.ErrFileNotFound) {
 			return err
@@ -124,6 +133,7 @@ func (sr *ActionStepRun) loadAction(ctx context.Context, store gitstore.Store) e
 			span.AddEvent("Loaded Action",
 				trace.WithAttributes(xotel.ActionPath(path)),
 			)
+			logging.Debugf(sr.logger, "Loading %q for action %q", path, sr.Id)
 			return sr.createDockerfileAction(path)
 		} else if !errors.Is(err, object.ErrFileNotFound) {
 			return err
