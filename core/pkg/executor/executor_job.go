@@ -19,6 +19,7 @@ import (
 	"drassi.run/core/util/dig"
 	"drassi.run/core/util/otel"
 	"drassi.run/core/util/tar"
+	"github.com/chainguard-dev/clog"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -46,9 +47,8 @@ func JobUid(e JobExecutor) string {
 }
 
 func NewJobExecutor(run *JobRun) JobExecutor {
-	return &jobExecutor{
-		jobRun: run,
-	}
+	exec := &jobExecutor{jobRun: run}
+	return WithTelemetryJobExecutor(exec)
 }
 
 type jobExecutor struct {
@@ -84,28 +84,20 @@ func (e *jobExecutor) StepExecutor(id string) StepExecutor {
 }
 
 func (e *jobExecutor) Initialize(ctx context.Context, scope *dig.Scope) (ex error) {
-	spanName := fmt.Sprintf("JobExecutor.Initialize(%s)", JobId(e))
-	ctx, span := xotel.StartSpan(ctx, spanName,
-		trace.WithAttributes(xotel.DrassiJob(JobId(e))),
-	)
-	defer xotel.EndSpan(span, &ex)
-
-	if err := xdig.Populate(scope, &e.supervisor); err != nil {
-		return err
-	} else {
-		stop := e.supervisor.StartContext(ctx)
-		defer stop()
-	}
+	syslog := clog.FromContext(ctx)
 
 	if err := e.initializeJob(scope); err != nil {
+		syslog.Errorf("Failed to initialize job: %v", err)
 		return err
 	}
 
 	if err := e.initializeSandbox(ctx, scope); err != nil {
+		syslog.Errorf("Failed to initialize sandbox: %v", err)
 		return err
 	}
 
 	if err := e.initializeScope(scope); err != nil {
+		syslog.Errorf("Failed to initialize scope: %v", err)
 		return err
 	}
 
@@ -113,15 +105,6 @@ func (e *jobExecutor) Initialize(ctx context.Context, scope *dig.Scope) (ex erro
 }
 
 func (e *jobExecutor) RunJob(ctx context.Context) *records.Job {
-	spanName := fmt.Sprintf("JobExecutor.RunJob(%s)", JobId(e))
-	ctx, span := xotel.StartSpan(ctx, spanName,
-		trace.WithAttributes(xotel.DrassiJob(JobId(e))),
-	)
-	defer span.End()
-
-	stop := e.supervisor.StartContext(ctx)
-	defer stop()
-
 	e.SetStatus(records.ResultSuccess)
 
 	if err := e.runStage(ctx, StagePre, StepRun.PreTask); err != nil {
@@ -143,15 +126,6 @@ func (e *jobExecutor) RunJob(ctx context.Context) *records.Job {
 }
 
 func (e *jobExecutor) Finalize(ctx context.Context) (err error) {
-	spanName := fmt.Sprintf("JobExecutor.Finalize(%s)", JobId(e))
-	ctx, span := xotel.StartSpan(ctx, spanName,
-		trace.WithAttributes(xotel.DrassiJob(JobId(e))),
-	)
-	defer xotel.EndSpan(span, &err)
-
-	stop := e.supervisor.StartContext(ctx)
-	defer stop()
-
 	defer func() {
 		errs := make([]error, 0)
 		if err != nil {
@@ -183,6 +157,9 @@ func (e *jobExecutor) Finalize(ctx context.Context) (err error) {
 
 func (e *jobExecutor) initializeJob(scope *dig.Scope) error {
 	// inject dependencies
+	if err := xdig.Populate(scope, &e.supervisor); err != nil {
+		return err
+	}
 	if err := xdig.Populate(scope, &e.exprEnv); err != nil {
 		return err
 	}
@@ -447,6 +424,9 @@ func (e *jobExecutor) runStage(ctx context.Context, stage Stage, fn func(StepRun
 	)
 	defer xotel.EndSpan(span, &ex)
 
+	ctx, syslog := xotel.ChildLogger(ctx, "stage", stage)
+	syslog.Infof("running stage %q", stage)
+
 	stop := e.supervisor.StartContext(ctx)
 	defer stop()
 
@@ -469,6 +449,7 @@ func (e *jobExecutor) runStage(ctx context.Context, stage Stage, fn func(StepRun
 		}
 		if res.Conclusion == records.ResultFailure {
 			e.job.Result = records.ResultFailure
+			syslog.Warnf("set job.Result='failure' because of step %s failed", id)
 			return fmt.Errorf(`step %q (%s) failed`, id, stage)
 		}
 	}

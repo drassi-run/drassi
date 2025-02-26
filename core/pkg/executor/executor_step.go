@@ -2,7 +2,6 @@ package executor
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"maps"
 	"strconv"
@@ -14,8 +13,6 @@ import (
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/store/repository"
 	"drassi.run/core/util/dig"
-	"drassi.run/core/util/otel"
-	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
 )
 
@@ -54,12 +51,13 @@ func StepUid(e StepExecutor) string {
 }
 
 func newStepExecutor(job JobExecutor, parent StepExecutor, stepRun StepRun) StepExecutor {
-	return &stepExecutor{
+	exec := &stepExecutor{
 		job:      job,
 		parent:   parent,
 		children: make(map[string]StepExecutor),
 		stepRun:  stepRun,
 	}
+	return WithTelemetryStepExecutor(exec)
 }
 
 type stepExecutor struct {
@@ -109,21 +107,11 @@ func (e *stepExecutor) rootExecutor() StepExecutor {
 	return exec
 }
 
-func (e *stepExecutor) Initialize(ctx context.Context, scope *dig.Scope) (ex error) {
-	spanName := fmt.Sprintf("StepExecutor.Initialize(%s)", StepId(e))
-	ctx, span := xotel.StartSpan(ctx, spanName,
-		trace.WithAttributes(xotel.DrassiStep(FullStepId(e))),
-	)
-	defer xotel.EndSpan(span, &ex)
-
+func (e *stepExecutor) Initialize(ctx context.Context, scope *dig.Scope) error {
+	// inject dependencies
 	if err := xdig.Populate(scope, &e.supervisor); err != nil {
 		return err
-	} else {
-		stop := e.supervisor.StartContext(ctx)
-		defer stop()
 	}
-
-	// inject dependencies
 	if err := xdig.Populate(scope, &e.exprEnv); err != nil {
 		return err
 	}
@@ -189,18 +177,6 @@ func (e *stepExecutor) RunStep(ctx context.Context, fn func(StepRun) *Task) *rec
 	if task == nil {
 		return nil
 	}
-
-	spanName := fmt.Sprintf("StepExecutor.RunStep(%s)", StepId(e))
-	ctx, span := xotel.StartSpan(ctx, spanName,
-		trace.WithAttributes(
-			xotel.DrassiStage(string(task.Stage)),
-			xotel.DrassiStep(FullStepId(e)),
-		),
-	)
-	defer span.End()
-
-	stop := e.supervisor.StartContext(ctx)
-	defer stop()
 
 	defer e.endTask(task)
 	e.beginTask(task) // TODO logging error
