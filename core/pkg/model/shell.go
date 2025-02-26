@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/google/shlex"
 )
@@ -48,19 +49,19 @@ func (s Shell) SupportedPlatform(platform Machine) bool {
 func (s Shell) Command() ([]string, error) {
 	switch s {
 	case "": // unspecified `shell` parameter
-		return defaultCommand, nil
+		return slices.Clone(defaultCommand), nil
 	case Bash:
-		return bashCommand, nil
+		return slices.Clone(bashCommand), nil
 	case Pwsh:
-		return pwshCommand, nil
+		return slices.Clone(pwshCommand), nil
 	case Python:
-		return pythonCommand, nil
+		return slices.Clone(pythonCommand), nil
 	case Sh:
-		return shCommand, nil
+		return slices.Clone(shCommand), nil
 	case Cmd:
-		return cmdCommand, nil
+		return slices.Clone(cmdCommand), nil
 	case Powershell:
-		return powershellCommand, nil
+		return slices.Clone(powershellCommand), nil
 	default:
 		return shlex.Split(string(s)) // Custom shell
 	}
