@@ -7,6 +7,7 @@ import (
 
 	"drassi.run/core/pkg/container"
 	"drassi.run/core/util/otel"
+	"github.com/chainguard-dev/clog"
 	semconv "go.opentelemetry.io/otel/semconv/v1.27.0"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -25,6 +26,8 @@ type telemetryEngine struct {
 func (e *telemetryEngine) Launch(ctx context.Context, req *LaunchRequest) (res *LaunchResponse, err error) {
 	ctx, span := xotel.StartSpan(ctx, "Sandboxer.Launch")
 	defer xotel.EndSpan(span, &err)
+
+	clog.DebugContextf(ctx, "launching sandbox")
 
 	if res, err = e.Engine.Launch(ctx, req); err != nil {
 		return
@@ -56,6 +59,8 @@ func (s *telemetrySandbox) Stat(ctx context.Context, path string) (fi fs.FileInf
 	ctx, span := xotel.StartSpan(ctx, "Sandbox.Stat")
 	defer xotel.EndSpan(span, &err)
 
+	clog.DebugContextf(ctx, "stat path %q", path)
+
 	return s.Sandbox.Stat(ctx, path)
 }
 
@@ -64,6 +69,8 @@ func (s *telemetrySandbox) CopyIn(ctx context.Context, reader io.Reader, dst str
 		trace.WithAttributes(semconv.FilePath(dst)),
 	)
 	defer xotel.EndSpan(span, &err)
+
+	clog.DebugContextf(ctx, "copy data into sandbox %q", dst)
 
 	return s.Sandbox.CopyIn(ctx, reader, dst)
 }
@@ -74,12 +81,16 @@ func (s *telemetrySandbox) CopyOut(ctx context.Context, src string) (r io.ReadCl
 	)
 	defer xotel.EndSpan(span, &err)
 
+	clog.DebugContextf(ctx, "copy data out sandbox %q", src)
+
 	return s.Sandbox.CopyOut(ctx, src)
 }
 
 func (s *telemetrySandbox) Execute(ctx context.Context, cmd, path []string, env map[string]string, workdir string, streams Streams) (err error) {
 	ctx, span := xotel.StartSpan(ctx, "Sandbox.Execute")
 	defer xotel.EndSpan(span, &err)
+
+	clog.DebugContextf(ctx, "execute command in sandbox")
 
 	return s.Sandbox.Execute(ctx, cmd, path, env, workdir, streams)
 }
