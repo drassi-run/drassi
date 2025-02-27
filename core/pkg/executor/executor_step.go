@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"drassi.run/core/pkg/executor/evaluator"
+	"drassi.run/core/pkg/executor/logging"
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/expression/libraries"
 	"drassi.run/core/pkg/model/records"
@@ -73,6 +74,7 @@ type stepExecutor struct {
 	upperEnv map[string]string // env variables from upper layers
 	state    map[string]string // Intra action state
 
+	logger     logging.Logger
 	exprEnv    expression.Env
 	supervisor Supervisor
 }
@@ -109,6 +111,9 @@ func (e *stepExecutor) rootExecutor() StepExecutor {
 
 func (e *stepExecutor) Initialize(ctx context.Context, scope *dig.Scope) error {
 	// inject dependencies
+	if err := xdig.Populate(scope, &e.logger); err != nil {
+		return err
+	}
 	if err := xdig.Populate(scope, &e.supervisor); err != nil {
 		return err
 	}
@@ -201,6 +206,7 @@ func (e *stepExecutor) beginTask(task *Task) error {
 		return err
 	}
 
+	logging.Debugf(e.logger, "Evaluating condition for step: %q (%s)", e.stepRun.DisplayName(task.Stage), StepId(e))
 	if meet, err := evaluator.Meet(e.exprEnv, task.Condition); err != nil {
 		e.SetStatus(records.ResultFailure)
 		e.step.Conclusion = records.ResultFailure

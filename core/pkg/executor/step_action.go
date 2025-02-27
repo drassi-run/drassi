@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"drassi.run/core/pkg/executor/logging"
+	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/actions"
 	"drassi.run/core/pkg/model/records"
@@ -51,6 +52,7 @@ func (sr *ActionStepRun) Initialize(ctx context.Context, scope *dig.Scope) error
 		github  records.Github
 		store   gitstore.Store
 		sandbox sandboxer.Sandbox
+		exprEnv expression.Env
 	)
 
 	span := trace.SpanFromContext(ctx)
@@ -68,6 +70,9 @@ func (sr *ActionStepRun) Initialize(ctx context.Context, scope *dig.Scope) error
 	if err := xdig.Populate(scope, &sandbox); err != nil {
 		return err
 	}
+	if err := xdig.Populate(scope, &exprEnv); err != nil {
+		return err
+	}
 	if err := xdig.Supply(scope, sr.Repo); err != nil {
 		return err
 	}
@@ -77,6 +82,11 @@ func (sr *ActionStepRun) Initialize(ctx context.Context, scope *dig.Scope) error
 	// unset the token to prevent an unauthenticated error.
 	if repository.Endpoint(sr.Repo) != sr.serverDomain(github.ServerUrl) {
 		token = ""
+	}
+
+	// evaluating before loadAction so it DisplayName can be push-down into child StepRun
+	if err := sr.evaluateDisplayName(exprEnv, repository.Location(sr.Repo), sr.logger); err != nil {
+		return err
 	}
 
 	if rev, err := store.Fetch(ctx, sr.Repo, token); err != nil {

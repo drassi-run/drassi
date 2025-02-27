@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"drassi.run/core/pkg/executor/evaluator"
+	"drassi.run/core/pkg/executor/logging"
 	"drassi.run/core/pkg/executor/runtime"
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/model/workflows"
@@ -41,6 +42,7 @@ type DockerStepRun struct {
 	// injected values
 	runtime runtime.Container
 	exprEnv expression.Env
+	logger  logging.Logger
 }
 
 func (sr *DockerStepRun) PathTranslator() runtime.PathTranslator {
@@ -48,6 +50,9 @@ func (sr *DockerStepRun) PathTranslator() runtime.PathTranslator {
 }
 
 func (sr *DockerStepRun) Initialize(ctx context.Context, scope *dig.Scope) error {
+	if err := xdig.Populate(scope, &sr.logger); err != nil {
+		return err
+	}
 	if err := xdig.Populate(scope, &sr.runtime); err != nil {
 		return err
 	}
@@ -56,6 +61,11 @@ func (sr *DockerStepRun) Initialize(ctx context.Context, scope *dig.Scope) error
 	}
 
 	defer sr.addSpanAttrs(ctx)
+
+	if err := sr.evaluateDisplayName(sr.exprEnv, sr.Image, sr.logger); err != nil {
+		return err
+	}
+
 	if image, ok := strings.CutPrefix(sr.Image, "docker://"); ok {
 		sr.resolvedImage = image
 		return sr.runtime.Pull(ctx, image, nil)

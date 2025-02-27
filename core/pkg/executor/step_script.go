@@ -51,6 +51,11 @@ func (sr *ScriptStepRun) Initialize(ctx context.Context, scope *dig.Scope) error
 		return err
 	}
 
+	defaultName := fmt.Sprintf("%s", sr.Run)
+	if err := sr.evaluateDisplayName(sr.exprEnv, defaultName, sr.logger); err != nil {
+		return err
+	}
+
 	return nil
 }
 
