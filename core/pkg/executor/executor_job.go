@@ -208,6 +208,7 @@ func (e *jobExecutor) initializeJob(scope *dig.Scope) error {
 	}
 
 	// Evaluate expressions
+	logging.Debugf(e.logger, "Evaluating job-level environment variables")
 	env := make(map[string]string)
 	if err := evaluator.Evaluate(e.exprEnv, e.jobRun.Env, &env); err != nil {
 		return err
@@ -215,6 +216,7 @@ func (e *jobExecutor) initializeJob(scope *dig.Scope) error {
 		return err
 	}
 
+	logging.Debugf(e.logger, "Evaluating job defaults")
 	var defaults workflows.Defaults
 	if err := evaluator.Evaluate(e.exprEnv, e.jobRun.Defaults, &defaults); err != nil {
 		return err
@@ -236,6 +238,7 @@ func (e *jobExecutor) initializeSandbox(ctx context.Context, scope *dig.Scope) e
 		Github: &e.github,
 	}
 
+	logging.Debugf(e.logger, "Evaluating job container")
 	var jobContainer *workflows.Container
 	if err := evaluator.Evaluate(e.exprEnv, e.jobRun.Container, &jobContainer); err != nil {
 		return err
@@ -243,6 +246,7 @@ func (e *jobExecutor) initializeSandbox(ctx context.Context, scope *dig.Scope) e
 		req.JobContainer = jobContainer
 	}
 
+	logging.Debugf(e.logger, "Evaluating service containers")
 	var serviceContainers = make(map[string]*workflows.Container)
 	if err := evaluator.Evaluate(e.exprEnv, e.jobRun.Services, &serviceContainers); err != nil {
 		return err
@@ -256,6 +260,7 @@ func (e *jobExecutor) initializeSandbox(ctx context.Context, scope *dig.Scope) e
 		e.sandbox = resp.Sandbox
 
 		// set records values
+		logging.Debugf(e.logger, "Update context data")
 		e.jobInfo.Container = resp.JobContainer
 		e.jobInfo.Services = resp.ServiceContainers
 
