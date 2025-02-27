@@ -1,7 +1,10 @@
 package command
 
 import (
+	"archive/tar"
 	"context"
+	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path"
@@ -10,7 +13,13 @@ import (
 	"drassi.run/core/util/otel"
 	"drassi.run/core/util/string"
 	"drassi.run/core/util/tar"
+	"github.com/docker/docker/pkg/archive"
 	"golang.org/x/sync/errgroup"
+)
+
+var (
+	ErrInvalidFile    = errors.New("invalid file")
+	ErrorMultipleFile = errors.New("un-expected multiple files")
 )
 
 type FileHandler struct {
@@ -92,18 +101,46 @@ func (mgr *fileManager) Process(ctx context.Context, suffix string) (err error) 
 		filePath := path.Join(dir, cmd+suffix)
 
 		g.Go(func() error {
-			r, err := mgr.sandbox.CopyOut(ctx, filePath)
-			if err != nil {
-				if os.IsNotExist(err) {
-					return nil
-				}
-				return err
-			}
-			defer r.Close()
-			return handler.run(ctx, r)
+			return mgr.handle(ctx, handler, filePath)
 		})
 	}
 	return g.Wait()
+}
+
+func (mgr *fileManager) handle(ctx context.Context, handler *FileHandler, file string) error {
+	r, err := mgr.sandbox.CopyOut(ctx, file)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	defer r.Close()
+
+	xr, err := archive.DecompressStream(r)
+	if err != nil {
+		return err
+	}
+	defer xr.Close()
+
+	tr := tar.NewReader(xr)
+	if hdr, err := tr.Next(); err != nil {
+		if err == io.EOF {
+			return nil
+		}
+		return err
+	} else if !xtar.IsRegular(hdr) {
+		return fmt.Errorf("%w: un-expected %s file", ErrInvalidFile, xtar.FileType(hdr.Typeflag))
+	} else if hdr.Size > 0 {
+		if err = handler.run(ctx, tr); err != nil {
+			return err
+		}
+	}
+
+	if _, err = tr.Next(); err != io.EOF {
+		return ErrorMultipleFile
+	}
+	return nil
 }
 
 func (mgr *fileManager) Env(suffix string) map[string]string {
