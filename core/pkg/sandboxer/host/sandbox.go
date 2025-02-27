@@ -77,7 +77,7 @@ func (sb *sandbox) Execute(ctx context.Context, cmd, path []string, env map[stri
 	c := exec.CommandContext(ctx, cmd[0], cmd[1:]...)
 
 	// env
-	c.Env = make([]string, 0, len(env))
+	c.Env = os.Environ()
 	for k, v := range env {
 		c.Env = append(c.Env, fmt.Sprintf("%s=%s", k, v))
 	}
