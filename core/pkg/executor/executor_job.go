@@ -11,6 +11,7 @@ import (
 
 	"drassi.run/core/pkg/executor/command"
 	"drassi.run/core/pkg/executor/evaluator"
+	"drassi.run/core/pkg/executor/logging"
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/expression/libraries"
 	"drassi.run/core/pkg/model/records"
@@ -63,6 +64,7 @@ type jobExecutor struct {
 	env     map[string]string
 	paths   []string
 
+	logger        logging.Logger
 	exprEnv       expression.Env
 	sandbox       sandboxer.Sandbox
 	stepExecutors map[string]StepExecutor
@@ -157,6 +159,9 @@ func (e *jobExecutor) Finalize(ctx context.Context) (err error) {
 
 func (e *jobExecutor) initializeJob(scope *dig.Scope) error {
 	// inject dependencies
+	if err := xdig.Populate(scope, &e.logger); err != nil {
+		return err
+	}
 	if err := xdig.Populate(scope, &e.supervisor); err != nil {
 		return err
 	}
@@ -327,6 +332,7 @@ func (e *jobExecutor) initializeScope(scope *dig.Scope) error {
 	}
 
 	if e.runner.Debug == "1" {
+		e.logger.EnableDebug(true)
 		if err := scope.Invoke(func(cmdMgr command.ConsoleManager) error {
 			cmd := &command.Command{Name: "echo", Value: "ON"}
 			return cmdMgr.Process(context.Background(), "", cmd)

@@ -39,6 +39,42 @@ func (m *MockLogger) EXPECT() *MockLoggerMockRecorder {
 	return m.recorder
 }
 
+// EnableDebug mocks base method.
+func (m *MockLogger) EnableDebug(b bool) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "EnableDebug", b)
+}
+
+// EnableDebug indicates an expected call of EnableDebug.
+func (mr *MockLoggerMockRecorder) EnableDebug(b any) *MockLoggerEnableDebugCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableDebug", reflect.TypeOf((*MockLogger)(nil).EnableDebug), b)
+	return &MockLoggerEnableDebugCall{Call: call}
+}
+
+// MockLoggerEnableDebugCall wrap *gomock.Call
+type MockLoggerEnableDebugCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockLoggerEnableDebugCall) Return() *MockLoggerEnableDebugCall {
+	c.Call = c.Call.Return()
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockLoggerEnableDebugCall) Do(f func(bool)) *MockLoggerEnableDebugCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockLoggerEnableDebugCall) DoAndReturn(f func(bool)) *MockLoggerEnableDebugCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // Logf mocks base method.
 func (m *MockLogger) Logf(tag, format string, a ...any) {
 	m.ctrl.T.Helper()

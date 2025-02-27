@@ -19,6 +19,7 @@ const (
 
 type Logger interface {
 	Logf(tag, format string, a ...any)
+	EnableDebug(b bool)
 }
 
 func NewLogger(r io.Writer) Logger {
@@ -26,10 +27,19 @@ func NewLogger(r io.Writer) Logger {
 }
 
 type logger struct {
-	r io.Writer
+	r     io.Writer
+	debug bool
+}
+
+func (l *logger) EnableDebug(b bool) {
+	l.debug = b
 }
 
 func (l *logger) Logf(tag, format string, a ...any) {
+	if tag == TagDebug && !l.debug {
+		return
+	}
+
 	message := format
 	if len(a) > 0 {
 		message = fmt.Sprintf(format, a...)
