@@ -95,7 +95,7 @@ func streamHandler(w io.Writer, l logging.Logger, middlewares []Middleware) logg
 		for _, mw := range middlewares {
 			next, err := mw.Handle(line)
 			if err != nil {
-				l.Log(logging.TagError, err.Error())
+				logging.Errorf(l, "Error: %v", err)
 			}
 			if !next {
 				// Should NOT bubble up error

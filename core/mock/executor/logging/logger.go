@@ -39,43 +39,43 @@ func (m *MockLogger) EXPECT() *MockLoggerMockRecorder {
 	return m.recorder
 }
 
-// Log mocks base method.
-func (m *MockLogger) Log(tag, format string, a ...any) {
+// Logf mocks base method.
+func (m *MockLogger) Logf(tag, format string, a ...any) {
 	m.ctrl.T.Helper()
 	varargs := []any{tag, format}
 	for _, a_2 := range a {
 		varargs = append(varargs, a_2)
 	}
-	m.ctrl.Call(m, "Log", varargs...)
+	m.ctrl.Call(m, "Logf", varargs...)
 }
 
-// Log indicates an expected call of Log.
-func (mr *MockLoggerMockRecorder) Log(tag, format any, a ...any) *MockLoggerLogCall {
+// Logf indicates an expected call of Logf.
+func (mr *MockLoggerMockRecorder) Logf(tag, format any, a ...any) *MockLoggerLogfCall {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]any{tag, format}, a...)
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Log", reflect.TypeOf((*MockLogger)(nil).Log), varargs...)
-	return &MockLoggerLogCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Logf", reflect.TypeOf((*MockLogger)(nil).Logf), varargs...)
+	return &MockLoggerLogfCall{Call: call}
 }
 
-// MockLoggerLogCall wrap *gomock.Call
-type MockLoggerLogCall struct {
+// MockLoggerLogfCall wrap *gomock.Call
+type MockLoggerLogfCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockLoggerLogCall) Return() *MockLoggerLogCall {
+func (c *MockLoggerLogfCall) Return() *MockLoggerLogfCall {
 	c.Call = c.Call.Return()
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockLoggerLogCall) Do(f func(string, string, ...any)) *MockLoggerLogCall {
+func (c *MockLoggerLogfCall) Do(f func(string, string, ...any)) *MockLoggerLogfCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockLoggerLogCall) DoAndReturn(f func(string, string, ...any)) *MockLoggerLogCall {
+func (c *MockLoggerLogfCall) DoAndReturn(f func(string, string, ...any)) *MockLoggerLogfCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

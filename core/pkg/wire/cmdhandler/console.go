@@ -140,7 +140,7 @@ func readProblemMatcherFile(ctx context.Context, sb sandboxer.Sandbox, file stri
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L751
 func GroupingLog(l logging.Logger) *command.ConsoleHandler {
 	run := func(ctx context.Context, cmd *command.Command) error {
-		l.Log(logging.TagGroup, cmd.Value)
+		l.Logf(logging.TagGroup, cmd.Value)
 		return nil
 	}
 	return command.NewConsoleHandler("group", true, run)
@@ -149,7 +149,7 @@ func GroupingLog(l logging.Logger) *command.ConsoleHandler {
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L751
 func EndGroupingLog(l logging.Logger) *command.ConsoleHandler {
 	run := func(ctx context.Context, cmd *command.Command) error {
-		l.Log(logging.TagEndGroup, "")
+		l.Logf(logging.TagEndGroup, "")
 		return nil
 	}
 	return command.NewConsoleHandler("endgroup", true, run)
@@ -160,7 +160,7 @@ func DebugMessage(l logging.Logger, runner records.Runner) *command.ConsoleHandl
 	run := func(ctx context.Context, cmd *command.Command) error { return nil }
 	if runner.Debug == "1" {
 		run = func(ctx context.Context, cmd *command.Command) error {
-			l.Log(logging.TagDebug, cmd.Value)
+			l.Logf(logging.TagDebug, cmd.Value)
 			return nil
 		}
 	}
@@ -170,7 +170,7 @@ func DebugMessage(l logging.Logger, runner records.Runner) *command.ConsoleHandl
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L600
 func LogMessage(l logging.Logger) []*command.ConsoleHandler {
 	run := func(ctx context.Context, cmd *command.Command) error {
-		l.Log(cmd.Name, cmd.Value)
+		l.Logf(cmd.Name, cmd.Value)
 		return nil
 	}
 	return []*command.ConsoleHandler{

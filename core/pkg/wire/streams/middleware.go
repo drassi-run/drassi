@@ -35,14 +35,13 @@ func (mw *commandProcessor) Handle(line string) (bool, error) {
 	}
 
 	ctx := mw.sup.Context()
-	err := mw.consoleMgr.Process(ctx, line, cmd)
-	if err != nil {
-		step := mw.sup.CurrentStep()
-		if step != nil {
+	if err := mw.consoleMgr.Process(ctx, line, cmd); err != nil {
+		if step := mw.sup.CurrentStep(); step != nil {
 			step.SetStatus(records.ResultFailure)
 		}
+		return false, err
 	}
-	return false, err
+	return false, nil
 }
 
 func ScanProblem(pm map[string]problem.Matcher, rep reporter.Reporter) Middleware {
@@ -67,8 +66,7 @@ func (mw *problemScanner) Handle(line string) (bool, error) {
 
 	for o, m := range mw.pm {
 		if p := m.Match(line); p != nil {
-			owner = o
-			pbl = p
+			owner, pbl = o, p
 			break
 		}
 	}
