@@ -2,11 +2,11 @@ package executor
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"strings"
 
 	"drassi.run/core/pkg/executor/evaluator"
-	"drassi.run/core/pkg/executor/logging"
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
@@ -33,7 +33,6 @@ type NodeStepRun struct {
 	exprEnv expression.Env
 	sandbox sandboxer.Sandbox
 	streams sandboxer.Streams
-	logger  logging.Logger
 	repo    *repository.Repository
 }
 
@@ -112,13 +111,16 @@ func (sr *NodeStepRun) execute(stage Stage) TaskRun {
 			return err
 		}
 
-		env := exec.ComposeEnv()
+		sr.logStepDetails(sr.repr(),
+			withMap("with", inputs),
+			withMap("env", exec.ComposeEnv(false)),
+		)
+
+		env := exec.ComposeEnv(true)
 		for k, v := range inputs {
 			k = strings.ToUpper(k)
 			env["INPUT_"+k] = v
 		}
-
-		sr.logInfo(inputs)
 
 		paths := exec.JobExecutor().SystemPaths()
 		return sr.sandbox.Execute(ctx, cmd, paths, env, "", sr.streams)
@@ -157,13 +159,6 @@ func (sr *NodeStepRun) addSpanAttrs(ctx context.Context, stage Stage) {
 	span.SetAttributes(xotel.ActionScript(script))
 }
 
-func (sr *NodeStepRun) logInfo(inputs map[string]string) {
-	end := logging.Groupf(sr.logger, "Run %s", repository.Location(sr.repo))
-	defer end()
-
-	logging.Logf(sr.logger, "with:")
-	for k, v := range inputs {
-		logging.Logf(sr.logger, "  %s: %s", k, v)
-	}
-	// TODO: log env
+func (sr *NodeStepRun) repr() string {
+	return fmt.Sprintf("node action from %q", repository.Location(sr.repo))
 }

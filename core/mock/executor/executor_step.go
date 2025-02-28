@@ -83,17 +83,17 @@ func (c *MockStepExecutorChildExecutorCall) DoAndReturn(f func(string) executor.
 }
 
 // ComposeEnv mocks base method.
-func (m *MockStepExecutor) ComposeEnv() map[string]string {
+func (m *MockStepExecutor) ComposeEnv(systemEnv bool) map[string]string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ComposeEnv")
+	ret := m.ctrl.Call(m, "ComposeEnv", systemEnv)
 	ret0, _ := ret[0].(map[string]string)
 	return ret0
 }
 
 // ComposeEnv indicates an expected call of ComposeEnv.
-func (mr *MockStepExecutorMockRecorder) ComposeEnv() *MockStepExecutorComposeEnvCall {
+func (mr *MockStepExecutorMockRecorder) ComposeEnv(systemEnv any) *MockStepExecutorComposeEnvCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ComposeEnv", reflect.TypeOf((*MockStepExecutor)(nil).ComposeEnv))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ComposeEnv", reflect.TypeOf((*MockStepExecutor)(nil).ComposeEnv), systemEnv)
 	return &MockStepExecutorComposeEnvCall{Call: call}
 }
 
@@ -109,13 +109,13 @@ func (c *MockStepExecutorComposeEnvCall) Return(arg0 map[string]string) *MockSte
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStepExecutorComposeEnvCall) Do(f func() map[string]string) *MockStepExecutorComposeEnvCall {
+func (c *MockStepExecutorComposeEnvCall) Do(f func(bool) map[string]string) *MockStepExecutorComposeEnvCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStepExecutorComposeEnvCall) DoAndReturn(f func() map[string]string) *MockStepExecutorComposeEnvCall {
+func (c *MockStepExecutorComposeEnvCall) DoAndReturn(f func(bool) map[string]string) *MockStepExecutorComposeEnvCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

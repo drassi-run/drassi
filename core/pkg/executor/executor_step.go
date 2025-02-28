@@ -26,7 +26,7 @@ type StepExecutor interface {
 
 	Initialize(ctx context.Context, scope *dig.Scope) error
 	RunStep(ctx context.Context, fn func(StepRun) *Task) *records.Step
-	ComposeEnv() map[string]string
+	ComposeEnv(systemEnv bool) map[string]string
 	SetStatus(status records.Result)
 
 	SetEnv(env map[string]string) error
@@ -292,10 +292,13 @@ func (e *stepExecutor) endTask(task *Task) {
 	}
 }
 
-func (e *stepExecutor) ComposeEnv() map[string]string {
-	m := e.supervisor.ProvideEnv()
+func (e *stepExecutor) ComposeEnv(systemEnv bool) map[string]string {
+	m := maps.Clone(e.env)
+	if !systemEnv {
+		return m
+	}
 
-	maps.Copy(m, e.env)
+	maps.Copy(m, e.supervisor.ProvideEnv())
 
 	// set GITHUB_* env
 	ghEnv := map[string]string{

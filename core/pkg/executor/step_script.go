@@ -31,7 +31,6 @@ type ScriptStepRun struct {
 	streams  sandboxer.Streams
 	exprEnv  expression.Env
 	defaults workflows.Defaults
-	logger   logging.Logger
 }
 
 func (sr *ScriptStepRun) Initialize(ctx context.Context, scope *dig.Scope) error {
@@ -98,7 +97,14 @@ func (sr *ScriptStepRun) executeMain(ctx context.Context, exec StepExecutor) err
 		return err
 	}
 
-	sr.logInfo(script, cmd, workdir)
+	// log details before fixup script
+	// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/Handlers/ScriptHandler.cs#L27
+	sr.logStepDetails("script action",
+		withScript(script),
+		withKV("shell", strings.Join(cmd, " ")),
+		withKV("workdir", workdir),
+		withMap("env", exec.ComposeEnv(false)),
+	)
 
 	script = shell.FixupScript(script)
 	scriptPath := sr.computeScriptPath(exec, shell.Extension())
@@ -108,7 +114,7 @@ func (sr *ScriptStepRun) executeMain(ctx context.Context, exec StepExecutor) err
 		return nil
 	}
 
-	env := exec.ComposeEnv()
+	env := exec.ComposeEnv(true)
 	paths := exec.JobExecutor().SystemPaths()
 	return sr.sandbox.Execute(ctx, cmd, paths, env, workdir, sr.streams)
 }
@@ -140,23 +146,15 @@ func (sr *ScriptStepRun) transferScriptIn(ctx context.Context, script, path stri
 	}
 }
 
-var logScriptFormat = "\033[36;1m%s\033[0m"
-
-func (sr *ScriptStepRun) logInfo(script string, cmd []string, workdir string) {
-	firstLine, _, _ := strings.Cut(script, "\n")
-	end := logging.Groupf(sr.logger, "Run %s", firstLine)
-	defer end()
-
-	// print script line by line
-	scanner := bufio.NewScanner(strings.NewReader(script))
-	for scanner.Scan() {
-		line := scanner.Text()
-		logging.Logf(sr.logger, logScriptFormat, line)
-	}
-
-	logging.Logf(sr.logger, "shell: %s", strings.Join(cmd, " "))
-
-	if workdir != "" {
-		logging.Logf(sr.logger, "workdir: %s", workdir)
+// print script line by line
+func withScript(script string) func(logger logging.Logger) {
+	return func(logger logging.Logger) {
+		script = strings.TrimRight(script, "\r\n")
+		scanner := bufio.NewScanner(strings.NewReader(script))
+		for scanner.Scan() {
+			line := scanner.Text()
+			// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/Handlers/ScriptHandler.cs#L57
+			logging.Logf(logger, "\x1b[36;1m%s\x1b[0m", line)
+		}
 	}
 }

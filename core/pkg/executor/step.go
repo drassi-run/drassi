@@ -43,6 +43,7 @@ type BaseStepRun struct {
 	Outputs          workflows.Evaluable[map[string]string]
 
 	// compute attributes
+	logger      logging.Logger
 	displayName string
 }
 
@@ -87,4 +88,13 @@ func (s *BaseStepRun) evaluateDisplayName(exprEnv expression.Env, defaultName st
 	s.displayName = prefix + name
 	logging.Debugf(logger, "Set step %q display name to: %q", s.Id, s.displayName)
 	return nil
+}
+
+func (s *BaseStepRun) logStepDetails(groupName string, details ...func(logging.Logger)) {
+	end := logging.Groupf(s.logger, "Run %s", groupName)
+	defer end()
+
+	for _, detail := range details {
+		detail(s.logger)
+	}
 }

@@ -3,7 +3,9 @@ package executor
 import (
 	"context"
 	"fmt"
+	"strings"
 
+	"drassi.run/core/pkg/executor/logging"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/util/dig"
 	"drassi.run/core/util/otel"
@@ -202,4 +204,40 @@ func (e *telemetryJobExecutor) Finalize(ctx context.Context) (err error) {
 	defer stop()
 
 	return e.JobExecutor.Finalize(ctx)
+}
+
+func withArray(name string, a []string) func(logger logging.Logger) {
+	return func(logger logging.Logger) {
+		switch l := len(a); {
+		case l == 0: // does nothing
+		case l <= 3:
+			logging.Logf(logger, "%s: [%s]", name, strings.Join(a, ", "))
+		default:
+			logging.Logf(logger, "%s:", name)
+			for _, e := range a {
+				logging.Logf(logger, "  - %s", e)
+			}
+		}
+	}
+}
+
+func withMap(name string, m map[string]string) func(logger logging.Logger) {
+	return func(logger logging.Logger) {
+		if len(m) == 0 {
+			return
+		}
+		logging.Logf(logger, "%s:", name)
+		for k, v := range m {
+			logging.Logf(logger, "  %s: %s", k, v)
+		}
+	}
+}
+
+func withKV(key string, value string) func(logger logging.Logger) {
+	return func(logger logging.Logger) {
+		if value == "" {
+			return
+		}
+		logging.Logf(logger, "%s: %s", key, value)
+	}
 }
