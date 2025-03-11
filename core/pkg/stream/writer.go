@@ -4,28 +4,22 @@ import (
 	"bytes"
 	"errors"
 	"io"
+
+	"drassi.run/core/util/types"
 )
 
-type Handler interface {
-	Handle(line string) error
-}
-
-type HandlerFunc func(line string) error
-
-func (f HandlerFunc) Handle(line string) error {
-	return f(line)
-}
-
 type lineWriter struct {
-	closed  bool
-	buffer  bytes.Buffer
-	handler Handler
+	closed     bool
+	buffer     bytes.Buffer
+	handler    Handler
+	contextual xtypes.ContextProvider
 }
 
 // NewLineWriter return an [io.Writer] that split input into lines and forward to the [Handler]
-func NewLineWriter(handler Handler) io.Writer {
+func NewLineWriter(c xtypes.ContextProvider, h Handler) io.Writer {
 	return &lineWriter{
-		handler: handler,
+		handler:    h,
+		contextual: c,
 	}
 }
 
@@ -34,6 +28,7 @@ func (w *lineWriter) Write(p []byte) (int, error) {
 		return 0, errors.New("attempt to write to closed writer")
 	}
 
+	ctx := w.contextual.Context()
 	buf := bytes.NewBuffer(p)
 	written := 0
 	for {
@@ -46,7 +41,7 @@ func (w *lineWriter) Write(p []byte) (int, error) {
 			}
 			return written, err
 		}
-		if err = w.handler.Handle(w.buffer.String()); err != nil {
+		if err = w.handler.Handle(ctx, w.buffer.String()); err != nil {
 			return written, err
 		}
 		w.buffer.Reset()
@@ -62,7 +57,8 @@ func (w *lineWriter) Close() error {
 	w.closed = true
 	defer w.buffer.Reset()
 	if s := w.buffer.String(); s != "" {
-		return w.handler.Handle(s)
+		ctx := w.contextual.Context()
+		return w.handler.Handle(ctx, s)
 	}
 	return nil
 }

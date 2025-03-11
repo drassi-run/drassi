@@ -1,21 +1,17 @@
 package libraries
 
 import (
-	"context"
 	expr "drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/util/types"
 )
 
-type ContextProvider interface {
-	Context() context.Context
-}
-
-func SandboxLib(c ContextProvider, sb sandboxer.Sandbox) expr.Library {
+func SandboxLib(c xtypes.ContextProvider, sb sandboxer.Sandbox) expr.Library {
 	return &sandboxLib{contextual: c, sandbox: sb}
 }
 
 type sandboxLib struct {
-	contextual ContextProvider
+	contextual xtypes.ContextProvider
 	sandbox    sandboxer.Sandbox
 }
 

@@ -15,6 +15,7 @@ import (
 	"drassi.run/core/pkg/executor/reporter"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/stream"
+	"drassi.run/core/util/types"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -57,8 +58,8 @@ func NewReporter(
 		jobOutputs: make(map[string]string),
 	}
 
-	r.out = stream.NewLineWriter(r.appendLogLine)
-	r.err = stream.NewLineWriter(r.appendLogLine)
+	r.out = stream.NewLineWriter(xtypes.NewStaticContext(ctx), stream.HandlerFunc(r.appendLogLine))
+	r.err = stream.NewLineWriter(xtypes.NewStaticContext(ctx), stream.HandlerFunc(r.appendLogLine))
 
 	return r
 }
@@ -154,7 +155,7 @@ func (r *GiteaReporter) EndStep(ctx context.Context, stage executor.Stage, se ex
 	return r.updateTask(ctx)
 }
 
-func (r *GiteaReporter) AddIssue(issue *reporter.Issue) error {
+func (r *GiteaReporter) AddIssue(ctx context.Context, issue *reporter.Issue) error {
 	//TODO implement me
 	panic("implement me")
 }
@@ -186,7 +187,7 @@ func (r *GiteaReporter) Close() error {
 	return nil
 }
 
-func (r *GiteaReporter) appendLogLine(line string) error {
+func (r *GiteaReporter) appendLogLine(ctx context.Context, line string) error {
 	line = strings.TrimRight(line, "\r\n")
 
 	row := &runnerv1.LogRow{

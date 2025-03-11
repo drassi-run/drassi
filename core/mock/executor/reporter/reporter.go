@@ -45,17 +45,17 @@ func (m *MockReporter) EXPECT() *MockReporterMockRecorder {
 }
 
 // AddIssue mocks base method.
-func (m *MockReporter) AddIssue(issue *reporter.Issue) error {
+func (m *MockReporter) AddIssue(ctx context.Context, issue *reporter.Issue) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddIssue", issue)
+	ret := m.ctrl.Call(m, "AddIssue", ctx, issue)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AddIssue indicates an expected call of AddIssue.
-func (mr *MockReporterMockRecorder) AddIssue(issue any) *MockReporterAddIssueCall {
+func (mr *MockReporterMockRecorder) AddIssue(ctx, issue any) *MockReporterAddIssueCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddIssue", reflect.TypeOf((*MockReporter)(nil).AddIssue), issue)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddIssue", reflect.TypeOf((*MockReporter)(nil).AddIssue), ctx, issue)
 	return &MockReporterAddIssueCall{Call: call}
 }
 
@@ -71,13 +71,13 @@ func (c *MockReporterAddIssueCall) Return(arg0 error) *MockReporterAddIssueCall 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockReporterAddIssueCall) Do(f func(*reporter.Issue) error) *MockReporterAddIssueCall {
+func (c *MockReporterAddIssueCall) Do(f func(context.Context, *reporter.Issue) error) *MockReporterAddIssueCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockReporterAddIssueCall) DoAndReturn(f func(*reporter.Issue) error) *MockReporterAddIssueCall {
+func (c *MockReporterAddIssueCall) DoAndReturn(f func(context.Context, *reporter.Issue) error) *MockReporterAddIssueCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

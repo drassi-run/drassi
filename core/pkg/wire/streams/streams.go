@@ -6,6 +6,7 @@ import (
 
 	"drassi.run/core/pkg/executor/logging"
 	"drassi.run/core/pkg/stream"
+	"drassi.run/core/util/types"
 	"go.uber.org/dig"
 )
 
@@ -63,18 +64,20 @@ func newLog(p logParams) logging.Logger {
 
 type streamOutParams struct {
 	dig.In
-	ProcessCommand Middleware `name:"processCommand"`
-	ScanProblem    Middleware `name:"scanProblem"`
-	MaskSecret     Middleware `name:"maskSecret"`
-	StdOut         io.Writer  `name:"stdout"`
+	ContextProvider xtypes.ContextProvider
+	ProcessCommand  Middleware `name:"processCommand"`
+	ScanProblem     Middleware `name:"scanProblem"`
+	MaskSecret      Middleware `name:"maskSecret"`
+	StdOut          io.Writer  `name:"stdout"`
 }
 
 type streamErrParams struct {
 	dig.In
-	ProcessCommand Middleware `name:"processCommand"`
-	ScanProblem    Middleware `name:"scanProblem"`
-	MaskSecret     Middleware `name:"maskSecret"`
-	StdErr         io.Writer  `name:"stderr"`
+	ContextProvider xtypes.ContextProvider
+	ProcessCommand  Middleware `name:"processCommand"`
+	ScanProblem     Middleware `name:"scanProblem"`
+	MaskSecret      Middleware `name:"maskSecret"`
+	StdErr          io.Writer  `name:"stderr"`
 }
 
 func streamOut(p streamOutParams) io.Writer {
@@ -83,7 +86,7 @@ func streamOut(p streamOutParams) io.Writer {
 		p.ScanProblem,
 		p.MaskSecret,
 	})
-	return stream.NewLineWriter(handler)
+	return stream.NewLineWriter(p.ContextProvider, handler)
 }
 
 func streamErr(p streamErrParams) io.Writer {
@@ -92,14 +95,11 @@ func streamErr(p streamErrParams) io.Writer {
 		p.ScanProblem,
 		p.MaskSecret,
 	})
-	return stream.NewLineWriter(handler)
+	return stream.NewLineWriter(p.ContextProvider, handler)
 }
 
 func streamHandler(w io.Writer, middlewares []Middleware) stream.Handler {
-	var h stream.Handler = stream.HandlerFunc(func(line string) error {
-		_, err := io.WriteString(w, line)
-		return err
-	})
+	h := stream.WriteTo(w)
 	for _, mw := range slices.Backward(middlewares) {
 		h = mw(h)
 	}

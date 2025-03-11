@@ -1,6 +1,7 @@
 package wire_streams
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"regexp"
@@ -33,13 +34,12 @@ type commandProcessor struct {
 	sup        executor.Supervisor
 }
 
-func (mw *commandProcessor) Handle(line string) error {
+func (mw *commandProcessor) Handle(ctx context.Context, line string) error {
 	cmd := mw.consoleMgr.ParseCommand(line)
 	if cmd == nil {
-		return mw.handler.Handle(line)
+		return mw.handler.Handle(ctx, line)
 	}
 
-	ctx := mw.sup.Context()
 	if err := mw.consoleMgr.Process(ctx, line, cmd); err != nil {
 		if step := mw.sup.CurrentStep(); step != nil {
 			step.SetStatus(records.ResultFailure)
@@ -65,16 +65,16 @@ type problemScanner struct {
 	rep reporter.Reporter
 }
 
-func (mw *problemScanner) Handle(line string) error {
-	err1 := mw.scan(line)
-	err2 := mw.hdl.Handle(line)
+func (mw *problemScanner) Handle(ctx context.Context, line string) error {
+	err1 := mw.scan(ctx, line)
+	err2 := mw.hdl.Handle(ctx, line)
 	return errors.Join(err1, err2)
 }
 
 // https://en.wikipedia.org/wiki/ANSI_escape_code
 var colorCodeRegex = regexp.MustCompile(`\033\[[\d;]*m`)
 
-func (mw *problemScanner) scan(line string) error {
+func (mw *problemScanner) scan(ctx context.Context, line string) error {
 	var owner string
 	var pbl *problem.Problem
 
@@ -106,7 +106,7 @@ func (mw *problemScanner) scan(line string) error {
 	}
 
 	// 3. Report the issue
-	return mw.rep.AddIssue(issue)
+	return mw.rep.AddIssue(ctx, issue)
 }
 
 const skippedIssueMsg = "skipped logging an issue for the matched line because of"
@@ -167,7 +167,7 @@ type secretMasker struct {
 	masker  secret.Masker
 }
 
-func (mw *secretMasker) Handle(line string) error {
+func (mw *secretMasker) Handle(ctx context.Context, line string) error {
 	line = mw.masker.Mask(line)
-	return mw.handler.Handle(line)
+	return mw.handler.Handle(ctx, line)
 }
