@@ -11,6 +11,7 @@ import (
 	"drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/container/types"
 	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/pkg/stream"
 	"drassi.run/core/util/fs"
 	"drassi.run/core/util/path"
 	"drassi.run/core/util/tar"
@@ -83,7 +84,7 @@ func (sb *sandbox) CopyOut(ctx context.Context, src string) (io.ReadCloser, erro
 	})
 }
 
-func (sb *sandbox) Execute(ctx context.Context, cmd, path []string, env map[string]string, workdir string, streams sandboxer.Streams) error {
+func (sb *sandbox) Execute(ctx context.Context, cmd, path []string, env map[string]string, workdir string, streams stream.Streams) error {
 	opts := &container.ExecOptions{
 		Cmd:     cmd,
 		Env:     env,

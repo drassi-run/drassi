@@ -13,6 +13,7 @@ import (
 	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/pkg/stream"
 	"drassi.run/core/util/dig"
 	"drassi.run/core/util/string"
 	"drassi.run/core/util/tar"
@@ -28,7 +29,7 @@ type ScriptStepRun struct {
 
 	// injected values
 	sandbox  sandboxer.Sandbox
-	streams  sandboxer.Streams
+	streams  stream.Streams
 	exprEnv  expression.Env
 	defaults workflows.Defaults
 }

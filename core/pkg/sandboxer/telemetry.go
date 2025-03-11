@@ -6,6 +6,7 @@ import (
 	"io/fs"
 
 	"drassi.run/core/pkg/container"
+	"drassi.run/core/pkg/stream"
 	"drassi.run/core/util/otel"
 	"github.com/chainguard-dev/clog"
 	semconv "go.opentelemetry.io/otel/semconv/v1.27.0"
@@ -86,7 +87,7 @@ func (s *telemetrySandbox) CopyOut(ctx context.Context, src string) (r io.ReadCl
 	return s.Sandbox.CopyOut(ctx, src)
 }
 
-func (s *telemetrySandbox) Execute(ctx context.Context, cmd, path []string, env map[string]string, workdir string, streams Streams) (err error) {
+func (s *telemetrySandbox) Execute(ctx context.Context, cmd, path []string, env map[string]string, workdir string, streams stream.Streams) (err error) {
 	ctx, span := xotel.StartSpan(ctx, "Sandbox.Execute")
 	defer xotel.EndSpan(span, &err)
 

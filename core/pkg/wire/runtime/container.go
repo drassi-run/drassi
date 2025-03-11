@@ -14,6 +14,7 @@ import (
 	"drassi.run/core/pkg/executor/runtime"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/pkg/stream"
 	"drassi.run/core/util/string"
 	. "drassi.run/core/util/types"
 )
@@ -26,7 +27,7 @@ const (
 func NewContainerRuntime(
 	ctx context.Context,
 	engine container.Engine,
-	streams container.Streams,
+	streams stream.Streams,
 	sandbox sandboxer.Sandbox,
 	info *records.JobInfo,
 	gh *records.Github,

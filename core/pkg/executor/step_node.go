@@ -11,6 +11,7 @@ import (
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/store/repository"
+	"drassi.run/core/pkg/stream"
 	"drassi.run/core/util/dig"
 	"drassi.run/core/util/otel"
 	"go.opentelemetry.io/otel/trace"
@@ -32,7 +33,7 @@ type NodeStepRun struct {
 	// injected values
 	exprEnv expression.Env
 	sandbox sandboxer.Sandbox
-	streams sandboxer.Streams
+	streams stream.Streams
 	repo    *repository.Repository
 }
 

@@ -22,6 +22,7 @@ import (
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/pkg/stream"
 	"drassi.run/core/pkg/wire/cmdhandler"
 	"drassi.run/core/pkg/wire/etc"
 	"drassi.run/core/pkg/wire/reporter"
@@ -180,7 +181,7 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 		return err
 	}
 
-	return scope.Invoke(func(streams sandboxer.Streams) {
+	return scope.Invoke(func(streams stream.Streams) {
 		if closer, ok := streams.Out().(io.Closer); ok {
 			w.addCleaner(closer.Close)
 		}
@@ -243,11 +244,11 @@ func newCommandConsoleManager(p cmParams) command.ConsoleManager {
 }
 
 func newContainerRuntime(ctx context.Context, gh *records.Github) func(
-	container.Engine, container.Streams, sandboxer.Sandbox, *records.JobInfo,
+	container.Engine, stream.Streams, sandboxer.Sandbox, *records.JobInfo,
 ) (runtime.Container, error) {
 	return func(
 		engine container.Engine,
-		streams container.Streams,
+		streams stream.Streams,
 		sandbox sandboxer.Sandbox,
 		info *records.JobInfo,
 	) (runtime.Container, error) {

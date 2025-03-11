@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/pkg/stream"
 	"drassi.run/core/util/fs"
 	"drassi.run/core/util/path"
 	"github.com/go-git/go-billy/v5/osfs"
@@ -72,7 +73,7 @@ func (sb *sandbox) CopyOut(ctx context.Context, src string) (io.ReadCloser, erro
 	return r, nil
 }
 
-func (sb *sandbox) Execute(ctx context.Context, cmd, path []string, env map[string]string, workdir string, streams sandboxer.Streams) error {
+func (sb *sandbox) Execute(ctx context.Context, cmd, path []string, env map[string]string, workdir string, streams stream.Streams) error {
 	// TODO lookup entrypoint under custom PATH
 	c := exec.CommandContext(ctx, cmd[0], cmd[1:]...)
 

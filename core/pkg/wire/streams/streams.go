@@ -3,9 +3,8 @@ package wire_streams
 import (
 	"io"
 
-	"drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/executor/logging"
-	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/pkg/stream"
 	"go.uber.org/dig"
 )
 
@@ -41,11 +40,11 @@ type streamsParams struct {
 	StdErr io.Writer `name:"streamErr"`
 }
 
-func newStream(p streamsParams) sandboxer.Streams {
-	return container.NewStreams(
-		container.WithStdin(p.StdIn),
-		container.WithStdout(p.StdOut),
-		container.WithStderr(p.StdErr),
+func newStream(p streamsParams) stream.Streams {
+	return stream.NewStreams(
+		stream.WithStdin(p.StdIn),
+		stream.WithStdout(p.StdOut),
+		stream.WithStderr(p.StdErr),
 	)
 }
 

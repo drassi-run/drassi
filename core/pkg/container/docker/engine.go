@@ -13,6 +13,7 @@ import (
 	"drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/container/cli"
 	"drassi.run/core/pkg/container/types"
+	"drassi.run/core/pkg/stream"
 	"drassi.run/core/util/context"
 	"drassi.run/core/util/io"
 	dockertypes "github.com/docker/docker/api/types"
@@ -354,7 +355,7 @@ func (e *engine) start(ctx context.Context, id string, exec bool, stdio *types.S
 	}
 }
 
-func (e *engine) streamingStdio(ctx context.Context, id string, exec bool, stdio *types.Stdio, streams container.Streams, fn run) run {
+func (e *engine) streamingStdio(ctx context.Context, id string, exec bool, stdio *types.Stdio, streams stream.Streams, fn run) run {
 	ctx, cancel := context.WithCancel(ctx)
 
 	return func() (err error) {
