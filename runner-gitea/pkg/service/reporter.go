@@ -12,9 +12,9 @@ import (
 	"code.gitea.io/actions-proto-go/runner/v1/runnerv1connect"
 	"connectrpc.com/connect"
 	"drassi.run/core/pkg/executor"
-	"drassi.run/core/pkg/executor/logging"
 	"drassi.run/core/pkg/executor/reporter"
 	"drassi.run/core/pkg/model/records"
+	"drassi.run/core/pkg/stream"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -57,8 +57,8 @@ func NewReporter(
 		jobOutputs: make(map[string]string),
 	}
 
-	r.out = logging.NewLineWriter(r.appendLogLine)
-	r.err = logging.NewLineWriter(r.appendLogLine)
+	r.out = stream.NewLineWriter(r.appendLogLine)
+	r.err = stream.NewLineWriter(r.appendLogLine)
 
 	return r
 }

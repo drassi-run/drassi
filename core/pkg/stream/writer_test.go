@@ -1,4 +1,4 @@
-package logging
+package stream
 
 import (
 	"github.com/stretchr/testify/assert"

@@ -78,7 +78,7 @@ func streamOut(p streamOutParams) io.Writer {
 		p.ProcessCommand,
 		p.ScanProblem,
 	})
-	return logging.NewLineWriter(handler)
+	return stream.NewLineWriter(handler)
 }
 
 func streamErr(p streamErrParams) io.Writer {
@@ -86,10 +86,10 @@ func streamErr(p streamErrParams) io.Writer {
 		p.ProcessCommand,
 		p.ScanProblem,
 	})
-	return logging.NewLineWriter(handler)
+	return stream.NewLineWriter(handler)
 }
 
-func streamHandler(w io.Writer, l logging.Logger, middlewares []Middleware) logging.LineHandler {
+func streamHandler(w io.Writer, l logging.Logger, middlewares []Middleware) stream.Handler {
 	return func(line string) error {
 		for _, mw := range middlewares {
 			next, err := mw.Handle(line)

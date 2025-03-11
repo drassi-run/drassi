@@ -1,4 +1,4 @@
-package logging
+package stream
 
 import (
 	"bytes"
@@ -6,15 +6,16 @@ import (
 	"io"
 )
 
-type LineHandler = func(line string) error
+type Handler = func(line string) error
 
 type lineWriter struct {
 	closed  bool
 	buffer  bytes.Buffer
-	handler LineHandler
+	handler Handler
 }
 
-func NewLineWriter(handler LineHandler) io.Writer {
+// NewLineWriter return an [io.Writer] that split input into lines and forward to the [Handler]
+func NewLineWriter(handler Handler) io.Writer {
 	return &lineWriter{
 		handler: handler,
 	}
