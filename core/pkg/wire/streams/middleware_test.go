@@ -5,6 +5,7 @@ import (
 	mock_command "drassi.run/core/mock/executor/command"
 	mock_problem "drassi.run/core/mock/executor/problem"
 	mock_reporter "drassi.run/core/mock/executor/reporter"
+	mock_secret "drassi.run/core/mock/executor/secret"
 	mock_stream "drassi.run/core/mock/stream"
 	"drassi.run/core/pkg/executor/command"
 	"drassi.run/core/pkg/executor/problem"
@@ -161,4 +162,21 @@ func (s *ScanProblemTestSuite) TestReportError() {
 
 	err := s.ps.Handle(t.Context(), line)
 	assert.ErrorIs(t, err, ex)
+}
+
+func TestMaskSecret(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	line, maskedLine := "original", "masked"
+
+	sm := mock_secret.NewMockMasker(ctrl)
+	sm.EXPECT().Mask(line).Return(maskedLine)
+
+	hdl := mock_stream.NewMockHandler(ctrl)
+	hdl.EXPECT().Handle(t.Context(), maskedLine).Return(nil)
+
+	handler := MaskSecret(sm)(hdl)
+	err := handler.Handle(t.Context(), line)
+	assert.NoError(t, err)
 }

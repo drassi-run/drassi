@@ -16,6 +16,9 @@ func ProvideTo(scope *dig.Scope) error {
 	if err := scope.Provide(ScanProblem, dig.Name("scanProblem")); err != nil {
 		return err
 	}
+	if err := scope.Provide(MaskSecret, dig.Name("maskSecret")); err != nil {
+		return err
+	}
 
 	if err := scope.Provide(streamOut, dig.Name("streamOut")); err != nil {
 		return err
@@ -60,43 +63,45 @@ func newLog(p logParams) logging.Logger {
 
 type streamOutParams struct {
 	dig.In
-	Logger         logging.Logger
 	ProcessCommand Middleware `name:"processCommand"`
 	ScanProblem    Middleware `name:"scanProblem"`
+	MaskSecret     Middleware `name:"maskSecret"`
 	StdOut         io.Writer  `name:"stdout"`
 }
 
 type streamErrParams struct {
 	dig.In
-	Logger         logging.Logger
 	ProcessCommand Middleware `name:"processCommand"`
 	ScanProblem    Middleware `name:"scanProblem"`
+	MaskSecret     Middleware `name:"maskSecret"`
 	StdErr         io.Writer  `name:"stderr"`
 }
 
 func streamOut(p streamOutParams) io.Writer {
-	handler := streamHandler(p.StdOut, p.Logger, []Middleware{
+	handler := streamHandler(p.StdOut, []Middleware{
 		p.ProcessCommand,
 		p.ScanProblem,
+		p.MaskSecret,
 	})
 	return stream.NewLineWriter(handler)
 }
 
 func streamErr(p streamErrParams) io.Writer {
-	handler := streamHandler(p.StdErr, p.Logger, []Middleware{
+	handler := streamHandler(p.StdErr, []Middleware{
 		p.ProcessCommand,
 		p.ScanProblem,
+		p.MaskSecret,
 	})
 	return stream.NewLineWriter(handler)
 }
 
-func streamHandler(w io.Writer, l logging.Logger, middlewares []Middleware) stream.Handler {
+func streamHandler(w io.Writer, middlewares []Middleware) stream.Handler {
 	var h stream.Handler = stream.HandlerFunc(func(line string) error {
 		_, err := io.WriteString(w, line)
 		return err
 	})
-	for _, m := range slices.Backward(middlewares) {
-		h = m(h)
+	for _, mw := range slices.Backward(middlewares) {
+		h = mw(h)
 	}
 	return h
 }

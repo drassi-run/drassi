@@ -10,6 +10,7 @@ import (
 	"drassi.run/core/pkg/executor/command"
 	"drassi.run/core/pkg/executor/problem"
 	"drassi.run/core/pkg/executor/reporter"
+	"drassi.run/core/pkg/executor/secret"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/stream"
 )
@@ -150,4 +151,23 @@ func (mw *problemScanner) toIssuer(pbl *problem.Problem) (*reporter.Issue, error
 	iss.Data["file"] = pbl.File // TODO
 
 	return iss, nil
+}
+
+func MaskSecret(masker secret.Masker) Middleware {
+	return func(handler stream.Handler) stream.Handler {
+		return &secretMasker{
+			handler: handler,
+			masker:  masker,
+		}
+	}
+}
+
+type secretMasker struct {
+	handler stream.Handler
+	masker  secret.Masker
+}
+
+func (mw *secretMasker) Handle(line string) error {
+	line = mw.masker.Mask(line)
+	return mw.handler.Handle(line)
 }
