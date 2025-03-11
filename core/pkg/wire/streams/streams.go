@@ -2,6 +2,7 @@ package wire_streams
 
 import (
 	"io"
+	"slices"
 
 	"drassi.run/core/pkg/executor/logging"
 	"drassi.run/core/pkg/stream"
@@ -90,19 +91,12 @@ func streamErr(p streamErrParams) io.Writer {
 }
 
 func streamHandler(w io.Writer, l logging.Logger, middlewares []Middleware) stream.Handler {
-	return func(line string) error {
-		for _, mw := range middlewares {
-			next, err := mw.Handle(line)
-			if err != nil {
-				logging.Errorf(l, "Error: %v", err)
-			}
-			if !next {
-				// Should NOT bubble up error
-				return nil
-			}
-		}
-
+	var h stream.Handler = stream.HandlerFunc(func(line string) error {
 		_, err := io.WriteString(w, line)
 		return err
+	})
+	for _, m := range slices.Backward(middlewares) {
+		h = m(h)
 	}
+	return h
 }

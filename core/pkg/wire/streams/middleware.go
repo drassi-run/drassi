@@ -1,6 +1,7 @@
 package wire_streams
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -10,28 +11,31 @@ import (
 	"drassi.run/core/pkg/executor/problem"
 	"drassi.run/core/pkg/executor/reporter"
 	"drassi.run/core/pkg/model/records"
+	"drassi.run/core/pkg/stream"
 )
 
-type Middleware interface {
-	Handle(line string) (next bool, err error)
-}
+type Middleware func(handler stream.Handler) stream.Handler
 
 func ProcessCommand(consoleMgr command.ConsoleManager, sup executor.Supervisor) Middleware {
-	return &commandProcessor{
-		consoleMgr: consoleMgr,
-		sup:        sup,
+	return func(handler stream.Handler) stream.Handler {
+		return &commandProcessor{
+			handler:    handler,
+			consoleMgr: consoleMgr,
+			sup:        sup,
+		}
 	}
 }
 
 type commandProcessor struct {
+	handler    stream.Handler
 	consoleMgr command.ConsoleManager
 	sup        executor.Supervisor
 }
 
-func (mw *commandProcessor) Handle(line string) (bool, error) {
+func (mw *commandProcessor) Handle(line string) error {
 	cmd := mw.consoleMgr.ParseCommand(line)
 	if cmd == nil {
-		return true, nil
+		return mw.handler.Handle(line)
 	}
 
 	ctx := mw.sup.Context()
@@ -39,31 +43,41 @@ func (mw *commandProcessor) Handle(line string) (bool, error) {
 		if step := mw.sup.CurrentStep(); step != nil {
 			step.SetStatus(records.ResultFailure)
 		}
-		return false, err
+		return err
 	}
-	return false, nil
+	return nil
 }
 
 func ScanProblem(pm map[string]problem.Matcher, rep reporter.Reporter) Middleware {
-	return &problemScanner{
-		pm:  pm,
-		rep: rep,
+	return func(handler stream.Handler) stream.Handler {
+		return &problemScanner{
+			hdl: handler,
+			pm:  pm,
+			rep: rep,
+		}
 	}
 }
 
 type problemScanner struct {
+	hdl stream.Handler
 	pm  map[string]problem.Matcher
 	rep reporter.Reporter
+}
+
+func (mw *problemScanner) Handle(line string) error {
+	err1 := mw.scan(line)
+	err2 := mw.hdl.Handle(line)
+	return errors.Join(err1, err2)
 }
 
 // https://en.wikipedia.org/wiki/ANSI_escape_code
 var colorCodeRegex = regexp.MustCompile(`\033\[[\d;]*m`)
 
-func (mw *problemScanner) Handle(line string) (bool, error) {
-	line = colorCodeRegex.ReplaceAllLiteralString(line, "")
+func (mw *problemScanner) scan(line string) error {
 	var owner string
 	var pbl *problem.Problem
 
+	line = colorCodeRegex.ReplaceAllLiteralString(line, "")
 	for o, m := range mw.pm {
 		if p := m.Match(line); p != nil {
 			owner, pbl = o, p
@@ -73,7 +87,7 @@ func (mw *problemScanner) Handle(line string) (bool, error) {
 
 	// Not matched
 	if pbl == nil {
-		return true, nil
+		return nil
 	}
 
 	// Matched
@@ -87,12 +101,11 @@ func (mw *problemScanner) Handle(line string) (bool, error) {
 	// 2. convert Problem to Issue
 	issue, err := mw.toIssuer(pbl)
 	if err != nil {
-		return true, err
+		return err
 	}
 
 	// 3. Report the issue
-	err = mw.rep.AddIssue(issue)
-	return true, err
+	return mw.rep.AddIssue(issue)
 }
 
 const skippedIssueMsg = "skipped logging an issue for the matched line because of"

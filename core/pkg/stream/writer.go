@@ -6,7 +6,15 @@ import (
 	"io"
 )
 
-type Handler = func(line string) error
+type Handler interface {
+	Handle(line string) error
+}
+
+type HandlerFunc func(line string) error
+
+func (f HandlerFunc) Handle(line string) error {
+	return f(line)
+}
 
 type lineWriter struct {
 	closed  bool
@@ -38,7 +46,7 @@ func (w *lineWriter) Write(p []byte) (int, error) {
 			}
 			return written, err
 		}
-		if err = w.handler(w.buffer.String()); err != nil {
+		if err = w.handler.Handle(w.buffer.String()); err != nil {
 			return written, err
 		}
 		w.buffer.Reset()
@@ -54,7 +62,7 @@ func (w *lineWriter) Close() error {
 	w.closed = true
 	defer w.buffer.Reset()
 	if s := w.buffer.String(); s != "" {
-		return w.handler(s)
+		return w.handler.Handle(s)
 	}
 	return nil
 }
