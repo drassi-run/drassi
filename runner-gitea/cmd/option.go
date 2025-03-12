@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"drassi.run/core/pkg/manifest"
 	"drassi.run/core/pkg/manifest/filesystem"
@@ -34,7 +35,12 @@ func manifestStore(o *commonOptions) (manifest.Store, error) {
 		if o.configDir == "" {
 			return nil, fmt.Errorf("--config-dir is required")
 		}
-		store := filesystem.NewStore(o.configDir, s)
+
+		absPath, err := filepath.Abs(o.configDir)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve config-dir path: %v", err)
+		}
+		store := filesystem.NewStore(absPath, s)
 		return store, nil
 	}
 
