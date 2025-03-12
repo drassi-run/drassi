@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log/slog"
 	"slices"
 	"strings"
 
@@ -19,11 +18,11 @@ import (
 	"drassi.run/core/pkg/executor/secret"
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/expression/libraries"
-	"drassi.run/core/pkg/logging"
 	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/pkg/scribe"
 	"drassi.run/core/pkg/stream"
 	"drassi.run/core/pkg/wire/cmdhandler"
 	"drassi.run/core/pkg/wire/etc"
@@ -31,7 +30,6 @@ import (
 	"drassi.run/core/pkg/wire/streams"
 	"drassi.run/core/util/dig"
 	"drassi.run/gitea-runner/pkg/service"
-	slogmulti "github.com/samber/slog-multi"
 	"go.uber.org/dig"
 )
 
@@ -52,6 +50,9 @@ func New(ctx context.Context, task *runnerv1.Task) *Worker {
 
 func (w *Worker) Setup(scope *dig.Scope) error {
 	if err := w.initScope(scope); err != nil {
+		return err
+	}
+	if err := w.initContext(scope); err != nil {
 		return err
 	}
 	if err := w.initExecutor(scope); err != nil {
@@ -180,19 +181,6 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 		return err
 	}
 
-	// original log handler
-	handler := logging.LoggerFromContext(w.ctx).Handler()
-
-	leveler := new(slog.LevelVar)
-	var sh stream.Handler = stream.HandlerFunc(rep.Log)
-	sh = wire_streams.MaskSecret(sm)(sh)
-	handler = slogmulti.Router().
-		Add(stream.NewSlogHandler(leveler, sh), logging.MatchTag(true)).
-		Add(handler, logging.MatchTag(false)).
-		Handler()
-	logger := logging.NewLogger(w.ctx, handler)
-	w.ctx = logging.ContextWithLogger(w.ctx, logger)
-
 	return scope.Invoke(func(streams stream.Streams) {
 		if closer, ok := streams.Out().(io.Closer); ok {
 			w.addCleaner(closer.Close)
@@ -201,6 +189,16 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 			w.addCleaner(closer.Close)
 		}
 	})
+}
+
+func (w *Worker) initContext(scope *dig.Scope) error {
+	var output scribe.Output
+	if err := xdig.Populate(scope, &output); err != nil {
+		return err
+	}
+
+	w.ctx = scribe.ContextWithScribe(w.ctx, output)
+	return nil
 }
 
 func (w *Worker) initExecutor(scope *dig.Scope) error {

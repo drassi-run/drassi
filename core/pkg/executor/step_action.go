@@ -8,12 +8,12 @@ import (
 	"net/url"
 	"path/filepath"
 
-	"drassi.run/core/pkg/executor/logging"
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/actions"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/pkg/scribe"
 	"drassi.run/core/pkg/store/repository"
 	"drassi.run/core/pkg/store/repository/gitstore"
 	"drassi.run/core/util/dig"
@@ -34,9 +34,6 @@ type ActionStepRun struct {
 
 	rev       string
 	actionRun StepRun
-
-	// injected values
-	logger logging.Logger
 }
 
 func (sr *ActionStepRun) Repository() *repository.Repository {
@@ -48,6 +45,8 @@ func (sr *ActionStepRun) Unwrap() StepRun {
 }
 
 func (sr *ActionStepRun) Initialize(ctx context.Context, scope *dig.Scope) error {
+	s := scribe.FromContext(ctx)
+
 	var (
 		github  records.Github
 		store   gitstore.Store
@@ -58,9 +57,6 @@ func (sr *ActionStepRun) Initialize(ctx context.Context, scope *dig.Scope) error
 	span := trace.SpanFromContext(ctx)
 	span.SetAttributes(xotel.ActionRepo(repository.Location(sr.Repo)))
 
-	if err := xdig.Populate(scope, &sr.logger); err != nil {
-		return err
-	}
 	if err := xdig.Populate(scope, &github); err != nil {
 		return err
 	}
@@ -85,18 +81,18 @@ func (sr *ActionStepRun) Initialize(ctx context.Context, scope *dig.Scope) error
 	}
 
 	// evaluating before loadAction so it DisplayName can be push-down into child StepRun
-	if err := sr.evaluateDisplayName(exprEnv, repository.Location(sr.Repo), sr.logger); err != nil {
+	if err := sr.evaluateDisplayName(ctx, exprEnv, repository.Location(sr.Repo)); err != nil {
 		return err
 	}
 
 	if rev, err := store.Fetch(ctx, sr.Repo, token); err != nil {
 		return err
 	} else {
-		logging.Logf(sr.logger, "Download action repository %q (SHA:%s)", repository.Location(sr.Repo), rev)
+		s.Writef("Download action repository %q (SHA:%s)", repository.Location(sr.Repo), rev)
 		sr.rev = rev
 	}
 
-	if err := sr.loadAction(ctx, store); err != nil {
+	if err := sr.loadAction(ctx, s, store); err != nil {
 		return err
 	}
 	if err := sr.transferAction(ctx, store, sandbox); err != nil {
@@ -118,7 +114,7 @@ func (sr *ActionStepRun) PostTask() *Task {
 	return sr.actionRun.PostTask()
 }
 
-func (sr *ActionStepRun) loadAction(ctx context.Context, store gitstore.Store) error {
+func (sr *ActionStepRun) loadAction(ctx context.Context, s *scribe.Scribe, store gitstore.Store) error {
 	span := trace.SpanFromContext(ctx)
 
 	// 1. First, try reading "action.yml" or "action.yaml" file
@@ -128,7 +124,7 @@ func (sr *ActionStepRun) loadAction(ctx context.Context, store gitstore.Store) e
 			span.AddEvent("Loaded Action",
 				trace.WithAttributes(xotel.ActionPath(path)),
 			)
-			logging.Debugf(sr.logger, "Loading %q for action %q", path, sr.Id)
+			s.Debugf("Loading %q for action %q", path, sr.Id)
 			return sr.loadActionManifest(r)
 		} else if !errors.Is(err, object.ErrFileNotFound) {
 			return err
@@ -143,7 +139,7 @@ func (sr *ActionStepRun) loadAction(ctx context.Context, store gitstore.Store) e
 			span.AddEvent("Loaded Action",
 				trace.WithAttributes(xotel.ActionPath(path)),
 			)
-			logging.Debugf(sr.logger, "Loading %q for action %q", path, sr.Id)
+			s.Debugf("Loading %q for action %q", path, sr.Id)
 			return sr.createDockerfileAction(path)
 		} else if !errors.Is(err, object.ErrFileNotFound) {
 			return err

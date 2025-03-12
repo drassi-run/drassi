@@ -5,9 +5,9 @@ import (
 	"strings"
 
 	"drassi.run/core/pkg/executor/evaluator"
-	"drassi.run/core/pkg/executor/logging"
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/model/workflows"
+	"drassi.run/core/pkg/scribe"
 	"go.uber.org/dig"
 )
 
@@ -43,40 +43,40 @@ type BaseStepRun struct {
 	Outputs          workflows.Evaluable[map[string]string]
 
 	// compute attributes
-	logger      logging.Logger
 	displayName string
 }
 
-func (s *BaseStepRun) StepId() string {
-	return s.Id
+func (sr *BaseStepRun) StepId() string {
+	return sr.Id
 }
 
-func (s *BaseStepRun) Base() *BaseStepRun {
-	return s
+func (sr *BaseStepRun) Base() *BaseStepRun {
+	return sr
 }
 
-func (s *BaseStepRun) DisplayName(stage Stage) string {
+func (sr *BaseStepRun) DisplayName(stage Stage) string {
 	switch stage {
 	case StagePre:
-		return "Pre " + s.displayName
+		return "Pre " + sr.displayName
 	case StagePost:
-		return "Post " + s.displayName
+		return "Post " + sr.displayName
 	default:
-		return s.displayName
+		return sr.displayName
 	}
 }
 
-func (s *BaseStepRun) evaluateDisplayName(exprEnv expression.Env, defaultName string, logger logging.Logger) error {
-	if s.displayName != "" {
+func (sr *BaseStepRun) evaluateDisplayName(ctx context.Context, exprEnv expression.Env, defaultName string) error {
+	s := scribe.FromContext(ctx)
+	if sr.displayName != "" {
 		return nil
 	}
 
 	prefix, name := "", ""
-	if s.Name == nil {
+	if sr.Name == nil {
 		prefix, name = "Run ", defaultName
 	} else {
-		logging.Debugf(logger, "Evaluating display name")
-		if err := evaluator.Evaluate(exprEnv, s.Name, &name); err != nil {
+		s.Debugf("Evaluating display name")
+		if err := evaluator.Evaluate(exprEnv, sr.Name, &name); err != nil {
 			return err
 		}
 	}
@@ -85,16 +85,7 @@ func (s *BaseStepRun) evaluateDisplayName(exprEnv expression.Env, defaultName st
 	name, _, _ = strings.Cut(name, "\n")
 	name = strings.TrimSpace(name)
 
-	s.displayName = prefix + name
-	logging.Debugf(logger, "Set step %q display name to: %q", s.Id, s.displayName)
+	sr.displayName = prefix + name
+	s.Debugf("Set step %q display name to: %q", sr.Id, sr.displayName)
 	return nil
-}
-
-func (s *BaseStepRun) logStepDetails(groupName string, details ...func(logging.Logger)) {
-	end := logging.Groupf(s.logger, "Run %s", groupName)
-	defer end()
-
-	for _, detail := range details {
-		detail(s.logger)
-	}
 }

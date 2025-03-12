@@ -10,6 +10,7 @@ import (
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/pkg/scribe"
 	"drassi.run/core/pkg/store/repository"
 	"drassi.run/core/pkg/stream"
 	"drassi.run/core/util/dig"
@@ -45,9 +46,6 @@ func (sr *NodeStepRun) Initialize(ctx context.Context, scope *dig.Scope) error {
 		return err
 	}
 	if err := xdig.Populate(scope, &sr.streams); err != nil {
-		return err
-	}
-	if err := xdig.Populate(scope, &sr.logger); err != nil {
 		return err
 	}
 	if err := xdig.Populate(scope, &sr.repo); err != nil {
@@ -112,9 +110,9 @@ func (sr *NodeStepRun) execute(stage Stage) TaskRun {
 			return err
 		}
 
-		sr.logStepDetails(sr.repr(),
-			withMap("with", inputs),
-			withMap("env", exec.ComposeEnv(false)),
+		scribe.GroupDetails(ctx, sr.repr(),
+			scribe.WithMap("with", inputs),
+			scribe.WithMap("env", exec.ComposeEnv(false)),
 		)
 
 		env := exec.ComposeEnv(true)

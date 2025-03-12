@@ -4,10 +4,8 @@ import (
 	"archive/tar"
 	"context"
 	mock_executor "drassi.run/core/mock/executor"
-	mock_logging "drassi.run/core/mock/executor/logging"
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/executor/command"
-	"drassi.run/core/pkg/executor/logging"
 	"drassi.run/core/util/tar"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
@@ -16,14 +14,14 @@ import (
 	"testing"
 )
 
-type fileHdlCreator func(executor.Supervisor, logging.Logger) *command.FileHandler
+type fileHdlCreator func(executor.Supervisor) *command.FileHandler
 
 func testFileNoJob(ctrl *gomock.Controller, creator fileHdlCreator) func(t *testing.T) {
 	return func(t *testing.T) {
 		sup := mock_executor.NewMockSupervisor(ctrl)
 		sup.EXPECT().Job().Return(nil)
 
-		h := creator(sup, nil)
+		h := creator(sup)
 		err := command.FileRun(t.Context(), h, nil)
 		assert.ErrorIs(t, err, ErrNoJobRunning)
 	}
@@ -34,7 +32,7 @@ func testFileNoStep(ctrl *gomock.Controller, creator fileHdlCreator) func(t *tes
 		sup := mock_executor.NewMockSupervisor(ctrl)
 		sup.EXPECT().CurrentStep().Return(nil)
 
-		h := creator(sup, nil)
+		h := creator(sup)
 		err := command.FileRun(t.Context(), h, nil)
 		assert.ErrorIs(t, err, ErrNoStepRunning)
 	}
@@ -65,10 +63,7 @@ func TestFileAddPath(t *testing.T) {
 		sup.EXPECT().Job().Return(job)
 		job.EXPECT().AddPath([]string{"/fir/path", "/second/path"}).Return(nil)
 
-		l := mock_logging.NewMockLogger(ctrl)
-		l.EXPECT().Logf(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
-
-		h := FileAddPath(sup, l)
+		h := FileAddPath(sup)
 		err := command.FileRun(t.Context(), h, r)
 		assert.NoError(t, err)
 	})
@@ -88,10 +83,7 @@ func TestFileSetEnv(t *testing.T) {
 		sup.EXPECT().CurrentStep().Return(step)
 		step.EXPECT().SetEnv(mapContentMap).Return(nil)
 
-		l := mock_logging.NewMockLogger(ctrl)
-		l.EXPECT().Logf(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
-
-		h := FileSetEnv(sup, l)
+		h := FileSetEnv(sup)
 		err := command.FileRun(t.Context(), h, r)
 		assert.NoError(t, err)
 	})
@@ -111,10 +103,7 @@ func TestFileSaveState(t *testing.T) {
 		sup.EXPECT().CurrentStep().Return(step)
 		step.EXPECT().SaveState(mapContentMap).Return(nil)
 
-		l := mock_logging.NewMockLogger(ctrl)
-		l.EXPECT().Logf(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
-
-		h := FileSaveState(sup, l)
+		h := FileSaveState(sup)
 		err := command.FileRun(t.Context(), h, r)
 		assert.NoError(t, err)
 	})
@@ -134,10 +123,7 @@ func TestFileSetOutput(t *testing.T) {
 		sup.EXPECT().CurrentStep().Return(step)
 		step.EXPECT().SetOutput(mapContentMap).Return(nil)
 
-		l := mock_logging.NewMockLogger(ctrl)
-		l.EXPECT().Logf(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
-
-		h := FileSetOutput(sup, l)
+		h := FileSetOutput(sup)
 		err := command.FileRun(t.Context(), h, r)
 		assert.NoError(t, err)
 	})
@@ -165,10 +151,7 @@ func TestCreateStepSummary(t *testing.T) {
 			})
 		})
 
-		l := mock_logging.NewMockLogger(ctrl)
-		l.EXPECT().Logf(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
-
-		h := CreateStepSummary(sup, l)
+		h := CreateStepSummary(sup)
 		err := command.FileRun(t.Context(), h, r)
 		assert.NoError(t, err)
 	})

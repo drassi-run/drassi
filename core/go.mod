@@ -4,7 +4,7 @@ go 1.24.0
 
 require (
 	github.com/antlr4-go/antlr/v4 v4.13.1
-	github.com/chainguard-dev/clog v1.6.1
+	github.com/chainguard-dev/clog v1.7.0
 	github.com/docker/cli v27.3.1+incompatible
 	github.com/docker/docker v27.3.1+incompatible
 	github.com/docker/go-connections v0.4.0

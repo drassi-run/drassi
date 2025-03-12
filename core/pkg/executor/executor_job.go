@@ -11,12 +11,12 @@ import (
 
 	"drassi.run/core/pkg/executor/command"
 	"drassi.run/core/pkg/executor/evaluator"
-	"drassi.run/core/pkg/executor/logging"
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/expression/libraries"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/pkg/scribe"
 	"drassi.run/core/util/dig"
 	"drassi.run/core/util/otel"
 	"drassi.run/core/util/tar"
@@ -64,7 +64,6 @@ type jobExecutor struct {
 	env     map[string]string
 	paths   []string
 
-	logger        logging.Logger
 	exprEnv       expression.Env
 	sandbox       sandboxer.Sandbox
 	stepExecutors map[string]StepExecutor
@@ -86,20 +85,21 @@ func (e *jobExecutor) StepExecutor(id string) StepExecutor {
 }
 
 func (e *jobExecutor) Initialize(ctx context.Context, scope *dig.Scope) (ex error) {
-	syslog := clog.FromContext(ctx)
+	l := clog.FromContext(ctx)
+	s := scribe.FromContext(ctx)
 
-	if err := e.initializeJob(scope); err != nil {
-		syslog.Errorf("Failed to initialize job: %v", err)
+	if err := e.initializeJob(s, scope); err != nil {
+		l.Errorf("Failed to initialize job: %v", err)
 		return err
 	}
 
-	if err := e.initializeSandbox(ctx, scope); err != nil {
-		syslog.Errorf("Failed to initialize sandbox: %v", err)
+	if err := e.initializeSandbox(ctx, s, scope); err != nil {
+		l.Errorf("Failed to initialize sandbox: %v", err)
 		return err
 	}
 
 	if err := e.initializeScope(scope); err != nil {
-		syslog.Errorf("Failed to initialize scope: %v", err)
+		l.Errorf("Failed to initialize scope: %v", err)
 		return err
 	}
 
@@ -157,11 +157,8 @@ func (e *jobExecutor) Finalize(ctx context.Context) (err error) {
 	return e.sandbox.Terminate(ctx)
 }
 
-func (e *jobExecutor) initializeJob(scope *dig.Scope) error {
+func (e *jobExecutor) initializeJob(s *scribe.Scribe, scope *dig.Scope) error {
 	// inject dependencies
-	if err := xdig.Populate(scope, &e.logger); err != nil {
-		return err
-	}
 	if err := xdig.Populate(scope, &e.supervisor); err != nil {
 		return err
 	}
@@ -208,7 +205,7 @@ func (e *jobExecutor) initializeJob(scope *dig.Scope) error {
 	}
 
 	// Evaluate expressions
-	logging.Debugf(e.logger, "Evaluating job-level environment variables")
+	s.Debugf("Evaluating job-level environment variables")
 	env := make(map[string]string)
 	if err := evaluator.Evaluate(e.exprEnv, e.jobRun.Env, &env); err != nil {
 		return err
@@ -216,7 +213,7 @@ func (e *jobExecutor) initializeJob(scope *dig.Scope) error {
 		return err
 	}
 
-	logging.Debugf(e.logger, "Evaluating job defaults")
+	s.Debugf("Evaluating job defaults")
 	var defaults workflows.Defaults
 	if err := evaluator.Evaluate(e.exprEnv, e.jobRun.Defaults, &defaults); err != nil {
 		return err
@@ -227,7 +224,7 @@ func (e *jobExecutor) initializeJob(scope *dig.Scope) error {
 	return nil
 }
 
-func (e *jobExecutor) initializeSandbox(ctx context.Context, scope *dig.Scope) error {
+func (e *jobExecutor) initializeSandbox(ctx context.Context, s *scribe.Scribe, scope *dig.Scope) error {
 	var runtime sandboxer.Engine
 	if err := xdig.Populate(scope, &runtime); err != nil {
 		return err
@@ -238,7 +235,7 @@ func (e *jobExecutor) initializeSandbox(ctx context.Context, scope *dig.Scope) e
 		Github: &e.github,
 	}
 
-	logging.Debugf(e.logger, "Evaluating job container")
+	s.Debugf("Evaluating job container")
 	var jobContainer *workflows.Container
 	if err := evaluator.Evaluate(e.exprEnv, e.jobRun.Container, &jobContainer); err != nil {
 		return err
@@ -246,7 +243,7 @@ func (e *jobExecutor) initializeSandbox(ctx context.Context, scope *dig.Scope) e
 		req.JobContainer = jobContainer
 	}
 
-	logging.Debugf(e.logger, "Evaluating service containers")
+	s.Debugf("Evaluating service containers")
 	var serviceContainers = make(map[string]*workflows.Container)
 	if err := evaluator.Evaluate(e.exprEnv, e.jobRun.Services, &serviceContainers); err != nil {
 		return err
@@ -260,7 +257,7 @@ func (e *jobExecutor) initializeSandbox(ctx context.Context, scope *dig.Scope) e
 		e.sandbox = resp.Sandbox
 
 		// set records values
-		logging.Debugf(e.logger, "Update context data")
+		s.Debugf("Update context data")
 		e.jobInfo.Container = resp.JobContainer
 		e.jobInfo.Services = resp.ServiceContainers
 
@@ -337,7 +334,12 @@ func (e *jobExecutor) initializeScope(scope *dig.Scope) error {
 	}
 
 	if e.runner.Debug == "1" {
-		e.logger.EnableDebug(true)
+		if err := scope.Invoke(func(output scribe.Output) {
+			output.SetDebug(true)
+		}); err != nil {
+			return err
+		}
+
 		if err := scope.Invoke(func(cmdMgr command.ConsoleManager) error {
 			cmd := &command.Command{Name: "echo", Value: "ON"}
 			return cmdMgr.Process(context.Background(), "", cmd)
@@ -435,8 +437,8 @@ func (e *jobExecutor) runStage(ctx context.Context, stage Stage, fn func(StepRun
 	)
 	defer xotel.EndSpan(span, &ex)
 
-	ctx, syslog := xotel.ChildLogger(ctx, "stage", stage)
-	syslog.Infof("running stage %q", stage)
+	ctx, logger := xotel.ChildLogger(ctx, "stage", stage)
+	logger.Infof("running stage %q", stage)
 
 	stop := e.supervisor.StartContext(ctx)
 	defer stop()
@@ -460,7 +462,7 @@ func (e *jobExecutor) runStage(ctx context.Context, stage Stage, fn func(StepRun
 		}
 		if res.Conclusion == records.ResultFailure {
 			e.job.Result = records.ResultFailure
-			syslog.Warnf("set job.Result='failure' because of step %s failed", id)
+			logger.Warnf("set job.Result='failure' because of step %s failed", id)
 			return fmt.Errorf(`step %q (%s) failed`, id, stage)
 		}
 	}

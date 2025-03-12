@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"drassi.run/core/pkg/executor/evaluator"
-	"drassi.run/core/pkg/executor/logging"
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/expression/libraries"
 	"drassi.run/core/pkg/model/records"
+	"drassi.run/core/pkg/scribe"
 	"drassi.run/core/pkg/store/repository"
 	"drassi.run/core/util/dig"
 	"go.uber.org/dig"
@@ -74,7 +74,6 @@ type stepExecutor struct {
 	upperEnv map[string]string // env variables from upper layers
 	state    map[string]string // Intra action state
 
-	logger     logging.Logger
 	exprEnv    expression.Env
 	supervisor Supervisor
 }
@@ -111,9 +110,6 @@ func (e *stepExecutor) rootExecutor() StepExecutor {
 
 func (e *stepExecutor) Initialize(ctx context.Context, scope *dig.Scope) error {
 	// inject dependencies
-	if err := xdig.Populate(scope, &e.logger); err != nil {
-		return err
-	}
 	if err := xdig.Populate(scope, &e.supervisor); err != nil {
 		return err
 	}
@@ -184,7 +180,7 @@ func (e *stepExecutor) RunStep(ctx context.Context, fn func(StepRun) *Task) *rec
 	}
 
 	defer e.endTask(task)
-	e.beginTask(task) // TODO logging error
+	e.beginTask(ctx, task) // TODO logging error
 	if e.step.Outcome == "" {
 		e.runTask(ctx, task)
 	}
@@ -192,7 +188,7 @@ func (e *stepExecutor) RunStep(ctx context.Context, fn func(StepRun) *Task) *rec
 	return e.step
 }
 
-func (e *stepExecutor) beginTask(task *Task) error {
+func (e *stepExecutor) beginTask(ctx context.Context, task *Task) error {
 	if err := e.supervisor.BeforeStepRun(task.Stage, e); err != nil {
 		return err
 	}
@@ -206,7 +202,7 @@ func (e *stepExecutor) beginTask(task *Task) error {
 		return err
 	}
 
-	logging.Debugf(e.logger, "Evaluating condition for step: %q (%s)", e.stepRun.DisplayName(task.Stage), StepId(e))
+	scribe.Debugf(ctx, "Evaluating condition for step: %q (%s)", e.stepRun.DisplayName(task.Stage), StepId(e))
 	if meet, err := evaluator.Meet(e.exprEnv, task.Condition); err != nil {
 		e.SetStatus(records.ResultFailure)
 		e.step.Conclusion = records.ResultFailure

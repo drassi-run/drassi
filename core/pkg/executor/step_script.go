@@ -8,11 +8,11 @@ import (
 	"strings"
 
 	"drassi.run/core/pkg/executor/evaluator"
-	"drassi.run/core/pkg/executor/logging"
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/pkg/scribe"
 	"drassi.run/core/pkg/stream"
 	"drassi.run/core/util/dig"
 	"drassi.run/core/util/string"
@@ -47,12 +47,9 @@ func (sr *ScriptStepRun) Initialize(ctx context.Context, scope *dig.Scope) error
 	if err := xdig.Populate(scope, &sr.defaults); err != nil {
 		return err
 	}
-	if err := xdig.Populate(scope, &sr.logger); err != nil {
-		return err
-	}
 
 	defaultName := fmt.Sprintf("%s", sr.Run)
-	if err := sr.evaluateDisplayName(sr.exprEnv, defaultName, sr.logger); err != nil {
+	if err := sr.evaluateDisplayName(ctx, sr.exprEnv, defaultName); err != nil {
 		return err
 	}
 
@@ -100,11 +97,11 @@ func (sr *ScriptStepRun) executeMain(ctx context.Context, exec StepExecutor) err
 
 	// log details before fixup script
 	// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/Handlers/ScriptHandler.cs#L27
-	sr.logStepDetails("script action",
+	scribe.GroupDetails(ctx, "script action",
 		withScript(script),
-		withKV("shell", strings.Join(cmd, " ")),
-		withKV("workdir", workdir),
-		withMap("env", exec.ComposeEnv(false)),
+		scribe.WithPair("shell", strings.Join(cmd, " ")),
+		scribe.WithPair("workdir", workdir),
+		scribe.WithMap("env", exec.ComposeEnv(false)),
 	)
 
 	script = shell.FixupScript(script)
@@ -148,14 +145,14 @@ func (sr *ScriptStepRun) transferScriptIn(ctx context.Context, script, path stri
 }
 
 // print script line by line
-func withScript(script string) func(logger logging.Logger) {
-	return func(logger logging.Logger) {
+func withScript(script string) func(*scribe.Scribe) {
+	return func(s *scribe.Scribe) {
 		script = strings.TrimRight(script, "\r\n")
 		scanner := bufio.NewScanner(strings.NewReader(script))
 		for scanner.Scan() {
 			line := scanner.Text()
 			// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/Handlers/ScriptHandler.cs#L57
-			logging.Logf(logger, "\x1b[36;1m%s\x1b[0m", line)
+			s.Writef("\x1b[36;1m%s\x1b[0m", line)
 		}
 	}
 }

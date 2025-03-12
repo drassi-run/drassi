@@ -9,6 +9,7 @@ import (
 	"drassi.run/core/pkg/executor/runtime"
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/model/workflows"
+	"drassi.run/core/pkg/scribe"
 	"drassi.run/core/pkg/store/repository"
 	"drassi.run/core/util/dig"
 	semconv "go.opentelemetry.io/otel/semconv/v1.27.0"
@@ -50,9 +51,6 @@ func (sr *DockerStepRun) PathTranslator() runtime.PathTranslator {
 }
 
 func (sr *DockerStepRun) Initialize(ctx context.Context, scope *dig.Scope) error {
-	if err := xdig.Populate(scope, &sr.logger); err != nil {
-		return err
-	}
 	if err := xdig.Populate(scope, &sr.runtime); err != nil {
 		return err
 	}
@@ -65,7 +63,7 @@ func (sr *DockerStepRun) Initialize(ctx context.Context, scope *dig.Scope) error
 
 	defer sr.addSpanAttrs(ctx)
 
-	if err := sr.evaluateDisplayName(sr.exprEnv, sr.Image, sr.logger); err != nil {
+	if err := sr.evaluateDisplayName(ctx, sr.exprEnv, sr.Image); err != nil {
 		return err
 	}
 
@@ -140,11 +138,11 @@ func (sr *DockerStepRun) execute(stage Stage) TaskRun {
 			return err
 		}
 
-		sr.logStepDetails(sr.repr(),
-			withArray("entrypoint", entrypoint),
-			withArray("args", args),
-			withMap("with", inputs),
-			withMap("env", exec.ComposeEnv(false)),
+		scribe.GroupDetails(ctx, sr.repr(),
+			scribe.WithList("entrypoint", entrypoint),
+			scribe.WithList("args", args),
+			scribe.WithMap("with", inputs),
+			scribe.WithMap("env", exec.ComposeEnv(false)),
 		)
 
 		env := exec.ComposeEnv(true)

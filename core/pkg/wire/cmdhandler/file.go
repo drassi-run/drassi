@@ -7,7 +7,7 @@ import (
 
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/executor/command"
-	"drassi.run/core/pkg/executor/logging"
+	"drassi.run/core/pkg/scribe"
 )
 
 var (
@@ -17,7 +17,7 @@ var (
 )
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L107
-func FileAddPath(sup executor.Supervisor, l logging.Logger) *command.FileHandler {
+func FileAddPath(sup executor.Supervisor) *command.FileHandler {
 	run := func(ctx context.Context, r io.Reader) error {
 		job := sup.Job()
 		if job == nil {
@@ -27,8 +27,9 @@ func FileAddPath(sup executor.Supervisor, l logging.Logger) *command.FileHandler
 		if paths, err := readLine(r); err != nil {
 			return err
 		} else {
+			s := scribe.FromContext(ctx)
 			for _, path := range paths {
-				logging.Debugf(l, "Add path: %q", path)
+				s.Debugf("Add path: %q", path)
 			}
 			return job.AddPath(paths)
 		}
@@ -37,7 +38,7 @@ func FileAddPath(sup executor.Supervisor, l logging.Logger) *command.FileHandler
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L132
-func FileSetEnv(sup executor.Supervisor, l logging.Logger) *command.FileHandler {
+func FileSetEnv(sup executor.Supervisor) *command.FileHandler {
 	run := func(ctx context.Context, r io.Reader) error {
 		step := sup.CurrentStep()
 		if step == nil {
@@ -47,8 +48,9 @@ func FileSetEnv(sup executor.Supervisor, l logging.Logger) *command.FileHandler 
 		if env, err := parseEnvVars(r); err != nil {
 			return err
 		} else {
+			s := scribe.FromContext(ctx)
 			for k, v := range env {
-				logging.Debugf(l, "Set env: %s = %s", k, v)
+				s.Debugf("Set env: %s = %s", k, v)
 			}
 			return step.SetEnv(env)
 		}
@@ -57,7 +59,7 @@ func FileSetEnv(sup executor.Supervisor, l logging.Logger) *command.FileHandler 
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L260
-func FileSaveState(sup executor.Supervisor, l logging.Logger) *command.FileHandler {
+func FileSaveState(sup executor.Supervisor) *command.FileHandler {
 	run := func(ctx context.Context, r io.Reader) error {
 		step := sup.CurrentStep()
 		if step == nil {
@@ -67,8 +69,9 @@ func FileSaveState(sup executor.Supervisor, l logging.Logger) *command.FileHandl
 		if state, err := parseEnvVars(r); err != nil {
 			return err
 		} else {
+			s := scribe.FromContext(ctx)
 			for k, v := range state {
-				logging.Debugf(l, "Save intra-action state: %s = %s", k, v)
+				s.Debugf("Save intra-action state: %s = %s", k, v)
 			}
 			return step.SaveState(state)
 		}
@@ -77,7 +80,7 @@ func FileSaveState(sup executor.Supervisor, l logging.Logger) *command.FileHandl
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L293
-func FileSetOutput(sup executor.Supervisor, l logging.Logger) *command.FileHandler {
+func FileSetOutput(sup executor.Supervisor) *command.FileHandler {
 	run := func(ctx context.Context, r io.Reader) error {
 		step := sup.CurrentStep()
 		if step == nil {
@@ -87,8 +90,9 @@ func FileSetOutput(sup executor.Supervisor, l logging.Logger) *command.FileHandl
 		if output, err := parseEnvVars(r); err != nil {
 			return err
 		} else {
+			s := scribe.FromContext(ctx)
 			for k, v := range output {
-				logging.Debugf(l, "Set output: %s = %s", k, v)
+				s.Debugf("Set output: %s = %s", k, v)
 			}
 			return step.SetOutput(output)
 		}
@@ -97,14 +101,14 @@ func FileSetOutput(sup executor.Supervisor, l logging.Logger) *command.FileHandl
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L186
-func CreateStepSummary(sup executor.Supervisor, l logging.Logger) *command.FileHandler {
+func CreateStepSummary(sup executor.Supervisor) *command.FileHandler {
 	run := func(ctx context.Context, r io.Reader) error {
 		step := sup.CurrentStep()
 		if step == nil {
 			return ErrNoStepRunning
 		}
 
-		logging.Debugf(l, "Create step summary")
+		scribe.Debugf(ctx, "Create step summary")
 		return step.CreateStepSummary(r)
 	}
 	return command.NewFileHandler("GITHUB_STEP_SUMMARY", run)
