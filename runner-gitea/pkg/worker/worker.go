@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"slices"
 	"strings"
 
@@ -18,6 +19,7 @@ import (
 	"drassi.run/core/pkg/executor/secret"
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/expression/libraries"
+	"drassi.run/core/pkg/logging"
 	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/model/workflows"
@@ -25,11 +27,11 @@ import (
 	"drassi.run/core/pkg/stream"
 	"drassi.run/core/pkg/wire/cmdhandler"
 	"drassi.run/core/pkg/wire/etc"
-	"drassi.run/core/pkg/wire/reporter"
 	"drassi.run/core/pkg/wire/runtime"
 	"drassi.run/core/pkg/wire/streams"
 	"drassi.run/core/util/dig"
 	"drassi.run/gitea-runner/pkg/service"
+	slogmulti "github.com/samber/slog-multi"
 	"go.uber.org/dig"
 )
 
@@ -148,10 +150,7 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 	if err := xdig.Supply[reporter.Reporter](scope, rep); err != nil {
 		return err
 	}
-	if err := wire_reporter.ProvideTo(scope); err != nil {
-		return err
-	}
-	if err := wire_reporter.Wire(scope); err != nil {
+	if err := wire_streams.Wire(scope); err != nil {
 		return err
 	}
 
@@ -180,6 +179,19 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 	if err != nil {
 		return err
 	}
+
+	// original log handler
+	handler := logging.LoggerFromContext(w.ctx).Handler()
+
+	leveler := new(slog.LevelVar)
+	var sh stream.Handler = stream.HandlerFunc(rep.Log)
+	sh = wire_streams.MaskSecret(sm)(sh)
+	handler = slogmulti.Router().
+		Add(stream.NewSlogHandler(leveler, sh), logging.MatchTag(true)).
+		Add(handler, logging.MatchTag(false)).
+		Handler()
+	logger := logging.NewLogger(w.ctx, handler)
+	w.ctx = logging.ContextWithLogger(w.ctx, logger)
 
 	return scope.Invoke(func(streams stream.Streams) {
 		if closer, ok := streams.Out().(io.Closer); ok {
