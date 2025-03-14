@@ -6,6 +6,7 @@ import (
 
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/executor/reporter"
+	"drassi.run/core/pkg/scribe"
 	"drassi.run/core/pkg/stream"
 	"drassi.run/core/util/types"
 	"go.uber.org/dig"
@@ -29,6 +30,9 @@ func ProvideTo(scope *dig.Scope) error {
 		return err
 	}
 	if err := scope.Provide(newStream, dig.Export(true)); err != nil {
+		return err
+	}
+	if err := scope.Provide(newScribeOutput, dig.Export(true)); err != nil {
 		return err
 	}
 
@@ -66,6 +70,18 @@ func newStream(p streamsParams) stream.Streams {
 	return stream.NewStreams(
 		stream.WithStdout(p.StdOut),
 	)
+}
+
+type scribeParams struct {
+	dig.In
+	Handler    stream.Handler
+	MaskSecret Middleware `name:"maskSecret"`
+}
+
+func newScribeOutput(p scribeParams) scribe.Output {
+	handler := p.Handler
+	handler = p.MaskSecret(handler)
+	return stream.NewScribeOutput(handler)
 }
 
 func Wire(scope *dig.Scope) error {
