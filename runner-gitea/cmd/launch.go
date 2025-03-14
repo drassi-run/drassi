@@ -59,7 +59,7 @@ func NewLaunchCommand() *cobra.Command {
 	}
 
 	flags := cmd.Flags()
-	opts.foobar(flags)
+	opts.SetFlags(flags)
 
 	return cmd
 }
