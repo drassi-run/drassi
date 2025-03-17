@@ -12,7 +12,6 @@ import (
 	"code.gitea.io/actions-proto-go/runner/v1/runnerv1connect"
 	"connectrpc.com/connect"
 	"drassi.run/core/pkg/executor"
-	"drassi.run/core/pkg/executor/logging"
 	"drassi.run/core/pkg/executor/reporter"
 	"drassi.run/core/pkg/model/records"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -31,9 +30,6 @@ type GiteaReporter struct {
 	taskId int64
 	jobUid string
 	client runnerv1connect.RunnerServiceClient
-
-	out io.Writer
-	err io.Writer
 
 	logOffset  int64
 	logRows    []*runnerv1.LogRow
@@ -57,22 +53,7 @@ func NewReporter(
 		jobOutputs: make(map[string]string),
 	}
 
-	r.out = logging.NewLineWriter(r.appendLogLine)
-	r.err = logging.NewLineWriter(r.appendLogLine)
-
 	return r
-}
-
-func (r *GiteaReporter) Stdin() io.Reader {
-	return nil
-}
-
-func (r *GiteaReporter) Stdout() io.Writer {
-	return r.out
-}
-
-func (r *GiteaReporter) Stderr() io.Writer {
-	return r.err
 }
 
 func (r *GiteaReporter) StartJob(ctx context.Context, je executor.JobExecutor) error {
@@ -154,7 +135,7 @@ func (r *GiteaReporter) EndStep(ctx context.Context, stage executor.Stage, se ex
 	return r.updateTask(ctx)
 }
 
-func (r *GiteaReporter) AddIssue(issue *reporter.Issue) error {
+func (r *GiteaReporter) AddIssue(ctx context.Context, issue *reporter.Issue) error {
 	//TODO implement me
 	panic("implement me")
 }
@@ -165,14 +146,7 @@ func (r *GiteaReporter) AttachFile(kind, name string, reader io.Reader) error {
 }
 
 func (r *GiteaReporter) Close() error {
-	if c, ok := r.out.(io.Closer); ok {
-		_ = c.Close()
-	}
-	if c, ok := r.err.(io.Closer); ok {
-		_ = c.Close()
-	}
-
-	if err := r.uploadLog(true); err != nil {
+	if err := r.uploadLog(r.ctx, true); err != nil {
 		return err
 	}
 
@@ -186,29 +160,29 @@ func (r *GiteaReporter) Close() error {
 	return nil
 }
 
-func (r *GiteaReporter) appendLogLine(line string) error {
-	line = strings.TrimRight(line, "\r\n")
+func (r *GiteaReporter) Log(ctx context.Context, msg string) error {
+	msg = strings.TrimRight(msg, "\r\n")
 
 	row := &runnerv1.LogRow{
 		Time:    timestamppb.Now(),
-		Content: line,
+		Content: msg,
 	}
 
 	r.logRows = append(r.logRows, row)
 	if len(r.logRows) >= 50 {
-		_ = r.uploadLog(false)
+		_ = r.uploadLog(ctx, false)
 	}
 	return nil
 }
 
-func (r *GiteaReporter) uploadLog(noMore bool) error {
+func (r *GiteaReporter) uploadLog(ctx context.Context, noMore bool) error {
 	req := &runnerv1.UpdateLogRequest{
 		TaskId: r.taskId,
 		Index:  r.logOffset,
 		Rows:   r.logRows,
 		NoMore: noMore,
 	}
-	resp, err := r.client.UpdateLog(r.ctx, connect.NewRequest(req))
+	resp, err := r.client.UpdateLog(ctx, connect.NewRequest(req))
 	if err != nil {
 		return err
 	}

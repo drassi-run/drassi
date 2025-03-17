@@ -2,6 +2,7 @@ package executor
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"strings"
 
@@ -9,7 +10,9 @@ import (
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/pkg/scribe"
 	"drassi.run/core/pkg/store/repository"
+	"drassi.run/core/pkg/stream"
 	"drassi.run/core/util/dig"
 	"drassi.run/core/util/otel"
 	"go.opentelemetry.io/otel/trace"
@@ -31,7 +34,7 @@ type NodeStepRun struct {
 	// injected values
 	exprEnv expression.Env
 	sandbox sandboxer.Sandbox
-	streams sandboxer.Streams
+	streams stream.Streams
 	repo    *repository.Repository
 }
 
@@ -107,7 +110,12 @@ func (sr *NodeStepRun) execute(stage Stage) TaskRun {
 			return err
 		}
 
-		env := exec.ComposeEnv()
+		scribe.GroupDetails(ctx, sr.repr(),
+			scribe.WithMap("with", inputs),
+			scribe.WithMap("env", exec.ComposeEnv(false)),
+		)
+
+		env := exec.ComposeEnv(true)
 		for k, v := range inputs {
 			k = strings.ToUpper(k)
 			env["INPUT_"+k] = v
@@ -148,4 +156,8 @@ func (sr *NodeStepRun) addSpanAttrs(ctx context.Context, stage Stage) {
 	}
 
 	span.SetAttributes(xotel.ActionScript(script))
+}
+
+func (sr *NodeStepRun) repr() string {
+	return fmt.Sprintf("node action from %q", repository.Location(sr.repo))
 }

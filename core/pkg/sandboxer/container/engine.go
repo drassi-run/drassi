@@ -15,6 +15,7 @@ import (
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/sandboxer/apis/v1alpha1"
+	"drassi.run/core/pkg/stream"
 	"drassi.run/core/util/string"
 	"golang.org/x/sync/errgroup"
 )
@@ -65,7 +66,7 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*san
 		spec.NetworkMode = "host"
 		runOpts := &container.RunOptions{
 			Stdio:   new(types.Stdio),
-			Streams: container.NewStreams(),
+			Streams: stream.NewStreams(),
 		}
 		if cid, err := e.client.ContainerRun(ctx, spec, runOpts); err != nil {
 			return nil, err
@@ -243,7 +244,7 @@ func (e *engine) runContainer(ctx context.Context, def *workflows.Container, ref
 
 	runOpts := &container.RunOptions{
 		Stdio:   new(types.Stdio),
-		Streams: container.NewStreams(),
+		Streams: stream.NewStreams(),
 	}
 	return e.client.ContainerRun(ctx, spec, runOpts)
 }

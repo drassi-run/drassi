@@ -6,6 +6,7 @@ import (
 	"io/fs"
 
 	"drassi.run/core/pkg/container/types"
+	"drassi.run/core/pkg/stream"
 )
 
 type Engine interface {
@@ -34,17 +35,17 @@ type Engine interface {
 type PullOptions struct {
 	PullPolicy   string // "always", "missing" (default), "never"
 	RegistryAuth RegistryAuth
-	Streams      Streams
+	Streams      stream.Streams
 }
 
 type BuildOptions struct {
 	Tags    []string
-	Streams Streams
+	Streams stream.Streams
 }
 
 type RunOptions struct {
 	Stdio   *types.Stdio
-	Streams Streams
+	Streams stream.Streams
 }
 
 type ExecOptions struct {
@@ -52,7 +53,7 @@ type ExecOptions struct {
 	Env     map[string]string
 	Workdir string
 	Stdio   *types.Stdio
-	Streams Streams
+	Streams stream.Streams
 }
 
 type RemoveOptions struct {

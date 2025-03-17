@@ -9,6 +9,8 @@ import (
 	"drassi.run/core/pkg/executor/runtime"
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/model/workflows"
+	"drassi.run/core/pkg/scribe"
+	"drassi.run/core/pkg/store/repository"
 	"drassi.run/core/util/dig"
 	semconv "go.opentelemetry.io/otel/semconv/v1.27.0"
 	"go.opentelemetry.io/otel/trace"
@@ -41,6 +43,7 @@ type DockerStepRun struct {
 	// injected values
 	runtime runtime.Container
 	exprEnv expression.Env
+	repo    *repository.Repository
 }
 
 func (sr *DockerStepRun) PathTranslator() runtime.PathTranslator {
@@ -54,8 +57,16 @@ func (sr *DockerStepRun) Initialize(ctx context.Context, scope *dig.Scope) error
 	if err := xdig.Populate(scope, &sr.exprEnv); err != nil {
 		return err
 	}
+	if err := xdig.Populate(scope, &sr.repo); err != nil {
+		return err
+	}
 
 	defer sr.addSpanAttrs(ctx)
+
+	if err := sr.evaluateDisplayName(ctx, sr.exprEnv, sr.Image); err != nil {
+		return err
+	}
+
 	if image, ok := strings.CutPrefix(sr.Image, "docker://"); ok {
 		sr.resolvedImage = image
 		return sr.runtime.Pull(ctx, image, nil)
@@ -127,7 +138,14 @@ func (sr *DockerStepRun) execute(stage Stage) TaskRun {
 			return err
 		}
 
-		env := exec.ComposeEnv()
+		scribe.GroupDetails(ctx, sr.repr(),
+			scribe.WithList("entrypoint", entrypoint),
+			scribe.WithList("args", args),
+			scribe.WithMap("with", inputs),
+			scribe.WithMap("env", exec.ComposeEnv(false)),
+		)
+
+		env := exec.ComposeEnv(true)
 		for k, v := range inputs {
 			k = strings.ToUpper(k)
 			env["INPUT_"+k] = v
@@ -184,4 +202,17 @@ func (sr *DockerStepRun) addSpanAttrs(ctx context.Context) {
 	if image := sr.resolvedImage; image != "" {
 		span.SetAttributes(semconv.ContainerImageName(image))
 	}
+}
+
+func (sr *DockerStepRun) repr() string {
+	str := "node action"
+	if sr.resolvedImage != "" {
+		str += fmt.Sprintf(" with image=%q", sr.resolvedImage)
+	} else {
+		str += fmt.Sprintf(" with Dockerfile=%q", sr.Image)
+	}
+	if sr.repo != nil {
+		str += fmt.Sprintf(" from %q", repository.Location(sr.repo))
+	}
+	return str
 }

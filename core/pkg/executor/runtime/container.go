@@ -9,6 +9,7 @@ import (
 
 	"drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/container/types"
+	"drassi.run/core/pkg/stream"
 	. "drassi.run/core/util/types"
 	"k8s.io/utils/set"
 )
@@ -24,7 +25,7 @@ type Container interface {
 
 type containerRuntime struct {
 	engine  container.Engine
-	streams container.Streams
+	streams stream.Streams
 
 	workdir string
 	labels  map[string]string
@@ -59,7 +60,7 @@ func WithMounts(mounts []Pair[string, *types.Mount]) ContainerRuntimeOption {
 	}
 }
 
-func NewContainerRuntime(engine container.Engine, streams container.Streams, opts ...ContainerRuntimeOption) (Container, error) {
+func NewContainerRuntime(engine container.Engine, streams stream.Streams, opts ...ContainerRuntimeOption) (Container, error) {
 	rt := &containerRuntime{
 		engine:  engine,
 		streams: streams,

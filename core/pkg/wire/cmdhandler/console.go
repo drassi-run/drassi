@@ -6,14 +6,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/executor/command"
-	"drassi.run/core/pkg/executor/logging"
 	"drassi.run/core/pkg/executor/problem"
 	"drassi.run/core/pkg/executor/secret"
-	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/pkg/scribe"
 	"drassi.run/core/util/path"
 	"drassi.run/core/util/tar"
 )
@@ -32,6 +32,7 @@ func AddSecretMask(secretMasker secret.Masker) *command.ConsoleHandler {
 				secretMasker.AddSecret(s)
 			}
 		}
+		scribe.Debugf(ctx, "Added secret mask")
 		return nil
 	}
 	return command.NewConsoleHandler("add-mask", false, run)
@@ -44,7 +45,7 @@ func AddProblemMatcher(m map[string]problem.Matcher, sb sandboxer.Sandbox, sup e
 		if file == "" {
 			return fmt.Errorf("%w %q: empty file path (in cmd value)", command.ErrInvalidCommand, "add-matcher")
 		}
-		if pt := getPathTranslator(sup); pt != nil {
+		if pt := getPathTranslator(sup.CurrentStep()); pt != nil {
 			if p, ok := pt.TranslatePath(file); ok {
 				file = p
 			}
@@ -61,13 +62,18 @@ func AddProblemMatcher(m map[string]problem.Matcher, sb sandboxer.Sandbox, sup e
 			return err
 		}
 
-		for _, config := range conf.Configs {
+		var owners = make([]string, len(conf.Configs))
+		for i, config := range conf.Configs {
 			if matcher, err := problem.NewMatcher(config.Severity, config.Patterns); err != nil {
 				return err
 			} else {
+				owners[i] = config.Owner
 				m[config.Owner] = matcher
 			}
 		}
+		scribe.Debugf(ctx,
+			"Added matchers: %s. Problem matchers scan action output for known warning or error strings and report these inline.",
+			strings.Join(owners, ", "))
 		return nil
 	}
 	return command.NewConsoleHandler("add-matcher", true, run)
@@ -82,7 +88,7 @@ func RemoveProblemMatcher(m map[string]problem.Matcher, sb sandboxer.Sandbox, su
 			return fmt.Errorf("%w %q: either owner or file must be specified, but not both", command.ErrInvalidCommand, "remove-matcher")
 		}
 		if file != "" {
-			if pt := getPathTranslator(sup); pt != nil {
+			if pt := getPathTranslator(sup.CurrentStep()); pt != nil {
 				if p, ok := pt.TranslatePath(file); ok {
 					file = p
 				}
@@ -106,7 +112,7 @@ func RemoveProblemMatcher(m map[string]problem.Matcher, sb sandboxer.Sandbox, su
 		for _, o := range owners {
 			delete(m, o)
 		}
-
+		scribe.Debugf(ctx, "Removed matchers: %s", strings.Join(owners, ", "))
 		return nil
 	}
 	return command.NewConsoleHandler("remove-matcher", true, run)
@@ -138,39 +144,36 @@ func readProblemMatcherFile(ctx context.Context, sb sandboxer.Sandbox, file stri
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L751
-func GroupingLog(l logging.Logger) *command.ConsoleHandler {
+func GroupingLog() *command.ConsoleHandler {
 	run := func(ctx context.Context, cmd *command.Command) error {
-		l.Log(logging.TagGroup, cmd.Value)
+		scribe.Log(ctx, scribe.TagGroup, cmd.Value)
 		return nil
 	}
 	return command.NewConsoleHandler("group", true, run)
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L751
-func EndGroupingLog(l logging.Logger) *command.ConsoleHandler {
+func EndGroupingLog() *command.ConsoleHandler {
 	run := func(ctx context.Context, cmd *command.Command) error {
-		l.Log(logging.TagEndGroup, "")
+		scribe.Log(ctx, scribe.TagEndGroup, cmd.Value)
 		return nil
 	}
 	return command.NewConsoleHandler("endgroup", true, run)
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L566
-func DebugMessage(l logging.Logger, runner records.Runner) *command.ConsoleHandler {
-	run := func(ctx context.Context, cmd *command.Command) error { return nil }
-	if runner.Debug == "1" {
-		run = func(ctx context.Context, cmd *command.Command) error {
-			l.Log(logging.TagDebug, cmd.Value)
-			return nil
-		}
+func DebugMessage() *command.ConsoleHandler {
+	run := func(ctx context.Context, cmd *command.Command) error {
+		scribe.Log(ctx, scribe.TagDebug, cmd.Value)
+		return nil
 	}
 	return command.NewConsoleHandler("debug", false, run)
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L600
-func LogMessage(l logging.Logger) []*command.ConsoleHandler {
+func LogMessage() []*command.ConsoleHandler {
 	run := func(ctx context.Context, cmd *command.Command) error {
-		l.Log(cmd.Name, cmd.Value)
+		scribe.Log(ctx, cmd.Name, cmd.Value)
 		return nil
 	}
 	return []*command.ConsoleHandler{
@@ -192,6 +195,7 @@ func ConsoleAddPath(sup executor.Supervisor) *command.ConsoleHandler {
 			return ErrNoJobRunning
 		}
 		paths := []string{cmd.Value}
+		scribe.Debugf(ctx, "Add path: %q", cmd.Value)
 		return job.AddPath(paths)
 	}
 	return command.NewConsoleHandler("add-path", true, run)
@@ -213,6 +217,7 @@ func ConsoleSetEnv(sup executor.Supervisor) *command.ConsoleHandler {
 		env := map[string]string{
 			name: cmd.Value,
 		}
+		scribe.Debugf(ctx, "Set env: %s = %s", name, cmd.Value)
 		return step.SetEnv(env)
 	}
 	return command.NewConsoleHandler("set-env", true, run)
@@ -234,6 +239,7 @@ func ConsoleSetOutput(sup executor.Supervisor) *command.ConsoleHandler {
 		output := map[string]string{
 			name: cmd.Value,
 		}
+		scribe.Debugf(ctx, "Set output: %s = %s", name, cmd.Value)
 		return step.SetOutput(output)
 	}
 	return command.NewConsoleHandler("set-output", true, run)
@@ -255,6 +261,7 @@ func ConsoleSaveState(sup executor.Supervisor) *command.ConsoleHandler {
 		state := map[string]string{
 			name: cmd.Value,
 		}
+		scribe.Debugf(ctx, "Save intra-action state: %s = %s", name, cmd.Value)
 		return step.SaveState(state)
 	}
 	return command.NewConsoleHandler("save-state", true, run)

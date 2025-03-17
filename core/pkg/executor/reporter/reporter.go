@@ -27,17 +27,14 @@ type Issue struct {
 }
 
 type Reporter interface {
-	Stdin() io.Reader
-	Stdout() io.Writer
-	Stderr() io.Writer
-
 	StartJob(ctx context.Context, je executor.JobExecutor) error
 	EndJob(ctx context.Context, je executor.JobExecutor, result *records.Job) error
 
 	StartStep(ctx context.Context, stage executor.Stage, se executor.StepExecutor) error
 	EndStep(ctx context.Context, stage executor.Stage, se executor.StepExecutor, result *records.Step) error
 
-	AddIssue(issue *Issue) error
+	Log(ctx context.Context, msg string) error
+	AddIssue(ctx context.Context, issue *Issue) error
 	AttachFile(kind, name string, reader io.Reader) error
 
 	Close() error

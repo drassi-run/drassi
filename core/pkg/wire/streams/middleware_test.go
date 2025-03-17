@@ -5,6 +5,8 @@ import (
 	mock_command "drassi.run/core/mock/executor/command"
 	mock_problem "drassi.run/core/mock/executor/problem"
 	mock_reporter "drassi.run/core/mock/executor/reporter"
+	mock_secret "drassi.run/core/mock/executor/secret"
+	mock_stream "drassi.run/core/mock/stream"
 	"drassi.run/core/pkg/executor/command"
 	"drassi.run/core/pkg/executor/problem"
 	"drassi.run/core/pkg/model/records"
@@ -29,10 +31,12 @@ func TestProcessCommand(t *testing.T) {
 		mgr := mock_command.NewMockConsoleManager(ctrl)
 		mgr.EXPECT().ParseCommand(line).Return(nil)
 
-		mw := ProcessCommand(mgr, sup)
-		next, err := mw.Handle(line)
+		hdl := mock_stream.NewMockHandler(ctrl)
+		hdl.EXPECT().Handle(t.Context(), line).Return(nil)
+
+		handler := ProcessCommand(mgr, sup)(hdl)
+		err := handler.Handle(t.Context(), line)
 		assert.NoError(t, err)
-		assert.True(t, next)
 	})
 
 	t.Run("process-success", func(t *testing.T) {
@@ -40,10 +44,9 @@ func TestProcessCommand(t *testing.T) {
 		mgr.EXPECT().ParseCommand(line).Return(cmd)
 		mgr.EXPECT().Process(t.Context(), line, cmd).Return(nil)
 
-		mw := ProcessCommand(mgr, sup)
-		next, err := mw.Handle(line)
+		handler := ProcessCommand(mgr, sup)(nil)
+		err := handler.Handle(t.Context(), line)
 		assert.NoError(t, err)
-		assert.False(t, next)
 	})
 
 	t.Run("process-error", func(t *testing.T) {
@@ -56,10 +59,9 @@ func TestProcessCommand(t *testing.T) {
 		step.EXPECT().SetStatus(records.ResultFailure)
 		sup.EXPECT().CurrentStep().Return(step)
 
-		mw := ProcessCommand(mgr, sup)
-		next, err := mw.Handle(line)
+		handler := ProcessCommand(mgr, sup)(nil)
+		err := handler.Handle(t.Context(), line)
 		assert.ErrorIs(t, err, ex)
-		assert.False(t, next)
 	})
 }
 
@@ -73,19 +75,26 @@ type ScanProblemTestSuite struct {
 	pm1  *mock_problem.MockMatcher
 	pm2  *mock_problem.MockMatcher
 	rep  *mock_reporter.MockReporter
+	hdl  *mock_stream.MockHandler
 	ps   *problemScanner
 }
 
 func (s *ScanProblemTestSuite) SetupTest() {
-	ctrl := gomock.NewController(s.T())
-	s.pm1 = mock_problem.NewMockMatcher(ctrl)
-	s.pm2 = mock_problem.NewMockMatcher(ctrl)
+	s.ctrl = gomock.NewController(s.T())
+	s.pm1 = mock_problem.NewMockMatcher(s.ctrl)
+	s.pm2 = mock_problem.NewMockMatcher(s.ctrl)
 	pm := map[string]problem.Matcher{
 		"first":  s.pm1,
 		"second": s.pm2,
 	}
-	s.rep = mock_reporter.NewMockReporter(ctrl)
-	s.ps = ScanProblem(pm, s.rep).(*problemScanner)
+	s.rep = mock_reporter.NewMockReporter(s.ctrl)
+	s.hdl = mock_stream.NewMockHandler(s.ctrl)
+	s.hdl.EXPECT().Handle(s.T().Context(), gomock.Any()).Return(nil)
+	s.ps = ScanProblem(pm, s.rep)(s.hdl).(*problemScanner)
+}
+
+func (s *ScanProblemTestSuite) TearDownTest() {
+	s.ctrl.Finish()
 }
 
 func (s *ScanProblemTestSuite) TestNotMatch() {
@@ -93,9 +102,9 @@ func (s *ScanProblemTestSuite) TestNotMatch() {
 	line := "first line"
 	s.pm1.EXPECT().Match(line).Return(nil)
 	s.pm2.EXPECT().Match(line).Return(nil)
-	next, err := s.ps.Handle(line)
+
+	err := s.ps.Handle(t.Context(), line)
 	assert.NoError(t, err)
-	assert.True(t, next)
 }
 
 func (s *ScanProblemTestSuite) TestMatchAndSuccess() {
@@ -113,11 +122,10 @@ func (s *ScanProblemTestSuite) TestMatchAndSuccess() {
 	s.pm1.EXPECT().Match(line).Return(nil).MinTimes(0).MaxTimes(1)
 	s.pm2.EXPECT().Match(line).Return(pbl)
 	s.pm1.EXPECT().Reset().Return() // reset other matchers
-	s.rep.EXPECT().AddIssue(iss).Return(nil)
+	s.rep.EXPECT().AddIssue(t.Context(), iss).Return(nil)
 
-	next, err := s.ps.Handle(line)
+	err := s.ps.Handle(t.Context(), line)
 	assert.NoError(t, err)
-	assert.True(t, next)
 }
 
 func (s *ScanProblemTestSuite) TestConvertError() {
@@ -130,9 +138,8 @@ func (s *ScanProblemTestSuite) TestConvertError() {
 	s.pm2.EXPECT().Match(line).Return(nil).MinTimes(0).MaxTimes(1)
 	s.pm2.EXPECT().Reset().Return()
 
-	next, err := s.ps.Handle(line)
+	err := s.ps.Handle(t.Context(), line)
 	assert.Error(t, err)
-	assert.True(t, next)
 }
 
 func (s *ScanProblemTestSuite) TestReportError() {
@@ -151,9 +158,25 @@ func (s *ScanProblemTestSuite) TestReportError() {
 	s.pm1.EXPECT().Match(line).Return(pbl)
 	s.pm2.EXPECT().Match(line).Return(nil).MinTimes(0).MaxTimes(1)
 	s.pm2.EXPECT().Reset().Return()
-	s.rep.EXPECT().AddIssue(iss).Return(ex)
+	s.rep.EXPECT().AddIssue(t.Context(), iss).Return(ex)
 
-	next, err := s.ps.Handle(line)
+	err := s.ps.Handle(t.Context(), line)
 	assert.ErrorIs(t, err, ex)
-	assert.True(t, next)
+}
+
+func TestMaskSecret(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	line, maskedLine := "original", "masked"
+
+	sm := mock_secret.NewMockMasker(ctrl)
+	sm.EXPECT().Mask(line).Return(maskedLine)
+
+	hdl := mock_stream.NewMockHandler(ctrl)
+	hdl.EXPECT().Handle(t.Context(), maskedLine).Return(nil)
+
+	handler := MaskSecret(sm)(hdl)
+	err := handler.Handle(t.Context(), line)
+	assert.NoError(t, err)
 }

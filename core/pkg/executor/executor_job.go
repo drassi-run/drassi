@@ -16,9 +16,11 @@ import (
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/pkg/scribe"
 	"drassi.run/core/util/dig"
 	"drassi.run/core/util/otel"
 	"drassi.run/core/util/tar"
+	"github.com/chainguard-dev/clog"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -46,9 +48,8 @@ func JobUid(e JobExecutor) string {
 }
 
 func NewJobExecutor(run *JobRun) JobExecutor {
-	return &jobExecutor{
-		jobRun: run,
-	}
+	exec := &jobExecutor{jobRun: run}
+	return WithTelemetryJobExecutor(exec)
 }
 
 type jobExecutor struct {
@@ -84,28 +85,21 @@ func (e *jobExecutor) StepExecutor(id string) StepExecutor {
 }
 
 func (e *jobExecutor) Initialize(ctx context.Context, scope *dig.Scope) (ex error) {
-	spanName := fmt.Sprintf("JobExecutor.Initialize(%s)", JobId(e))
-	ctx, span := xotel.StartSpan(ctx, spanName,
-		trace.WithAttributes(xotel.DrassiJob(JobId(e))),
-	)
-	defer xotel.EndSpan(span, &ex)
+	l := clog.FromContext(ctx)
+	s := scribe.FromContext(ctx)
 
-	if err := xdig.Populate(scope, &e.supervisor); err != nil {
-		return err
-	} else {
-		stop := e.supervisor.StartContext(ctx)
-		defer stop()
-	}
-
-	if err := e.initializeJob(scope); err != nil {
+	if err := e.initializeJob(s, scope); err != nil {
+		l.Errorf("Failed to initialize job: %v", err)
 		return err
 	}
 
-	if err := e.initializeSandbox(ctx, scope); err != nil {
+	if err := e.initializeSandbox(ctx, s, scope); err != nil {
+		l.Errorf("Failed to initialize sandbox: %v", err)
 		return err
 	}
 
 	if err := e.initializeScope(scope); err != nil {
+		l.Errorf("Failed to initialize scope: %v", err)
 		return err
 	}
 
@@ -113,15 +107,6 @@ func (e *jobExecutor) Initialize(ctx context.Context, scope *dig.Scope) (ex erro
 }
 
 func (e *jobExecutor) RunJob(ctx context.Context) *records.Job {
-	spanName := fmt.Sprintf("JobExecutor.RunJob(%s)", JobId(e))
-	ctx, span := xotel.StartSpan(ctx, spanName,
-		trace.WithAttributes(xotel.DrassiJob(JobId(e))),
-	)
-	defer span.End()
-
-	stop := e.supervisor.StartContext(ctx)
-	defer stop()
-
 	e.SetStatus(records.ResultSuccess)
 
 	if err := e.runStage(ctx, StagePre, StepRun.PreTask); err != nil {
@@ -143,15 +128,6 @@ func (e *jobExecutor) RunJob(ctx context.Context) *records.Job {
 }
 
 func (e *jobExecutor) Finalize(ctx context.Context) (err error) {
-	spanName := fmt.Sprintf("JobExecutor.Finalize(%s)", JobId(e))
-	ctx, span := xotel.StartSpan(ctx, spanName,
-		trace.WithAttributes(xotel.DrassiJob(JobId(e))),
-	)
-	defer xotel.EndSpan(span, &err)
-
-	stop := e.supervisor.StartContext(ctx)
-	defer stop()
-
 	defer func() {
 		errs := make([]error, 0)
 		if err != nil {
@@ -181,8 +157,11 @@ func (e *jobExecutor) Finalize(ctx context.Context) (err error) {
 	return e.sandbox.Terminate(ctx)
 }
 
-func (e *jobExecutor) initializeJob(scope *dig.Scope) error {
+func (e *jobExecutor) initializeJob(s *scribe.Scribe, scope *dig.Scope) error {
 	// inject dependencies
+	if err := xdig.Populate(scope, &e.supervisor); err != nil {
+		return err
+	}
 	if err := xdig.Populate(scope, &e.exprEnv); err != nil {
 		return err
 	}
@@ -226,6 +205,7 @@ func (e *jobExecutor) initializeJob(scope *dig.Scope) error {
 	}
 
 	// Evaluate expressions
+	s.Debugf("Evaluating job-level environment variables")
 	env := make(map[string]string)
 	if err := evaluator.Evaluate(e.exprEnv, e.jobRun.Env, &env); err != nil {
 		return err
@@ -233,6 +213,7 @@ func (e *jobExecutor) initializeJob(scope *dig.Scope) error {
 		return err
 	}
 
+	s.Debugf("Evaluating job defaults")
 	var defaults workflows.Defaults
 	if err := evaluator.Evaluate(e.exprEnv, e.jobRun.Defaults, &defaults); err != nil {
 		return err
@@ -243,7 +224,7 @@ func (e *jobExecutor) initializeJob(scope *dig.Scope) error {
 	return nil
 }
 
-func (e *jobExecutor) initializeSandbox(ctx context.Context, scope *dig.Scope) error {
+func (e *jobExecutor) initializeSandbox(ctx context.Context, s *scribe.Scribe, scope *dig.Scope) error {
 	var runtime sandboxer.Engine
 	if err := xdig.Populate(scope, &runtime); err != nil {
 		return err
@@ -254,6 +235,7 @@ func (e *jobExecutor) initializeSandbox(ctx context.Context, scope *dig.Scope) e
 		Github: &e.github,
 	}
 
+	s.Debugf("Evaluating job container")
 	var jobContainer *workflows.Container
 	if err := evaluator.Evaluate(e.exprEnv, e.jobRun.Container, &jobContainer); err != nil {
 		return err
@@ -261,6 +243,7 @@ func (e *jobExecutor) initializeSandbox(ctx context.Context, scope *dig.Scope) e
 		req.JobContainer = jobContainer
 	}
 
+	s.Debugf("Evaluating service containers")
 	var serviceContainers = make(map[string]*workflows.Container)
 	if err := evaluator.Evaluate(e.exprEnv, e.jobRun.Services, &serviceContainers); err != nil {
 		return err
@@ -274,6 +257,7 @@ func (e *jobExecutor) initializeSandbox(ctx context.Context, scope *dig.Scope) e
 		e.sandbox = resp.Sandbox
 
 		// set records values
+		s.Debugf("Update context data")
 		e.jobInfo.Container = resp.JobContainer
 		e.jobInfo.Services = resp.ServiceContainers
 
@@ -350,6 +334,12 @@ func (e *jobExecutor) initializeScope(scope *dig.Scope) error {
 	}
 
 	if e.runner.Debug == "1" {
+		if err := scope.Invoke(func(output scribe.Output) {
+			output.SetDebug(true)
+		}); err != nil {
+			return err
+		}
+
 		if err := scope.Invoke(func(cmdMgr command.ConsoleManager) error {
 			cmd := &command.Command{Name: "echo", Value: "ON"}
 			return cmdMgr.Process(context.Background(), "", cmd)
@@ -447,6 +437,9 @@ func (e *jobExecutor) runStage(ctx context.Context, stage Stage, fn func(StepRun
 	)
 	defer xotel.EndSpan(span, &ex)
 
+	ctx, logger := xotel.ChildLogger(ctx, "stage", stage)
+	logger.Infof("running stage %q", stage)
+
 	stop := e.supervisor.StartContext(ctx)
 	defer stop()
 
@@ -469,6 +462,7 @@ func (e *jobExecutor) runStage(ctx context.Context, stage Stage, fn func(StepRun
 		}
 		if res.Conclusion == records.ResultFailure {
 			e.job.Result = records.ResultFailure
+			logger.Warnf("set job.Result='failure' because of step %s failed", id)
 			return fmt.Errorf(`step %q (%s) failed`, id, stage)
 		}
 	}

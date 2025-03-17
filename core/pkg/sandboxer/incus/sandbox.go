@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/pkg/stream"
 	"drassi.run/core/util/fs"
 	"drassi.run/core/util/fs/sftpfs"
 	"drassi.run/core/util/io"
@@ -96,7 +96,7 @@ func (sb *sandbox) CopyOut(ctx context.Context, src string) (io.ReadCloser, erro
 	return r, nil
 }
 
-func (sb *sandbox) Execute(ctx context.Context, cmd, path []string, env map[string]string, workdir string, streams sandboxer.Streams) error {
+func (sb *sandbox) Execute(ctx context.Context, cmd, path []string, env map[string]string, workdir string, streams stream.Streams) error {
 	op, doneC, err := sb.execute(ctx, cmd, path, env, workdir, streams)
 	if err != nil {
 		return err
@@ -117,7 +117,7 @@ func (sb *sandbox) Execute(ctx context.Context, cmd, path []string, env map[stri
 func (sb *sandbox) execute(
 	ctx context.Context,
 	cmd, path []string, env map[string]string, workdir string,
-	streams sandboxer.Streams,
+	streams stream.Streams,
 ) (incusclient.Operation, <-chan bool, error) {
 	// Prepare the command
 	req := incusapi.InstanceExecPost{
@@ -220,9 +220,9 @@ func (sb *sandbox) Dialer(cmd []string) func(ctx context.Context, network, addr 
 		inRead, inWrite := io.Pipe()
 		outRead, outWrite := io.Pipe()
 
-		streams := container.NewStreams(
-			container.WithStdin(inRead),
-			container.WithStdout(outWrite),
+		streams := stream.NewStreams(
+			stream.WithStdin(inRead),
+			stream.WithStdout(outWrite),
 		)
 		_, doneC, err := sb.execute(ctx, cmd, nil, nil, "", streams)
 		if err != nil {

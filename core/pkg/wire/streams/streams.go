@@ -1,11 +1,13 @@
 package wire_streams
 
 import (
-	"io"
+	"slices"
 
-	"drassi.run/core/pkg/container"
-	"drassi.run/core/pkg/executor/logging"
-	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/pkg/executor"
+	"drassi.run/core/pkg/executor/reporter"
+	"drassi.run/core/pkg/scribe"
+	"drassi.run/core/pkg/stream"
+	"drassi.run/core/util/types"
 	"go.uber.org/dig"
 )
 
@@ -16,94 +18,71 @@ func ProvideTo(scope *dig.Scope) error {
 	if err := scope.Provide(ScanProblem, dig.Name("scanProblem")); err != nil {
 		return err
 	}
-
-	if err := scope.Provide(streamOut, dig.Name("streamOut")); err != nil {
-		return err
-	}
-	if err := scope.Provide(streamErr, dig.Name("streamErr")); err != nil {
+	if err := scope.Provide(MaskSecret, dig.Name("maskSecret")); err != nil {
 		return err
 	}
 
+	if err := scope.Provide(streamHandler); err != nil {
+		return err
+	}
 	if err := scope.Provide(newStream, dig.Export(true)); err != nil {
 		return err
 	}
-	if err := scope.Provide(newLog, dig.Export(true)); err != nil {
+	if err := scope.Provide(newScribeOutput, dig.Export(true)); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-type streamsParams struct {
-	dig.In
-	StdIn  io.Reader `name:"stdin"`
-	StdOut io.Writer `name:"streamOut"`
-	StdErr io.Writer `name:"streamErr"`
+func streamHandler(rep reporter.Reporter) stream.Handler {
+	return stream.HandlerFunc(rep.Log)
 }
 
-func newStream(p streamsParams) sandboxer.Streams {
-	return container.NewStreams(
-		container.WithStdin(p.StdIn),
-		container.WithStdout(p.StdOut),
-		container.WithStderr(p.StdErr),
+type streamParams struct {
+	dig.In
+	Handler         stream.Handler
+	ContextProvider xtypes.ContextProvider
+	ProcessCommand  Middleware `name:"processCommand"`
+	ScanProblem     Middleware `name:"scanProblem"`
+	MaskSecret      Middleware `name:"maskSecret"`
+}
+
+func newStream(p streamParams) stream.Streams {
+	handler := p.Handler
+	middlewares := []Middleware{p.ProcessCommand, p.ScanProblem, p.MaskSecret}
+	for _, mw := range slices.Backward(middlewares) {
+		handler = mw(handler)
+	}
+	w := stream.NewLineWriter(p.ContextProvider, handler)
+
+	return stream.NewStreams(
+		stream.WithStdout(w),
+		stream.WithStderr(w),
 	)
 }
 
-type logParams struct {
+type scribeParams struct {
 	dig.In
-	StdOut io.Writer `name:"stdout"`
+	Handler    stream.Handler
+	MaskSecret Middleware `name:"maskSecret"`
 }
 
-func newLog(p logParams) logging.Logger {
-	return logging.NewLogger(p.StdOut)
+func newScribeOutput(p scribeParams) scribe.Output {
+	handler := p.Handler
+	handler = p.MaskSecret(handler)
+	return stream.NewScribeOutput(handler)
 }
 
-type streamOutParams struct {
-	dig.In
-	Logger         logging.Logger
-	ProcessCommand Middleware `name:"processCommand"`
-	ScanProblem    Middleware `name:"scanProblem"`
-	StdOut         io.Writer  `name:"stdout"`
+func Wire(scope *dig.Scope) error {
+	return scope.Invoke(registerCallbacks)
 }
 
-type streamErrParams struct {
-	dig.In
-	Logger         logging.Logger
-	ProcessCommand Middleware `name:"processCommand"`
-	ScanProblem    Middleware `name:"scanProblem"`
-	StdErr         io.Writer  `name:"stderr"`
-}
+func registerCallbacks(rep reporter.Reporter, sup executor.Supervisor) error {
+	sup.Register(executor.BeforeRunJobCallback(rep.StartJob))
+	sup.Register(executor.AfterRunJobCallback(rep.EndJob))
+	sup.Register(executor.BeforeRunStepCallback(rep.StartStep))
+	sup.Register(executor.AfterRunStepCallback(rep.EndStep))
 
-func streamOut(p streamOutParams) io.Writer {
-	handler := streamHandler(p.StdOut, p.Logger, []Middleware{
-		p.ProcessCommand,
-		p.ScanProblem,
-	})
-	return logging.NewLineWriter(handler)
-}
-
-func streamErr(p streamErrParams) io.Writer {
-	handler := streamHandler(p.StdErr, p.Logger, []Middleware{
-		p.ProcessCommand,
-		p.ScanProblem,
-	})
-	return logging.NewLineWriter(handler)
-}
-
-func streamHandler(w io.Writer, l logging.Logger, middlewares []Middleware) logging.LineHandler {
-	return func(line string) error {
-		for _, mw := range middlewares {
-			next, err := mw.Handle(line)
-			if err != nil {
-				l.Log(logging.TagError, err.Error())
-			}
-			if !next {
-				// Should NOT bubble up error
-				return nil
-			}
-		}
-
-		_, err := io.WriteString(w, line)
-		return err
-	}
+	return nil
 }

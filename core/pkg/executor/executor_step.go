@@ -2,7 +2,6 @@ package executor
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"maps"
 	"strconv"
@@ -12,10 +11,9 @@ import (
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/expression/libraries"
 	"drassi.run/core/pkg/model/records"
+	"drassi.run/core/pkg/scribe"
 	"drassi.run/core/pkg/store/repository"
 	"drassi.run/core/util/dig"
-	"drassi.run/core/util/otel"
-	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
 )
 
@@ -28,7 +26,7 @@ type StepExecutor interface {
 
 	Initialize(ctx context.Context, scope *dig.Scope) error
 	RunStep(ctx context.Context, fn func(StepRun) *Task) *records.Step
-	ComposeEnv() map[string]string
+	ComposeEnv(systemEnv bool) map[string]string
 	SetStatus(status records.Result)
 
 	SetEnv(env map[string]string) error
@@ -54,12 +52,13 @@ func StepUid(e StepExecutor) string {
 }
 
 func newStepExecutor(job JobExecutor, parent StepExecutor, stepRun StepRun) StepExecutor {
-	return &stepExecutor{
+	exec := &stepExecutor{
 		job:      job,
 		parent:   parent,
 		children: make(map[string]StepExecutor),
 		stepRun:  stepRun,
 	}
+	return WithTelemetryStepExecutor(exec)
 }
 
 type stepExecutor struct {
@@ -109,21 +108,11 @@ func (e *stepExecutor) rootExecutor() StepExecutor {
 	return exec
 }
 
-func (e *stepExecutor) Initialize(ctx context.Context, scope *dig.Scope) (ex error) {
-	spanName := fmt.Sprintf("StepExecutor.Initialize(%s)", StepId(e))
-	ctx, span := xotel.StartSpan(ctx, spanName,
-		trace.WithAttributes(xotel.DrassiStep(FullStepId(e))),
-	)
-	defer xotel.EndSpan(span, &ex)
-
+func (e *stepExecutor) Initialize(ctx context.Context, scope *dig.Scope) error {
+	// inject dependencies
 	if err := xdig.Populate(scope, &e.supervisor); err != nil {
 		return err
-	} else {
-		stop := e.supervisor.StartContext(ctx)
-		defer stop()
 	}
-
-	// inject dependencies
 	if err := xdig.Populate(scope, &e.exprEnv); err != nil {
 		return err
 	}
@@ -190,20 +179,8 @@ func (e *stepExecutor) RunStep(ctx context.Context, fn func(StepRun) *Task) *rec
 		return nil
 	}
 
-	spanName := fmt.Sprintf("StepExecutor.RunStep(%s)", StepId(e))
-	ctx, span := xotel.StartSpan(ctx, spanName,
-		trace.WithAttributes(
-			xotel.DrassiStage(string(task.Stage)),
-			xotel.DrassiStep(FullStepId(e)),
-		),
-	)
-	defer span.End()
-
-	stop := e.supervisor.StartContext(ctx)
-	defer stop()
-
 	defer e.endTask(task)
-	e.beginTask(task) // TODO logging error
+	e.beginTask(ctx, task) // TODO logging error
 	if e.step.Outcome == "" {
 		e.runTask(ctx, task)
 	}
@@ -211,7 +188,7 @@ func (e *stepExecutor) RunStep(ctx context.Context, fn func(StepRun) *Task) *rec
 	return e.step
 }
 
-func (e *stepExecutor) beginTask(task *Task) error {
+func (e *stepExecutor) beginTask(ctx context.Context, task *Task) error {
 	if err := e.supervisor.BeforeStepRun(task.Stage, e); err != nil {
 		return err
 	}
@@ -225,6 +202,7 @@ func (e *stepExecutor) beginTask(task *Task) error {
 		return err
 	}
 
+	scribe.Debugf(ctx, "Evaluating condition for step: %q (%s)", e.stepRun.DisplayName(task.Stage), StepId(e))
 	if meet, err := evaluator.Meet(e.exprEnv, task.Condition); err != nil {
 		e.SetStatus(records.ResultFailure)
 		e.step.Conclusion = records.ResultFailure
@@ -310,10 +288,13 @@ func (e *stepExecutor) endTask(task *Task) {
 	}
 }
 
-func (e *stepExecutor) ComposeEnv() map[string]string {
-	m := e.supervisor.ProvideEnv()
+func (e *stepExecutor) ComposeEnv(systemEnv bool) map[string]string {
+	m := maps.Clone(e.env)
+	if !systemEnv {
+		return m
+	}
 
-	maps.Copy(m, e.env)
+	maps.Copy(m, e.supervisor.ProvideEnv())
 
 	// set GITHUB_* env
 	ghEnv := map[string]string{

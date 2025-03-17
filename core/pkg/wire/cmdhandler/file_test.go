@@ -10,33 +10,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 	"io"
-	"io/fs"
+	"strings"
 	"testing"
 )
 
 type fileHdlCreator func(executor.Supervisor) *command.FileHandler
-
-func testInvalidFile(ctrl *gomock.Controller, creator fileHdlCreator, r io.Reader) func(t *testing.T) {
-	return func(t *testing.T) {
-		job := mock_executor.NewMockJobExecutor(ctrl)
-		job.EXPECT().AddPath(gomock.Any()).Return(nil).MaxTimes(1)
-		job.EXPECT().SetEnv(gomock.Any()).Return(nil).MaxTimes(1)
-
-		step := mock_executor.NewMockStepExecutor(ctrl)
-		step.EXPECT().SetEnv(gomock.Any()).Return(nil).MaxTimes(1)
-		step.EXPECT().SaveState(gomock.Any()).Return(nil).MaxTimes(1)
-		step.EXPECT().SetOutput(gomock.Any()).Return(nil).MaxTimes(1)
-		step.EXPECT().CreateStepSummary(gomock.Any()).Return(nil).MaxTimes(1)
-
-		sup := mock_executor.NewMockSupervisor(ctrl)
-		sup.EXPECT().Job().Return(job).AnyTimes()
-		sup.EXPECT().CurrentStep().Return(step).AnyTimes()
-
-		h := creator(sup)
-		err := command.FileRun(t.Context(), h, r)
-		assert.ErrorIs(t, err, ErrInvalidFile)
-	}
-}
 
 func testFileNoJob(ctrl *gomock.Controller, creator fileHdlCreator) func(t *testing.T) {
 	return func(t *testing.T) {
@@ -71,32 +49,14 @@ ABC=xyz
 	}
 )
 
-func invalidFile() io.Reader {
-	r, _ := xtar.FileEntryReader(&xtar.FileEntry{Name: "foobar", Mode: fs.ModeDir})
-	return r
-}
-
-func multipleFiles() io.Reader {
-	r, _ := xtar.ContentReader(map[string]string{
-		"FIST_FILE":   "FOOBAR=hello",
-		"SECOND_FILE": "ABCXYZ=goodbye",
-	})
-	return r
-}
-
 func TestFileAddPath(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	t.Run("no-job", testFileNoJob(ctrl, FileAddPath))
 
-	t.Run("invalid-file", testInvalidFile(ctrl, FileAddPath, invalidFile()))
-	t.Run("multiple-files", testInvalidFile(ctrl, FileAddPath, multipleFiles()))
-
 	t.Run("success", func(t *testing.T) {
-		r, _ := xtar.ContentReader(map[string]string{
-			"": "/fir/path\n/second/path",
-		})
+		r := strings.NewReader("/fir/path\n/second/path")
 
 		job := mock_executor.NewMockJobExecutor(ctrl)
 		sup := mock_executor.NewMockSupervisor(ctrl)
@@ -115,13 +75,8 @@ func TestFileSetEnv(t *testing.T) {
 
 	t.Run("no-step", testFileNoStep(ctrl, FileSetEnv))
 
-	t.Run("invalid-file", testInvalidFile(ctrl, FileSetEnv, invalidFile()))
-	t.Run("multiple-files", testInvalidFile(ctrl, FileSetEnv, multipleFiles()))
-
 	t.Run("success", func(t *testing.T) {
-		r, _ := xtar.ContentReader(map[string]string{
-			"": mapContent,
-		})
+		r := strings.NewReader(mapContent)
 
 		step := mock_executor.NewMockStepExecutor(ctrl)
 		sup := mock_executor.NewMockSupervisor(ctrl)
@@ -140,13 +95,8 @@ func TestFileSaveState(t *testing.T) {
 
 	t.Run("no-step", testFileNoStep(ctrl, FileSaveState))
 
-	t.Run("invalid-file", testInvalidFile(ctrl, FileSaveState, invalidFile()))
-	t.Run("multiple-files", testInvalidFile(ctrl, FileSaveState, multipleFiles()))
-
 	t.Run("success", func(t *testing.T) {
-		r, _ := xtar.ContentReader(map[string]string{
-			"": mapContent,
-		})
+		r := strings.NewReader(mapContent)
 
 		step := mock_executor.NewMockStepExecutor(ctrl)
 		sup := mock_executor.NewMockSupervisor(ctrl)
@@ -165,13 +115,8 @@ func TestFileSetOutput(t *testing.T) {
 
 	t.Run("no-step", testFileNoStep(ctrl, FileSetOutput))
 
-	t.Run("invalid-file", testInvalidFile(ctrl, FileSetOutput, invalidFile()))
-	t.Run("multiple-files", testInvalidFile(ctrl, FileSetOutput, multipleFiles()))
-
 	t.Run("success", func(t *testing.T) {
-		r, _ := xtar.ContentReader(map[string]string{
-			"": mapContent,
-		})
+		r := strings.NewReader(mapContent)
 
 		step := mock_executor.NewMockStepExecutor(ctrl)
 		sup := mock_executor.NewMockSupervisor(ctrl)
@@ -192,9 +137,7 @@ func TestCreateStepSummary(t *testing.T) {
 
 	t.Run("success", func(t *testing.T) {
 		content := "THIS IS A CreateStepSummary"
-		r, _ := xtar.ContentReader(map[string]string{
-			"": content,
-		})
+		r := strings.NewReader(content)
 
 		step := mock_executor.NewMockStepExecutor(ctrl)
 		sup := mock_executor.NewMockSupervisor(ctrl)

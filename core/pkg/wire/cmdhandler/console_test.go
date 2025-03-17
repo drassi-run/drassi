@@ -94,6 +94,7 @@ func TestConsoleAddPath(t *testing.T) {
 		job := mock_executor.NewMockJobExecutor(ctrl)
 		sup := mock_executor.NewMockSupervisor(ctrl)
 		sup.EXPECT().Job().Return(job)
+
 		h := ConsoleAddPath(sup)
 
 		job.EXPECT().AddPath([]string{"foobar"}).Return(nil)
@@ -115,6 +116,7 @@ func TestConsoleSetEnv(t *testing.T) {
 		step := mock_executor.NewMockStepExecutor(ctrl)
 		sup := mock_executor.NewMockSupervisor(ctrl)
 		sup.EXPECT().CurrentStep().Return(step)
+
 		h := ConsoleSetEnv(sup)
 
 		step.EXPECT().SetEnv(map[string]string{"XXX": "set-env-value"}).Return(nil)
@@ -136,6 +138,7 @@ func TestConsoleSetOutput(t *testing.T) {
 		step := mock_executor.NewMockStepExecutor(ctrl)
 		sup := mock_executor.NewMockSupervisor(ctrl)
 		sup.EXPECT().CurrentStep().Return(step)
+
 		h := ConsoleSetOutput(sup)
 
 		step.EXPECT().SetOutput(map[string]string{"XXX": "set-output-value"}).Return(nil)
@@ -157,6 +160,7 @@ func TestConsoleSaveState(t *testing.T) {
 		step := mock_executor.NewMockStepExecutor(ctrl)
 		sup := mock_executor.NewMockSupervisor(ctrl)
 		sup.EXPECT().CurrentStep().Return(step)
+
 		h := ConsoleSaveState(sup)
 
 		step.EXPECT().SaveState(map[string]string{"XXX": "save-state-value"}).Return(nil)

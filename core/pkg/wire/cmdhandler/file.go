@@ -1,15 +1,13 @@
 package wire_cmdhandler
 
 import (
-	"archive/tar"
 	"context"
 	"errors"
-	"fmt"
 	"io"
 
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/executor/command"
-	"drassi.run/core/util/tar"
+	"drassi.run/core/pkg/scribe"
 )
 
 var (
@@ -26,41 +24,79 @@ func FileAddPath(sup executor.Supervisor) *command.FileHandler {
 			return ErrNoJobRunning
 		}
 
-		found := false
-		return xtar.Untar(ctx, r, func(hdr *tar.Header, reader io.Reader) error {
-			if !xtar.IsRegular(hdr) {
-				return fmt.Errorf("%w: un-expected %s file", ErrInvalidFile, xtar.FileType(hdr.Typeflag))
+		if paths, err := readLine(r); err != nil {
+			return err
+		} else {
+			s := scribe.FromContext(ctx)
+			for _, path := range paths {
+				s.Debugf("Add path: %q", path)
 			}
-			if found {
-				return fmt.Errorf("%w: un-expected multiple files", ErrInvalidFile)
-			}
-			found = true
-
-			if paths, err := readLine(reader); err != nil {
-				return err
-			} else {
-				return job.AddPath(paths)
-			}
-		})
+			return job.AddPath(paths)
+		}
 	}
 	return command.NewFileHandler("GITHUB_PATH", run)
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L132
 func FileSetEnv(sup executor.Supervisor) *command.FileHandler {
-	run := stepCommandRun(sup, parseEnvVars, executor.StepExecutor.SetEnv)
+	run := func(ctx context.Context, r io.Reader) error {
+		step := sup.CurrentStep()
+		if step == nil {
+			return ErrNoStepRunning
+		}
+
+		if env, err := parseEnvVars(r); err != nil {
+			return err
+		} else {
+			s := scribe.FromContext(ctx)
+			for k, v := range env {
+				s.Debugf("Set env: %s = %s", k, v)
+			}
+			return step.SetEnv(env)
+		}
+	}
 	return command.NewFileHandler("GITHUB_ENV", run)
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L260
 func FileSaveState(sup executor.Supervisor) *command.FileHandler {
-	run := stepCommandRun(sup, parseEnvVars, executor.StepExecutor.SaveState)
+	run := func(ctx context.Context, r io.Reader) error {
+		step := sup.CurrentStep()
+		if step == nil {
+			return ErrNoStepRunning
+		}
+
+		if state, err := parseEnvVars(r); err != nil {
+			return err
+		} else {
+			s := scribe.FromContext(ctx)
+			for k, v := range state {
+				s.Debugf("Save intra-action state: %s = %s", k, v)
+			}
+			return step.SaveState(state)
+		}
+	}
 	return command.NewFileHandler("GITHUB_STATE", run)
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L293
 func FileSetOutput(sup executor.Supervisor) *command.FileHandler {
-	run := stepCommandRun(sup, parseEnvVars, executor.StepExecutor.SetOutput)
+	run := func(ctx context.Context, r io.Reader) error {
+		step := sup.CurrentStep()
+		if step == nil {
+			return ErrNoStepRunning
+		}
+
+		if output, err := parseEnvVars(r); err != nil {
+			return err
+		} else {
+			s := scribe.FromContext(ctx)
+			for k, v := range output {
+				s.Debugf("Set output: %s = %s", k, v)
+			}
+			return step.SetOutput(output)
+		}
+	}
 	return command.NewFileHandler("GITHUB_OUTPUT", run)
 }
 
@@ -71,37 +107,9 @@ func CreateStepSummary(sup executor.Supervisor) *command.FileHandler {
 		if step == nil {
 			return ErrNoStepRunning
 		}
+
+		scribe.Debugf(ctx, "Create step summary")
 		return step.CreateStepSummary(r)
 	}
 	return command.NewFileHandler("GITHUB_STEP_SUMMARY", run)
-}
-
-func stepCommandRun[R any](
-	sup executor.Supervisor,
-	trans func(r io.Reader) (R, error),
-	set func(executor.StepExecutor, R) error,
-) func(ctx context.Context, r io.Reader) error {
-	return func(ctx context.Context, r io.Reader) error {
-		step := sup.CurrentStep()
-		if step == nil {
-			return ErrNoStepRunning
-		}
-
-		found := false
-		return xtar.Untar(ctx, r, func(hdr *tar.Header, reader io.Reader) error {
-			if !xtar.IsRegular(hdr) {
-				return fmt.Errorf("%w: un-expected %s file", ErrInvalidFile, xtar.FileType(hdr.Typeflag))
-			}
-			if found {
-				return fmt.Errorf("%w: un-expected multiple files", ErrInvalidFile)
-			}
-			found = true
-
-			if res, err := trans(reader); err != nil {
-				return err
-			} else {
-				return set(step, res)
-			}
-		})
-	}
 }

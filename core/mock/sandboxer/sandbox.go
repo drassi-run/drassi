@@ -16,6 +16,7 @@ import (
 	reflect "reflect"
 
 	sandboxer "drassi.run/core/pkg/sandboxer"
+	stream "drassi.run/core/pkg/stream"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -121,7 +122,7 @@ func (c *MockSandboxCopyOutCall) DoAndReturn(f func(context.Context, string) (io
 }
 
 // Execute mocks base method.
-func (m *MockSandbox) Execute(ctx context.Context, cmd, path []string, env map[string]string, workdir string, streams sandboxer.Streams) error {
+func (m *MockSandbox) Execute(ctx context.Context, cmd, path []string, env map[string]string, workdir string, streams stream.Streams) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Execute", ctx, cmd, path, env, workdir, streams)
 	ret0, _ := ret[0].(error)
@@ -147,13 +148,13 @@ func (c *MockSandboxExecuteCall) Return(arg0 error) *MockSandboxExecuteCall {
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockSandboxExecuteCall) Do(f func(context.Context, []string, []string, map[string]string, string, sandboxer.Streams) error) *MockSandboxExecuteCall {
+func (c *MockSandboxExecuteCall) Do(f func(context.Context, []string, []string, map[string]string, string, stream.Streams) error) *MockSandboxExecuteCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSandboxExecuteCall) DoAndReturn(f func(context.Context, []string, []string, map[string]string, string, sandboxer.Streams) error) *MockSandboxExecuteCall {
+func (c *MockSandboxExecuteCall) DoAndReturn(f func(context.Context, []string, []string, map[string]string, string, stream.Streams) error) *MockSandboxExecuteCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -45,17 +45,17 @@ func (m *MockReporter) EXPECT() *MockReporterMockRecorder {
 }
 
 // AddIssue mocks base method.
-func (m *MockReporter) AddIssue(issue *reporter.Issue) error {
+func (m *MockReporter) AddIssue(ctx context.Context, issue *reporter.Issue) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddIssue", issue)
+	ret := m.ctrl.Call(m, "AddIssue", ctx, issue)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AddIssue indicates an expected call of AddIssue.
-func (mr *MockReporterMockRecorder) AddIssue(issue any) *MockReporterAddIssueCall {
+func (mr *MockReporterMockRecorder) AddIssue(ctx, issue any) *MockReporterAddIssueCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddIssue", reflect.TypeOf((*MockReporter)(nil).AddIssue), issue)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddIssue", reflect.TypeOf((*MockReporter)(nil).AddIssue), ctx, issue)
 	return &MockReporterAddIssueCall{Call: call}
 }
 
@@ -71,13 +71,13 @@ func (c *MockReporterAddIssueCall) Return(arg0 error) *MockReporterAddIssueCall 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockReporterAddIssueCall) Do(f func(*reporter.Issue) error) *MockReporterAddIssueCall {
+func (c *MockReporterAddIssueCall) Do(f func(context.Context, *reporter.Issue) error) *MockReporterAddIssueCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockReporterAddIssueCall) DoAndReturn(f func(*reporter.Issue) error) *MockReporterAddIssueCall {
+func (c *MockReporterAddIssueCall) DoAndReturn(f func(context.Context, *reporter.Issue) error) *MockReporterAddIssueCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -234,6 +234,44 @@ func (c *MockReporterEndStepCall) DoAndReturn(f func(context.Context, executor.S
 	return c
 }
 
+// Log mocks base method.
+func (m *MockReporter) Log(ctx context.Context, msg string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Log", ctx, msg)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Log indicates an expected call of Log.
+func (mr *MockReporterMockRecorder) Log(ctx, msg any) *MockReporterLogCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Log", reflect.TypeOf((*MockReporter)(nil).Log), ctx, msg)
+	return &MockReporterLogCall{Call: call}
+}
+
+// MockReporterLogCall wrap *gomock.Call
+type MockReporterLogCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockReporterLogCall) Return(arg0 error) *MockReporterLogCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockReporterLogCall) Do(f func(context.Context, string) error) *MockReporterLogCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockReporterLogCall) DoAndReturn(f func(context.Context, string) error) *MockReporterLogCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // StartJob mocks base method.
 func (m *MockReporter) StartJob(ctx context.Context, je executor.JobExecutor) error {
 	m.ctrl.T.Helper()
@@ -306,120 +344,6 @@ func (c *MockReporterStartStepCall) Do(f func(context.Context, executor.Stage, e
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockReporterStartStepCall) DoAndReturn(f func(context.Context, executor.Stage, executor.StepExecutor) error) *MockReporterStartStepCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// Stderr mocks base method.
-func (m *MockReporter) Stderr() io.Writer {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Stderr")
-	ret0, _ := ret[0].(io.Writer)
-	return ret0
-}
-
-// Stderr indicates an expected call of Stderr.
-func (mr *MockReporterMockRecorder) Stderr() *MockReporterStderrCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stderr", reflect.TypeOf((*MockReporter)(nil).Stderr))
-	return &MockReporterStderrCall{Call: call}
-}
-
-// MockReporterStderrCall wrap *gomock.Call
-type MockReporterStderrCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockReporterStderrCall) Return(arg0 io.Writer) *MockReporterStderrCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockReporterStderrCall) Do(f func() io.Writer) *MockReporterStderrCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockReporterStderrCall) DoAndReturn(f func() io.Writer) *MockReporterStderrCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// Stdin mocks base method.
-func (m *MockReporter) Stdin() io.Reader {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Stdin")
-	ret0, _ := ret[0].(io.Reader)
-	return ret0
-}
-
-// Stdin indicates an expected call of Stdin.
-func (mr *MockReporterMockRecorder) Stdin() *MockReporterStdinCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stdin", reflect.TypeOf((*MockReporter)(nil).Stdin))
-	return &MockReporterStdinCall{Call: call}
-}
-
-// MockReporterStdinCall wrap *gomock.Call
-type MockReporterStdinCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockReporterStdinCall) Return(arg0 io.Reader) *MockReporterStdinCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockReporterStdinCall) Do(f func() io.Reader) *MockReporterStdinCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockReporterStdinCall) DoAndReturn(f func() io.Reader) *MockReporterStdinCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// Stdout mocks base method.
-func (m *MockReporter) Stdout() io.Writer {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Stdout")
-	ret0, _ := ret[0].(io.Writer)
-	return ret0
-}
-
-// Stdout indicates an expected call of Stdout.
-func (mr *MockReporterMockRecorder) Stdout() *MockReporterStdoutCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stdout", reflect.TypeOf((*MockReporter)(nil).Stdout))
-	return &MockReporterStdoutCall{Call: call}
-}
-
-// MockReporterStdoutCall wrap *gomock.Call
-type MockReporterStdoutCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockReporterStdoutCall) Return(arg0 io.Writer) *MockReporterStdoutCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockReporterStdoutCall) Do(f func() io.Writer) *MockReporterStdoutCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockReporterStdoutCall) DoAndReturn(f func() io.Writer) *MockReporterStdoutCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

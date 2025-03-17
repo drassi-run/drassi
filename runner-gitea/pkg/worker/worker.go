@@ -22,12 +22,14 @@ import (
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/pkg/scribe"
+	"drassi.run/core/pkg/stream"
 	"drassi.run/core/pkg/wire/cmdhandler"
 	"drassi.run/core/pkg/wire/etc"
-	"drassi.run/core/pkg/wire/reporter"
 	"drassi.run/core/pkg/wire/runtime"
 	"drassi.run/core/pkg/wire/streams"
 	"drassi.run/core/util/dig"
+	"drassi.run/core/util/types"
 	"drassi.run/gitea-runner/pkg/service"
 	"go.uber.org/dig"
 )
@@ -49,6 +51,9 @@ func New(ctx context.Context, task *runnerv1.Task) *Worker {
 
 func (w *Worker) Setup(scope *dig.Scope) error {
 	if err := w.initScope(scope); err != nil {
+		return err
+	}
+	if err := w.initContext(scope); err != nil {
 		return err
 	}
 	if err := w.initExecutor(scope); err != nil {
@@ -117,10 +122,14 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 	if err := scope.Provide(command.NewFileManager); err != nil {
 		return err
 	}
-	if err := scope.Provide(newCommandConsoleManager); err != nil {
+	if err := scope.Provide(command.NewConsoleManager); err != nil {
 		return err
 	}
-	if err := scope.Provide(executor.NewSupervisor); err != nil {
+	sup := executor.NewSupervisor()
+	if err := xdig.Supply(scope, sup); err != nil {
+		return err
+	}
+	if err := xdig.Supply[xtypes.ContextProvider](scope, sup); err != nil {
 		return err
 	}
 	if err := wire_cmdhandler.ProvideTo(scope); err != nil {
@@ -147,10 +156,7 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 	if err := xdig.Supply[reporter.Reporter](scope, rep); err != nil {
 		return err
 	}
-	if err := wire_reporter.ProvideTo(scope); err != nil {
-		return err
-	}
-	if err := wire_reporter.Wire(scope); err != nil {
+	if err := wire_streams.Wire(scope); err != nil {
 		return err
 	}
 
@@ -180,7 +186,7 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 		return err
 	}
 
-	return scope.Invoke(func(streams sandboxer.Streams) {
+	return scope.Invoke(func(streams stream.Streams) {
 		if closer, ok := streams.Out().(io.Closer); ok {
 			w.addCleaner(closer.Close)
 		}
@@ -188,6 +194,16 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 			w.addCleaner(closer.Close)
 		}
 	})
+}
+
+func (w *Worker) initContext(scope *dig.Scope) error {
+	var output scribe.Output
+	if err := xdig.Populate(scope, &output); err != nil {
+		return err
+	}
+
+	w.ctx = scribe.ContextWithScribe(w.ctx, output)
+	return nil
 }
 
 func (w *Worker) initExecutor(scope *dig.Scope) error {
@@ -233,21 +249,12 @@ func (w *Worker) addCleanerContext(c func(ctx context.Context) error) {
 	w.cleaners = append(w.cleaners, c)
 }
 
-type cmParams struct {
-	dig.In
-	StdOut io.Writer `name:"stdout"`
-}
-
-func newCommandConsoleManager(p cmParams) command.ConsoleManager {
-	return command.NewConsoleManager(p.StdOut)
-}
-
 func newContainerRuntime(ctx context.Context, gh *records.Github) func(
-	container.Engine, container.Streams, sandboxer.Sandbox, *records.JobInfo,
+	container.Engine, stream.Streams, sandboxer.Sandbox, *records.JobInfo,
 ) (runtime.Container, error) {
 	return func(
 		engine container.Engine,
-		streams container.Streams,
+		streams stream.Streams,
 		sandbox sandboxer.Sandbox,
 		info *records.JobInfo,
 	) (runtime.Container, error) {

@@ -109,8 +109,7 @@ func parseEnvVars(reader io.Reader) (map[string]string, error) {
 	return env, nil
 }
 
-func getPathTranslator(sup executor.Supervisor) runtime.PathTranslator {
-	step := sup.CurrentStep()
+func getPathTranslator(step executor.StepExecutor) runtime.PathTranslator {
 	if step == nil {
 		return nil
 	}
