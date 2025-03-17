@@ -22,6 +22,7 @@ import (
 	giteav1a1 "drassi.run/gitea-runner/pkg/apis/v1alpha1"
 	"drassi.run/gitea-runner/pkg/service"
 	"drassi.run/gitea-runner/pkg/worker"
+	"github.com/chainguard-dev/clog"
 	"github.com/spf13/cobra"
 	"go.uber.org/dig"
 	"golang.org/x/time/rate"
@@ -30,10 +31,11 @@ import (
 )
 
 type launchCommand struct {
-	runnerName string
-	client     service.GiteaClient
-	runtime    sandboxer.Engine
-	store      gitstore.Store
+	runnerName  string
+	concurrency int
+	client      service.GiteaClient
+	runtime     sandboxer.Engine
+	store       gitstore.Store
 
 	// tasksVersion used to store the version of the last task fetched from the Gitea.
 	tasksVersion atomic.Int64
@@ -48,12 +50,12 @@ func NewLaunchCommand() *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			command := launchCommand{}
+			command := new(launchCommand)
 
-			defer command.finalize(ctx)
 			if err := command.initialize(ctx, &opts); err != nil {
 				return err
 			}
+			defer command.finalize(ctx)
 			return command.run(ctx)
 		},
 	}
@@ -65,6 +67,8 @@ func NewLaunchCommand() *cobra.Command {
 }
 
 func (c *launchCommand) initialize(ctx context.Context, opts *commonOptions) error {
+	clog.InfoContextf(ctx, "initializing gitea-runner")
+
 	store, err := manifestStore(opts)
 	if err != nil {
 		return err
@@ -76,6 +80,7 @@ func (c *launchCommand) initialize(ctx context.Context, opts *commonOptions) err
 	}
 
 	spec := o.Spec
+	c.concurrency = spec.Concurrency
 	c.client = service.NewClient(
 		spec.Address, spec.InsecureSkipTLSVerify,
 		spec.UUID, spec.Token,
@@ -96,25 +101,37 @@ func (c *launchCommand) initialize(ctx context.Context, opts *commonOptions) err
 }
 
 func (c *launchCommand) run(ctx context.Context) error {
+	clog.InfoContextf(ctx, "gitea-runner started")
+
 	// fetchInterval = 1s
 	limiter := rate.NewLimiter(rate.Every(time.Second), 1)
+
+	availableCh := make(chan struct{}, c.concurrency)
+	workerPool := worker.NewPool(c.concurrency, availableCh, c.runTask)
+
+	if err := workerPool.Start(ctx); err != nil {
+		return err
+	}
+
 	for {
 		if err := limiter.Wait(ctx); err != nil {
 			return err
 		}
+		<-availableCh
 
 		task, ok := c.fetchTask(ctx)
 		if !ok {
+			availableCh <- struct{}{}
 			continue
 		}
 
-		if err := c.runTask(ctx, task); err != nil {
-			return err
-		}
+		workerPool.Submit(task)
 	}
 }
 
 func (c *launchCommand) fetchTask(ctx context.Context) (*runnerv1.Task, bool) {
+	clog.DebugContextf(ctx, "Fetching task")
+
 	// fetchTimeout = 5s
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -129,7 +146,7 @@ func (c *launchCommand) fetchTask(ctx context.Context) (*runnerv1.Task, bool) {
 		err = nil
 	}
 	if err != nil {
-		//log.WithError(err).Error("failed to fetch task")
+		clog.ErrorContextf(ctx, "failed to fetch task: %v", err)
 		return nil, false
 	}
 
@@ -150,7 +167,14 @@ func (c *launchCommand) fetchTask(ctx context.Context) (*runnerv1.Task, bool) {
 	return resp.Msg.Task, true
 }
 
-func (c *launchCommand) runTask(ctx context.Context, task *runnerv1.Task) error {
+func (c *launchCommand) runTask(ctx context.Context, task *runnerv1.Task) {
+	err := c.runTaskE(ctx, task)
+	if err != nil {
+		clog.ErrorContextf(ctx, "Failed to run task: %v", err)
+	}
+}
+
+func (c *launchCommand) runTaskE(ctx context.Context, task *runnerv1.Task) error {
 	scope := dig.New().Scope("runner")
 
 	// Runner context
