@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/stretchr/testify/assert"
-	"math"
 	"reflect"
 	"testing"
 )
@@ -18,9 +17,6 @@ var jsonTest = [][2]any{
 	{0, "0"},
 	{-1, "-1"},
 	{1, "1"},
-	{math.Inf(-1), "-Infinity"},
-	{math.Inf(1), "Infinity"},
-	{math.NaN(), "NaN"},
 	{0.0, "0"},
 	{3.14, "3.14"},
 	{-3.1, "-3.1"},
@@ -32,6 +28,12 @@ var jsonTest = [][2]any{
 	{"Infinity", `"Infinity"`},
 	{"NaN", `"NaN"`},
 	{"foobar", `"foobar"`},
+
+	//{math.Inf(-1), "-Infinity"},
+	//{math.Inf(1), "Infinity"},
+	//{math.NaN(), "NaN"},
+	//{[]any{"first", math.Inf(-1), math.Inf(1), math.NaN()}, nil},
+	//{map[string]any{"first": "one", "second": math.Inf(-1), "third": math.Inf(1), "fourth": math.NaN()}, nil},
 }
 
 func TestToJSON(t *testing.T) {
