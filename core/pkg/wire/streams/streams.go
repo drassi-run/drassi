@@ -1,7 +1,6 @@
 package wire_streams
 
 import (
-	"io"
 	"slices"
 
 	"drassi.run/core/pkg/executor"
@@ -26,9 +25,6 @@ func ProvideTo(scope *dig.Scope) error {
 	if err := scope.Provide(streamHandler); err != nil {
 		return err
 	}
-	if err := scope.Provide(streamOut, dig.Name("streamOut")); err != nil {
-		return err
-	}
 	if err := scope.Provide(newStream, dig.Export(true)); err != nil {
 		return err
 	}
@@ -43,7 +39,7 @@ func streamHandler(rep reporter.Reporter) stream.Handler {
 	return stream.HandlerFunc(rep.Log)
 }
 
-type streamOutParams struct {
+type streamParams struct {
 	dig.In
 	Handler         stream.Handler
 	ContextProvider xtypes.ContextProvider
@@ -52,23 +48,17 @@ type streamOutParams struct {
 	MaskSecret      Middleware `name:"maskSecret"`
 }
 
-func streamOut(p streamOutParams) io.Writer {
+func newStream(p streamParams) stream.Streams {
 	handler := p.Handler
 	middlewares := []Middleware{p.ProcessCommand, p.ScanProblem, p.MaskSecret}
 	for _, mw := range slices.Backward(middlewares) {
 		handler = mw(handler)
 	}
-	return stream.NewLineWriter(p.ContextProvider, handler)
-}
+	w := stream.NewLineWriter(p.ContextProvider, handler)
 
-type streamsParams struct {
-	dig.In
-	StdOut io.Writer `name:"streamOut"`
-}
-
-func newStream(p streamsParams) stream.Streams {
 	return stream.NewStreams(
-		stream.WithStdout(p.StdOut),
+		stream.WithStdout(w),
+		stream.WithStderr(w),
 	)
 }
 

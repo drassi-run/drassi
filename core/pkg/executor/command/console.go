@@ -3,11 +3,11 @@ package command
 import (
 	"context"
 	"fmt"
-	"io"
 	"regexp"
 	"slices"
 	"strings"
 
+	"drassi.run/core/pkg/scribe"
 	"drassi.run/core/util/otel"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -67,9 +67,8 @@ type ConsoleManager interface {
 	Process(ctx context.Context, line string, cmd *Command) error
 }
 
-func NewConsoleManager(w io.Writer) ConsoleManager {
+func NewConsoleManager() ConsoleManager {
 	mgr := &consoleManager{
-		writer:             w,
 		registeredCommands: make(map[string]*ConsoleHandler),
 		echo:               false, // default to false, unless runner.Debug is set
 		resumeCmdToken:     "",
@@ -81,7 +80,6 @@ func NewConsoleManager(w io.Writer) ConsoleManager {
 }
 
 type consoleManager struct {
-	writer             io.Writer
 	registeredCommands map[string]*ConsoleHandler
 
 	echo           bool
@@ -219,9 +217,7 @@ func (mgr *consoleManager) Process(ctx context.Context, line string, cmd *Comman
 	}
 
 	if mgr.echo && handler.echo {
-		if _, err := io.WriteString(mgr.writer, line); err != nil {
-			return err
-		}
+		scribe.Writef(ctx, "%s", line)
 	}
 
 	return handler.run(ctx, cmd)

@@ -7,7 +7,7 @@ import (
 )
 
 func setupConsoleCmdMgr() *consoleManager {
-	return NewConsoleManager(nil).(*consoleManager)
+	return NewConsoleManager().(*consoleManager)
 }
 
 func noop(context.Context, *Command) error { return nil }

@@ -29,6 +29,7 @@ import (
 	"drassi.run/core/pkg/wire/runtime"
 	"drassi.run/core/pkg/wire/streams"
 	"drassi.run/core/util/dig"
+	"drassi.run/core/util/types"
 	"drassi.run/gitea-runner/pkg/service"
 	"go.uber.org/dig"
 )
@@ -121,10 +122,14 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 	if err := scope.Provide(command.NewFileManager); err != nil {
 		return err
 	}
-	if err := scope.Provide(newCommandConsoleManager); err != nil {
+	if err := scope.Provide(command.NewConsoleManager); err != nil {
 		return err
 	}
-	if err := scope.Provide(executor.NewSupervisor); err != nil {
+	sup := executor.NewSupervisor()
+	if err := xdig.Supply(scope, sup); err != nil {
+		return err
+	}
+	if err := xdig.Supply[xtypes.ContextProvider](scope, sup); err != nil {
 		return err
 	}
 	if err := wire_cmdhandler.ProvideTo(scope); err != nil {
@@ -242,15 +247,6 @@ func (w *Worker) addCleaner(c func() error) {
 
 func (w *Worker) addCleanerContext(c func(ctx context.Context) error) {
 	w.cleaners = append(w.cleaners, c)
-}
-
-type cmParams struct {
-	dig.In
-	StdOut io.Writer `name:"stdout"`
-}
-
-func newCommandConsoleManager(p cmParams) command.ConsoleManager {
-	return command.NewConsoleManager(p.StdOut)
 }
 
 func newContainerRuntime(ctx context.Context, gh *records.Github) func(
