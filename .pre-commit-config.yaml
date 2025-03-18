@@ -2,6 +2,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+exclude: |
+  (?x)^(
+    .*\.svg|
+    .*\.excalidraw
+  )$
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
@@ -11,7 +17,9 @@ repos:
       - id: check-json
       - id: check-toml
       - id: trailing-whitespace
-        exclude_types: [markdown]
+        exclude_types: [ markdown ]
+        exclude: |
+          core/pkg/expression/grammar/.*.interp
       - id: end-of-file-fixer
       - id: mixed-line-ending
       - id: check-symlinks
