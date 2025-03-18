@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: (c) 2024 The Drassi Authors
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 package records
 
 // The github context contains information about the workflow run and the event that triggered the run.

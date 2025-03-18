@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: (c) 2024 The Drassi Authors
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 // +k8s:deepcopy-gen=package
 // +k8s:defaulter-gen=TypeMeta
 

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: (c) 2024 The Drassi Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # https://github.com/antlr/antlr4/blob/master/docker/Dockerfile
 FROM eclipse-temurin:17-jre
 
