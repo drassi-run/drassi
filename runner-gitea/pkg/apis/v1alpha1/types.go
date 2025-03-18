@@ -21,6 +21,8 @@ type GiteaRunnerSpec struct {
 	Address               string   `json:"address,omitempty"`
 	InsecureSkipTLSVerify bool     `json:"insecureSkipTLSVerify,omitempty"`
 	RunnerLabels          []string `json:"runnerLabels,omitempty"`
+	// +default=5
+	Concurrency int `json:"concurrency,omitempty"`
 
 	SandboxerRef corev1.TypedLocalObjectReference `json:"sandboxerRef,omitempty"`
 }
