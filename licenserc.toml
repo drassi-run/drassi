@@ -1,0 +1,15 @@
+# * https://spdx.github.io/spdx-spec/v2.3/file-tags/
+# * https://spdx.dev/learn/handling-license-info/
+# * https://reuse.software/spec-3.3/
+inlineHeader = """
+SPDX-FileCopyrightText: (c) {{props["inceptionYear"]}} {{props["copyrightOwner"]}}
+
+SPDX-License-Identifier: {{props["license"]}}
+"""
+
+excludes = ["core/mock/**/*.go"]
+
+[properties]
+license = "Apache-2.0"
+inceptionYear = 2024
+copyrightOwner = "The Drassi Authors"
