@@ -173,7 +173,7 @@ func (s *store) decode(data []byte) error {
 		s.scheme.Default(obj)
 	}
 
-	obj, gvk, err = s.decoder.Decode(data, gvk, obj)
+	obj, _, err = s.decoder.Decode(data, gvk, obj)
 	if err != nil {
 		return err
 	}

@@ -9,11 +9,14 @@ package libraries
 import (
 	"math"
 
+	expr "drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/expression/types/ref"
 )
 
 // nullaryFn is the function take 0 arguments
 type nullaryFn func() ref.Val
+
+var _ expr.Function = (nullaryFn)(nil)
 
 func (f nullaryFn) NumArgs() (min int, max int) {
 	return 0, 0
@@ -25,6 +28,8 @@ func (f nullaryFn) Bind(args ...ref.LazyVal) ref.LazyVal {
 
 // unaryFn is the function take 1 argument
 type unaryFn func(ref.Val) ref.Val
+
+var _ expr.Function = (unaryFn)(nil)
 
 func (f unaryFn) NumArgs() (min int, max int) {
 	return 1, 1
@@ -47,6 +52,8 @@ func (f unaryFn) invoke(arg ref.LazyVal) ref.LazyVal {
 
 // binaryFn is the function take 2 arguments
 type binaryFn func(ref.Val, ref.Val) ref.Val
+
+var _ expr.Function = (binaryFn)(nil)
 
 func (f binaryFn) NumArgs() (min int, max int) {
 	return 2, 2
@@ -74,6 +81,8 @@ func (f binaryFn) invoke(a1, a2 ref.LazyVal) ref.LazyVal {
 
 // ternaryFn is the function take 3 arguments
 type ternaryFn func(ref.Val, ref.Val, ref.Val) ref.Val
+
+var _ expr.Function = (ternaryFn)(nil)
 
 func (f ternaryFn) NumArgs() (min int, max int) {
 	return 3, 3
@@ -107,6 +116,8 @@ func (f ternaryFn) invoke(a1, a2, a3 ref.LazyVal) ref.LazyVal {
 // variadicLazyFn is the function take 0 or more arguments
 type variadicLazyFn func(...ref.LazyVal) ref.Val
 
+var _ expr.Function = (variadicLazyFn)(nil)
+
 func (f variadicLazyFn) NumArgs() (min int, max int) {
 	return 0, math.MaxInt32
 }
@@ -124,6 +135,8 @@ func (f variadicLazyFn) invoke(args ...ref.LazyVal) ref.LazyVal {
 // oneRestLazyFn is the function take 1 or more arguments
 type oneRestLazyFn func(ref.LazyVal, ...ref.LazyVal) ref.Val
 
+var _ expr.Function = (oneRestLazyFn)(nil)
+
 func (f oneRestLazyFn) NumArgs() (min int, max int) {
 	return 1, math.MaxInt32
 }
@@ -140,6 +153,8 @@ func (f oneRestLazyFn) invoke(a ref.LazyVal, rest ...ref.LazyVal) ref.LazyVal {
 
 // oneRestLazyFn is the function take 1 argument and 1 optional argument
 type oneOptionFn func(ref.Val, ref.LazyVal) ref.Val
+
+var _ expr.Function = (oneOptionFn)(nil)
 
 func (f oneOptionFn) NumArgs() (min int, max int) {
 	return 1, 2

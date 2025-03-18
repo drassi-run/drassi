@@ -15,7 +15,7 @@ import (
 	"math/rand"
 	"time"
 
-	"golang.org/x/oauth2/jws"
+	"golang.org/x/oauth2/jws" //nolint:staticcheck // SA1019 - jws for internal used
 )
 
 const (
