@@ -163,6 +163,7 @@ func Untar(ctx context.Context, r io.Reader, h UntarHandler) error {
 
 func FileType(typ byte) string {
 	switch typ {
+	//nolint:staticcheck // SA1019 - TypeRegA has been deprecated
 	case tar.TypeReg, tar.TypeRegA:
 		return "regular"
 	case tar.TypeLink:
@@ -183,6 +184,7 @@ func FileType(typ byte) string {
 }
 
 func IsRegular(hdr *tar.Header) bool {
+	//nolint:staticcheck // SA1019 - TypeRegA has been deprecated
 	return hdr.Typeflag == tar.TypeReg || hdr.Typeflag == tar.TypeRegA
 }
 

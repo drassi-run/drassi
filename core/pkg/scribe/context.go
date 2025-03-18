@@ -11,10 +11,10 @@ import (
 	"strings"
 )
 
-var handlerKey = struct{}{}
+type handlerKey struct{}
 
 func handlerFromContext(ctx context.Context) Output {
-	if h, ok := ctx.Value(handlerKey).(Output); ok {
+	if h, ok := ctx.Value(handlerKey{}).(Output); ok {
 		return h
 	}
 	return discard{}
@@ -26,7 +26,7 @@ func FromContext(ctx context.Context) *Scribe {
 }
 
 func ContextWithScribe(ctx context.Context, s Output) context.Context {
-	return context.WithValue(ctx, handlerKey, s)
+	return context.WithValue(ctx, handlerKey{}, s)
 }
 
 func GroupDetails(ctx context.Context, groupName string, details ...func(*Scribe)) {

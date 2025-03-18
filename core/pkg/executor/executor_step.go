@@ -20,6 +20,7 @@ import (
 	"drassi.run/core/pkg/scribe"
 	"drassi.run/core/pkg/store/repository"
 	"drassi.run/core/util/dig"
+	"github.com/chainguard-dev/clog"
 	"go.uber.org/dig"
 )
 
@@ -185,10 +186,10 @@ func (e *stepExecutor) RunStep(ctx context.Context, fn func(StepRun) *Task) *rec
 		return nil
 	}
 
-	defer e.endTask(task)
-	e.beginTask(ctx, task) // TODO logging error
+	defer e.endTask(ctx, task)
+	_ = e.beginTask(ctx, task) // TODO logging error
 	if e.step.Outcome == "" {
-		e.runTask(ctx, task)
+		_ = e.runTask(ctx, task)
 	}
 
 	return e.step
@@ -216,17 +217,18 @@ func (e *stepExecutor) beginTask(ctx context.Context, task *Task) error {
 	} else if !meet {
 		e.SetStatus(records.ResultSkipped)
 		e.step.Conclusion = records.ResultSkipped
-		// TODO logging
+		clog.InfoContextf(ctx, "Skipped step %q (%s)", e.stepRun.DisplayName(task.Stage), StepId(e))
 	}
 	return nil
 }
 
 func (e *stepExecutor) runTask(ctx context.Context, task *Task) error {
+	l := clog.FromContext(ctx)
 	base := e.stepRun.Base()
 
 	timeout := int64(-1)
 	if err := evaluator.Evaluate(e.exprEnv, base.TimeoutInMinutes, &timeout); err != nil {
-		// TODO logging
+		l.Errorf("Error while evaluate 'timeout-minutes': %v", err)
 		e.SetStatus(records.ResultFailure)
 		return err
 	} else if timeout > 0 {
@@ -239,7 +241,7 @@ func (e *stepExecutor) runTask(ctx context.Context, task *Task) error {
 	}
 
 	if err := e.supervisor.BeforeTaskRun(task, e); err != nil {
-		// TODO logging
+		l.Errorf("Error while before TaskRun: %v", err)
 		e.SetStatus(records.ResultFailure)
 		return err
 	}
@@ -264,25 +266,26 @@ func (e *stepExecutor) runTask(ctx context.Context, task *Task) error {
 	}
 
 	if err = e.supervisor.AfterTaskRun(task, e); err != nil {
-		// TODO logging
+		l.Errorf("Error while after TaskRun: %v", err)
 		e.SetStatus(records.ResultFailure)
 		return err
 	}
 	return nil
 }
 
-func (e *stepExecutor) endTask(task *Task) {
+func (e *stepExecutor) endTask(ctx context.Context, task *Task) {
+	l := clog.FromContext(ctx)
+
 	if e.step.Outcome == records.ResultFailure {
 		base := e.stepRun.Base()
 
 		continueOnError := false
 		if err := evaluator.Evaluate(e.exprEnv, base.ContinueOnError, &continueOnError); err != nil {
-			//logger.Infof("Failed but continue next step")
-			//return err
 			e.step.Conclusion = records.ResultFailure
+			l.Errorf("Error while evaluate 'continue-on-error' %v", err)
 		} else if continueOnError {
-			//logger.Infof("Failed but continue next step")
 			e.step.Conclusion = records.ResultSuccess
+			l.Warn("Step failed but continue next step")
 		}
 	}
 	if e.step.Conclusion == "" {
@@ -290,7 +293,7 @@ func (e *stepExecutor) endTask(task *Task) {
 	}
 
 	if err := e.supervisor.AfterStepRun(task.Stage, e, e.step); err != nil {
-		//logger.Infof("Failed but continue next step")
+		l.Errorf("Error while after StepRun: %v", err)
 	}
 }
 

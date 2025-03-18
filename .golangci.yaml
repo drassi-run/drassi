@@ -17,17 +17,5 @@ linters-settings:
       - (*github.com/go-git/go-git/v5.Repository).DeleteBranch
 
 issues:
-  exclude-rules:
-    - path: pkg/util/oauth2/clientcredentials/
-      linters: [ staticcheck ]
-
-    # not yet finished packages
-    - path: pkg/container/
-      linters: [ unused ]
-    - path: pkg/sandboxer/
-      linters: [ unused ]
-    - path: pkg/executor/
-      linters: [ unused ]
-
   exclude-files:
     - _test\.go

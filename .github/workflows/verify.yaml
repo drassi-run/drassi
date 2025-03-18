@@ -30,15 +30,6 @@ jobs:
           go-version: ${{ matrix.go-version }}
           cache-dependency-path: go.work.sum
 
-      - name: Fmt
-        run: "diff <(gofmt -d .) <(printf '')"
-        shell: bash
-
-#      - name: Vet
-#        run: |
-#          go vet ./core/...
-#          go vet ./gha-runner/...
-
       - name: Test
         run: go list -m | xargs -I {} go test "{}/..."
 
@@ -53,3 +44,10 @@ jobs:
 
       - name: Run pre-commit
         uses: pre-commit/action@v3.0.1
+
+      - name: Run golangci-lint (core)
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.64
+          working-directory: ./core
+          args: --timeout=10m
