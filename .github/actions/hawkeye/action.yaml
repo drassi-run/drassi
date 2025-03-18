@@ -1,0 +1,41 @@
+# SPDX-FileCopyrightText: (c) 2024 The Drassi Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+name: HawkEye Action
+description: 'Check, format, or remove license headers.'
+branding:
+  icon: 'code'
+  color: 'blue'
+
+inputs:
+  version:
+    description: HawkEye version to be used
+    required: false
+    default: v6.0.2
+  config:
+    description: The configuration file
+    required: false
+    default: licenserc.toml
+  mode:
+    description: |
+      Which mode License Eye should be run in. Choices are `check`, `format`, or `remove`. The
+      default value is `check`.
+    required: false
+    default: check
+  args:
+    description: |
+      Other arguments to be passed to the command, such as `--dry-run`, `--fail-if-unknown`,
+      `--fail-if-updated`, etc. The default value is empty.
+    required: false
+
+runs:
+  using: composite
+  steps:
+    - name: Install HawkEye CLI
+      run: |
+        export HAWKEYE_INSTALL_DIR=$HOME/.local/bin
+        curl -L https://github.com/korandoru/hawkeye/releases/download/${{ inputs.version }}/hawkeye-installer.sh | bash
+      shell: bash
+    - run: hawkeye ${{ inputs.mode }} --config ${{ inputs.config }} ${{ inputs.args }}
+      shell: bash
