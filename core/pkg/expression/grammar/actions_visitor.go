@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: (c) 2024 The Drassi Authors
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 // Code generated from ActionsParser.g4 by ANTLR 4.13.1. DO NOT EDIT.
 
 package grammar // ActionsParser

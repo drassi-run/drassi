@@ -1,7 +1,12 @@
 #!/bin/bash
+# SPDX-FileCopyrightText: (c) 2024 The Drassi Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 
 set -eux
 
+REPO_DIR=$(git rev-parse --show-toplevel)
 DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
 IMAGE=drassi.run/antlr4-tool:4.13
 
@@ -24,5 +29,7 @@ mv actionsparser_base_visitor.go  actions_base_visitor.go
 mv actionsparser_listener.go      actions_listener.go
 mv actionsparser_base_listener.go actions_base_listener.go
 
+hawkeye format --config=${REPO_DIR}/licenserc.toml --fail-if-updated=false
+pre-commit run --files * || true
 go fmt .
 popd

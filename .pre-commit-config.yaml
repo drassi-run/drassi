@@ -1,13 +1,25 @@
+# SPDX-FileCopyrightText: (c) 2024 The Drassi Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+exclude: |
+  (?x)^(
+    .*\.svg|
+    .*\.excalidraw
+  )$
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
+    rev: v5.0.0
     hooks:
       - id: check-yaml
         args: [--allow-multiple-documents]
       - id: check-json
       - id: check-toml
       - id: trailing-whitespace
-        exclude_types: [markdown]
+        exclude_types: [ markdown ]
+        exclude: |
+          core/pkg/expression/grammar/.*.interp
       - id: end-of-file-fixer
       - id: mixed-line-ending
       - id: check-symlinks

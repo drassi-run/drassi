@@ -1,16 +1,24 @@
-name: Test
+# SPDX-FileCopyrightText: (c) 2024 The Drassi Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+name: Verify
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
   pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
     strategy:
       matrix:
-        go-version: [1.24.x]
-        platform: [ubuntu-latest]
+        go-version: [ 1.24.x ]
+        platform: [ ubuntu-latest ]
     runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout code
@@ -33,3 +41,15 @@ jobs:
 
       - name: Test
         run: go list -m | xargs -I {} go test "{}/..."
+
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check License Header
+        uses: ./.github/actions/hawkeye
+
+      - name: Run pre-commit
+        uses: pre-commit/action@v3.0.1

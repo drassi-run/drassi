@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: (c) 2024 The Drassi Authors
+//
+// SPDX-License-Identifier: Apache-2.0
+
 module drassi.run/gitea-runner
 
 go 1.24.0

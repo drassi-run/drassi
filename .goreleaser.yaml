@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: (c) 2024 The Drassi Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 version: 2
 
 project_name: drassi
@@ -23,7 +27,7 @@ builds:
     flags:
       - -trimpath
     ldflags:
-      # should we leave symbols or strip? 
+      # should we leave symbols or strip?
       # leaving symbols could be better in term of security to help scanner
       - -s -w
   - id: gitea-runner
@@ -40,7 +44,7 @@ builds:
       - -trimpath
     ldflags:
       - -s -w
-      
+
 archives:
   - id: gha_runner_archives
     format: binary

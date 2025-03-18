@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: (c) 2024 The Drassi Authors
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 package workflows
 
 // A string identifier to associate with the input. The value of <input_id> is a map of the input's metadata.
