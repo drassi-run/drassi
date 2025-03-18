@@ -20,7 +20,7 @@ type commonOptions struct {
 	name      string
 }
 
-func (o *commonOptions) SetFlags(flags *pflag.FlagSet) {
+func (o *commonOptions) RegisterFlags(flags *pflag.FlagSet) {
 	flags.StringVar(&o.store, "store", "local", "Manifest store")
 
 	flags.StringVar(&o.configDir, "config-dir", "", "Configuration directory")

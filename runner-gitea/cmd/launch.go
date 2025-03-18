@@ -61,7 +61,7 @@ func NewLaunchCommand() *cobra.Command {
 	}
 
 	flags := cmd.Flags()
-	opts.SetFlags(flags)
+	opts.RegisterFlags(flags)
 
 	return cmd
 }
