@@ -23,7 +23,7 @@ builds:
       - amd64
       - arm64
     binary: gha-runner
-    dir: ./gha-runner
+    dir: ./runner-gha
     flags:
       - -trimpath
     ldflags:
@@ -39,7 +39,7 @@ builds:
       - amd64
       - arm64
     binary: gitea-runner
-    dir: ./gitea-runner
+    dir: ./runner-gitea
     flags:
       - -trimpath
     ldflags:
@@ -47,18 +47,16 @@ builds:
 
 archives:
   - id: gha_runner_archives
-    format: binary
-    builds:
-      - gha-runner
+    formats: ["tar.gz"]
+    ids: ["gha-runner"]
     name_template: "gha-runner-{{ .Os }}-{{ .Arch }}"
     builds_info:
       group: root
       owner: root
 
   - id: gitea_runner_archives
-    format: binary
-    builds:
-      - gitea-runner
+    formats: ["tar.gz"]
+    ids: ["gitea-runner"]
     name_template: "gitea-runner-{{ .Os }}-{{ .Arch }}"
     builds_info:
       group: root
@@ -74,7 +72,7 @@ checksum:
   name_template: "checksums.txt"
 
 snapshot:
-  name_template: "{{ incpatch .Version }}-next"
+  version_template: '0.0.0-nightly-{{.CommitTimestamp}}'
 
 # changelog:
 #   use: github
@@ -95,12 +93,12 @@ dockers:
       - '{{ if eq .Prerelease "" }}ghcr.io/drassi-run/gha-runner:latest-amd64{{ end }}'
       - '{{ if eq .Prerelease "" }}ghcr.io/drassi-run/gha-runner:{{ .Major }}-amd64{{ end }}'
       - '{{ if eq .Prerelease "" }}ghcr.io/drassi-run/gha-runner:{{ .Major }}.{{ .Minor }}-amd64{{ end }}'
-      - drassi-run/gha-runner:{{ .Version }}-amd64
-      - '{{ if eq .Prerelease "" }}drassi-run/gha-runner:latest-amd64{{ end }}'
-      - '{{ if eq .Prerelease "" }}drassi-run/gha-runner:{{ .Major }}-amd64{{ end }}'
-      - '{{ if eq .Prerelease "" }}drassi-run/gha-runner:{{ .Major }}.{{ .Minor }}-amd64{{ end }}'
+      # - drassi-run/gha-runner:{{ .Version }}-amd64
+      # - '{{ if eq .Prerelease "" }}drassi-run/gha-runner:latest-amd64{{ end }}'
+      # - '{{ if eq .Prerelease "" }}drassi-run/gha-runner:{{ .Major }}-amd64{{ end }}'
+      # - '{{ if eq .Prerelease "" }}drassi-run/gha-runner:{{ .Major }}.{{ .Minor }}-amd64{{ end }}'
     use: buildx
-    dockerfile: Dockerfile.gha.runner
+    dockerfile: runner-gha/Dockerfile
     ids:
       - gha-runner
     build_flag_templates:
@@ -117,13 +115,13 @@ dockers:
       - '{{ if eq .Prerelease "" }}ghcr.io/drassi-run/gitea-runner:latest-arm64v8{{ end }}'
       - '{{ if eq .Prerelease "" }}ghcr.io/drassi-run/gitea-runner:{{ .Major }}-arm64v8{{ end }}'
       - '{{ if eq .Prerelease "" }}ghcr.io/drassi-run/gitea-runner:{{ .Major }}.{{ .Minor }}-arm64v8{{ end }}'
-      - drassi-run/gitea-runner:{{ .Version }}-arm64v8
-      - '{{ if eq .Prerelease "" }}drassi-run/gitea-runner:latest-arm64v8{{ end }}'
-      - '{{ if eq .Prerelease "" }}drassi-run/gitea-runner:{{ .Major }}-arm64v8{{ end }}'
-      - '{{ if eq .Prerelease "" }}drassi-run/gitea-runner:{{ .Major }}.{{ .Minor }}-arm64v8{{ end }}'
+      # - drassi-run/gitea-runner:{{ .Version }}-arm64v8
+      # - '{{ if eq .Prerelease "" }}drassi-run/gitea-runner:latest-arm64v8{{ end }}'
+      # - '{{ if eq .Prerelease "" }}drassi-run/gitea-runner:{{ .Major }}-arm64v8{{ end }}'
+      # - '{{ if eq .Prerelease "" }}drassi-run/gitea-runner:{{ .Major }}.{{ .Minor }}-arm64v8{{ end }}'
     use: buildx
     goarch: arm64
-    dockerfile: Dockerfile.gitea.runner
+    dockerfile: runner-gitea/Dockerfile
     ids:
       - gitea-runner
     build_flag_templates:
