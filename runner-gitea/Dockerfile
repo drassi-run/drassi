@@ -2,6 +2,16 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+FROM golang:1.24 as builder
+ENV CGO_ENABLED=0
+COPY core/go.mod core/go.sum ./core/
+COPY runner-gha/go.mod runner-gha/go.sum ./runner-gha/
+COPY runner-gitea/go.mod runner-gitea/go.sum ./runner-gitea/
+COPY go.work go.work.sum ./
+RUN go work sync
+COPY . .
+RUN go build -o /usr/bin/gitea-runner -trimpath -ldflags "-s -w" ./runner-gitea
+
 FROM cgr.dev/chainguard/static
-COPY gitea-runner /usr/bin/gitea-runner
+COPY --from=builder /usr/bin/gitea-runner /usr/bin/gitea-runner
 ENTRYPOINT ["/usr/bin/gitea-runner"]
