@@ -6,7 +6,6 @@ name: Nightly Build
 
 on:
   schedule:
-    # Run at 00:00 UTC every day
     - cron: '0 0 * * *'
   # Allow manual trigger
   workflow_dispatch:
@@ -14,16 +13,18 @@ on:
 permissions:
   contents: write  # Needed for creating/updating releases
   packages: write
+  id-token: write
+  attestations: write
 
 jobs:
-  nightly:
+  build-binaries:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: main  # Explicitly checkout main branch
-          fetch-depth: 0  # Required for GoReleaser
+          ref: main
+          fetch-depth: 0
 
       - name: Install Go
         uses: actions/setup-go@v5
@@ -31,60 +32,111 @@ jobs:
           go-version: '1.24.x'
           cache-dependency-path: go.work.sum
 
-      - name: Install Syft
-        uses: anchore/sbom-action/download-syft@v0
-        with:
-          syft-version: 'v0.105.0'
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ github.token }}
-
-      # - name: Login to Docker Hub
-      #   uses: docker/login-action@v3
-      #   with:
-      #     username: ${{ secrets.DOCKERHUB_USERNAME }}
-      #     password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Generate version and date
-        id: version
-        run: |
-          # Get commit timestamp in YYYYMMDDHHmmss format (same as GoReleaser)
-          TIMESTAMP=$(git log -1 --format=%cd --date=format:%Y%m%d%H%M%S)
-          echo "VERSION=0.0.0-nightly-${TIMESTAMP}" >> $GITHUB_OUTPUT
-          echo "DATE=$(git log -1 --format=%cd --date=format:%Y-%m-%d)" >> $GITHUB_OUTPUT
-
-      - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v5
-        with:
-          distribution: goreleaser
-          version: "~> v2"
-          args: release --clean --snapshot
+      - name: Go build
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          CGO_ENABLED: 0
+        run: |
+          mkdir dist
 
-      # TODO: nightly is a goreleaser's Pro feature so we will have to do a workaround to push the images to the registry
+          go build -o dist/gha-runner -trimpath -ldflags "-s -w" ./runner-gha
+          go build -o dist/gitea-runner -trimpath -ldflags "-s -w" ./runner-gitea
+
+          tar -czvf dist/gha-runner.tar.gz -C dist gha-runner
+          tar -czvf dist/gitea-runner.tar.gz -C dist gitea-runner
+          sha256sum dist/*.tar.gz > dist/checksums.txt
 
       - name: Attach assets to release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.version.outputs.VERSION }}
-          name: "Nightly Build (${{ steps.version.outputs.DATE }})"
+          tag_name: nightly
+          name: Nightly Build
           body: |
-            🌙 Nightly build from main branch - ${{ steps.version.outputs.DATE }}
+            🌙 Nightly build from main branch
 
             ⚠️ **Note:** This nightly release is automatically built every day. We recommend using tagged releases instead.
+            
+            Container images are available at:
+            - ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:nightly
 
           prerelease: true
           files: |
             dist/*.tar.gz
             dist/checksums.txt
+
+  build-images:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        runner: ['gha', 'gitea']
+        include:  
+          - runner: gha
+            image_name: gha-runner
+            description: "GitHub Actions runner powered by Drassi"
+          - runner: gitea
+            image_name: gitea-runner
+            description: "Gitea Actions runner powered by Drassi"
+    env:
+      REGISTRY: ghcr.io
+      IMAGE_NAME: ${{ github.repository_owner }}/${{ matrix.image_name }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: main 
+      
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log into ${{ env.REGISTRY }}
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Extract Docker metadata
+        uses: docker/metadata-action@v5
+        id: meta
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=nightly
+          labels: |
+            org.opencontainers.image.title=${{ matrix.runner }} runner
+            org.opencontainers.image.description=${{ matrix.description }}
+          annotations: |
+            org.opencontainers.image.title=${{ matrix.runner }} runner
+            org.opencontainers.image.description=${{ matrix.description }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        id: publish
+        with:
+          pull: true
+          push: true
+          sbom: true
+          provenance: true
+          file: runner-${{ matrix.runner }}/Dockerfile
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:nightly
+          labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: |
+            linux/amd64
+            linux/arm64
+
+      # TODO: once we made the runner images public, we can enable this
+      
+      # - name: Generate artifact attestation
+      #   uses: actions/attest-build-provenance@v1
+      #   id: attest
+      #   with:
+      #     subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+      #     subject-digest: ${{ steps.publish.outputs.digest }}
+      #     push-to-registry: true
