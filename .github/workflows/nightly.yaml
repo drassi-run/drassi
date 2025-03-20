@@ -10,6 +10,10 @@ on:
   # Allow manual trigger
   workflow_dispatch:
 
+concurrency:
+  group: nightly
+  cancel-in-progress: true
+
 permissions:
   contents: write  # Needed for creating/updating releases
   packages: write
@@ -33,16 +37,30 @@ jobs:
           cache-dependency-path: go.work.sum
 
       - name: Go build
+        shell: bash
         env:
           CGO_ENABLED: 0
         run: |
-          mkdir dist
+          mkdir -p dist
+          cp README.md LICENSE ./dist/
 
-          go build -o dist/gha-runner -trimpath -ldflags "-s -w" ./runner-gha
-          go build -o dist/gitea-runner -trimpath -ldflags "-s -w" ./runner-gitea
+          modules=(gha gitea)
+          archs=(amd64 arm64)
 
-          tar -czvf dist/gha-runner.tar.gz -C dist gha-runner
-          tar -czvf dist/gitea-runner.tar.gz -C dist gitea-runner
+          set -x
+          for module in "${modules[@]}"; do
+            for arch in "${archs[@]}"; do
+              dist="./dist/${module}-runner-linux-${arch}"
+
+              time \
+                env GOOS=linux GOARCH="${arch}" \
+                go build -o "${dist}" -trimpath -ldflags "-s -w" "./runner-${module}";
+
+              tar -czvf "${dist}.tar.gz" -C dist \
+                "${module}-runner-linux-${arch}" README.md LICENSE;
+            done
+          done
+
           sha256sum dist/*.tar.gz > dist/checksums.txt
 
       - name: Attach assets to release
@@ -51,7 +69,7 @@ jobs:
           tag_name: nightly
           name: Nightly Build
           body: |
-            🌙 Nightly build from main branch
+            🌙 Nightly build from `main` branch
 
             ⚠️ **Note:** This nightly release is automatically built every day. We recommend using tagged releases instead.
 
@@ -68,7 +86,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        runner: ['gha', 'gitea']
+        runner: [ 'gha', 'gitea' ]
         include:
           - runner: gha
             image_name: gha-runner
