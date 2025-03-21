@@ -1,5 +1,3 @@
-dist/
-
 ### Linux ###
 *~
 
@@ -239,3 +237,6 @@ GitHub.sublime-settings
 
 ### ANTLR ###
 .antlr/
+
+### Custom ###
+dist/
