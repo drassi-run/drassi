@@ -30,11 +30,25 @@ import (
 	"drassi.run/gitea-runner/pkg/worker"
 	"github.com/chainguard-dev/clog"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"go.uber.org/dig"
 	"golang.org/x/time/rate"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
+
+type launchOption struct {
+	commonOptions
+
+	name string
+}
+
+func (o *launchOption) RegisterFlags(flags *pflag.FlagSet) {
+	o.commonOptions.RegisterFlags(flags)
+
+	flags.StringVar(&o.name, "name", "", "Gitea instance name")
+	_ = cobra.MarkFlagRequired(flags, "name")
+}
 
 type launchCommand struct {
 	runnerName  string
@@ -48,7 +62,7 @@ type launchCommand struct {
 }
 
 func NewLaunchCommand() *cobra.Command {
-	var opts commonOptions
+	var opts launchOption
 
 	cmd := &cobra.Command{
 		Use:   "launch",
@@ -72,10 +86,10 @@ func NewLaunchCommand() *cobra.Command {
 	return cmd
 }
 
-func (c *launchCommand) initialize(ctx context.Context, opts *commonOptions) error {
+func (c *launchCommand) initialize(ctx context.Context, opts *launchOption) error {
 	clog.InfoContextf(ctx, "initializing gitea-runner")
 
-	store, err := manifestStore(opts)
+	store, err := manifestStore(&opts.commonOptions)
 	if err != nil {
 		return err
 	}

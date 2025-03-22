@@ -12,6 +12,7 @@ require (
 	drassi.run/core v0.0.0-00010101000000-000000000000
 	github.com/chainguard-dev/clog v1.7.0
 	github.com/charmbracelet/huh v0.6.0
+	github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/pflag v1.0.5
 	go.uber.org/dig v1.18.0
@@ -95,7 +96,6 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pkg/sftp v1.13.6 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
-	github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/skeema/knownhosts v1.2.2 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
