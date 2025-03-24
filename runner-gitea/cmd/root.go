@@ -18,6 +18,7 @@ func NewGiteaRunnerCommand() *cobra.Command {
 	}
 
 	cmd.AddCommand(
+		NewInitCommand(),
 		NewRegisterCommand(),
 		NewLaunchCommand(),
 	)

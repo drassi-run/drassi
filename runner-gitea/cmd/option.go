@@ -23,7 +23,6 @@ import (
 type commonOptions struct {
 	store     string
 	configDir string
-	name      string
 }
 
 func (o *commonOptions) RegisterFlags(flags *pflag.FlagSet) {
@@ -31,9 +30,6 @@ func (o *commonOptions) RegisterFlags(flags *pflag.FlagSet) {
 
 	flags.StringVar(&o.configDir, "config-dir", "", "Configuration directory")
 	_ = cobra.MarkFlagDirname(flags, "config-dir")
-
-	flags.StringVar(&o.name, "name", "", "Gitea instance name")
-	_ = cobra.MarkFlagRequired(flags, "name")
 }
 
 func manifestStore(o *commonOptions) (manifest.Store, error) {
