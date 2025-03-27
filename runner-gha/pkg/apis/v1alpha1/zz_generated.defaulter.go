@@ -13,12 +13,5 @@ import (
 // Public to allow building arbitrary schemes.
 // All generated defaulters are covering - they call all nested defaulters.
 func RegisterDefaults(scheme *runtime.Scheme) error {
-	scheme.AddTypeDefaultingFunc(&GiteaRunner{}, func(obj interface{}) { SetObjectDefaults_GiteaRunner(obj.(*GiteaRunner)) })
 	return nil
-}
-
-func SetObjectDefaults_GiteaRunner(in *GiteaRunner) {
-	if in.Spec.Concurrency == 0 {
-		in.Spec.Concurrency = 5
-	}
 }
