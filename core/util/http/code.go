@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package utilhttp
+package xhttp
 
 // IsInformational checks if status code is 1xx: Request received, continuing process.
 func IsInformational(code int) bool {

@@ -233,7 +233,7 @@ func retrieveAuthResult(ctx context.Context, opts *registerOptions) (*actionsAut
 		return nil, err
 	}
 	defer res.Body.Close()
-	if !utilhttp.IsSuccess(res.StatusCode) {
+	if !xhttp.IsSuccess(res.StatusCode) {
 		return nil, fmt.Errorf("http response code %d", res.StatusCode)
 	}
 

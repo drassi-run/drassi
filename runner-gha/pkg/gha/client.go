@@ -65,7 +65,7 @@ func (c *Client) send(req *http.Request) (res *http.Response, err error) {
 	if err != nil {
 		return nil, err
 	}
-	if !utilhttp.IsSuccess(res.StatusCode) {
+	if !xhttp.IsSuccess(res.StatusCode) {
 		return nil, ParseActionsErrorFromResponse(res)
 	}
 	return
