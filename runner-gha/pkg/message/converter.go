@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package converter
+package message
 
 import (
 	"fmt"
@@ -13,24 +13,23 @@ import (
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/store/repository"
-	"drassi.run/gha-runner/pkg/message"
 )
 
-func ToToken(token *message.TemplateToken) workflows.Token {
+func ToToken(token *TemplateToken) workflows.Token {
 	if token == nil {
 		return nil
 	}
 
 	switch token.Type {
-	case message.TokenTypeString:
+	case TokenTypeString:
 		return workflows.NewLiteralToken(token.String)
-	case message.TokenTypeSequence:
+	case TokenTypeSequence:
 		seq := make([]workflows.Token, len(token.Seq))
 		for i, s := range token.Seq {
 			seq[i] = ToToken(s)
 		}
 		return workflows.NewSequenceToken(seq)
-	case message.TokenTypeMapping:
+	case TokenTypeMapping:
 		pairs := make([][2]workflows.Token, len(token.Map))
 		for i, m := range token.Map {
 			k := ToToken(m.Key)
@@ -39,22 +38,22 @@ func ToToken(token *message.TemplateToken) workflows.Token {
 			pairs[i] = [2]workflows.Token{k, v}
 		}
 		return workflows.NewMappingToken(pairs)
-	case message.TokenTypeBasicExpression:
+	case TokenTypeBasicExpression:
 		return workflows.NewExpressionToken(token.Expr)
-	case message.TokenTypeInsertExpression:
+	case TokenTypeInsertExpression:
 		// TODO: not supported
 		return nil
-	case message.TokenTypeNumber:
+	case TokenTypeNumber:
 		return workflows.NewLiteralToken(token.Number)
-	case message.TokenTypeBoolean:
+	case TokenTypeBoolean:
 		return workflows.NewLiteralToken(token.Boolean)
-	case message.TokenTypeNull:
+	case TokenTypeNull:
 		return nil
 	}
 	return nil
 }
 
-func squashTokens(tokens []message.TemplateToken) workflows.Token {
+func squashTokens(tokens []TemplateToken) workflows.Token {
 	switch len(tokens) {
 	case 0:
 		return nil
@@ -69,7 +68,7 @@ func squashTokens(tokens []message.TemplateToken) workflows.Token {
 	}
 }
 
-func ToStepRun(step *message.JobStep) (executor.StepRun, error) {
+func ToStepRun(step *JobStep) (executor.StepRun, error) {
 	sr := executor.BaseStepRun{
 		Uid:              step.Id,
 		Id:               step.ContextName,
@@ -81,13 +80,13 @@ func ToStepRun(step *message.JobStep) (executor.StepRun, error) {
 		Inputs:           ToToken(step.Inputs),
 	}
 	// for Script step, extract run, shell and workingDir from inputs
-	if step.Reference.Type != message.SourceTypeScript {
+	if step.Reference.Type != SourceTypeScript {
 		sr.Inputs = ToToken(step.Inputs)
 	}
 
 	ref := &step.Reference
 	switch ref.Type {
-	case message.SourceTypeScript:
+	case SourceTypeScript:
 		ssr := &executor.ScriptStepRun{
 			BaseStepRun: sr,
 		}
@@ -95,7 +94,7 @@ func ToStepRun(step *message.JobStep) (executor.StepRun, error) {
 			return nil, err
 		}
 		return ssr, nil
-	case message.SourceTypeContainerRegistry:
+	case SourceTypeContainerRegistry:
 		if ref.Image == "" {
 			return nil, fmt.Errorf("step %s image is required", step.ContextName)
 		}
@@ -104,7 +103,7 @@ func ToStepRun(step *message.JobStep) (executor.StepRun, error) {
 			Image:       ref.Image,
 		}
 		return dsr, nil
-	case message.SourceTypeRepository:
+	case SourceTypeRepository:
 		if !strings.EqualFold(ref.RepositoryType, "github") {
 			return nil, fmt.Errorf("unsupported step %s with repo type %s", step.ContextName, ref.RepositoryType)
 		}
@@ -125,7 +124,7 @@ func ToStepRun(step *message.JobStep) (executor.StepRun, error) {
 	}
 }
 
-func ToJobRun(job *message.PipelineAgentJobRequest) (*executor.JobRun, error) {
+func ToJobRun(job *PipelineAgentJobRequest) (*executor.JobRun, error) {
 	steps := make([]executor.StepRun, len(job.Steps))
 	for i, s := range job.Steps {
 		step, err := ToStepRun(&s)
@@ -151,15 +150,15 @@ func ToJobRun(job *message.PipelineAgentJobRequest) (*executor.JobRun, error) {
 	return jr, nil
 }
 
-func extractScriptStepInputs(ssr *executor.ScriptStepRun, inputs *message.TemplateToken) error {
-	if inputs.Type != message.TokenTypeMapping {
+func extractScriptStepInputs(ssr *executor.ScriptStepRun, inputs *TemplateToken) error {
+	if inputs.Type != TokenTypeMapping {
 		return fmt.Errorf("exptect step inputs is a map, got %d", inputs.Type)
 	}
 
 	for _, pair := range inputs.Map {
 		k := pair.Key
 		v := pair.Value
-		if k.Type != message.TokenTypeString {
+		if k.Type != TokenTypeString {
 			return fmt.Errorf("exptect step inputs key is a string, got %d", k.Type)
 		}
 		switch k.String {
@@ -168,7 +167,7 @@ func extractScriptStepInputs(ssr *executor.ScriptStepRun, inputs *message.Templa
 		case "workingDirectory":
 			ssr.WorkingDir = ToToken(v)
 		case "shell":
-			if v.Type != message.TokenTypeString {
+			if v.Type != TokenTypeString {
 				return fmt.Errorf("exptect step shell is a string, got %d", k.Type)
 			}
 			ssr.Shell = v.String

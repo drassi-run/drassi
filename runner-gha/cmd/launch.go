@@ -21,6 +21,7 @@ import (
 	"drassi.run/core/util/oauth2/clientcredentials"
 	"drassi.run/gha-runner/pkg/gha"
 	"drassi.run/gha-runner/pkg/message"
+	"drassi.run/gha-runner/pkg/types"
 	"github.com/spf13/cobra"
 	"golang.org/x/oauth2"
 )
@@ -31,9 +32,9 @@ type launchOptions struct {
 type launchCommand struct {
 	opts *launchOptions
 
-	runner  *gha.Runner
+	runner  *types.Runner
 	client  *gha.Client
-	session *gha.Session
+	session *listener.Session
 	key     *rsa.PrivateKey
 	eKey    []byte
 }
@@ -69,7 +70,7 @@ func (c *launchCommand) initialize(ctx context.Context) (err error) {
 		return err
 	}
 
-	c.runner = new(gha.Runner)
+	c.runner = new(types.Runner)
 	if err = loadJson(".runner", c.runner); err != nil {
 		return err
 	}
@@ -91,10 +92,11 @@ func (c *launchCommand) initialize(ctx context.Context) (err error) {
 	if sessionName, err = os.Hostname(); err != nil {
 		sessionName = "RUNNER"
 	}
-	session := &gha.Session{
+	session := &listener.Session{
 		OwnerName: sessionName,
 		Runner:    &c.runner.RunnerReference,
 	}
+
 	if c.session, err = c.client.CreateSession(ctx, 1, session); err != nil {
 		return err
 	}

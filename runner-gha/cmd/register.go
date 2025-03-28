@@ -23,6 +23,7 @@ import (
 	"drassi.run/core/util/http"
 	"drassi.run/gha-runner/pkg/dotnet"
 	"drassi.run/gha-runner/pkg/gha"
+	"drassi.run/gha-runner/pkg/types"
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
 	"golang.org/x/oauth2"
@@ -145,18 +146,18 @@ func runRegister(ctx context.Context, opts *registerOptions) error {
 		return err
 	}
 
-	runner := &gha.Runner{
-		RunnerReference: gha.RunnerReference{
+	runner := &types.Runner{
+		RunnerReference: types.RunnerReference{
 			Name:    opts.name,
 			Version: "2.316.1",
 		},
 		MaxParallelism: 10,
-		Labels: []gha.Label{
-			{Name: "self-hosted", Type: gha.LabelTypeSystem},
-			{Name: "Linux", Type: gha.LabelTypeSystem},
-			{Name: "X64", Type: gha.LabelTypeSystem},
+		Labels: []types.Label{
+			{Name: "self-hosted", Type: types.LabelTypeSystem},
+			{Name: "Linux", Type: types.LabelTypeSystem},
+			{Name: "X64", Type: types.LabelTypeSystem},
 		},
-		Authorization: gha.Authorization{
+		Authorization: types.Authorization{
 			PublicKey: dotnet.NewPublicKey(&key.PublicKey),
 		},
 	}
@@ -246,7 +247,7 @@ func retrieveAuthResult(ctx context.Context, opts *registerOptions) (*actionsAut
 	return &auth, nil
 }
 
-func selectRunnerGroup(ctx context.Context, client *gha.Client, opts *registerOptions) (*gha.Group, error) {
+func selectRunnerGroup(ctx context.Context, client *gha.Client, opts *registerOptions) (*types.Group, error) {
 	groups, err := client.ListGroups(ctx)
 	if err != nil {
 		return nil, err
@@ -263,15 +264,15 @@ func selectRunnerGroup(ctx context.Context, client *gha.Client, opts *registerOp
 		}
 		return nil, fmt.Errorf("could not find any self-hosted runner group named %s", opts.group)
 	} else {
-		var selectOptions []huh.Option[gha.Group]
+		var selectOptions []huh.Option[types.Group]
 		for _, g := range groups {
 			if g.IsHosted {
 				continue
 			}
 			selectOptions = append(selectOptions, huh.NewOption(g.Name, g))
 		}
-		var group gha.Group
-		err = huh.NewSelect[gha.Group]().
+		var group types.Group
+		err = huh.NewSelect[types.Group]().
 			Title("Select the runner group to add this runner to?").
 			Options(selectOptions...).
 			Value(&group).

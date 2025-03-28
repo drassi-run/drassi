@@ -9,6 +9,7 @@ package gha
 import (
 	"bytes"
 	"context"
+	"drassi.run/gha-runner/pkg/listener"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -19,6 +20,7 @@ import (
 
 	"drassi.run/core/util/http"
 	"drassi.run/gha-runner/pkg/message"
+	"drassi.run/gha-runner/pkg/types"
 	"golang.org/x/oauth2"
 )
 
@@ -40,7 +42,7 @@ type Client struct {
 
 	serverUrl *url.URL
 	//token     string
-	UserAgent UserAgentInfo
+	UserAgent types.UserAgentInfo
 }
 
 func NewClient(ctx context.Context, serverUrl string, tokenSource oauth2.TokenSource) (*Client, error) {
@@ -53,7 +55,7 @@ func NewClient(ctx context.Context, serverUrl string, tokenSource oauth2.TokenSo
 	c := Client{
 		h:         hc,
 		serverUrl: u,
-		UserAgent: UserAgentInfo{
+		UserAgent: types.UserAgentInfo{
 			Version:   "1.2.3",
 			CommitSHA: "abc123",
 		},
@@ -67,7 +69,7 @@ func (c *Client) send(req *http.Request) (res *http.Response, err error) {
 		return nil, err
 	}
 	if !xhttp.IsSuccess(res.StatusCode) {
-		return nil, ParseActionsErrorFromResponse(res)
+		return nil, types.ParseActionsErrorFromResponse(res)
 	}
 	return
 }
@@ -100,7 +102,7 @@ func (c *Client) NewActionsServiceRequest(ctx context.Context, method, path stri
 	return req, nil
 }
 
-func (c *Client) ListGroups(ctx context.Context) ([]Group, error) {
+func (c *Client) ListGroups(ctx context.Context) ([]types.Group, error) {
 	// Construct request
 	req, err := c.NewActionsServiceRequest(ctx, http.MethodGet, groupEndpoint, nil, nil)
 	if err != nil {
@@ -116,7 +118,7 @@ func (c *Client) ListGroups(ctx context.Context) ([]Group, error) {
 	}
 
 	// Extract the response body
-	groups := new(ghaResponse[Group])
+	groups := new(ghaResponse[types.Group])
 	if err = json.NewDecoder(res.Body).Decode(groups); err != nil {
 		return nil, err
 	}
@@ -124,7 +126,7 @@ func (c *Client) ListGroups(ctx context.Context) ([]Group, error) {
 }
 
 // groupId = 0 means all groups
-func (c *Client) ListRunners(ctx context.Context, groupId int32, name string) ([]RunnerReference, error) {
+func (c *Client) ListRunners(ctx context.Context, groupId int32, name string) ([]types.RunnerReference, error) {
 	// Construct request
 	query := map[string]string{
 		"agentName": name,
@@ -145,14 +147,14 @@ func (c *Client) ListRunners(ctx context.Context, groupId int32, name string) ([
 	}
 
 	// Extract the response body
-	runners := new(ghaResponse[RunnerReference])
+	runners := new(ghaResponse[types.RunnerReference])
 	if err = json.NewDecoder(res.Body).Decode(runners); err != nil {
 		return nil, err
 	}
 	return runners.Value, nil
 }
 
-func (c *Client) AddRunner(ctx context.Context, groupId int32, runner *Runner) (*Runner, error) {
+func (c *Client) AddRunner(ctx context.Context, groupId int32, runner *types.Runner) (*types.Runner, error) {
 	// Construct request
 	buf := new(bytes.Buffer)
 	if err := json.NewEncoder(buf).Encode(runner); err != nil {
@@ -174,14 +176,14 @@ func (c *Client) AddRunner(ctx context.Context, groupId int32, runner *Runner) (
 	}
 
 	// Extract the response body
-	r := new(Runner)
+	r := new(types.Runner)
 	if err = json.NewDecoder(res.Body).Decode(r); err != nil {
 		return nil, err
 	}
 	return r, nil
 }
 
-func (c *Client) CreateSession(ctx context.Context, groupId int32, session *Session) (*Session, error) {
+func (c *Client) CreateSession(ctx context.Context, groupId int32, session *listener.Session) (*listener.Session, error) {
 	// Construct request
 	buf := new(bytes.Buffer)
 	if err := json.NewEncoder(buf).Encode(session); err != nil {
@@ -203,7 +205,7 @@ func (c *Client) CreateSession(ctx context.Context, groupId int32, session *Sess
 	}
 
 	// Extract the response body
-	s := new(Session)
+	s := new(listener.Session)
 	if err = json.NewDecoder(res.Body).Decode(s); err != nil {
 		return nil, err
 	}
@@ -227,7 +229,7 @@ func (c *Client) DeleteSession(ctx context.Context, groupId int32, sessionId str
 
 type GetMessageOptions struct {
 	SessionId     string
-	Status        RunnerStatus
+	Status        types.RunnerStatus
 	RunnerVersion string
 	OS            string
 	Architecture  string
