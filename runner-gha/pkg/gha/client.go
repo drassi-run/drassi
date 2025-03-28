@@ -18,6 +18,7 @@ import (
 	"strconv"
 
 	"drassi.run/core/util/http"
+	"drassi.run/gha-runner/pkg/message"
 	"golang.org/x/oauth2"
 )
 
@@ -256,7 +257,7 @@ func (o *GetMessageOptions) ToQueryMap() map[string]string {
 	return query
 }
 
-func (c *Client) GetMessage(ctx context.Context, groupId int32, opts GetMessageOptions) (*Message, error) {
+func (c *Client) GetMessage(ctx context.Context, groupId int32, opts GetMessageOptions) (*message.Message, error) {
 	// Construct request
 	query := opts.ToQueryMap()
 	endpoint := fmt.Sprintf(messagesEndpoint, groupId)
@@ -274,7 +275,7 @@ func (c *Client) GetMessage(ctx context.Context, groupId int32, opts GetMessageO
 	}
 
 	// Extract the response body
-	message := new(Message)
+	message := new(message.Message)
 	if err = json.NewDecoder(res.Body).Decode(message); err != nil {
 		return nil, err
 	}

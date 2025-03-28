@@ -140,7 +140,7 @@ func (c *launchCommand) run(ctx context.Context) error {
 	}
 }
 
-func (c *launchCommand) handleMessage(ctx context.Context, msg *gha.Message) error {
+func (c *launchCommand) handleMessage(ctx context.Context, msg *message.Message) error {
 	if msg == nil || msg.Type == "" {
 		return nil
 	}
