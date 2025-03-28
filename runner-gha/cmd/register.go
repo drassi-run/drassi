@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"drassi.run/core/util/http"
+	"drassi.run/gha-runner/pkg/dotnet"
 	"drassi.run/gha-runner/pkg/gha"
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
@@ -156,7 +157,7 @@ func runRegister(ctx context.Context, opts *registerOptions) error {
 			{Name: "X64", Type: gha.LabelTypeSystem},
 		},
 		Authorization: gha.Authorization{
-			PublicKey: gha.NewPublicKey(&key.PublicKey),
+			PublicKey: dotnet.NewPublicKey(&key.PublicKey),
 		},
 	}
 

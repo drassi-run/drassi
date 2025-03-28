@@ -14,11 +14,10 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/base64"
-	"fmt"
 	"hash"
-	"math"
-	"math/big"
 	"time"
+
+	"drassi.run/gha-runner/pkg/dotnet"
 )
 
 type GroupType string
@@ -102,46 +101,9 @@ const (
 )
 
 type Authorization struct {
-	AuthorizationUrl string     `json:"authorizationUrl,omitempty"`
-	ClientId         string     `json:"clientId,omitempty"`
-	PublicKey        *PublicKey `json:"publicKey,omitempty"`
-}
-
-type PublicKey struct {
-	Exponent []byte `json:"exponent,omitempty"`
-	Modulus  []byte `json:"modulus,omitempty"`
-}
-
-func NewPublicKey(pubkey *rsa.PublicKey) *PublicKey {
-	bigE := big.NewInt(int64(pubkey.E))
-	return &PublicKey{
-		Exponent: bigE.Bytes(),
-		Modulus:  pubkey.N.Bytes(),
-	}
-}
-
-func (pk *PublicKey) ToRsaPublicKey() (*rsa.PublicKey, error) {
-	mod := new(big.Int).SetBytes(pk.Modulus)
-	exp := new(big.Int).SetBytes(pk.Exponent)
-
-	var e int64
-	if !exp.IsInt64() {
-		return nil, fmt.Errorf("%s can be represented as an int64", exp)
-	} else {
-		e = exp.Int64()
-		if e > math.MaxInt {
-			return nil, fmt.Errorf("%d integer overflow", e)
-		}
-		if e <= 0 {
-			return nil, fmt.Errorf("%d must be positive number", e)
-		}
-	}
-
-	pubkey := rsa.PublicKey{
-		N: mod,
-		E: int(e),
-	}
-	return &pubkey, nil
+	AuthorizationUrl string            `json:"authorizationUrl,omitempty"`
+	ClientId         string            `json:"clientId,omitempty"`
+	PublicKey        *dotnet.PublicKey `json:"publicKey,omitempty"`
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTWebApi/WebApi/TaskAgentSession.cs
