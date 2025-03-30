@@ -2,7 +2,6 @@ package message
 
 import (
 	"bytes"
-	"crypto/aes"
 	"crypto/cipher"
 	"encoding/base64"
 )
@@ -24,8 +23,8 @@ type Message struct {
 	Body string `json:"body,omitempty"`
 }
 
-func (m *Message) DecryptBody(key []byte) ([]byte, error) {
-	if len(m.IV) == 0 || len(key) == 0 {
+func (m *Message) DecryptBody(key cipher.Block) ([]byte, error) {
+	if len(m.IV) == 0 || key == nil {
 		return []byte(m.Body), nil
 	}
 
@@ -35,11 +34,7 @@ func (m *Message) DecryptBody(key []byte) ([]byte, error) {
 	}
 	plainText := make([]byte, len(cipherText))
 
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
-	mode := cipher.NewCBCDecrypter(block, m.IV)
+	mode := cipher.NewCBCDecrypter(key, m.IV)
 	mode.CryptBlocks(plainText, cipherText)
 
 	plainText = unpad(plainText)

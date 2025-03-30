@@ -2,6 +2,8 @@ package listener
 
 import (
 	"crypto"
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/rand"
 	"crypto/rsa"
 	"hash"
@@ -31,10 +33,11 @@ type Session struct {
 	BrokerMigrationMessage *message.BrokerMigration `json:"brokerMigrationMessage,omitempty"`
 }
 
-func (s *Session) GetEncryptionKey(key *rsa.PrivateKey) ([]byte, error) {
+func (s *Session) GetKey(key *rsa.PrivateKey) (cipher.Block, error) {
 	if s.EncryptionKey == nil || len(s.EncryptionKey.Value) == 0 {
 		return nil, nil
 	}
+	eKey := s.EncryptionKey.Value
 	if s.EncryptionKey.Encrypted {
 		var hasher hash.Hash
 		if s.UseFipsEncryption {
@@ -43,9 +46,13 @@ func (s *Session) GetEncryptionKey(key *rsa.PrivateKey) ([]byte, error) {
 			hasher = crypto.SHA1.New()
 		}
 
-		return rsa.DecryptOAEP(hasher, rand.Reader, key, s.EncryptionKey.Value, nil)
+		if k, err := rsa.DecryptOAEP(hasher, rand.Reader, key, eKey, nil); err != nil || k == nil {
+			return nil, err
+		} else {
+			eKey = k
+		}
 	}
-	return s.EncryptionKey.Value, nil
+	return aes.NewCipher(eKey)
 }
 
 // SessionKey represents a symmetric key used for message-level encryption for communication sent to an agent.

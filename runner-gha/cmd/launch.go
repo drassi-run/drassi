@@ -8,6 +8,7 @@ package cmd
 
 import (
 	"context"
+	"crypto/cipher"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/json"
@@ -20,6 +21,7 @@ import (
 
 	"drassi.run/core/util/oauth2/clientcredentials"
 	"drassi.run/gha-runner/pkg/gha"
+	"drassi.run/gha-runner/pkg/listener"
 	"drassi.run/gha-runner/pkg/message"
 	"drassi.run/gha-runner/pkg/types"
 	"github.com/spf13/cobra"
@@ -36,7 +38,7 @@ type launchCommand struct {
 	client  *gha.Client
 	session *listener.Session
 	key     *rsa.PrivateKey
-	eKey    []byte
+	eKey    cipher.Block
 }
 
 func NewLaunchCommand() *cobra.Command {
@@ -100,7 +102,7 @@ func (c *launchCommand) initialize(ctx context.Context) (err error) {
 	if c.session, err = c.client.CreateSession(ctx, 1, session); err != nil {
 		return err
 	}
-	if c.eKey, err = c.session.GetEncryptionKey(c.key); err != nil {
+	if c.eKey, err = c.session.GetKey(c.key); err != nil {
 		return err
 	}
 	return nil
