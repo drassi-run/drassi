@@ -18,21 +18,27 @@ type GitHubRunner struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec GitHubRunnerSpec `json:"spec,omitempty"`
+	Spec   GitHubRunnerSpec   `json:"spec,omitempty"`
+	Status GitHubRunnerStatus `json:"status,omitempty"`
 }
 
 type GitHubRunnerSpec struct {
-	RunnerId        int    `json:"runnerId"`   // a.k.a agentId
-	RunnerName      string `json:"runnerName"` // a.k.a agentName
-	GroupId         int    `json:"groupId"`    // a.k.a poolId
-	GroupName       string `json:"groupName"`  // a.k.a poolName
-	RegistrationURL string `json:"registrationUrl"`
+	RunnerId        int32  `json:"runnerId"` // a.k.a agentId
+	GroupId         int32  `json:"groupId"`  // a.k.a poolId
+	ServerUrl       string `json:"serverUrl"`
+	RegistrationUrl string `json:"registrationUrl"`
 
-	Authorization GitHubRunnerAuthorization `json:"authorization"`
+	Authorization GitHubRunnerAuthorization `json:"authorization,omitempty"`
 }
 
 type GitHubRunnerAuthorization struct {
 	Url       string                      `json:"url"`
 	ClientId  string                      `json:"clientId"`
 	SecretRef corev1.LocalObjectReference `json:"secretRef"` // reference to the public key secret
+}
+
+type GitHubRunnerStatus struct {
+	RunnerName string   `json:"runnerName,omitempty"` // a.k.a agentName
+	GroupName  string   `json:"groupName,omitempty"`  // a.k.a poolName
+	Labels     []string `json:"labels,omitempty"`
 }

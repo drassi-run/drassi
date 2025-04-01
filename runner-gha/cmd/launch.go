@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"drassi.run/core/util/oauth2/clientcredentials"
+	"drassi.run/gha-runner/cmd/register"
 	"drassi.run/gha-runner/pkg/gha"
 	"drassi.run/gha-runner/pkg/listener"
 	"drassi.run/gha-runner/pkg/message"
@@ -64,7 +65,7 @@ func NewLaunchCommand() *cobra.Command {
 }
 
 func (c *launchCommand) initialize(ctx context.Context) (err error) {
-	authn := new(actionsAuth)
+	authn := new(register.actionsAuth)
 	if err = loadJson(".credentials", authn); err != nil {
 		return err
 	}

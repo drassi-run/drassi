@@ -7,6 +7,7 @@
 package cmd
 
 import (
+	"drassi.run/gha-runner/cmd/register"
 	"github.com/spf13/cobra"
 )
 
@@ -18,7 +19,7 @@ func NewGHARunnerCommand() *cobra.Command {
 	}
 
 	cmd.AddCommand(
-		NewRegisterCommand(),
+		register.New(),
 		NewLaunchCommand(),
 	)
 
