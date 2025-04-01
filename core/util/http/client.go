@@ -20,9 +20,10 @@ import (
 )
 
 type Client struct {
-	hc      *http.Client
-	baseUrl *url.URL
-	headers http.Header
+	hc           *http.Client
+	baseUrl      *url.URL
+	headers      http.Header
+	errorHandler func(int, http.Header, io.Reader) error
 }
 
 func NewClient(baseUrl string) (*Client, error) {
@@ -62,22 +63,27 @@ func (c *Client) WithDefaultHeader(k, v string) *Client {
 	return client
 }
 
+func (c *Client) WithDefaultErrorHandler(h func(int, http.Header, io.Reader) error) *Client {
+	client := c.clone()
+	client.errorHandler = h
+	return client
+}
+
 func (c *Client) clone() *Client {
-	return &Client{
-		hc:      c.hc,
-		baseUrl: c.baseUrl,
-		headers: maps.Clone(c.headers),
-	}
+	newClient := *c
+	newClient.headers = maps.Clone(c.headers)
+	return &newClient
 }
 
 func (c *Client) New(method, path string) *Execution {
 	u := c.baseUrl.JoinPath(path)
 	return &Execution{
-		hc:      c.hc,
-		method:  method,
-		url:     u,
-		queries: u.Query(),
-		headers: maps.Clone(c.headers),
+		hc:        c.hc,
+		method:    method,
+		url:       u,
+		queries:   u.Query(),
+		headers:   maps.Clone(c.headers),
+		onFailure: c.errorHandler,
 	}
 }
 
@@ -194,6 +200,8 @@ func (e *Execution) Do(ctx context.Context) (err error) {
 	if resp, err = e.hc.Do(req); err != nil {
 		return
 	}
+	defer resp.Body.Close()
+
 	for _, fn := range e.onReceive {
 		if err = fn(resp); err != nil {
 			return

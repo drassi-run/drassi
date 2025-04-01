@@ -18,48 +18,36 @@ import (
 
 // Header names for request IDs
 const (
-	HeaderActionsActivityID = "ActivityId"
-	HeaderGitHubRequestID   = "X-GitHub-Request-Id"
+	HeaderActivityID      = "ActivityId"
+	HeaderGitHubRequestID = "X-GitHub-Request-Id"
 )
 
-func ParseActionsErrorFromResponse(response *http.Response) error {
+func ParseActionsError(code int, header http.Header, body io.Reader) error {
 	actionsError := ActionsError{
-		ActivityID: response.Header.Get(HeaderActionsActivityID),
-		StatusCode: response.StatusCode,
+		ActivityID: header.Get(HeaderActivityID),
+		StatusCode: code,
 	}
 
-	if response.ContentLength == 0 {
-		actionsError.Err = errors.New("unknown exception")
-		return &actionsError
-	}
-
-	defer response.Body.Close()
-	body, err := io.ReadAll(response.Body)
+	data, err := io.ReadAll(body)
 	if err != nil {
 		actionsError.Err = err
 		return &actionsError
 	}
 
-	body = trimByteOrderMark(body)
-	contentType, ok := response.Header["Content-Type"]
+	data = bytes.TrimPrefix(data, Utf8BOM)
+	contentType, ok := header["Content-Type"]
 	if ok && len(contentType) > 0 && strings.Contains(contentType[0], "text/plain") {
-		actionsError.Err = errors.New(string(body))
+		actionsError.Err = errors.New(string(data))
 		return &actionsError
 	}
 
-	var exception ActionsExceptionError
-	if err := json.Unmarshal(body, &exception); err != nil {
-		actionsError.Err = err
+	var exception ActionsException
+	if err = json.Unmarshal(data, &exception); err != nil {
+		actionsError.Err = fmt.Errorf("error unmarshalling actions exception: %w", err)
 	} else {
 		actionsError.Err = &exception
 	}
 	return &actionsError
-}
-
-// Returns slice of body without utf-8 byte order mark.
-// If BOM does not exist body is returned unchanged.
-func trimByteOrderMark(body []byte) []byte {
-	return bytes.TrimPrefix(body, []byte("\xef\xbb\xbf"))
 }
 
 type ActionsError struct {
@@ -69,18 +57,18 @@ type ActionsError struct {
 }
 
 func (e *ActionsError) Error() string {
-	return fmt.Sprintf("actions error: StatusCode %d, AcivityId %q: %v", e.StatusCode, e.ActivityID, e.Err)
+	return fmt.Sprintf("ActionsError: StatusCode %d, AcivityId %q: %v", e.StatusCode, e.ActivityID, e.Err)
 }
 
 func (e *ActionsError) Unwrap() error {
 	return e.Err
 }
 
-type ActionsExceptionError struct {
+type ActionsException struct {
 	ExceptionName string `json:"typeName,omitempty"`
 	Message       string `json:"message,omitempty"`
 }
 
-func (e *ActionsExceptionError) Error() string {
+func (e *ActionsException) Error() string {
 	return fmt.Sprintf("%s: %s", e.ExceptionName, e.Message)
 }

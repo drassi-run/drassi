@@ -12,17 +12,22 @@ import (
 	"drassi.run/gha-runner/pkg/dotnet"
 )
 
+type Response[T any] struct {
+	Count int `json:"count"`
+	Value []T `json:"value"`
+}
+
 type GroupType string
 
 const GroupTypeAutomation GroupType = "Automation"
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTWebApi/WebApi/TaskAgentPoolReference.cs#L23
 type GroupReference struct {
-	ID         int32     `json:"id,omitempty"`
+	ID         int       `json:"id,omitempty"`
 	Name       string    `json:"name,omitempty"`
 	Scope      string    `json:"scope,omitempty"` // UUID
 	GroupType  GroupType `json:"poolType,omitempty"`
-	Size       int32     `json:"size,omitempty"`
+	Size       int       `json:"size,omitempty"`
 	IsHosted   bool      `json:"isHosted,omitempty"`
 	IsInternal bool      `json:"isInternal,omitempty"`
 	IsLegacy   *bool     `json:"isLegacy,omitempty"`
@@ -35,10 +40,11 @@ type Group struct {
 	CreatedOn     time.Time `json:"createdOn,omitempty"`
 	AutoProvision *bool     `json:"autoProvision,omitempty"`
 	AutoSize      *bool     `json:"autoSize,omitempty"`
-	TargetSize    *int32    `json:"targetSize,omitempty"`
-	AgentCloudId  *int32    `json:"agentCloudId,omitempty"`
+	TargetSize    *int      `json:"targetSize,omitempty"`
+	AgentCloudId  *int      `json:"agentCloudId,omitempty"`
 }
 
+// https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTWebApi/WebApi/TaskAgentStatus.cs
 type RunnerStatus string
 
 const (
@@ -49,9 +55,11 @@ const (
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTWebApi/WebApi/TaskAgentReference.cs#L17
 type RunnerReference struct {
-	Id                int32        `json:"id,omitempty"`
+	Id                int          `json:"id,omitempty"`
 	Name              string       `json:"name,omitempty"`
 	Version           string       `json:"version,omitempty"`
+	GroupId           int          `json:"runnerGroupId,omitempty"`
+	GroupName         string       `json:"runnerGroupName,omitempty"`
 	Enabled           bool         `json:"enabled,omitempty"`
 	Ephemeral         bool         `json:"ephemeral,omitempty"`
 	Status            RunnerStatus `json:"status,omitempty"`
@@ -65,7 +73,7 @@ type RunnerReference struct {
 type Runner struct {
 	RunnerReference `json:",inline"`
 
-	MaxParallelism  int32      `json:"maxParallelism,omitempty"`
+	MaxParallelism  int        `json:"maxParallelism,omitempty"`
 	CreatedOn       *time.Time `json:"createdOn,omitempty"`
 	StatusChangedOn *time.Time `json:"statusChangedOn,omitempty"`
 
@@ -97,3 +105,5 @@ type Authorization struct {
 	ClientId         string            `json:"clientId,omitempty"`
 	PublicKey        *dotnet.PublicKey `json:"publicKey,omitempty"`
 }
+
+var Utf8BOM = []byte{'\xef', '\xbb', '\xbf'}

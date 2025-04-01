@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"crypto/cipher"
 	"encoding/base64"
+
+	"drassi.run/gha-runner/pkg/types"
 )
 
 // Message provides a contract for receiving messages from the task orchestrator.
@@ -20,16 +22,19 @@ type Message struct {
 
 	// The body of the message. If the IV property is provided the body will need to be
 	// decrypted using the Session.EncryptionKey value in addition to the IV.
-	Body string `json:"body,omitempty"`
+	Body []byte `json:"body,omitempty"`
 }
+
+var enc = base64.StdEncoding
 
 func (m *Message) DecryptBody(key cipher.Block) ([]byte, error) {
 	if len(m.IV) == 0 || key == nil {
 		return []byte(m.Body), nil
 	}
 
-	cipherText, err := base64.StdEncoding.DecodeString(m.Body)
-	if err != nil {
+	// see [base64.Encoding.DecodeString()]
+	cipherText := make([]byte, enc.DecodedLen(len(m.Body)))
+	if _, err := enc.Decode(cipherText, m.Body); err != nil {
 		return nil, err
 	}
 	plainText := make([]byte, len(cipherText))
@@ -38,7 +43,7 @@ func (m *Message) DecryptBody(key cipher.Block) ([]byte, error) {
 	mode.CryptBlocks(plainText, cipherText)
 
 	plainText = unpad(plainText)
-	plainText = bytes.TrimPrefix(plainText, utf8BOM)
+	plainText = bytes.TrimPrefix(plainText, types.Utf8BOM)
 	return plainText, nil
 }
 
@@ -48,5 +53,3 @@ func unpad(data []byte) []byte {
 	unpadding := int(data[length-1])
 	return data[:(length - unpadding)]
 }
-
-var utf8BOM = []byte{'\xef', '\xbb', '\xbf'}
