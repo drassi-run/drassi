@@ -23,6 +23,7 @@ import (
 	"drassi.run/gha-runner/pkg/dotnet"
 	"drassi.run/gha-runner/pkg/types"
 	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/huh/spinner"
 	"github.com/spf13/cobra"
 	"golang.org/x/oauth2"
 	corev1 "k8s.io/api/core/v1"
@@ -183,12 +184,17 @@ func (r *register) authenticate(ctx context.Context) error {
 		"url":          r.Url,
 		"runner_event": "register",
 	}
-	e := client.Post("/actions/runner-registration").
+	hr := client.Post("/actions/runner-registration").
 		SetHeader("Authorization", "RemoteAuth "+r.Token).
 		WithBodyProvider(xhttp.JsonEncode(data)).
 		OnSuccess(xhttp.JsonDecode(&auth))
 
-	if err := e.Do(ctx); err != nil {
+	spin := spinner.New().
+		Context(ctx).
+		Title("Authenticate to GitHub API").
+		ActionWithErr(hr.Do)
+
+	if err := spin.Run(); err != nil {
 		return err
 	} else {
 		r.auth = &auth
@@ -211,10 +217,15 @@ func (r *register) authenticate(ctx context.Context) error {
 
 func (r *register) selectRunnerGroup(ctx context.Context) error {
 	groups := new(types.Response[types.Group])
-	e := r.client.Get(groupEndpoint).
+	hr := r.client.Get(groupEndpoint).
 		OnSuccess(xhttp.JsonDecode(groups))
 
-	if err := e.Do(ctx); err != nil {
+	spin := spinner.New().
+		Context(ctx).
+		Title("Loading runner groups").
+		ActionWithErr(hr.Do)
+
+	if err := spin.Run(); err != nil {
 		return err
 	}
 
@@ -254,11 +265,16 @@ func (r *register) selectRunnerGroup(ctx context.Context) error {
 func (r *register) checkRunnerExist(ctx context.Context, name string) error {
 	runners := new(types.Response[types.RunnerReference])
 
-	e := r.client.Get(fmt.Sprintf(runnerEndpoint, r.group.ID)).
+	hr := r.client.Get(fmt.Sprintf(runnerEndpoint, r.group.ID)).
 		SetQuery("agentName", name).
 		OnSuccess(xhttp.JsonDecode(runners))
 
-	if err := e.Do(ctx); err != nil {
+	spin := spinner.New().
+		Context(ctx).
+		Title("Validating runner name").
+		ActionWithErr(hr.Do)
+
+	if err := spin.Run(); err != nil {
 		return err
 	}
 	if runners.Count > 0 {
@@ -304,12 +320,17 @@ func (r *register) registerRunner(ctx context.Context) error {
 	}
 
 	runner := new(types.Runner)
-	e := r.client.Post(fmt.Sprintf(runnerEndpoint, r.group.ID)).
+	hr := r.client.Post(fmt.Sprintf(runnerEndpoint, r.group.ID)).
 		SetQuery("api-version", "6.0-preview").
 		WithBodyProvider(xhttp.JsonEncode(req)).
 		OnSuccess(xhttp.JsonDecode(runner))
 
-	if err := e.Do(ctx); err != nil {
+	spin := spinner.New().
+		Context(ctx).
+		Title("Registering new runner").
+		ActionWithErr(hr.Do)
+
+	if err := spin.Run(); err != nil {
 		return err
 	}
 	r.runner = runner
