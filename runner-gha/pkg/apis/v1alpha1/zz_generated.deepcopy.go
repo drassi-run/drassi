@@ -14,7 +14,7 @@ func (in *GitHubRunner) DeepCopyInto(out *GitHubRunner) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
-	out.Spec = in.Spec
+	in.Spec.DeepCopyInto(&out.Spec)
 	in.Status.DeepCopyInto(&out.Status)
 	return
 }
@@ -58,6 +58,7 @@ func (in *GitHubRunnerAuthorization) DeepCopy() *GitHubRunnerAuthorization {
 func (in *GitHubRunnerSpec) DeepCopyInto(out *GitHubRunnerSpec) {
 	*out = *in
 	out.Authorization = in.Authorization
+	in.SandboxerRef.DeepCopyInto(&out.SandboxerRef)
 	return
 }
 

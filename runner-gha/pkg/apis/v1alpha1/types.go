@@ -28,13 +28,14 @@ type GitHubRunnerSpec struct {
 	ServerUrl       string `json:"serverUrl"`
 	RegistrationUrl string `json:"registrationUrl"`
 
-	Authorization GitHubRunnerAuthorization `json:"authorization,omitempty"`
+	Authorization GitHubRunnerAuthorization        `json:"authorization,omitempty"`
+	SandboxerRef  corev1.TypedLocalObjectReference `json:"sandboxerRef,omitempty"`
 }
 
 type GitHubRunnerAuthorization struct {
 	Url       string                      `json:"url"`
 	ClientId  string                      `json:"clientId"`
-	SecretRef corev1.LocalObjectReference `json:"secretRef"` // reference to the public key secret
+	SecretRef corev1.LocalObjectReference `json:"secretRef"`
 }
 
 type GitHubRunnerStatus struct {

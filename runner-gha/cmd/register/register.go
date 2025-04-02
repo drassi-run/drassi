@@ -18,6 +18,7 @@ import (
 	"os"
 	"strings"
 
+	sandboxerv1a1 "drassi.run/core/pkg/sandboxer/apis/v1alpha1"
 	"drassi.run/core/util/http"
 	ghav1a1 "drassi.run/gha-runner/pkg/apis/v1alpha1"
 	"drassi.run/gha-runner/pkg/dotnet"
@@ -44,10 +45,12 @@ type actionsAuth struct {
 }
 
 type options struct {
-	Url   string
-	Token string
-	Group string
-	Name  string
+	Url           string
+	Token         string
+	Group         string
+	Name          string
+	SandboxerKind string
+	SandboxerName string
 }
 
 var UserAgent types.UserAgentInfo
@@ -81,6 +84,8 @@ func New() *cobra.Command {
 	flags.StringVar(&opts.Token, "token", "", "Actions registration Token")
 	flags.StringVar(&opts.Group, "group", "", "GitHub Actions RunnerReference Group")
 	flags.StringVar(&opts.Name, "name", "", "GitHub Actions RunnerReference Name")
+	flags.StringVar(&opts.SandboxerKind, "sandboxer-kind", "", "Sandboxer kind")
+	flags.StringVar(&opts.SandboxerName, "sandboxer-name", "", "Sandboxer name")
 
 	return cmd
 }
@@ -98,6 +103,11 @@ func (r *register) Run(ctx context.Context) error {
 
 	// Provide Runner name
 	if err := r.provideRunnerName(ctx); err != nil {
+		return err
+	}
+
+	// Select Sandboxer
+	if err := r.selectSandboxer(ctx); err != nil {
 		return err
 	}
 
@@ -302,6 +312,34 @@ func (r *register) provideRunnerName(ctx context.Context) error {
 	return r.checkRunnerExist(ctx, r.Name)
 }
 
+func (r *register) selectSandboxer(_ context.Context) error {
+	if r.SandboxerKind == "" {
+		inquiry := huh.NewInput().
+			Title("What is your sandboxer kind?").
+			Value(&r.SandboxerKind).
+			Validate(IsNotEmpty)
+
+		if err := inquiry.Run(); err != nil {
+			return err
+		} else {
+			fmt.Printf("SandboxerKind: %s\n", r.SandboxerKind)
+		}
+	}
+	if r.SandboxerName == "" {
+		inquiry := huh.NewInput().
+			Title("What is your sandboxer name?").
+			Value(&r.SandboxerName).
+			Validate(IsNotEmpty)
+
+		if err := inquiry.Run(); err != nil {
+			return err
+		} else {
+			fmt.Printf("SandboxerName: %s\n", r.SandboxerName)
+		}
+	}
+	return nil
+}
+
 func (r *register) registerRunner(ctx context.Context) error {
 	req := &types.Runner{
 		RunnerReference: types.RunnerReference{
@@ -348,6 +386,7 @@ func (r *register) saveRunner(_ context.Context) error {
 		labels[i] = l.Name
 	}
 
+	apiGroup := sandboxerv1a1.SchemeGroupVersion.String()
 	runner := &ghav1a1.GitHubRunner{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: ghav1a1.SchemeGroupVersion.String(),
@@ -368,6 +407,11 @@ func (r *register) saveRunner(_ context.Context) error {
 				SecretRef: corev1.LocalObjectReference{
 					Name: secret.Name,
 				},
+			},
+			SandboxerRef: corev1.TypedLocalObjectReference{
+				APIGroup: &apiGroup,
+				Kind:     r.SandboxerKind,
+				Name:     r.SandboxerName,
 			},
 		},
 		Status: ghav1a1.GitHubRunnerStatus{
