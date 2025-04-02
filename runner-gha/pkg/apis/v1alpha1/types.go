@@ -23,8 +23,8 @@ type GitHubRunner struct {
 }
 
 type GitHubRunnerSpec struct {
-	RunnerId        int32  `json:"runnerId"` // a.k.a agentId
-	GroupId         int32  `json:"groupId"`  // a.k.a poolId
+	RunnerId        int    `json:"runnerId"` // a.k.a agentId
+	GroupId         int    `json:"groupId"`  // a.k.a poolId
 	ServerUrl       string `json:"serverUrl"`
 	RegistrationUrl string `json:"registrationUrl"`
 
