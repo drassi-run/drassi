@@ -24,7 +24,6 @@ import (
 	"drassi.run/core/pkg/sandboxer/host"
 	"drassi.run/core/pkg/sandboxer/incus"
 	ghav1a1 "drassi.run/gha-runner/pkg/apis/v1alpha1"
-	giteav1a1 "drassi.run/gitea-runner/pkg/apis/v1alpha1"
 	"golang.org/x/oauth2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -70,7 +69,7 @@ func newScheme() (*runtime.Scheme, error) {
 }
 
 func loadRunnerManifest(ctx context.Context, store manifest.Store, name string) (*ghav1a1.GitHubRunner, error) {
-	gvk := giteav1a1.SchemeGroupVersion.WithKind("GitHubRunner")
+	gvk := ghav1a1.SchemeGroupVersion.WithKind("GitHubRunner")
 
 	if o, err := store.Load(ctx, gvk, name); err != nil {
 		return nil, err
