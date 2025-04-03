@@ -4,13 +4,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package message
+package messages
 
 import (
 	"time"
 )
 
 const (
+	TypeBrokerMigration         = "BrokerMigration"
 	TypeAgentRefresh            = "AgentRefresh"
 	TypeRunnerRefresh           = "RunnerRefresh"
 	TypeRunnerShutdown          = "RunnerShutdown"
@@ -26,6 +27,24 @@ type Duration struct {
 
 type Time struct {
 	time.Time
+}
+
+type Message struct {
+	Id   int64
+	Type string
+	Body []byte
+}
+
+// BrokerMigration is Message that tells the runner to redirect itself to BrokerListener for messages.
+// (Note that we use a special Message instead of a simple 302. This is because
+// the runner will need to apply the runner's token to the request, and it is
+// a security best practice to *not* blindly add sensitive data to redirects
+// 302s.)
+// https://github.com/actions/runner/blob/v2.323.0/src/Sdk/DTWebApi/WebApi/BrokerMigrationMessage.cs
+// https://github.com/actions/runner/pull/3103
+type BrokerMigration struct {
+	// The base url for the broker listener
+	BaseUrl string `actions:"brokerBaseUrl,omitempty"`
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTWebApi/WebApi/AgentRefreshMessage.cs

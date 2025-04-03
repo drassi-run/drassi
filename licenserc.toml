@@ -11,7 +11,10 @@ SPDX-FileCopyrightText: (c) {{props["inceptionYear"]}} {{props["copyrightOwner"]
 SPDX-License-Identifier: {{props["license"]}}
 """
 
-excludes = ["core/mock/**/*.go"]
+excludes = [
+  "core/mock/**/*.go",
+  "zz_generated.*.go"
+]
 
 [properties]
 license = "Apache-2.0"

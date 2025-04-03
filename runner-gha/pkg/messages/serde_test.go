@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package message
+package messages
 
 import (
 	"github.com/google/go-cmp/cmp"

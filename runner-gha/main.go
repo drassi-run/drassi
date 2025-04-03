@@ -36,7 +36,7 @@ func execute() error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	defer stop()
 
-	command := cmd.NewGHARunnerCommand()
+	command := cmd.New()
 	return command.ExecuteContext(ctx)
 }
 

@@ -7,19 +7,21 @@
 package cmd
 
 import (
+	"drassi.run/gha-runner/cmd/launch"
+	"drassi.run/gha-runner/cmd/register"
 	"github.com/spf13/cobra"
 )
 
-func NewGHARunnerCommand() *cobra.Command {
+func New() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "gha-runner",
-		Short: "GitHub Actions runner (re-)implemented in Go",
+		Short: "GitHub Actions runner rewrite in Go",
 		Args:  cobra.NoArgs,
 	}
 
 	cmd.AddCommand(
-		NewRegisterCommand(),
-		NewLaunchCommand(),
+		register.New(),
+		launch.New(),
 	)
 
 	return cmd
