@@ -25,6 +25,13 @@ type message struct {
 	Body string `json:"body,omitempty"`
 }
 
+func (m *message) IsEmpty() bool {
+	if m == nil {
+		return true
+	}
+	return m.Id == 0 && m.Type == ""
+}
+
 func (m *message) DecryptBody(key cipher.Block) ([]byte, error) {
 	if len(m.IV) == 0 || key == nil {
 		return []byte(m.Body), nil

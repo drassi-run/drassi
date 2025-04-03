@@ -3,6 +3,7 @@ package listener
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"path"
 	"strconv"
@@ -82,7 +83,7 @@ func (s *runnerService) GetMessage(ctx context.Context, session *Session, os, ar
 	}
 
 	m := new(message)
-	r.OnSuccess(xhttp.JsonDecode(m))
+	r.AfterResponseReceive(skipEmpty).OnSuccess(xhttp.JsonDecode(m))
 	err := r.Do(ctx)
 
 	if err != nil && m.Id > s.lastMessageId {
@@ -161,7 +162,7 @@ func (s *brokerService) GetMessage(ctx context.Context, session *Session, os, ar
 	}
 
 	m := new(message)
-	r.OnSuccess(xhttp.JsonDecode(m))
+	r.AfterResponseReceive(skipEmpty).OnSuccess(xhttp.JsonDecode(m))
 	err := r.Do(ctx)
 
 	return m, err
@@ -169,4 +170,8 @@ func (s *brokerService) GetMessage(ctx context.Context, session *Session, os, ar
 
 func (s *brokerService) DeleteMessage(context.Context, *Session, int64) error {
 	return nil // does nothing
+}
+
+func skipEmpty(resp *http.Response) (skip bool, err error) {
+	return resp.ContentLength == 0, nil
 }

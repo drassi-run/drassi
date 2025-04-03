@@ -150,6 +150,9 @@ func (l *migratableListener) GetMessage(ctx context.Context, os, arch string) (*
 		if err != nil {
 			return nil, err
 		}
+		if m.IsEmpty() {
+			return nil, nil
+		}
 
 		msg, err := l.DecryptMessage(m)
 		if err != nil {
@@ -238,6 +241,9 @@ func (l *brokerListener) GetMessage(ctx context.Context, os, arch string) (*mess
 	msg, err := l.svc.GetMessage(ctx, l.Session(), os, arch)
 	if err != nil {
 		return nil, err
+	}
+	if msg.IsEmpty() {
+		return nil, nil
 	}
 
 	if msg.Type == messages.TypeBrokerMigration {

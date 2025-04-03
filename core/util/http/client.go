@@ -102,10 +102,10 @@ type Execution struct {
 	headers      http.Header
 	bodyProvider func() (io.Reader, string, error)
 
-	onSend    []func(*http.Request) error
-	onReceive []func(*http.Response) error
-	onSuccess func(io.Reader) error
-	onFailure func(int, http.Header, io.Reader) error
+	onSend    []func(req *http.Request) (err error)
+	onReceive []func(resp *http.Response) (skip bool, err error)
+	onSuccess func(body io.Reader) error
+	onFailure func(code int, header http.Header, body io.Reader) error
 }
 
 func (e *Execution) SetQuery(k, v string) *Execution {
@@ -145,7 +145,7 @@ func (e *Execution) BeforeRequestSend(fn func(*http.Request) error) *Execution {
 	return e
 }
 
-func (e *Execution) AfterResponseReceive(fn func(*http.Response) error) *Execution {
+func (e *Execution) AfterResponseReceive(fn func(*http.Response) (bool, error)) *Execution {
 	e.onReceive = append(e.onReceive, fn)
 	return e
 }
@@ -191,8 +191,8 @@ func (e *Execution) Do(ctx context.Context) (err error) {
 	}
 
 	for _, fn := range e.onSend {
-		if err = fn(req); err != nil {
-			return
+		if err := fn(req); err != nil {
+			return err
 		}
 	}
 
@@ -203,8 +203,10 @@ func (e *Execution) Do(ctx context.Context) (err error) {
 	defer resp.Body.Close()
 
 	for _, fn := range e.onReceive {
-		if err = fn(resp); err != nil {
-			return
+		if skip, err := fn(resp); err != nil {
+			return err
+		} else if skip {
+			return nil
 		}
 	}
 
