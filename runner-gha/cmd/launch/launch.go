@@ -118,18 +118,18 @@ func (l *launcher) Init(ctx context.Context) (err error) {
 
 func (l *launcher) Run(ctx context.Context) error {
 	clog.InfoContextf(ctx, "gha-runner started")
-	hc := oauth2.NewClient(ctx, l.TokenSource)
 
-	spec := l.Runner.Spec
-	lis, err := listener.NewListener(spec.ServerUrl, hc)
+	lis, err := l.createListener(ctx)
 	if err != nil {
 		return err
 	}
 
-	if err = lis.CreateSession(ctx, spec.RunnerId, spec.GroupId, l.Key); err != nil {
+	spec := l.Runner.Spec
+	cancel, err := lis.Connect(ctx, spec.RunnerId, spec.GroupId)
+	if err != nil {
 		return err
 	}
-	defer lis.DeleteSession(ctx)
+	defer cancel()
 
 	// fetchInterval = 1s
 	limiter := rate.NewLimiter(rate.Every(time.Second), 1)
@@ -145,6 +145,12 @@ func (l *launcher) Run(ctx context.Context) error {
 			return err
 		}
 	}
+}
+
+func (l *launcher) createListener(ctx context.Context) (listener.Listener, error) {
+	spec := l.Runner.Spec
+	hc := oauth2.NewClient(ctx, l.TokenSource)
+	return listener.NewMigratableListener(spec.ServerUrl, hc, l.Key)
 }
 
 func (l *launcher) handleMessage(ctx context.Context, msg *message.Message) error {

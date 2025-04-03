@@ -26,6 +26,12 @@ type runnerService struct {
 	lastMessageId int64
 }
 
+const (
+	groupEndpoint    = "_apis/distributedtask/pools"
+	sessionEndpoint  = groupEndpoint + "/%d/sessions"
+	messagesEndpoint = groupEndpoint + "/%d/messages"
+)
+
 // https://github.com/actions/runner/blob/v2.323.0/src/Sdk/DTGenerated/Generated/TaskAgentHttpClientBase.cs#L744
 func (s *runnerService) Connect(ctx context.Context, ref *types.RunnerReference) (*Session, func() error, error) {
 	ss := &Session{Runner: ref}

@@ -4,33 +4,22 @@ import (
 	"context"
 	"crypto/cipher"
 	"crypto/rsa"
-	"fmt"
+	"errors"
 	"net/http"
-	"os"
-	"path"
-	"strconv"
 
 	"drassi.run/core/util/http"
+	"drassi.run/gha-runner/pkg/message"
 	"drassi.run/gha-runner/pkg/types"
 )
 
-const (
-	groupEndpoint    = "_apis/distributedtask/pools"
-	sessionEndpoint  = groupEndpoint + "/%d/sessions"
-	messagesEndpoint = groupEndpoint + "/%d/messages"
+const maxMigrations = 3
+
+var (
+	tooManyMigrationErr    = errors.New("too many migrations")
+	notSupportMigrationErr = errors.New("migration is not supported")
 )
 
-type Listener interface {
-	CreateSession(ctx context.Context, runnerId, groupId int, key *rsa.PrivateKey) error
-	DeleteSession(ctx context.Context) error
-
-	GetMessage(ctx context.Context, os, arch string) (*Message, error)
-	DeleteMessage(ctx context.Context, msg *Message) error
-
-	RefreshToken(ctx context.Context) error
-}
-
-func NewListener(url string, hc *http.Client) (Listener, error) {
+func newClient(url string, hc *http.Client) (*xhttp.Client, error) {
 	client, err := xhttp.NewClient(url)
 	if err != nil {
 		return nil, err
@@ -42,22 +31,88 @@ func NewListener(url string, hc *http.Client) (Listener, error) {
 	if hc != nil {
 		client = client.WithHttpClient(hc)
 	}
+	return client, nil
+}
 
-	l := listener{client: client}
+type Listener interface {
+	Connect(ctx context.Context, runnerId, groupId int) (func() error, error)
+
+	GetMessage(ctx context.Context, os, arch string) (*message.Message, error)
+	DeleteMessage(ctx context.Context, msg *message.Message) error
+
+	RefreshToken(ctx context.Context) error
+}
+
+type baseListener struct {
+	privKey *rsa.PrivateKey
+	encKey  cipher.Block
+
+	session *Session
+}
+
+func (l *baseListener) SetSession(ss *Session) error {
+	if block, err := ss.GetKey(l.privKey); err != nil {
+		return err
+	} else {
+		l.session, l.encKey = ss, block
+		return nil
+	}
+}
+
+func (l *baseListener) Session() *Session {
+	return l.session
+}
+
+func (l *baseListener) DecryptMessage(msg *message.Message) (*message.Message, error) {
+	if body, err := msg.DecryptBody(l.encKey); err != nil {
+		return nil, err
+	} else {
+		m := &message.Message{Id: msg.Id, Type: msg.Type, Body: body}
+		return m, nil
+	}
+}
+
+// NewMigratableListener create [Listener] that first interact with Runner server,
+// then migrate to Broker server if received a [messages.BrokerMigration] message
+//
+//   - https://github.com/actions/runner/blob/v2.323.0/src/Runner.Listener/MessageListener.cs#L40
+func NewMigratableListener(url string, hc *http.Client, key *rsa.PrivateKey) (Listener, error) {
+	client, err := newClient(url, hc)
+	if err != nil {
+		return nil, err
+	}
+
+	l := migratableListener{
+		baseListener: baseListener{
+			privKey: key,
+		},
+
+		rs: &runnerService{client: client},
+		bs: &brokerService{client: client},
+	}
+	l.cur = l.rs
 	return &l, nil
 }
 
-type listener struct {
-	client *xhttp.Client
+type migratableListener struct {
+	baseListener
 
-	session       *Session
-	eKey          cipher.Block
-	lastMessageId int64
+	rs  *runnerService
+	bs  *brokerService
+	cur service
 }
 
-func (l *listener) CreateSession(ctx context.Context, runnerId, groupId int, key *rsa.PrivateKey) error {
-	ss := &Session{
-		Runner: &types.RunnerReference{
+func (l *migratableListener) migrate(url string) error {
+	if err := l.bs.SetUrl(url); err != nil {
+		return err
+	}
+	l.cur = l.bs
+	return nil
+}
+
+func (l *migratableListener) Connect(ctx context.Context, runnerId, groupId int) (func() error, error) {
+	for try := 0; try < maxMigrations; try++ {
+		ref := &types.RunnerReference{
 			Id:                runnerId,
 			Version:           "3.0.0",
 			GroupId:           groupId,
@@ -66,87 +121,137 @@ func (l *listener) CreateSession(ctx context.Context, runnerId, groupId int, key
 			Status:            types.RunnerStatusOnline,
 			DisableUpdate:     true,
 			ProvisioningState: "Provisioned",
+		}
+
+		session, cancel, err := l.cur.Connect(ctx, ref)
+		if err != nil {
+			return nil, err
+		}
+
+		if mm := session.BrokerMigrationMessage; mm != nil {
+			if err = l.migrate(mm.BaseUrl); err != nil {
+				return nil, err
+			}
+			continue
+		}
+
+		if err = l.SetSession(session); err != nil {
+			return nil, err
+		}
+		return cancel, nil
+	}
+
+	return nil, tooManyMigrationErr
+}
+
+func (l *migratableListener) GetMessage(ctx context.Context, os string, arch string) (*message.Message, error) {
+	for try := 0; try < maxMigrations; try++ {
+		msg, err := l.cur.GetMessage(ctx, l.Session(), os, arch)
+		if err != nil {
+			return nil, err
+		}
+
+		msg, err = l.DecryptMessage(msg)
+		if err != nil {
+			return nil, err
+		}
+
+		if msg.Type != message.TypeBrokerMigration {
+			return msg, nil
+		}
+
+		if msg, err := message.Decode[message.BrokerMigration](msg.Body); err != nil {
+			return nil, err
+		} else if err = l.migrate(msg.BaseUrl); err != nil {
+			return nil, err
+		}
+	}
+	return nil, tooManyMigrationErr
+}
+
+func (l *migratableListener) DeleteMessage(ctx context.Context, msg *message.Message) error {
+	return l.cur.DeleteMessage(ctx, l.Session(), msg.Id)
+}
+
+func (l *migratableListener) RefreshToken(ctx context.Context) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+// NewBrokerListener create [Listener] that interact with Broker server for flow v2.
+// BrokerListener cannot handle migration, and will return an error when receiving a messages.BrokerMigration message.
+//
+//   - https://github.com/actions/runner/blob/v2.323.0/src/Runner.Listener/BrokerMessageListener.cs#L21
+func NewBrokerListener(url string, hc *http.Client, key *rsa.PrivateKey) (Listener, error) {
+	client, err := newClient(url, hc)
+	if err != nil {
+		return nil, err
+	}
+
+	l := &brokerListener{
+		baseListener: baseListener{
+			privKey: key,
+		},
+
+		svc: &brokerService{
+			client: client,
 		},
 	}
-	if hn, err := os.Hostname(); err != nil {
-		ss.OwnerName = "RUNNER"
-	} else {
-		ss.OwnerName = hn
-	}
-
-	r := l.client.Post(fmt.Sprintf(sessionEndpoint, groupId)).
-		SetQuery("api-version", "5.1-preview").
-		WithBodyProvider(xhttp.JsonEncode(ss)).
-		OnSuccess(xhttp.JsonDecode(ss))
-	if err := r.Do(ctx); err != nil {
-		return err
-	}
-
-	if block, err := ss.GetKey(key); err != nil {
-		return err
-	} else {
-		l.session, l.eKey = ss, block
-	}
-	return nil
+	return l, nil
 }
 
-func (l *listener) DeleteSession(ctx context.Context) error {
-	if l.session == nil {
-		return nil
-	}
+type brokerListener struct {
+	baseListener
 
-	endpoint := path.Join(fmt.Sprintf(sessionEndpoint, l.session.Runner.GroupId), l.session.Id)
-	return l.client.Delete(endpoint).
-		SetQuery("api-version", "5.1-preview").
-		Do(ctx)
+	svc *brokerService
 }
 
-func (l *listener) GetMessage(ctx context.Context, os string, arch string) (*Message, error) {
-	runner := l.session.Runner
-	r := l.client.Get(fmt.Sprintf(messagesEndpoint, runner.GroupId)).
-		SetQuery("api-version", "6.0-preview").
-		SetQuery("sessionId", l.session.Id).
-		SetQuery("disableUpdate", strconv.FormatBool(runner.DisableUpdate))
-	if os != "" {
-		r.SetQuery("os", os)
-	}
-	if arch != "" {
-		r.SetQuery("architecture", arch)
-	}
-	if status := runner.Status; status != "" {
-		r.SetQuery("status", string(status))
-	}
-	if version := runner.Version; version != "" {
-		r.SetQuery("runnerVersion", version)
+func (l *brokerListener) Connect(ctx context.Context, runnerId, groupId int) (func() error, error) {
+	ref := &types.RunnerReference{
+		Id:                runnerId,
+		Version:           "3.0.0",
+		GroupId:           groupId,
+		Enabled:           true,
+		Ephemeral:         false,
+		Status:            types.RunnerStatusOnline,
+		DisableUpdate:     true,
+		ProvisioningState: "Provisioned",
 	}
 
-	m := new(Message)
-	r.OnSuccess(xhttp.JsonDecode(m))
-	if err := r.Do(ctx); err != nil {
+	session, cancel, err := l.svc.Connect(ctx, ref)
+	if err != nil {
 		return nil, err
-	} else if m.Type == "" {
-		return nil, nil
 	}
 
-	if body, err := m.DecryptBody(l.eKey); err != nil {
+	if mm := session.BrokerMigrationMessage; mm != nil {
+		return nil, notSupportMigrationErr
+	}
+
+	if err = l.SetSession(session); err != nil {
 		return nil, err
-	} else {
-		msg := &Message{Id: m.Id, Type: m.Type, Body: body}
-		return msg, nil
 	}
+
+	return cancel, nil
 }
 
-func (l *listener) DeleteMessage(ctx context.Context, msg *Message) error {
-	runner := l.session.Runner
-	endpoint := path.Join(fmt.Sprintf(messagesEndpoint, runner.GroupId), strconv.FormatInt(msg.Id, 10))
+func (l *brokerListener) GetMessage(ctx context.Context, os, arch string) (*message.Message, error) {
+	msg, err := l.svc.GetMessage(ctx, l.Session(), os, arch)
+	if err != nil {
+		return nil, err
+	}
 
-	return l.client.Delete(endpoint).
-		SetQuery("api-version", "6.0-preview").
-		SetQuery("sessionId", l.session.Id).
-		Do(ctx)
+	if msg.Type == message.TypeBrokerMigration {
+		return nil, notSupportMigrationErr
+	}
+
+	return l.DecryptMessage(msg)
 }
 
-func (l *listener) RefreshToken(ctx context.Context) error {
+func (l *brokerListener) DeleteMessage(ctx context.Context, msg *message.Message) error {
+	return l.svc.DeleteMessage(ctx, l.Session(), msg.Id)
+}
+
+func (l *brokerListener) RefreshToken(ctx context.Context) error {
 	//TODO implement me
 	panic("implement me")
 }
