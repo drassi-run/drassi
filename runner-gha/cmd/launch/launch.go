@@ -17,7 +17,7 @@ import (
 	"drassi.run/core/util/oauth2/clientcredentials"
 	ghav1a1 "drassi.run/gha-runner/pkg/apis/v1alpha1"
 	"drassi.run/gha-runner/pkg/listener"
-	"drassi.run/gha-runner/pkg/message"
+	"drassi.run/gha-runner/pkg/messages"
 	"github.com/chainguard-dev/clog"
 	"github.com/spf13/cobra"
 	"golang.org/x/oauth2"
@@ -153,81 +153,81 @@ func (l *launcher) createListener(ctx context.Context) (listener.Listener, error
 	return listener.NewMigratableListener(spec.ServerUrl, hc, l.Key)
 }
 
-func (l *launcher) handleMessage(ctx context.Context, msg *message.Message) error {
+func (l *launcher) handleMessage(ctx context.Context, msg *messages.Message) error {
 	if msg == nil || msg.Type == "" {
 		return nil
 	}
 
 	switch msg.Type {
-	case message.TypeAgentRefresh:
-		if msg, err := message.Decode[message.AgentRefresh](msg.Body); err != nil {
+	case messages.TypeAgentRefresh:
+		if msg, err := messages.Decode[messages.AgentRefresh](msg.Body); err != nil {
 			return err
 		} else {
 			return l.refreshAgent(ctx, msg)
 		}
-	case message.TypeRunnerRefresh:
-		if msg, err := message.Decode[message.RunnerRefresh](msg.Body); err != nil {
+	case messages.TypeRunnerRefresh:
+		if msg, err := messages.Decode[messages.RunnerRefresh](msg.Body); err != nil {
 			return err
 		} else {
 			return l.refreshRunner(ctx, msg)
 		}
-	case message.TypeRunnerShutdown:
-		if msg, err := message.Decode[message.RunnerShutdown](msg.Body); err != nil {
+	case messages.TypeRunnerShutdown:
+		if msg, err := messages.Decode[messages.RunnerShutdown](msg.Body); err != nil {
 			return err
 		} else {
 			return l.shutdownRunner(ctx, msg)
 		}
-	case message.TypeJobCancelMessage:
-		if msg, err := message.Decode[message.JobCancel](msg.Body); err != nil {
+	case messages.TypeJobCancelMessage:
+		if msg, err := messages.Decode[messages.JobCancel](msg.Body); err != nil {
 			return err
 		} else {
 			return l.cancelJob(ctx, msg)
 		}
-	case message.TypeRunnerJobRequest:
-		if msg, err := message.Decode[message.RunnerJobRequest](msg.Body); err != nil {
+	case messages.TypeRunnerJobRequest:
+		if msg, err := messages.Decode[messages.RunnerJobRequest](msg.Body); err != nil {
 			return err
 		} else {
 			return l.requestRunnerJob(ctx, msg)
 		}
-	case message.TypePipelineAgentJobRequest:
-		if msg, err := message.Decode[message.PipelineAgentJobRequest](msg.Body); err != nil {
+	case messages.TypePipelineAgentJobRequest:
+		if msg, err := messages.Decode[messages.PipelineAgentJobRequest](msg.Body); err != nil {
 			return err
 		} else {
 			return l.requestPipelineAgentJob(ctx, msg)
 		}
-	case message.TypeForceTokenRefresh:
+	case messages.TypeForceTokenRefresh:
 		return l.forceRefreshToken(ctx)
 	default:
 		return fmt.Errorf("unsupported message type: %s", msg.Type)
 	}
 }
 
-func (l *launcher) refreshAgent(ctx context.Context, msg *message.AgentRefresh) error {
+func (l *launcher) refreshAgent(ctx context.Context, msg *messages.AgentRefresh) error {
 	log.Printf("%#v", msg)
 	return nil
 }
 
-func (l *launcher) refreshRunner(ctx context.Context, msg *message.RunnerRefresh) error {
+func (l *launcher) refreshRunner(ctx context.Context, msg *messages.RunnerRefresh) error {
 	log.Printf("%#v", msg)
 	return nil
 }
 
-func (l *launcher) shutdownRunner(ctx context.Context, msg *message.RunnerShutdown) error {
+func (l *launcher) shutdownRunner(ctx context.Context, msg *messages.RunnerShutdown) error {
 	log.Printf("%#v", msg)
 	return nil
 }
 
-func (l *launcher) cancelJob(ctx context.Context, msg *message.JobCancel) error {
+func (l *launcher) cancelJob(ctx context.Context, msg *messages.JobCancel) error {
 	log.Printf("%#v", msg)
 	return nil
 }
 
-func (l *launcher) requestRunnerJob(ctx context.Context, msg *message.RunnerJobRequest) error {
+func (l *launcher) requestRunnerJob(ctx context.Context, msg *messages.RunnerJobRequest) error {
 	log.Printf("%#v", msg)
 	return nil
 }
 
-func (l *launcher) requestPipelineAgentJob(ctx context.Context, msg *message.PipelineAgentJobRequest) error {
+func (l *launcher) requestPipelineAgentJob(ctx context.Context, msg *messages.PipelineAgentJobRequest) error {
 	log.Printf("%#v", msg)
 	return nil
 }

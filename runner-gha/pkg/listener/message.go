@@ -1,4 +1,4 @@
-package message
+package listener
 
 import (
 	"bytes"
@@ -8,9 +8,9 @@ import (
 	"drassi.run/gha-runner/pkg/types"
 )
 
-// Message provides a contract for receiving messages from the task orchestrator.
+// message provides a contract for receiving messages from the task orchestrator.
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTWebApi/WebApi/TaskAgentMessage.cs
-type Message struct {
+type message struct {
 	// The message identifier
 	Id int64 `json:"messageId,omitempty"`
 
@@ -22,19 +22,16 @@ type Message struct {
 
 	// The body of the message. If the IV property is provided the body will need to be
 	// decrypted using the Session.EncryptionKey value in addition to the IV.
-	Body []byte `json:"body,omitempty"`
+	Body string `json:"body,omitempty"`
 }
 
-var enc = base64.StdEncoding
-
-func (m *Message) DecryptBody(key cipher.Block) ([]byte, error) {
+func (m *message) DecryptBody(key cipher.Block) ([]byte, error) {
 	if len(m.IV) == 0 || key == nil {
 		return []byte(m.Body), nil
 	}
 
-	// see [base64.Encoding.DecodeString()]
-	cipherText := make([]byte, enc.DecodedLen(len(m.Body)))
-	if _, err := enc.Decode(cipherText, m.Body); err != nil {
+	cipherText, err := base64.StdEncoding.DecodeString(m.Body)
+	if err != nil {
 		return nil, err
 	}
 	plainText := make([]byte, len(cipherText))

@@ -8,7 +8,7 @@ import (
 	"crypto/rsa"
 	"hash"
 
-	"drassi.run/gha-runner/pkg/message"
+	"drassi.run/gha-runner/pkg/messages"
 	"drassi.run/gha-runner/pkg/types"
 )
 
@@ -30,7 +30,7 @@ type Session struct {
 	// whether to use FIPS compliant encryption scheme for job message key
 	UseFipsEncryption bool `json:"useFipsEncryption,omitempty"`
 
-	BrokerMigrationMessage *message.BrokerMigration `json:"brokerMigrationMessage,omitempty"`
+	BrokerMigrationMessage *messages.BrokerMigration `json:"brokerMigrationMessage,omitempty"`
 }
 
 func (s *Session) GetKey(key *rsa.PrivateKey) (cipher.Block, error) {

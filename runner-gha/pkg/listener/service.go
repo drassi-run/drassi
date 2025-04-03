@@ -8,13 +8,12 @@ import (
 	"strconv"
 
 	"drassi.run/core/util/http"
-	"drassi.run/gha-runner/pkg/message"
 	"drassi.run/gha-runner/pkg/types"
 )
 
 type service interface {
 	Connect(ctx context.Context, ref *types.RunnerReference) (*Session, func() error, error)
-	GetMessage(ctx context.Context, session *Session, os, arch string) (*message.Message, error)
+	GetMessage(ctx context.Context, session *Session, os, arch string) (*message, error)
 	DeleteMessage(ctx context.Context, session *Session, messageId int64) error
 }
 
@@ -60,7 +59,7 @@ func (s *runnerService) Connect(ctx context.Context, ref *types.RunnerReference)
 }
 
 // https://github.com/actions/runner/blob/v2.323.0/src/Sdk/DTGenerated/Generated/TaskAgentHttpClientBase.cs#L458
-func (s *runnerService) GetMessage(ctx context.Context, session *Session, os, arch string) (*message.Message, error) {
+func (s *runnerService) GetMessage(ctx context.Context, session *Session, os, arch string) (*message, error) {
 	runner := session.Runner
 	r := s.client.Get(fmt.Sprintf(messagesEndpoint, runner.GroupId)).
 		SetQuery("api-version", "6.0-preview").
@@ -82,7 +81,7 @@ func (s *runnerService) GetMessage(ctx context.Context, session *Session, os, ar
 		r.SetQuery("lastMessageId", strconv.FormatInt(s.lastMessageId, 10))
 	}
 
-	m := new(message.Message)
+	m := new(message)
 	r.OnSuccess(xhttp.JsonDecode(m))
 	err := r.Do(ctx)
 
@@ -143,7 +142,7 @@ func (s *brokerService) Connect(ctx context.Context, ref *types.RunnerReference)
 }
 
 // https://github.com/actions/runner/blob/v2.323.0/src/Sdk/WebApi/WebApi/BrokerHttpClient.cs#L59
-func (s *brokerService) GetMessage(ctx context.Context, session *Session, os, arch string) (*message.Message, error) {
+func (s *brokerService) GetMessage(ctx context.Context, session *Session, os, arch string) (*message, error) {
 	runner := session.Runner
 	r := s.client.Get("message").
 		SetQuery("sessionId", session.Id).
@@ -161,7 +160,7 @@ func (s *brokerService) GetMessage(ctx context.Context, session *Session, os, ar
 		r.SetQuery("runnerVersion", version)
 	}
 
-	m := new(message.Message)
+	m := new(message)
 	r.OnSuccess(xhttp.JsonDecode(m))
 	err := r.Do(ctx)
 
