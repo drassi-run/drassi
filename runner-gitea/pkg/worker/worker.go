@@ -34,8 +34,8 @@ import (
 	"drassi.run/core/pkg/wire/etc"
 	"drassi.run/core/pkg/wire/runtime"
 	"drassi.run/core/pkg/wire/streams"
+	"drassi.run/core/util/context"
 	"drassi.run/core/util/dig"
-	"drassi.run/core/util/types"
 	"drassi.run/gitea-runner/pkg/service"
 	"go.uber.org/dig"
 )
@@ -135,7 +135,7 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 	if err := xdig.Supply(scope, sup); err != nil {
 		return err
 	}
-	if err := xdig.Supply[xtypes.ContextProvider](scope, sup); err != nil {
+	if err := xdig.Supply[xcontext.Provider](scope, sup); err != nil {
 		return err
 	}
 	if err := wire_cmdhandler.ProvideTo(scope); err != nil {

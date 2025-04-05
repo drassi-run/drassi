@@ -22,3 +22,19 @@ func ExpandTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
 	ctx = context.WithoutCancel(ctx)
 	return context.WithTimeout(ctx, elapse)
 }
+
+type Provider interface {
+	Context() context.Context
+}
+
+func NewStaticProvider(ctx context.Context) Provider {
+	return &staticProvider{ctx: ctx}
+}
+
+type staticProvider struct {
+	ctx context.Context
+}
+
+func (p *staticProvider) Context() context.Context {
+	return p.ctx
+}

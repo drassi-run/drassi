@@ -8,7 +8,7 @@ package stream
 
 import (
 	"context"
-	xtypes "drassi.run/core/util/types"
+	"drassi.run/core/util/context"
 	"github.com/stretchr/testify/assert"
 	"io"
 	"testing"
@@ -21,7 +21,7 @@ func TestLineWriter(t *testing.T) {
 		return nil
 	})
 
-	p := xtypes.NewStaticContext(t.Context())
+	p := xcontext.NewStaticProvider(t.Context())
 	lw := NewLineWriter(p, lineHandler)
 
 	write := func(s string) {

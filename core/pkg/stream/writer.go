@@ -11,18 +11,18 @@ import (
 	"errors"
 	"io"
 
-	"drassi.run/core/util/types"
+	"drassi.run/core/util/context"
 )
 
 type lineWriter struct {
 	closed     bool
 	buffer     bytes.Buffer
 	handler    Handler
-	contextual xtypes.ContextProvider
+	contextual xcontext.Provider
 }
 
 // NewLineWriter return an [io.Writer] that split input into lines and forward to the [Handler]
-func NewLineWriter(c xtypes.ContextProvider, h Handler) io.Writer {
+func NewLineWriter(c xcontext.Provider, h Handler) io.Writer {
 	return &lineWriter{
 		handler:    h,
 		contextual: c,

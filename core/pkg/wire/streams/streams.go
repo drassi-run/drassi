@@ -13,7 +13,7 @@ import (
 	"drassi.run/core/pkg/executor/reporter"
 	"drassi.run/core/pkg/scribe"
 	"drassi.run/core/pkg/stream"
-	"drassi.run/core/util/types"
+	"drassi.run/core/util/context"
 	"go.uber.org/dig"
 )
 
@@ -48,7 +48,7 @@ func streamHandler(rep reporter.Reporter) stream.Handler {
 type streamParams struct {
 	dig.In
 	Handler         stream.Handler
-	ContextProvider xtypes.ContextProvider
+	ContextProvider xcontext.Provider
 	ProcessCommand  Middleware `name:"processCommand"`
 	ScanProblem     Middleware `name:"scanProblem"`
 	MaskSecret      Middleware `name:"maskSecret"`
