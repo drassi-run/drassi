@@ -8,6 +8,7 @@ package stream
 
 import (
 	"context"
+	"errors"
 	"io"
 )
 
@@ -32,4 +33,19 @@ func WriteTo(w io.Writer) Handler {
 		}
 		return nil
 	})
+}
+
+// Fanout create new Handler that distribute output to all its handlers
+func Fanout(handlers ...Handler) Handler {
+	return fanoutHandler(handlers)
+}
+
+type fanoutHandler []Handler
+
+func (f fanoutHandler) Handle(ctx context.Context, s string) error {
+	errs := make([]error, len(f))
+	for i, h := range f {
+		errs[i] = h.Handle(ctx, s)
+	}
+	return errors.Join(errs...)
 }
