@@ -203,12 +203,12 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 }
 
 func (w *Worker) initContext(scope *dig.Scope) error {
-	var output scribe.Output
-	if err := xdig.Populate(scope, &output); err != nil {
+	var diary scribe.Diary
+	if err := xdig.Populate(scope, &diary); err != nil {
 		return err
 	}
 
-	w.ctx = scribe.ContextWithScribe(w.ctx, output)
+	w.ctx = scribe.ContextWithScribe(w.ctx, diary)
 	return nil
 }
 

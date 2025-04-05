@@ -11,23 +11,23 @@ import (
 	"drassi.run/core/pkg/scribe"
 )
 
-type scribeOutput struct {
+type scribeDiary struct {
 	debug   bool
 	handler Handler
 }
 
-func NewScribeOutput(h Handler) scribe.Output {
-	return &scribeOutput{handler: h}
+func NewScribeDiary(h Handler) scribe.Diary {
+	return &scribeDiary{handler: h}
 }
 
-func (h *scribeOutput) SetDebug(b bool) {
-	h.debug = b
+func (d *scribeDiary) SetDebug(b bool) {
+	d.debug = b
 }
 
-func (h *scribeOutput) EnableDebug() bool {
-	return h.debug
+func (d *scribeDiary) EnableDebug() bool {
+	return d.debug
 }
 
-func (h *scribeOutput) Inscribe(ctx context.Context, message string) error {
-	return h.handler.Handle(ctx, message)
+func (d *scribeDiary) Write(ctx context.Context, message string) error {
+	return d.handler.Handle(ctx, message)
 }

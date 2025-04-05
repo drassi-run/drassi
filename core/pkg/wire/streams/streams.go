@@ -34,7 +34,7 @@ func ProvideTo(scope *dig.Scope) error {
 	if err := scope.Provide(newStream, dig.Export(true)); err != nil {
 		return err
 	}
-	if err := scope.Provide(newScribeOutput, dig.Export(true)); err != nil {
+	if err := scope.Provide(newScribeDiary, dig.Export(true)); err != nil {
 		return err
 	}
 
@@ -74,10 +74,10 @@ type scribeParams struct {
 	MaskSecret Middleware `name:"maskSecret"`
 }
 
-func newScribeOutput(p scribeParams) scribe.Output {
+func newScribeDiary(p scribeParams) scribe.Diary {
 	handler := p.Handler
 	handler = p.MaskSecret(handler)
-	return stream.NewScribeOutput(handler)
+	return stream.NewScribeDiary(handler)
 }
 
 func Wire(scope *dig.Scope) error {

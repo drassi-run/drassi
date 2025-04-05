@@ -340,8 +340,8 @@ func (e *jobExecutor) initializeScope(scope *dig.Scope) error {
 	}
 
 	if e.runner.Debug == "1" {
-		if err := scope.Invoke(func(output scribe.Output) {
-			output.SetDebug(true)
+		if err := scope.Invoke(func(diary scribe.Diary) {
+			diary.SetDebug(true)
 		}); err != nil {
 			return err
 		}

@@ -11,22 +11,22 @@ import (
 	"strings"
 )
 
-type handlerKey struct{}
+type diaryKey struct{}
 
-func handlerFromContext(ctx context.Context) Output {
-	if h, ok := ctx.Value(handlerKey{}).(Output); ok {
-		return h
+func diaryFromContext(ctx context.Context) Diary {
+	if d, ok := ctx.Value(diaryKey{}).(Diary); ok {
+		return d
 	}
 	return discard{}
 }
 
 func FromContext(ctx context.Context) *Scribe {
-	handler := handlerFromContext(ctx)
-	return New(ctx, handler)
+	diary := diaryFromContext(ctx)
+	return New(ctx, diary)
 }
 
-func ContextWithScribe(ctx context.Context, s Output) context.Context {
-	return context.WithValue(ctx, handlerKey{}, s)
+func ContextWithScribe(ctx context.Context, s Diary) context.Context {
+	return context.WithValue(ctx, diaryKey{}, s)
 }
 
 func GroupDetails(ctx context.Context, groupName string, details ...func(*Scribe)) {
