@@ -4,16 +4,51 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
+	"path"
 	"time"
 
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/util/http"
+	"drassi.run/gha-runner/pkg/messages"
+	"drassi.run/gha-runner/pkg/types"
 )
 
 var (
 	receiverEndpoint = "twirp/results.services.receiver.Receiver/"
 	workflowEndpoint = "twirp/github.actions.results.api.v1.WorkflowStepUpdateService/"
 )
+
+func newClient(url string, hc *http.Client) (*xhttp.Client, error) {
+	client, err := xhttp.NewClient(url)
+	if err != nil {
+		return nil, err
+	}
+
+	client = client.WithDefaultErrorHandler(types.ParseActionsError).
+		WithDefaultHeader("User-Agent", "gha-runner") // TODO
+
+	if hc != nil {
+		client = client.WithHttpClient(hc)
+	}
+	return client, nil
+}
+
+func NewResultService(url string, hc *http.Client, msg *messages.PipelineAgentJobRequest) (*resultService, error) {
+	url = path.Join(url, receiverEndpoint)
+	client, err := newClient(url, hc)
+	if err != nil {
+		return nil, err
+	}
+
+	svc := &resultService{
+		client:  client,
+		planUid: msg.Plan.PlanId,
+		jobUid:  msg.JobId,
+		//uploader // TODO
+	}
+	return svc, nil
+}
 
 // https://github.com/actions/runner/blob/v2.323.0/src/Runner.Common/ResultsServer.cs#L20
 type resultService struct {
