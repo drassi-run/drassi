@@ -234,44 +234,6 @@ func (c *MockReporterEndStepCall) DoAndReturn(f func(context.Context, executor.S
 	return c
 }
 
-// Log mocks base method.
-func (m *MockReporter) Log(ctx context.Context, msg string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Log", ctx, msg)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Log indicates an expected call of Log.
-func (mr *MockReporterMockRecorder) Log(ctx, msg any) *MockReporterLogCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Log", reflect.TypeOf((*MockReporter)(nil).Log), ctx, msg)
-	return &MockReporterLogCall{Call: call}
-}
-
-// MockReporterLogCall wrap *gomock.Call
-type MockReporterLogCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockReporterLogCall) Return(arg0 error) *MockReporterLogCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockReporterLogCall) Do(f func(context.Context, string) error) *MockReporterLogCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockReporterLogCall) DoAndReturn(f func(context.Context, string) error) *MockReporterLogCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // StartJob mocks base method.
 func (m *MockReporter) StartJob(ctx context.Context, je executor.JobExecutor) error {
 	m.ctrl.T.Helper()
