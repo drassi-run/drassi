@@ -41,21 +41,19 @@ import (
 )
 
 type Worker struct {
-	ctx  context.Context
 	task *runnerv1.Task
 
+	ctx      context.Context
+	cancel   context.CancelCauseFunc
 	exec     executor.JobExecutor
 	cleaners []func(ctx context.Context) error
 }
 
-func New(ctx context.Context, task *runnerv1.Task) *Worker {
-	return &Worker{
-		ctx:  ctx,
-		task: task,
-	}
+func New(task *runnerv1.Task) *Worker {
+	return &Worker{task: task}
 }
 
-func (w *Worker) Setup(scope *dig.Scope) error {
+func (w *Worker) setup(scope *dig.Scope) error {
 	if err := w.initScope(scope); err != nil {
 		return err
 	}
@@ -157,7 +155,9 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 		return err
 	}
 
-	log := service.NewLogStreamer(w.task.Id, xcontext.NewStaticProvider(w.ctx), client)
+	cp := xcontext.NewStaticProvider(w.ctx)
+
+	log := service.NewLogStreamer(w.task.Id, cp, client)
 	if err := xdig.Supply[stream.Handler](scope, log); err != nil {
 		return err
 	}
@@ -166,8 +166,11 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 	}
 	w.addCleaner(log.Close)
 
-	rep := service.NewReporter(w.task.Id, client, log)
+	rep := service.NewReporter(w.task.Id, client, cp, log, w.Cancel)
 	if err := xdig.Supply[reporter.Reporter](scope, rep); err != nil {
+		return err
+	}
+	if err := rep.Start(); err != nil {
 		return err
 	}
 	w.addCleaner(rep.Close)
@@ -239,7 +242,20 @@ func (w *Worker) initExecutor(scope *dig.Scope) error {
 	return w.exec.Initialize(w.ctx, scope)
 }
 
-func (w *Worker) Run() error {
+func (w *Worker) Run(ctx context.Context, scope *dig.Scope) (err error) {
+	w.ctx, w.cancel = context.WithCancelCause(ctx)
+	defer w.cancel(nil)
+
+	// setup & teardown worker
+	defer func() {
+		ex := w.teardown()
+		err = errors.Join(err, ex)
+	}()
+	if err = w.setup(scope); err != nil {
+		return err
+	}
+
+	// run main execution
 	r := w.exec.RunJob(w.ctx)
 	if r.Result != records.ResultSuccess {
 		return fmt.Errorf("job failed")
@@ -247,7 +263,7 @@ func (w *Worker) Run() error {
 	return nil
 }
 
-func (w *Worker) Teardown() error {
+func (w *Worker) teardown() error {
 	errs := make([]error, 0)
 	for _, cleaner := range slices.Backward(w.cleaners) {
 		errs = append(errs, cleaner(w.ctx))
@@ -263,6 +279,12 @@ func (w *Worker) addCleaner(c func() error) {
 
 func (w *Worker) addCleanerContext(c func(ctx context.Context) error) {
 	w.cleaners = append(w.cleaners, c)
+}
+
+func (w *Worker) Cancel(cause error) {
+	if w.cancel != nil {
+		w.cancel(cause)
+	}
 }
 
 func newContainerRuntime(ctx context.Context, gh *records.Github) func(

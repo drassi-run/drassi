@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"time"
 
 	runnerv1 "code.gitea.io/actions-proto-go/runner/v1"
 	"code.gitea.io/actions-proto-go/runner/v1/runnerv1connect"
@@ -17,9 +18,10 @@ import (
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/executor/reporter"
 	"drassi.run/core/pkg/model/records"
-	"drassi.run/core/pkg/scribe"
+	"drassi.run/core/util/context"
+	"drassi.run/core/util/reactive"
+	"github.com/chainguard-dev/clog"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"k8s.io/utils/set"
 )
 
 var resultMap = map[records.Result]runnerv1.Result{
@@ -31,30 +33,45 @@ var resultMap = map[records.Result]runnerv1.Result{
 }
 
 type GiteaReporter struct {
-	taskId int64
-	client runnerv1connect.RunnerServiceClient
-	log    *LogStreamer
+	taskId      int64
+	client      runnerv1connect.RunnerServiceClient
+	contextual  xcontext.Provider
+	logStreamer *LogStreamer
+
+	timer  *time.Timer
+	stopCh chan struct{}
+	cancel context.CancelCauseFunc
+	ws     *reactive.WaitState[reactive.State]
 
 	jobUid     string
 	jobState   *runnerv1.TaskState
+	jobOutputs map[string]string
 	stepStates map[string]*runnerv1.StepState
 }
+
+var ErrServerCancel = fmt.Errorf("task cancelled by Gitea server")
 
 func NewReporter(
 	taskId int64,
 	client runnerv1connect.RunnerServiceClient,
+	contextual xcontext.Provider,
 	logStreamer *LogStreamer,
+	cancel context.CancelCauseFunc,
 ) *GiteaReporter {
 	r := &GiteaReporter{
-		taskId: taskId,
-		client: client,
-		log:    logStreamer,
+		taskId:      taskId,
+		client:      client,
+		contextual:  contextual,
+		logStreamer: logStreamer,
+		stopCh:      make(chan struct{}),
+		cancel:      cancel,
+		ws:          reactive.NewWaitState(reactive.StateCreated),
 	}
 
 	return r
 }
 
-func (r *GiteaReporter) StartJob(ctx context.Context, je executor.JobExecutor) error {
+func (r *GiteaReporter) StartJob(_ context.Context, je executor.JobExecutor) error {
 	if r.jobUid != "" {
 		if r.jobUid == executor.JobUid(je) {
 			return fmt.Errorf("job already running")
@@ -71,6 +88,7 @@ func (r *GiteaReporter) StartJob(ctx context.Context, je executor.JobExecutor) e
 		StartedAt: timestamppb.Now(),
 		Steps:     make([]*runnerv1.StepState, len(jobRun.Steps)),
 	}
+	r.jobOutputs = make(map[string]string)
 
 	r.stepStates = make(map[string]*runnerv1.StepState, len(jobRun.Steps))
 	for i, step := range jobRun.Steps {
@@ -79,10 +97,11 @@ func (r *GiteaReporter) StartJob(ctx context.Context, je executor.JobExecutor) e
 		r.stepStates[step.StepId()] = s
 	}
 
-	return r.updateTask(ctx, nil)
+	r.timer.Reset(0)
+	return nil
 }
 
-func (r *GiteaReporter) EndJob(ctx context.Context, je executor.JobExecutor, result *records.Job) error {
+func (r *GiteaReporter) EndJob(_ context.Context, je executor.JobExecutor, result *records.Job) error {
 	if r.jobUid == "" {
 		return fmt.Errorf("no job already running")
 	}
@@ -92,11 +111,13 @@ func (r *GiteaReporter) EndJob(ctx context.Context, je executor.JobExecutor, res
 
 	r.jobState.StoppedAt = timestamppb.Now()
 	r.jobState.Result = resultMap[result.Result]
+	r.jobOutputs = result.Outputs
 
-	return r.updateTask(ctx, result.Outputs)
+	r.timer.Reset(0)
+	return nil
 }
 
-func (r *GiteaReporter) StartStep(ctx context.Context, stage executor.Stage, se executor.StepExecutor) error {
+func (r *GiteaReporter) StartStep(_ context.Context, stage executor.Stage, se executor.StepExecutor) error {
 	if stage != executor.StageMain {
 		// Gitea only report main stage for now
 		return nil
@@ -108,12 +129,13 @@ func (r *GiteaReporter) StartStep(ctx context.Context, stage executor.Stage, se 
 
 	stepState := r.stepStates[executor.StepId(se)]
 	stepState.StartedAt = timestamppb.Now()
-	stepState.LogIndex = r.log.Offset()
+	stepState.LogIndex = r.logStreamer.Offset()
 
-	return r.updateTask(ctx, nil)
+	r.timer.Reset(0)
+	return nil
 }
 
-func (r *GiteaReporter) EndStep(ctx context.Context, stage executor.Stage, se executor.StepExecutor, result *records.Step) error {
+func (r *GiteaReporter) EndStep(_ context.Context, stage executor.Stage, se executor.StepExecutor, result *records.Step) error {
 	if stage != executor.StageMain {
 		// Gitea only report main stage for now
 		return nil
@@ -127,9 +149,10 @@ func (r *GiteaReporter) EndStep(ctx context.Context, stage executor.Stage, se ex
 
 	stepState.StoppedAt = timestamppb.Now()
 	stepState.Result = resultMap[result.Conclusion]
-	stepState.LogLength = r.log.Offset() - stepState.LogIndex
+	stepState.LogLength = r.logStreamer.Offset() - stepState.LogIndex
 
-	return r.updateTask(ctx, nil)
+	r.timer.Reset(0)
+	return nil
 }
 
 func (r *GiteaReporter) AddIssue(ctx context.Context, issue *reporter.Issue) error {
@@ -142,27 +165,67 @@ func (r *GiteaReporter) AttachFile(kind, name string, reader io.Reader) error {
 	panic("implement me")
 }
 
-func (r *GiteaReporter) Close() error {
+func (r *GiteaReporter) Start() error {
+	if r.ws.Get() != reactive.StateCreated {
+		return fmt.Errorf("reporter already started")
+	}
+
+	r.timer = time.NewTimer(time.Second)
+	go r.start()
 	return nil
 }
 
-func (r *GiteaReporter) updateTask(ctx context.Context, output map[string]string) error {
+func (r *GiteaReporter) start() {
+	r.ws.Set(reactive.StateRunning)
+	defer r.ws.Set(reactive.StateStopped)
+
+	for {
+		select {
+		case <-r.timer.C:
+			r.updateTask()
+			r.timer.Reset(time.Second)
+		case <-r.stopCh:
+			r.updateTask()
+			r.timer.Stop()
+			return
+		}
+	}
+}
+
+func (r *GiteaReporter) Close() error {
+	close(r.stopCh)
+	r.ws.Wait(reactive.StateStopped)
+
+	if len(r.jobOutputs) > 0 {
+		return fmt.Errorf("there are still outputs that have not been sent")
+	}
+	return nil
+}
+
+func (r *GiteaReporter) updateTask() {
+	ctx := r.contextual.Context()
+
 	req := &runnerv1.UpdateTaskRequest{
 		State:   r.jobState,
-		Outputs: output,
+		Outputs: r.jobOutputs,
 	}
 	resp, err := r.client.UpdateTask(ctx, connect.NewRequest(req))
-	if err != nil || len(resp.Msg.SentOutputs) == 0 {
-		return err
+	if err != nil {
+		clog.ErrorContextf(ctx, "failed to update Task: %v", err)
+		return
+	}
+
+	msg := resp.Msg
+	if msg.State != nil && msg.State.Result == runnerv1.Result_RESULT_CANCELLED {
+		clog.ErrorContextf(ctx, "task %d cancelled by Gitea server", r.taskId)
+		r.cancel(ErrServerCancel)
+		return
 	}
 
 	// https://github.com/go-gitea/gitea/blob/v1.23.7/routers/api/actions/runner/runner.go#L174
-	s := scribe.FromContext(ctx)
-	sentOutputs := set.New(resp.Msg.SentOutputs...)
-	for k := range output {
-		if !sentOutputs.Has(k) {
-			s.Errorf("fail to update output %q to Gitea server", k)
+	if len(r.jobOutputs) > 0 {
+		for _, k := range msg.SentOutputs {
+			delete(r.jobOutputs, k)
 		}
 	}
-	return nil
 }
