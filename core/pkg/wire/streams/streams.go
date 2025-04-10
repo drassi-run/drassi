@@ -28,9 +28,6 @@ func ProvideTo(scope *dig.Scope) error {
 		return err
 	}
 
-	if err := scope.Provide(streamHandler); err != nil {
-		return err
-	}
 	if err := scope.Provide(newStream, dig.Export(true)); err != nil {
 		return err
 	}
@@ -39,10 +36,6 @@ func ProvideTo(scope *dig.Scope) error {
 	}
 
 	return nil
-}
-
-func streamHandler(rep reporter.Reporter) stream.Handler {
-	return stream.HandlerFunc(rep.Log)
 }
 
 type streamParams struct {

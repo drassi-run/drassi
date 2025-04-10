@@ -156,12 +156,22 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 	if err := xdig.Populate(scope, &client); err != nil {
 		return err
 	}
-	rep := service.NewReporter(w.ctx, w.task.Id, client)
-	w.addCleaner(rep.Close)
 
+	log := service.NewLogStreamer(w.task.Id, xcontext.NewStaticProvider(w.ctx), client)
+	if err := xdig.Supply[stream.Handler](scope, log); err != nil {
+		return err
+	}
+	if err := log.Start(); err != nil {
+		return err
+	}
+	w.addCleaner(log.Close)
+
+	rep := service.NewReporter(w.task.Id, client, log)
 	if err := xdig.Supply[reporter.Reporter](scope, rep); err != nil {
 		return err
 	}
+	w.addCleaner(rep.Close)
+
 	if err := wire_streams.Wire(scope); err != nil {
 		return err
 	}

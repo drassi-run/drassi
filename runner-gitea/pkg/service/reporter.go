@@ -10,9 +10,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"maps"
-	"strings"
-	"sync"
 
 	runnerv1 "code.gitea.io/actions-proto-go/runner/v1"
 	"code.gitea.io/actions-proto-go/runner/v1/runnerv1connect"
@@ -20,7 +17,9 @@ import (
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/executor/reporter"
 	"drassi.run/core/pkg/model/records"
+	"drassi.run/core/pkg/scribe"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"k8s.io/utils/set"
 )
 
 var resultMap = map[records.Result]runnerv1.Result{
@@ -32,31 +31,24 @@ var resultMap = map[records.Result]runnerv1.Result{
 }
 
 type GiteaReporter struct {
-	ctx    context.Context
 	taskId int64
-	jobUid string
 	client runnerv1connect.RunnerServiceClient
+	log    *LogStreamer
 
-	logOffset  int64
-	logRows    []*runnerv1.LogRow
-	jobOutputs map[string]string
+	jobUid     string
 	jobState   *runnerv1.TaskState
 	stepStates map[string]*runnerv1.StepState
-	mu         sync.RWMutex
 }
 
 func NewReporter(
-	ctx context.Context,
 	taskId int64,
 	client runnerv1connect.RunnerServiceClient,
+	logStreamer *LogStreamer,
 ) *GiteaReporter {
 	r := &GiteaReporter{
-		ctx:        ctx,
-		taskId:     taskId,
-		client:     client,
-		logOffset:  0,
-		logRows:    make([]*runnerv1.LogRow, 0),
-		jobOutputs: make(map[string]string),
+		taskId: taskId,
+		client: client,
+		log:    logStreamer,
 	}
 
 	return r
@@ -87,7 +79,7 @@ func (r *GiteaReporter) StartJob(ctx context.Context, je executor.JobExecutor) e
 		r.stepStates[step.StepId()] = s
 	}
 
-	return r.updateTask(ctx)
+	return r.updateTask(ctx, nil)
 }
 
 func (r *GiteaReporter) EndJob(ctx context.Context, je executor.JobExecutor, result *records.Job) error {
@@ -101,8 +93,7 @@ func (r *GiteaReporter) EndJob(ctx context.Context, je executor.JobExecutor, res
 	r.jobState.StoppedAt = timestamppb.Now()
 	r.jobState.Result = resultMap[result.Result]
 
-	maps.Copy(r.jobOutputs, result.Outputs)
-	return r.updateTask(ctx)
+	return r.updateTask(ctx, result.Outputs)
 }
 
 func (r *GiteaReporter) StartStep(ctx context.Context, stage executor.Stage, se executor.StepExecutor) error {
@@ -117,9 +108,9 @@ func (r *GiteaReporter) StartStep(ctx context.Context, stage executor.Stage, se 
 
 	stepState := r.stepStates[executor.StepId(se)]
 	stepState.StartedAt = timestamppb.Now()
-	stepState.LogIndex = r.logOffset + int64(len(r.logRows))
+	stepState.LogIndex = r.log.Offset()
 
-	return r.updateTask(ctx)
+	return r.updateTask(ctx, nil)
 }
 
 func (r *GiteaReporter) EndStep(ctx context.Context, stage executor.Stage, se executor.StepExecutor, result *records.Step) error {
@@ -136,9 +127,9 @@ func (r *GiteaReporter) EndStep(ctx context.Context, stage executor.Stage, se ex
 
 	stepState.StoppedAt = timestamppb.Now()
 	stepState.Result = resultMap[result.Conclusion]
-	stepState.LogLength = r.logOffset + int64(len(r.logRows)) - stepState.LogIndex
+	stepState.LogLength = r.log.Offset() - stepState.LogIndex
 
-	return r.updateTask(ctx)
+	return r.updateTask(ctx, nil)
 }
 
 func (r *GiteaReporter) AddIssue(ctx context.Context, issue *reporter.Issue) error {
@@ -152,80 +143,26 @@ func (r *GiteaReporter) AttachFile(kind, name string, reader io.Reader) error {
 }
 
 func (r *GiteaReporter) Close() error {
-	if err := r.uploadLog(r.ctx, true); err != nil {
-		return err
-	}
-
-	if err := r.updateTask(r.ctx); err != nil {
-		return err
-	}
-
-	if len(r.jobOutputs) > 0 {
-		return fmt.Errorf("there are still outputs that have not been sent")
-	}
 	return nil
 }
 
-func (r *GiteaReporter) Log(ctx context.Context, msg string) error {
-	msg = strings.TrimRight(msg, "\r\n")
-
-	row := &runnerv1.LogRow{
-		Time:    timestamppb.Now(),
-		Content: msg,
-	}
-
-	r.logRows = append(r.logRows, row)
-	if len(r.logRows) >= 50 {
-		_ = r.uploadLog(ctx, false)
-	}
-	return nil
-}
-
-func (r *GiteaReporter) uploadLog(ctx context.Context, noMore bool) error {
-	req := &runnerv1.UpdateLogRequest{
-		TaskId: r.taskId,
-		Index:  r.logOffset,
-		Rows:   r.logRows,
-		NoMore: noMore,
-	}
-	resp, err := r.client.UpdateLog(ctx, connect.NewRequest(req))
-	if err != nil {
-		return err
-	}
-
-	ack := resp.Msg.AckIndex
-	if ack < r.logOffset {
-		return fmt.Errorf("submitted logs are lost")
-	}
-
-	r.mu.Lock()
-	r.logRows = r.logRows[ack-r.logOffset:]
-	r.logOffset = ack
-	r.mu.Unlock()
-
-	if noMore && ack < r.logOffset+int64(len(r.logRows)) {
-		return fmt.Errorf("not all logs are submitted")
-	}
-
-	return nil
-}
-
-func (r *GiteaReporter) updateTask(ctx context.Context) error {
+func (r *GiteaReporter) updateTask(ctx context.Context, output map[string]string) error {
 	req := &runnerv1.UpdateTaskRequest{
 		State:   r.jobState,
-		Outputs: r.jobOutputs,
+		Outputs: output,
 	}
 	resp, err := r.client.UpdateTask(ctx, connect.NewRequest(req))
-	if err != nil {
+	if err != nil || len(resp.Msg.SentOutputs) == 0 {
 		return err
 	}
 
-	// TODO: gitea server cancel job
-	//if resp.Msg.State != nil && resp.Msg.State.Result == runnerv1.Result_RESULT_CANCELLED {
-	//	r.cancel()
-	//}
-	for _, k := range resp.Msg.SentOutputs {
-		delete(r.jobOutputs, k)
+	// https://github.com/go-gitea/gitea/blob/v1.23.7/routers/api/actions/runner/runner.go#L174
+	s := scribe.FromContext(ctx)
+	sentOutputs := set.New(resp.Msg.SentOutputs...)
+	for k := range output {
+		if !sentOutputs.Has(k) {
+			s.Errorf("fail to update output %q to Gitea server", k)
+		}
 	}
 	return nil
 }

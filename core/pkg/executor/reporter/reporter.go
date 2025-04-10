@@ -39,7 +39,6 @@ type Reporter interface {
 	StartStep(ctx context.Context, stage executor.Stage, se executor.StepExecutor) error
 	EndStep(ctx context.Context, stage executor.Stage, se executor.StepExecutor, result *records.Step) error
 
-	Log(ctx context.Context, msg string) error
 	AddIssue(ctx context.Context, issue *Issue) error
 	AttachFile(kind, name string, reader io.Reader) error
 
