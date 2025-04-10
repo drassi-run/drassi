@@ -7,11 +7,11 @@
 package expression
 
 import (
-	"fmt"
 	"maps"
 
 	"drassi.run/core/pkg/expression/ast"
 	"drassi.run/core/pkg/expression/types/ref"
+	"drassi.run/core/util/error"
 )
 
 type Env interface {
@@ -93,7 +93,7 @@ func (e *env) New(opts ...Option) (Env, error) {
 }
 
 func (e *env) Parse(source string, pureExpr bool) (node ast.Node, err error) {
-	defer e.recover(&err)
+	defer xerror.Recover(&err)
 
 	cache := e.tmplCache
 	if pureExpr {
@@ -123,28 +123,18 @@ func (e *env) Parse(source string, pureExpr bool) (node ast.Node, err error) {
 }
 
 func (e *env) Bind(node ast.Node) (prog ref.LazyVal, err error) {
-	defer e.recover(&err)
+	defer xerror.Recover(&err)
 
 	b := binder{env: e}
 	return b.Bind(node)
 }
 
 func (e *env) Execute(prog ref.LazyVal) (result any, err error) {
-	defer e.recover(&err)
+	defer xerror.Recover(&err)
 
 	val := prog()
 	if err, ok := val.(error); ok {
 		return nil, err
 	}
 	return val.Value(), nil
-}
-
-func (e *env) recover(err *error) {
-	if r := recover(); r != nil {
-		ex, ok := r.(error)
-		if !ok {
-			ex = fmt.Errorf("panic: %v", r)
-		}
-		*err = ex
-	}
 }

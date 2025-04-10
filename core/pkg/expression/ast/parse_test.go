@@ -8,7 +8,7 @@ package ast
 
 import (
 	"drassi.run/core/pkg/expression/types"
-	"fmt"
+	"drassi.run/core/util/error"
 	"github.com/stretchr/testify/assert"
 	"strings"
 	"testing"
@@ -220,15 +220,7 @@ func testParseOptions(t *testing.T) {
 }
 
 func recoverParse(pureExpr bool, source string, opt Option) (node Node, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			ex, ok := r.(error)
-			if !ok {
-				ex = fmt.Errorf("panic: %v", r)
-			}
-			err = ex
-		}
-	}()
+	defer xerror.Recover(&err)
 
 	return Parse(source, pureExpr, opt)
 }

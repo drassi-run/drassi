@@ -9,7 +9,6 @@ package cmd
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync/atomic"
 	"time"
 
@@ -25,6 +24,7 @@ import (
 	"drassi.run/core/pkg/sandboxer/incus"
 	"drassi.run/core/pkg/store/repository/gitstore"
 	"drassi.run/core/util/dig"
+	"drassi.run/core/util/error"
 	giteav1a1 "drassi.run/gitea-runner/pkg/apis/v1alpha1"
 	"drassi.run/gitea-runner/pkg/service"
 	"drassi.run/gitea-runner/pkg/worker"
@@ -194,7 +194,9 @@ func (c *launchCommand) runTask(ctx context.Context, task *runnerv1.Task) {
 	}
 }
 
-func (c *launchCommand) runTaskE(ctx context.Context, task *runnerv1.Task) error {
+func (c *launchCommand) runTaskE(ctx context.Context, task *runnerv1.Task) (err error) {
+	defer xerror.Recover(&err)
+
 	scope := dig.New().Scope("runner")
 
 	// Runner context
@@ -204,29 +206,21 @@ func (c *launchCommand) runTaskE(ctx context.Context, task *runnerv1.Task) error
 		Arch:        model.X64,
 		Environment: "self-hosted",
 	}
-	if err := xdig.Supply(scope, runner); err != nil {
-		return err
+	if err = xdig.Supply(scope, runner); err != nil {
+		return
 	}
-	if err := xdig.Supply(scope, c.runtime); err != nil {
-		return err
+	if err = xdig.Supply(scope, c.runtime); err != nil {
+		return
 	}
-	if err := xdig.Supply(scope, c.store); err != nil {
-		return err
+	if err = xdig.Supply(scope, c.store); err != nil {
+		return
 	}
-	if err := xdig.Supply(scope, c.client); err != nil {
-		return err
+	if err = xdig.Supply(scope, c.client); err != nil {
+		return
 	}
 
-	w := worker.New(ctx, task)
-	if err := w.Setup(scope); err != nil {
-		return err
-	}
-	defer func(w *worker.Worker) {
-		if err := w.Teardown(); err != nil {
-			fmt.Printf("Error while teardown worker: %v\n", err)
-		}
-	}(w)
-	return w.Run()
+	w := worker.New(task)
+	return w.Run(ctx, scope)
 }
 
 func (c *launchCommand) finalize(ctx context.Context) {
