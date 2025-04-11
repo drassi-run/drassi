@@ -4,15 +4,33 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"path"
 
 	"drassi.run/core/util/http"
+	"drassi.run/gha-runner/pkg/messages"
 )
 
 const (
 	taskLogEndpoint        = "%s/_apis/distributedtask/hubs/%s/plans/%s/logs"
 	taskAttachmentEndpoint = "%s/_apis/distributedtask/hubs/%s/plans/%s/timelines/%s/records/%s/attachments"
 )
+
+func NewTaskService(url string, hc *http.Client, msg *messages.PipelineAgentJobRequest) (*taskService, error) {
+	client, err := newClient(url, hc)
+	if err != nil {
+		return nil, err
+	}
+
+	svc := &taskService{
+		client:      client,
+		scopeUid:    msg.Plan.ScopeIdentifier,
+		planType:    msg.Plan.PlanType,
+		planUid:     msg.Plan.PlanId,
+		timelineUid: msg.Timeline.Id,
+	}
+	return svc, nil
+}
 
 // https://github.com/actions/runner/blob/v2.323.0/src/Runner.Common/JobServer.cs
 type taskService struct {
