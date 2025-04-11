@@ -18,19 +18,21 @@ type FileTransporter interface {
 const chunkSize = 2 * 1024 * 1024 // 2MiB
 
 type stepLogs2ResultService struct {
-	svc *resultService
+	svc *ResultService
 	wg  sync.WaitGroup
 }
 
 func (ft *stepLogs2ResultService) Transport(ctx context.Context, sr executor.StepRun, file string, waiter chunk.Waiter) (done func() error, err error) {
-	handle := func(ctx context.Context, r io.Reader, i int64) error {
-		return ft.svc.UploadStepLogs(ctx, sr, r)
-	}
-
 	f, err := os.Open(file)
 	if err != nil {
 		return nil, err
 	}
+
+	uploader := ft.svc.StepLogsUploader(sr)
+	handle := func(ctx context.Context, r io.Reader, i int64) error {
+		return uploader.Upload(ctx, r)
+	}
+	defer uploader.Complete(ctx, 0) // TODO
 
 	ps := chunk.NewChunker(f,
 		chunk.WithSoftLimit(chunkSize),
@@ -39,7 +41,6 @@ func (ft *stepLogs2ResultService) Transport(ctx context.Context, sr executor.Ste
 		chunk.WithWaiter(waiter),
 	)
 
-	// TODO
 	if err = ps.Run(ctx, handle); err != nil {
 		return nil, err
 	}
@@ -56,7 +57,7 @@ func (ft *stepLogs2ResultService) WaitAllComplete() {
 }
 
 type stepLogs2TaskService struct {
-	svc *taskService
+	svc *TaskService
 	wg  sync.WaitGroup
 }
 
