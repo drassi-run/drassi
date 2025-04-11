@@ -8,6 +8,7 @@ import (
 
 	"drassi.run/core/pkg/executor"
 	"drassi.run/gha-runner/pkg/chunk"
+	"drassi.run/gha-runner/pkg/reporter/service"
 )
 
 type FileTransporter interface {
@@ -18,7 +19,7 @@ type FileTransporter interface {
 const chunkSize = 2 * 1024 * 1024 // 2MiB
 
 type stepLogs2ResultService struct {
-	svc *ResultService
+	svc *service.ResultService
 	wg  sync.WaitGroup
 }
 
@@ -57,7 +58,7 @@ func (ft *stepLogs2ResultService) WaitAllComplete() {
 }
 
 type stepLogs2TaskService struct {
-	svc *TaskService
+	svc *service.TaskService
 	wg  sync.WaitGroup
 }
 

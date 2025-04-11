@@ -1,11 +1,11 @@
-package reporter
+package store
 
 import (
 	"context"
 	"io"
 )
 
-type StoreManager interface {
+type Manager interface {
 	Get(kind string) Store
 }
 

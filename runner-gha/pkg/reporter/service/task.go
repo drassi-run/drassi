@@ -1,4 +1,4 @@
-package reporter
+package service
 
 import (
 	"context"
@@ -41,8 +41,12 @@ type TaskService struct {
 	timelineUid string // from jobRequest.timeline.id
 }
 
+func (s *TaskService) LogUploader(recordId string) Uploader {
+	return &logTaskUploader{svc: s, recordId: recordId}
+}
+
 // https://github.com/actions/runner/blob/v2.323.0/src/Runner.Common/JobServerQueue.cs#L882-L896
-func (s *TaskService) UploadLog(ctx context.Context, recordId string, r io.Reader) error {
+func (s *TaskService) uploadLog(ctx context.Context, recordId string, r io.Reader) error {
 	// Create the log
 	tl := new(taskLog)
 	endpoint := fmt.Sprintf(taskLogEndpoint, s.scopeUid, s.planType, s.planUid)
@@ -67,8 +71,12 @@ func (s *TaskService) UploadLog(ctx context.Context, recordId string, r io.Reade
 	// TODO: Create a new record and only set the Log field
 }
 
+func (s *TaskService) AttachmentUploader(recordId, kind, name string) Uploader {
+	return &attachmentTaskUploader{svc: s, recordId: recordId, kind: kind, name: name}
+}
+
 // https://github.com/actions/runner/blob/v2.323.0/src/Runner.Common/JobServerQueue.cs#L900-L903
-func (s *TaskService) AttachFile(ctx context.Context, recordId, kind, name string, r io.Reader) error {
+func (s *TaskService) uploadAttach(ctx context.Context, recordId, kind, name string, r io.Reader) error {
 	endpoint := fmt.Sprintf(taskAttachmentEndpoint, s.scopeUid, s.planType, s.planUid, s.timelineUid, recordId)
 	endpoint = path.Join(endpoint, kind, name)
 
@@ -81,5 +89,31 @@ func (s *TaskService) AttachFile(ctx context.Context, recordId, kind, name strin
 }
 
 func (s *TaskService) RecordTimeline(event any) error {
+	return nil
+}
+
+type logTaskUploader struct {
+	svc      *TaskService
+	recordId string
+}
+
+func (u *logTaskUploader) Upload(ctx context.Context, r io.Reader) error {
+	return u.svc.uploadLog(ctx, u.recordId, r)
+}
+
+func (u *logTaskUploader) Complete(context.Context, int64) error {
+	return nil
+}
+
+type attachmentTaskUploader struct {
+	svc                  *TaskService
+	recordId, kind, name string
+}
+
+func (u *attachmentTaskUploader) Upload(ctx context.Context, r io.Reader) error {
+	return u.svc.uploadAttach(ctx, u.recordId, u.kind, u.name, r)
+}
+
+func (u *attachmentTaskUploader) Complete(context.Context, int64) error {
 	return nil
 }
