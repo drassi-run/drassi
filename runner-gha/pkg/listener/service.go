@@ -93,7 +93,7 @@ func (s *runnerService) GetMessage(ctx context.Context, session *Session, os, ar
 	r.AfterResponseReceive(skipEmpty).OnSuccess(xhttp.JsonDecode(m))
 	err := r.Do(ctx)
 
-	if err != nil && m.Id > s.lastMessageId {
+	if err == nil && m.Id > s.lastMessageId {
 		s.lastMessageId = m.Id
 	}
 	return m, err
