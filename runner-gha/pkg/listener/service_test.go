@@ -151,6 +151,117 @@ func (s *RunnerServiceTestSuite) TestDeleteMessage_Success() {
 	assert.NoError(t, err)
 }
 
+func TestBrokerServiceSuite(t *testing.T) {
+	suite.Run(t, new(BrokerServiceTestSuite))
+}
+
+type BrokerServiceTestSuite struct {
+	suite.Suite
+	mux    *http.ServeMux
+	server *httptest.Server
+	svc    *brokerService
+	runner *types.RunnerReference
+	ss     *Session
+}
+
+func (s *BrokerServiceTestSuite) SetupTest() {
+	s.mux = http.NewServeMux()
+	s.server = httptest.NewServer(s.mux)
+
+	client, err := xhttp.NewClient(s.server.URL)
+	s.Require().NoError(err)
+	client = client.WithHttpClient(s.server.Client())
+
+	s.svc = &brokerService{
+		client: client,
+	}
+
+	s.runner = &types.RunnerReference{
+		Id:            123,
+		Name:          "test-runner",
+		GroupId:       123,
+		Version:       "v1.2.3",
+		Enabled:       true,
+		Status:        types.RunnerStatusOnline,
+		DisableUpdate: true,
+	}
+
+	s.ss = &Session{
+		Id:     "session-id",
+		Runner: s.runner,
+	}
+}
+
+func (s *BrokerServiceTestSuite) TearDownTest() {
+	s.server.Close()
+}
+
+func (s *BrokerServiceTestSuite) TestConnect_Success() {
+	t := s.T()
+	wantSessionId := "broker-session-uuid"
+
+	s.mux.HandleFunc("POST /session", func(w http.ResponseWriter, r *http.Request) {
+		var ss Session
+		readJsonRequest(t, r, &ss)
+		assert.Equal(t, s.runner, ss.Runner)
+
+		ss.Id = wantSessionId
+		writeJsonResponse(t, w, ss)
+	})
+
+	s.mux.HandleFunc("DELETE /session", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	session, cancel, err := s.svc.Connect(t.Context(), s.runner)
+	require.NoError(t, err)
+	assert.Equal(t, wantSessionId, session.Id)
+	assert.NotNil(t, cancel)
+	assert.NoError(t, cancel())
+}
+
+func (s *BrokerServiceTestSuite) TestGetMessage_Success() {
+	t := s.T()
+	wantMessage := &messages.Message{
+		Id:   101,
+		Type: "RunnerJobRequest",
+		Body: "broker-test-body",
+	}
+
+	s.mux.HandleFunc("GET /message", func(w http.ResponseWriter, r *http.Request) {
+		query := r.URL.Query()
+		assert.Equal(t, s.ss.Id, query.Get("sessionId"))
+		assert.Equal(t, "linux", query.Get("os"))
+		assert.Equal(t, "amd64", query.Get("architecture"))
+		assert.Equal(t, strconv.FormatBool(s.runner.DisableUpdate), query.Get("disableUpdate"))
+		assert.Equal(t, string(s.runner.Status), query.Get("status"))
+		assert.Equal(t, s.runner.Version, query.Get("runnerVersion"))
+
+		writeJsonResponse(t, w, wantMessage)
+	})
+
+	msg, err := s.svc.GetMessage(t.Context(), s.ss, "linux", "amd64")
+	require.NoError(t, err)
+	assert.Equal(t, wantMessage.Id, msg.Id)
+	assert.Equal(t, wantMessage.Type, msg.Type)
+}
+
+func (s *BrokerServiceTestSuite) TestGetMessage_Empty() {
+	t := s.T()
+	s.mux.HandleFunc("GET /message", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	msg, err := s.svc.GetMessage(t.Context(), s.ss, "", "")
+	require.NoError(t, err)
+	assert.True(t, msg.IsEmpty())
+}
+
+func (s *BrokerServiceTestSuite) TestDeleteMessage() {
+	err := s.svc.DeleteMessage(s.T().Context(), s.ss, 123)
+	assert.NoError(s.T(), err)
+}
+
 func writeJsonResponse(t *testing.T, w http.ResponseWriter, v any) {
 	t.Helper()
 	w.Header().Set("Content-Type", "application/json")
