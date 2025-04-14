@@ -157,10 +157,6 @@ func (s *ResultService) DiagnosticLogsUploader() Uploader {
 	return &diagnosticLogsResultUploader{svc: s}
 }
 
-func (s *ResultService) RecordTimeline(ctx context.Context, event any) error {
-	return nil
-}
-
 func (s *ResultService) getDiagnosticLogsSignedUrl(ctx context.Context) (string, string, error) {
 	req := &signedUrlDiagnosticLogsRequest{
 		PlanUid: s.planUid,
@@ -178,6 +174,14 @@ func (s *ResultService) getDiagnosticLogsSignedUrl(ctx context.Context) (string,
 		return "", "", fmt.Errorf("DiagnosticLogs upload failed with empty url")
 	}
 	return resp.Url, resp.StorageType, nil
+}
+
+func (s *ResultService) StepSummaryUploader(stepUid string) Uploader {
+	return &stepSummaryResultUploader{svc: s, stepUid: stepUid}
+}
+
+func (s *ResultService) RecordTimeline(ctx context.Context, event any) error {
+	return nil
 }
 
 type stepLogsResultUploader struct {
@@ -245,4 +249,19 @@ func (u *diagnosticLogsResultUploader) Upload(ctx context.Context, r io.Reader) 
 
 func (u *diagnosticLogsResultUploader) Complete(ctx context.Context, lineCount int64) error {
 	return nil
+}
+
+type stepSummaryResultUploader struct {
+	svc     *ResultService
+	stepUid string
+}
+
+func (u *stepSummaryResultUploader) Upload(ctx context.Context, r io.Reader) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (u *stepSummaryResultUploader) Complete(ctx context.Context, lineCount int64) error {
+	//TODO implement me
+	panic("implement me")
 }
