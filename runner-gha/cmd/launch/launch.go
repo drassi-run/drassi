@@ -153,7 +153,7 @@ func (l *launcher) createListener(ctx context.Context) (listener.Listener, error
 	return listener.NewMigratableListener(spec.ServerUrl, hc, l.Key)
 }
 
-func (l *launcher) handleMessage(ctx context.Context, msg *messages.Message) error {
+func (l *launcher) handleMessage(ctx context.Context, msg *listener.Message) error {
 	if msg == nil || msg.Type == "" {
 		return nil
 	}

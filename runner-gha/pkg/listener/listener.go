@@ -43,8 +43,8 @@ func newClient(url string, hc *http.Client) (*xhttp.Client, error) {
 type Listener interface {
 	Connect(ctx context.Context, runnerId, groupId int) (func() error, error)
 
-	GetMessage(ctx context.Context, os, arch string) (*messages.Message, error)
-	DeleteMessage(ctx context.Context, msg *messages.Message) error
+	GetMessage(ctx context.Context, os, arch string) (*Message, error)
+	DeleteMessage(ctx context.Context, msg *Message) error
 
 	RefreshToken(ctx context.Context) error
 }
@@ -69,11 +69,11 @@ func (l *baseListener) Session() *Session {
 	return l.session
 }
 
-func (l *baseListener) DecryptMessage(msg *message) (*messages.Message, error) {
+func (l *baseListener) DecryptMessage(msg *messages.Message) (*Message, error) {
 	if body, err := msg.DecryptBody(l.encKey); err != nil {
 		return nil, err
 	} else {
-		m := &messages.Message{Id: msg.Id, Type: msg.Type, Body: body}
+		m := &Message{Id: msg.Id, Type: msg.Type, Body: body}
 		return m, nil
 	}
 }
@@ -150,7 +150,7 @@ func (l *migratableListener) Connect(ctx context.Context, runnerId, groupId int)
 	return nil, tooManyMigrationErr
 }
 
-func (l *migratableListener) GetMessage(ctx context.Context, os, arch string) (*messages.Message, error) {
+func (l *migratableListener) GetMessage(ctx context.Context, os, arch string) (*Message, error) {
 	for try := 0; try < maxMigrations; try++ {
 		m, err := l.cur.GetMessage(ctx, l.Session(), os, arch)
 		if err != nil {
@@ -178,7 +178,7 @@ func (l *migratableListener) GetMessage(ctx context.Context, os, arch string) (*
 	return nil, tooManyMigrationErr
 }
 
-func (l *migratableListener) DeleteMessage(ctx context.Context, msg *messages.Message) error {
+func (l *migratableListener) DeleteMessage(ctx context.Context, msg *Message) error {
 	return l.cur.DeleteMessage(ctx, l.Session(), msg.Id)
 }
 
@@ -243,7 +243,7 @@ func (l *brokerListener) Connect(ctx context.Context, runnerId, groupId int) (fu
 	return cancel, nil
 }
 
-func (l *brokerListener) GetMessage(ctx context.Context, os, arch string) (*messages.Message, error) {
+func (l *brokerListener) GetMessage(ctx context.Context, os, arch string) (*Message, error) {
 	msg, err := l.svc.GetMessage(ctx, l.Session(), os, arch)
 	if err != nil {
 		return nil, err
@@ -259,7 +259,7 @@ func (l *brokerListener) GetMessage(ctx context.Context, os, arch string) (*mess
 	return l.DecryptMessage(msg)
 }
 
-func (l *brokerListener) DeleteMessage(ctx context.Context, msg *messages.Message) error {
+func (l *brokerListener) DeleteMessage(ctx context.Context, msg *Message) error {
 	return l.svc.DeleteMessage(ctx, l.Session(), msg.Id)
 }
 

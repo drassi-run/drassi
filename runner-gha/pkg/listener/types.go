@@ -18,6 +18,12 @@ import (
 	"drassi.run/gha-runner/pkg/types"
 )
 
+type Message struct {
+	Id   int64
+	Type string
+	Body []byte
+}
+
 // Session represents a session for performing message exchanges from a runner (agent).
 // https://github.com/actions/runner/blob/v2.323.0/src/Sdk/DTWebApi/WebApi/TaskAgentSession.cs
 type Session struct {
