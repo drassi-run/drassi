@@ -18,6 +18,7 @@ import (
 	ghav1a1 "drassi.run/gha-runner/pkg/apis/v1alpha1"
 	"drassi.run/gha-runner/pkg/listener"
 	"drassi.run/gha-runner/pkg/messages"
+	"drassi.run/gha-runner/pkg/service"
 	"github.com/chainguard-dev/clog"
 	"github.com/spf13/cobra"
 	"golang.org/x/oauth2"
@@ -220,9 +221,29 @@ func (l *launcher) cancelJob(ctx context.Context, msg *messages.JobCancel) error
 	return nil
 }
 
+// https://github.com/actions/runner/blob/v2.323.0/src/Runner.Listener/Runner.cs#L559-L613
 func (l *launcher) requestRunnerJob(ctx context.Context, msg *messages.RunnerJobRequest) error {
-	log.Printf("%#v", msg)
-	return nil
+	var req *messages.PipelineAgentJobRequest = nil
+	if url := msg.RunServiceUrl; url != "" {
+		svc, err := service.NewRunnerService(url, nil, l.Runner.Spec.GroupId)
+		if err != nil {
+			return nil
+		}
+		req, err = svc.GetJobMessage(ctx, msg.Id)
+		if err != nil {
+			return nil
+		}
+	} else {
+		svc, err := service.NewRunService(url, nil)
+		if err != nil {
+			return nil
+		}
+		req, err = svc.AcquireJob(ctx, msg.RunnerRequestId, msg.BillingOwnerId)
+		if err != nil {
+			return nil
+		}
+	}
+	return l.requestPipelineAgentJob(ctx, req)
 }
 
 func (l *launcher) requestPipelineAgentJob(ctx context.Context, msg *messages.PipelineAgentJobRequest) error {

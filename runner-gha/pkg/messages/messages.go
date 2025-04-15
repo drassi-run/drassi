@@ -127,6 +127,7 @@ type RunnerJobRequest struct {
 	Id              string `actions:"id,omitempty"`
 	RunnerRequestId string `actions:"runner_request_id,omitempty"`
 	RunServiceUrl   string `actions:"run_service_url,omitempty"`
+	BillingOwnerId  string `actions:"billing_owner_id,omitempty"`
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTPipelines/Pipelines/AgentJobRequestMessage.cs
@@ -153,6 +154,7 @@ type PipelineAgentJobRequest struct {
 	Variables            map[string]VariableValue `actions:"variables,omitempty"`
 	Steps                []JobStep                `actions:"steps,omitempty"`
 	FileTable            []string                 `actions:"fileTable,omitempty"`
+	BillingOwnerId       string                   `actions:"billing_owner_id,omitempty"`
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTWebApi/WebApi/TaskOrchestrationPlanReference.cs
