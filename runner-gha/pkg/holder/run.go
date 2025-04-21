@@ -1,4 +1,4 @@
-package service
+package holder
 
 import (
 	"context"
@@ -7,24 +7,8 @@ import (
 
 	"drassi.run/core/util/http"
 	"drassi.run/gha-runner/pkg/messages"
-	"drassi.run/gha-runner/pkg/types"
 	"github.com/chainguard-dev/clog"
 )
-
-func newClient(url string, hc *http.Client) (*xhttp.Client, error) {
-	client, err := xhttp.NewClient(url)
-	if err != nil {
-		return nil, err
-	}
-
-	client = client.WithDefaultErrorHandler(types.ParseActionsError).
-		WithDefaultHeader("User-Agent", "gha-runner") // TODO
-
-	if hc != nil {
-		client = client.WithHttpClient(hc)
-	}
-	return client, nil
-}
 
 func NewRunService(url string, hc *http.Client) (*RunService, error) {
 	client, err := newClient(url, hc)
@@ -60,7 +44,11 @@ func (s *RunService) AcquireJob(ctx context.Context, msgId, billingOwner string)
 	return msg, nil
 }
 
-func (s *RunService) RenewJob(ctx context.Context, msg *messages.PipelineAgentJobRequest) {
+func (s *RunService) Lease(msg *messages.PipelineAgentJobRequest) Lease {
+	return &runLease{svc: s, msg: msg}
+}
+
+func (s *RunService) renewJob(ctx context.Context, msg *messages.PipelineAgentJobRequest) {
 	l := clog.FromContext(ctx)
 	req := &renewJobRequest{
 		PlanID: msg.Plan.PlanId,
@@ -94,7 +82,7 @@ func (s *RunService) RenewJob(ctx context.Context, msg *messages.PipelineAgentJo
 	}
 }
 
-func (s *RunService) CompleteJob(ctx context.Context, msg *messages.PipelineAgentJobRequest) error {
+func (s *RunService) completeJob(ctx context.Context, msg *messages.PipelineAgentJobRequest) error {
 	req := &completeJobRequest{
 		PlanID: msg.Plan.PlanId,
 		JobID:  msg.JobId,
@@ -111,4 +99,21 @@ func (s *RunService) CompleteJob(ctx context.Context, msg *messages.PipelineAgen
 		WithBodyProvider(xhttp.JsonEncode(req))
 
 	return hr.Do(ctx)
+}
+
+type runLease struct {
+	svc *RunService
+	msg *messages.PipelineAgentJobRequest
+}
+
+func (l *runLease) GetMessage() *messages.PipelineAgentJobRequest {
+	return l.msg
+}
+
+func (l *runLease) Renew(ctx context.Context) {
+	l.svc.renewJob(ctx, l.msg)
+}
+
+func (l *runLease) Complete(ctx context.Context) error {
+	return l.svc.completeJob(ctx, l.msg)
 }

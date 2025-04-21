@@ -11,14 +11,15 @@ import (
 	"crypto/rsa"
 	"fmt"
 	"log"
+	"net/http"
 	"time"
 
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/util/oauth2/clientcredentials"
 	ghav1a1 "drassi.run/gha-runner/pkg/apis/v1alpha1"
+	"drassi.run/gha-runner/pkg/holder"
 	"drassi.run/gha-runner/pkg/listener"
 	"drassi.run/gha-runner/pkg/messages"
-	"drassi.run/gha-runner/pkg/service"
 	"github.com/chainguard-dev/clog"
 	"github.com/spf13/cobra"
 	"golang.org/x/oauth2"
@@ -36,6 +37,7 @@ type launcher struct {
 	Key         *rsa.PrivateKey
 	Sandboxer   sandboxer.Engine
 	TokenSource oauth2.TokenSource
+	hc          *http.Client
 }
 
 func New() *cobra.Command {
@@ -111,6 +113,7 @@ func (l *launcher) Init(ctx context.Context, opts *options) (err error) {
 		OnTokenRetrieved: fixupToken,
 	}
 	l.TokenSource = config.TokenSource(ctx)
+	l.hc = oauth2.NewClient(ctx, l.TokenSource)
 
 	return nil
 }
@@ -118,7 +121,7 @@ func (l *launcher) Init(ctx context.Context, opts *options) (err error) {
 func (l *launcher) Run(ctx context.Context) error {
 	clog.InfoContextf(ctx, "gha-runner started")
 
-	lis, err := l.createListener(ctx)
+	lis, err := l.createListener()
 	if err != nil {
 		return err
 	}
@@ -146,10 +149,9 @@ func (l *launcher) Run(ctx context.Context) error {
 	}
 }
 
-func (l *launcher) createListener(ctx context.Context) (listener.Listener, error) {
-	spec := l.Runner.Spec
-	hc := oauth2.NewClient(ctx, l.TokenSource)
-	return listener.NewMigratableListener(spec.ServerUrl, hc, l.Key)
+func (l *launcher) createListener() (listener.Listener, error) {
+	url := l.Runner.Spec.ServerUrl
+	return listener.NewMigratableListener(url, l.hc, l.Key)
 }
 
 func (l *launcher) handleMessage(ctx context.Context, msg *listener.Message) error {
@@ -225,22 +227,18 @@ func (l *launcher) cancelJob(ctx context.Context, msg *messages.JobCancel) error
 func (l *launcher) requestRunnerJob(ctx context.Context, msg *messages.RunnerJobRequest) error {
 	var req *messages.PipelineAgentJobRequest = nil
 	if url := msg.RunServiceUrl; url != "" {
-		svc, err := service.NewRunnerService(url, nil, l.Runner.Spec.GroupId)
-		if err != nil {
-			return nil
-		}
-		req, err = svc.GetJobMessage(ctx, msg.Id)
-		if err != nil {
-			return nil
+		if svc, err := holder.NewRunService(url, l.hc); err != nil {
+			return err
+		} else if req, err = svc.AcquireJob(ctx, msg.RunnerRequestId, msg.BillingOwnerId); err != nil {
+			return err
 		}
 	} else {
-		svc, err := service.NewRunService(url, nil)
-		if err != nil {
-			return nil
-		}
-		req, err = svc.AcquireJob(ctx, msg.RunnerRequestId, msg.BillingOwnerId)
-		if err != nil {
-			return nil
+		url = l.Runner.Spec.ServerUrl
+		groupId := l.Runner.Spec.GroupId
+		if svc, err := holder.NewRunnerService(url, l.hc, groupId); err != nil {
+			return err
+		} else if req, err = svc.AcquireJob(ctx, msg.RunnerRequestId); err != nil {
+			return err
 		}
 	}
 	return l.requestPipelineAgentJob(ctx, req)

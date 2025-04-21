@@ -1,4 +1,4 @@
-package service
+package holder
 
 import (
 	"context"
@@ -33,7 +33,7 @@ type RunnerService struct {
 }
 
 // https://github.com/actions/runner/blob/v2.323.0/src/Sdk/DTWebApi/WebApi/ActionsRunServerHttpClient.cs#L71
-func (s *RunnerService) GetJobMessage(ctx context.Context, messageId string) (*messages.PipelineAgentJobRequest, error) {
+func (s *RunnerService) AcquireJob(ctx context.Context, messageId string) (*messages.PipelineAgentJobRequest, error) {
 	msg := new(messages.PipelineAgentJobRequest)
 	hr := s.client.Get(fmt.Sprintf("_apis/distributedtask/runnermessages/%s", messageId)).
 		SetQuery("api-version", "6.0-preview").
@@ -42,14 +42,19 @@ func (s *RunnerService) GetJobMessage(ctx context.Context, messageId string) (*m
 	if err := hr.Do(ctx); err != nil {
 		return nil, err
 	}
+
 	return msg, nil
+}
+
+func (s *RunnerService) Lease(msg *messages.PipelineAgentJobRequest) Lease {
+	return &runnerLease{svc: s, msg: msg}
 }
 
 // https://github.com/actions/runner/blob/v2.323.0/src/Sdk/DTWebApi/WebApi/TaskAgentHttpClient.cs#L93
 // orchId is extracted from
 // * `orch_id` claim in JWT from msg.Resources.Endpoints.Authorization.Parameters["AccessToken"]
 // * `system.orchestrationId` in msg.Variables
-func (s *RunnerService) RenewJob(ctx context.Context, msg *messages.PipelineAgentJobRequest, orchId string) {
+func (s *RunnerService) renewJob(ctx context.Context, msg *messages.PipelineAgentJobRequest, orchId string) {
 	l := clog.FromContext(ctx)
 	req := &runnerJobRequest{RequestId: msg.RequestId}
 	resp := new(runnerJobRequest)
@@ -89,7 +94,7 @@ func (s *RunnerService) RenewJob(ctx context.Context, msg *messages.PipelineAgen
 }
 
 // https://github.com/actions/runner/blob/v2.323.0/src/Sdk/DTWebApi/WebApi/TaskAgentHttpClient.cs#L61
-func (s *RunnerService) CompleteJob(ctx context.Context, msg *messages.PipelineAgentJobRequest, result TaskResult) error {
+func (s *RunnerService) completeJob(ctx context.Context, msg *messages.PipelineAgentJobRequest, result TaskResult) error {
 	req := &runnerJobRequest{
 		RequestId:  msg.RequestId,
 		FinishTime: time.Now(),
@@ -102,4 +107,25 @@ func (s *RunnerService) CompleteJob(ctx context.Context, msg *messages.PipelineA
 		WithBodyProvider(xhttp.JsonEncode(req))
 
 	return hr.Do(ctx)
+}
+
+type runnerLease struct {
+	svc *RunnerService
+	msg *messages.PipelineAgentJobRequest
+}
+
+func (l *runnerLease) GetMessage() *messages.PipelineAgentJobRequest {
+	return l.msg
+}
+
+func (l *runnerLease) Renew(ctx context.Context) {
+	orchId := ""
+	if v, ok := l.msg.Variables["system.orchestrationId"]; ok {
+		orchId = v.Value
+	}
+	l.svc.renewJob(ctx, l.msg, orchId)
+}
+
+func (l *runnerLease) Complete(ctx context.Context) error {
+	return l.svc.completeJob(ctx, l.msg, TaskResultSucceeded)
 }
