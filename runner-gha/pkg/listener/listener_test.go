@@ -9,10 +9,16 @@ package listener
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/rand"
+	"crypto/rsa"
 	"encoding/base64"
+	"net/http"
+	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 
 	"drassi.run/gha-runner/pkg/messages"
+	"drassi.run/gha-runner/pkg/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -55,7 +61,162 @@ func (s *ListenerTestSuite) TestDecryptMessage() {
 	require.NoError(t, err)
 
 	plainText := []byte("hello world")
+	m := mockMessage(encryptMessage(plainText, l.encKey))
 
+	decrypted, err := l.DecryptMessage(m)
+	assert.NoError(t, err)
+	assert.Equal(t, m.Id, decrypted.Id)
+	assert.Equal(t, m.Type, decrypted.Type)
+	assert.Equal(t, plainText, decrypted.Body)
+}
+
+type BrokerListenerTestSuite struct {
+	suite.Suite
+	server *httptest.Server
+	mux    *http.ServeMux
+	key    *rsa.PrivateKey
+	l      *brokerListener
+}
+
+func TestBrokerListenerSuite(t *testing.T) {
+	suite.Run(t, new(BrokerListenerTestSuite))
+}
+
+func (s *BrokerListenerTestSuite) SetupTest() {
+	var err error
+	s.key, err = rsa.GenerateKey(rand.Reader, 2048)
+	s.Require().NoError(err)
+
+	s.mux = http.NewServeMux()
+	s.server = httptest.NewServer(s.mux)
+
+	l, err := NewBrokerListener(s.server.URL, s.server.Client(), s.key)
+	s.Require().NoError(err)
+	s.l = l.(*brokerListener)
+}
+
+func (s *BrokerListenerTestSuite) TearDownTest() {
+	s.server.Close()
+}
+
+func (s *BrokerListenerTestSuite) TestConnect_Success() {
+	t := s.T()
+
+	wantSessionId := "broker-session-uuid"
+	runnerId, groupId := 123, 456
+	s.mux.HandleFunc("POST /session", func(w http.ResponseWriter, r *http.Request) {
+		var ss Session
+		readJsonRequest(t, r, &ss)
+		assert.Equal(t, runnerId, ss.Runner.Id)
+		assert.Equal(t, groupId, ss.Runner.GroupId)
+
+		ss.Id = wantSessionId
+		writeJsonResponse(t, w, ss)
+	})
+
+	var done atomic.Bool
+	s.mux.HandleFunc("DELETE /session", func(w http.ResponseWriter, r *http.Request) {
+		done.Store(true)
+		w.WriteHeader(http.StatusOK)
+	})
+
+	cancel, err := s.l.Connect(t.Context(), runnerId, groupId)
+	require.NoError(t, err)
+	assert.NotNil(t, cancel)
+	assert.Equal(t, wantSessionId, s.l.Session().Id)
+	assert.NoError(t, cancel())
+	assert.True(t, done.Load())
+}
+
+func (s *BrokerListenerTestSuite) TestConnect_MigrationError() {
+	t := s.T()
+	s.mux.HandleFunc("POST /session", func(w http.ResponseWriter, r *http.Request) {
+		ss := Session{
+			BrokerMigrationMessage: &messages.BrokerMigration{
+				BaseUrl: "http://new-broker",
+			},
+		}
+		writeJsonResponse(t, w, ss)
+	})
+
+	_, err := s.l.Connect(t.Context(), 123, 456)
+	assert.ErrorIs(t, err, notSupportMigrationErr)
+}
+func (s *BrokerListenerTestSuite) TestGetMessage_Success_Plain() {
+	ss := mockSession(nil)
+	s.testGetMessage_Success(ss)
+}
+
+func (s *BrokerListenerTestSuite) TestGetMessage_Success_Encrypted() {
+	ss := mockSession(mockSessionKey(nil))
+	s.testGetMessage_Success(ss)
+}
+
+//goland:noinspection GoSnakeCaseUsage
+func (s *BrokerListenerTestSuite) testGetMessage_Success(ss *Session) {
+	t := s.T()
+
+	// Mock session
+	err := s.l.SetSession(ss)
+	require.NoError(t, err)
+
+	plainText := []byte("hello broker")
+	var msg *messages.Message
+	if s.l.encKey == nil {
+		msg = mockMessage(nil, plainText)
+	} else {
+		msg = mockMessage(encryptMessage(plainText, s.l.encKey))
+	}
+
+	s.mux.HandleFunc("GET /message", func(w http.ResponseWriter, r *http.Request) {
+		writeJsonResponse(t, w, msg)
+	})
+
+	m, err := s.l.GetMessage(t.Context(), "linux", "amd64")
+	require.NoError(t, err)
+	require.NotNil(t, m)
+	assert.Equal(t, msg.Id, m.Id)
+	assert.Equal(t, plainText, m.Body)
+}
+
+func (s *BrokerListenerTestSuite) TestGetMessage_Empty() {
+	t := s.T()
+
+	// Mock session
+	err := s.l.SetSession(mockSession(nil))
+	require.NoError(t, err)
+
+	s.mux.HandleFunc("GET /message", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	m, err := s.l.GetMessage(t.Context(), "linux", "amd64")
+	require.NoError(t, err)
+	assert.Nil(t, m)
+}
+
+func (s *BrokerListenerTestSuite) TestGetMessage_MigrationError() {
+	t := s.T()
+	msg := &messages.Message{
+		Type: messages.TypeBrokerMigration,
+	}
+
+	s.mux.HandleFunc("GET /message", func(w http.ResponseWriter, r *http.Request) {
+		writeJsonResponse(t, w, msg)
+	})
+
+	_, err := s.l.GetMessage(t.Context(), "linux", "amd64")
+	assert.ErrorIs(t, err, notSupportMigrationErr)
+}
+
+func (s *BrokerListenerTestSuite) TestDeleteMessage_Success() {
+	t := s.T()
+	messageId := int64(123)
+	err := s.l.DeleteMessage(t.Context(), &Message{Id: messageId})
+	assert.NoError(t, err)
+}
+
+func encryptMessage(plainText []byte, block cipher.Block) (iv, cipherText []byte) {
 	// PKCS7 padding
 	padLen := aes.BlockSize - (len(plainText) % aes.BlockSize)
 	padded := append(plainText, make([]byte, padLen)...)
@@ -63,21 +224,45 @@ func (s *ListenerTestSuite) TestDecryptMessage() {
 		padded[i] = byte(padLen)
 	}
 
-	iv := randBytes(16)
-	cipherText := make([]byte, len(padded))
-	mode := cipher.NewCBCEncrypter(l.encKey, iv)
+	iv = randBytes(16)
+	cipherText = make([]byte, len(padded))
+	mode := cipher.NewCBCEncrypter(block, iv)
 	mode.CryptBlocks(cipherText, padded)
+	return
+}
+
+func mockMessage(iv, body []byte) *messages.Message {
+	var b string
+	if len(iv) > 0 {
+		b = base64.StdEncoding.EncodeToString(body)
+	} else {
+		b = string(body)
+	}
 
 	m := &messages.Message{
 		Id:   123,
 		Type: "test",
 		IV:   iv,
-		Body: base64.StdEncoding.EncodeToString(cipherText),
+		Body: b,
 	}
+	return m
+}
 
-	decrypted, err := l.DecryptMessage(m)
-	assert.NoError(t, err)
-	assert.Equal(t, m.Id, decrypted.Id)
-	assert.Equal(t, m.Type, decrypted.Type)
-	assert.Equal(t, plainText, decrypted.Body)
+func mockSession(key *SessionKey) *Session {
+	ss := &Session{
+		Id:            "session-id",
+		EncryptionKey: key,
+		Runner:        new(types.RunnerReference),
+	}
+	return ss
+}
+
+func mockSessionKey(key *rsa.PrivateKey) *SessionKey {
+	k := randBytes(32)
+
+	// TODO: set encrypted=true when key available
+	return &SessionKey{
+		Encrypted: false,
+		Value:     k,
+	}
 }
