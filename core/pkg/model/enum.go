@@ -9,7 +9,8 @@ package model
 type Architecture string
 
 const (
-	ARM32 Architecture = "ARM32"
+	Arm32 Architecture = "ARM32"
+	Arm64 Architecture = "ARM64"
 	X64   Architecture = "X64"
 	X86   Architecture = "X86"
 )
@@ -17,9 +18,9 @@ const (
 type Machine string
 
 const (
-	Linux   Machine = "linux"
-	MacOS   Machine = "macos"
-	Windows Machine = "windows"
+	Linux   Machine = "Linux"
+	MacOS   Machine = "macOS"
+	Windows Machine = "Windows"
 )
 
 func (m *Machine) FileSeparator() rune {
