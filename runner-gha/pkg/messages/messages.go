@@ -10,9 +10,11 @@ import (
 	"bytes"
 	"crypto/cipher"
 	"encoding/base64"
+	"fmt"
 	"time"
 
 	"drassi.run/gha-runner/pkg/types"
+	"golang.org/x/oauth2"
 )
 
 const (
@@ -20,7 +22,7 @@ const (
 	TypeAgentRefresh            = "AgentRefresh"
 	TypeRunnerRefresh           = "RunnerRefresh"
 	TypeRunnerShutdown          = "RunnerShutdown"
-	TypeJobCancelMessage        = "JobCancellation"
+	TypeJobCancellation         = "JobCancellation"
 	TypeRunnerJobRequest        = "RunnerJobRequest"
 	TypePipelineAgentJobRequest = "PipelineAgentJobRequest"
 	TypeForceTokenRefresh       = "ForceTokenRefresh"
@@ -157,6 +159,21 @@ type PipelineAgentJobRequest struct {
 	BillingOwnerId       string                   `actions:"billing_owner_id,omitempty"`
 }
 
+func (m *PipelineAgentJobRequest) ServiceEndpoint(name string) *ServiceEndpoint {
+	res := m.Resources
+	if res == nil {
+		return nil
+	}
+
+	for i := range res.Endpoints {
+		ep := &res.Endpoints[i]
+		if ep.Name == name {
+			return ep
+		}
+	}
+	return nil
+}
+
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTWebApi/WebApi/TaskOrchestrationPlanReference.cs
 type PlanReference struct {
 	ScopeIdentifier  string `actions:"scopeIdentifier,omitempty"` // UUID
@@ -229,18 +246,38 @@ type JobResources struct {
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTWebApi/WebApi/ServiceEndpointLegacy/ServiceEndpoint.cs
 type ServiceEndpoint struct {
-	Id              string                `actions:"id,omitempty"` // UUID
-	Name            string                `actions:"name,omitempty"`
-	Type            string                `actions:"type,omitempty"`
-	Owner           string                `actions:"owner,omitempty"`
-	Url             string                `actions:"url,omitempty"` // URI
-	Description     string                `actions:"description,omitempty"`
-	Authorization   EndpointAuthorization `actions:"authorization,omitempty"`
-	GroupScopeId    string                `actions:"groupScopeId,omitempty"` // UUID
-	Data            map[string]string     `actions:"data,omitempty"`
-	IsShared        bool                  `actions:"isShared,omitempty"`
-	IsReady         bool                  `actions:"isReady,omitempty"`
-	OperationStatus any                   `actions:"operationStatus,omitempty"`
+	Id              string                 `actions:"id,omitempty"` // UUID
+	Name            string                 `actions:"name,omitempty"`
+	Type            string                 `actions:"type,omitempty"`
+	Owner           string                 `actions:"owner,omitempty"`
+	Url             string                 `actions:"url,omitempty"` // URI
+	Description     string                 `actions:"description,omitempty"`
+	Authorization   *EndpointAuthorization `actions:"authorization,omitempty"`
+	GroupScopeId    string                 `actions:"groupScopeId,omitempty"` // UUID
+	Data            map[string]string      `actions:"data,omitempty"`
+	IsShared        bool                   `actions:"isShared,omitempty"`
+	IsReady         bool                   `actions:"isReady,omitempty"`
+	OperationStatus any                    `actions:"operationStatus,omitempty"`
+}
+
+func (ep *ServiceEndpoint) TokenSource() (oauth2.TokenSource, error) {
+	auth := ep.Authorization
+	if auth == nil {
+		return nil, nil
+	}
+
+	if auth.Scheme != "OAuth" {
+		return nil, fmt.Errorf("unsupported authorization scheme: %s", auth.Scheme)
+	}
+	if at, ok := auth.Parameters["AccessToken"]; ok {
+		token := &oauth2.Token{
+			AccessToken: at,
+			TokenType:   "Bearer",
+		}
+		return oauth2.StaticTokenSource(token), nil
+	}
+
+	return nil, nil
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTWebApi/WebApi/ServiceEndpointLegacy/EndpointAuthorization.cs

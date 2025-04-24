@@ -178,7 +178,7 @@ func (l *launcher) handleMessage(ctx context.Context, msg *listener.Message) err
 		} else {
 			return l.shutdownRunner(ctx, msg)
 		}
-	case messages.TypeJobCancelMessage:
+	case messages.TypeJobCancellation:
 		if msg, err := messages.Decode[messages.JobCancel](msg.Body); err != nil {
 			return err
 		} else {
@@ -245,11 +245,48 @@ func (l *launcher) requestRunnerJob(ctx context.Context, msg *messages.RunnerJob
 }
 
 func (l *launcher) requestPipelineAgentJob(ctx context.Context, msg *messages.PipelineAgentJobRequest) error {
-	log.Printf("%#v", msg)
-	return nil
+	var lease holder.Lease
+
+	switch msg.MessageType {
+	case messages.TypeRunnerJobRequest:
+		ep := msg.ServiceEndpoint("SystemVssConnection")
+		if ep == nil {
+			return fmt.Errorf("SystemVssConnection service endpoint not available")
+		}
+		if source, err := ep.TokenSource(); err != nil {
+			return err
+		} else {
+			hc := http.DefaultClient
+			if source != nil {
+				hc = oauth2.NewClient(ctx, source)
+			}
+			if svc, err := holder.NewRunService(ep.Url, hc); err != nil {
+				return err
+			} else {
+				lease = svc.Lease(msg)
+			}
+		}
+	case messages.TypePipelineAgentJobRequest:
+		url := l.Runner.Spec.ServerUrl
+		groupId := l.Runner.Spec.GroupId
+		if svc, err := holder.NewRunnerService(url, l.hc, groupId); err != nil {
+			return err
+		} else {
+			lease = svc.Lease(msg)
+		}
+	default:
+		return fmt.Errorf("PipelineAgentJobRequest - unsupported message type: %s", msg.MessageType)
+	}
+
+	return l.doRun(ctx, lease)
 }
 
 func (l *launcher) forceRefreshToken(ctx context.Context) error {
 	log.Printf("force refresh token")
+	return nil
+}
+
+func (l *launcher) doRun(ctx context.Context, lease holder.Lease) error {
+	log.Printf("%#v", lease)
 	return nil
 }
