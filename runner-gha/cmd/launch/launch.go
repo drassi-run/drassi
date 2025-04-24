@@ -31,8 +31,6 @@ type options struct {
 }
 
 type launcher struct {
-	options
-
 	Runner      *ghav1a1.GitHubRunner
 	Key         *rsa.PrivateKey
 	Sandboxer   sandboxer.Engine
@@ -48,9 +46,9 @@ func New() *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			l := launcher{options: opts}
+			l := new(launcher)
 
-			if err := l.Init(ctx); err != nil {
+			if err := l.Init(ctx, &opts); err != nil {
 				return err
 			}
 			return l.Run(ctx)
@@ -69,15 +67,15 @@ func New() *cobra.Command {
 	return cmd
 }
 
-func (l *launcher) Init(ctx context.Context) (err error) {
+func (l *launcher) Init(ctx context.Context, opts *options) (err error) {
 	clog.InfoContextf(ctx, "initializing gha-runner")
 
-	store, err := manifestStore(&l.options)
+	store, err := manifestStore(opts)
 	if err != nil {
 		return err
 	}
 
-	if runner, err := loadRunnerManifest(ctx, store, l.Name); err != nil {
+	if runner, err := loadRunnerManifest(ctx, store, opts.Name); err != nil {
 		return err
 	} else {
 		l.Runner = runner

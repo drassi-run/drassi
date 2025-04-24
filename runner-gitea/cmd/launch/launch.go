@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package cmd
+package launch
 
 import (
 	"context"
@@ -25,6 +25,7 @@ import (
 	"drassi.run/core/pkg/store/repository/gitstore"
 	"drassi.run/core/util/dig"
 	"drassi.run/core/util/error"
+	"drassi.run/gitea-runner/cmd/common"
 	giteav1a1 "drassi.run/gitea-runner/pkg/apis/v1alpha1"
 	"drassi.run/gitea-runner/pkg/service"
 	"drassi.run/gitea-runner/pkg/worker"
@@ -37,20 +38,20 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-type launchOption struct {
-	commonOptions
+type option struct {
+	common.Options
 
 	name string
 }
 
-func (o *launchOption) RegisterFlags(flags *pflag.FlagSet) {
-	o.commonOptions.RegisterFlags(flags)
+func (o *option) RegisterFlags(flags *pflag.FlagSet) {
+	o.Options.RegisterFlags(flags)
 
 	flags.StringVar(&o.name, "name", "", "Gitea instance name")
 	_ = cobra.MarkFlagRequired(flags, "name")
 }
 
-type launchCommand struct {
+type launcher struct {
 	runnerName  string
 	concurrency int
 	client      service.GiteaClient
@@ -61,8 +62,8 @@ type launchCommand struct {
 	tasksVersion atomic.Int64
 }
 
-func NewLaunchCommand() *cobra.Command {
-	var opts launchOption
+func New() *cobra.Command {
+	var opts option
 
 	cmd := &cobra.Command{
 		Use:   "launch",
@@ -70,13 +71,12 @@ func NewLaunchCommand() *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			command := new(launchCommand)
+			l := new(launcher)
 
-			if err := command.initialize(ctx, &opts); err != nil {
+			if err := l.Init(ctx, &opts); err != nil {
 				return err
 			}
-			defer command.finalize(ctx)
-			return command.run(ctx)
+			return l.Run(ctx)
 		},
 	}
 
@@ -86,10 +86,10 @@ func NewLaunchCommand() *cobra.Command {
 	return cmd
 }
 
-func (c *launchCommand) initialize(ctx context.Context, opts *launchOption) error {
+func (c *launcher) Init(ctx context.Context, opts *option) error {
 	clog.InfoContextf(ctx, "initializing gitea-runner")
 
-	store, err := manifestStore(&opts.commonOptions)
+	store, err := common.ManifestStore(&opts.Options)
 	if err != nil {
 		return err
 	}
@@ -120,7 +120,7 @@ func (c *launchCommand) initialize(ctx context.Context, opts *launchOption) erro
 	return c.loadSandboxer(ctx, store, spec.SandboxerRef)
 }
 
-func (c *launchCommand) run(ctx context.Context) error {
+func (c *launcher) Run(ctx context.Context) error {
 	clog.InfoContextf(ctx, "gitea-runner started")
 
 	// fetchInterval = 1s
@@ -149,7 +149,7 @@ func (c *launchCommand) run(ctx context.Context) error {
 	}
 }
 
-func (c *launchCommand) fetchTask(ctx context.Context) (*runnerv1.Task, bool) {
+func (c *launcher) fetchTask(ctx context.Context) (*runnerv1.Task, bool) {
 	clog.DebugContextf(ctx, "Fetching task")
 
 	// fetchTimeout = 5s
@@ -187,14 +187,14 @@ func (c *launchCommand) fetchTask(ctx context.Context) (*runnerv1.Task, bool) {
 	return resp.Msg.Task, true
 }
 
-func (c *launchCommand) runTask(ctx context.Context, task *runnerv1.Task) {
+func (c *launcher) runTask(ctx context.Context, task *runnerv1.Task) {
 	err := c.runTaskE(ctx, task)
 	if err != nil {
 		clog.ErrorContextf(ctx, "Failed to run task: %v", err)
 	}
 }
 
-func (c *launchCommand) runTaskE(ctx context.Context, task *runnerv1.Task) (err error) {
+func (c *launcher) runTaskE(ctx context.Context, task *runnerv1.Task) (err error) {
 	defer xerror.Recover(&err)
 
 	scope := dig.New().Scope("runner")
@@ -223,10 +223,7 @@ func (c *launchCommand) runTaskE(ctx context.Context, task *runnerv1.Task) (err 
 	return w.Run(ctx, scope)
 }
 
-func (c *launchCommand) finalize(ctx context.Context) {
-}
-
-func (c *launchCommand) loadGiteaManifest(ctx context.Context, store manifest.Store, name string) (*giteav1a1.GiteaRunner, error) {
+func (c *launcher) loadGiteaManifest(ctx context.Context, store manifest.Store, name string) (*giteav1a1.GiteaRunner, error) {
 	gvk := giteav1a1.SchemeGroupVersion.WithKind("GiteaRunner")
 
 	if o, err := store.Load(ctx, gvk, name); err != nil {
@@ -236,7 +233,7 @@ func (c *launchCommand) loadGiteaManifest(ctx context.Context, store manifest.St
 	}
 }
 
-func (c *launchCommand) loadGitStore() error {
+func (c *launcher) loadGitStore() error {
 	if store, err := gitstore.New(".cache"); err != nil {
 		return err
 	} else {
@@ -245,7 +242,7 @@ func (c *launchCommand) loadGitStore() error {
 	return nil
 }
 
-func (c *launchCommand) loadSandboxer(ctx context.Context, store manifest.Store, ref corev1.TypedLocalObjectReference) (err error) {
+func (c *launcher) loadSandboxer(ctx context.Context, store manifest.Store, ref corev1.TypedLocalObjectReference) (err error) {
 	gv := sandboxerv1a1.SchemeGroupVersion
 	if ref.APIGroup != nil {
 		if gv, err = schema.ParseGroupVersion(*ref.APIGroup); err != nil {

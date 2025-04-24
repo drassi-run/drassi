@@ -7,6 +7,9 @@
 package cmd
 
 import (
+	"drassi.run/gitea-runner/cmd/initialize"
+	"drassi.run/gitea-runner/cmd/launch"
+	"drassi.run/gitea-runner/cmd/register"
 	"github.com/spf13/cobra"
 )
 
@@ -18,9 +21,9 @@ func NewGiteaRunnerCommand() *cobra.Command {
 	}
 
 	cmd.AddCommand(
-		NewInitCommand(),
-		NewRegisterCommand(),
-		NewLaunchCommand(),
+		initialize.New(),
+		register.New(),
+		launch.New(),
 	)
 
 	return cmd

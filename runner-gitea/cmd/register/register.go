@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package cmd
+package register
 
 import (
 	"context"
@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-type registerOptions struct {
+type options struct {
 	url                   string
 	token                 string
 	name                  string
@@ -35,12 +35,12 @@ type registerOptions struct {
 	sandboxerName         string
 }
 
-type registerCommand struct {
-	opts *registerOptions
+type register struct {
+	options
 }
 
-func NewRegisterCommand() *cobra.Command {
-	var opts registerOptions
+func New() *cobra.Command {
+	var opts options
 
 	cmd := &cobra.Command{
 		Use:   "register",
@@ -48,9 +48,9 @@ func NewRegisterCommand() *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			command := registerCommand{opts: &opts}
+			command := register{options: opts}
 
-			return command.run(ctx)
+			return command.Run(ctx)
 		},
 	}
 
@@ -66,83 +66,77 @@ func NewRegisterCommand() *cobra.Command {
 	return cmd
 }
 
-func (c *registerCommand) run(ctx context.Context) error {
-	if c.opts.url == "" {
-		err := huh.NewInput().
+func (c *register) Run(ctx context.Context) error {
+	if c.url == "" {
+		inquiry := huh.NewInput().
 			Title("Gitea instance URL?").
-			Value(&c.opts.url).
+			Value(&c.url).
 			Placeholder("https://gitea.com").
-			Validate(IsNotEmpty).
-			Run()
-		if err != nil {
+			Validate(IsNotEmpty)
+		if err := inquiry.Run(); err != nil {
 			return err
 		} else {
-			fmt.Printf("Gitea instance URL: %s\n", c.opts.url)
+			fmt.Printf("Gitea instance URL: %s\n", c.url)
 		}
 	}
-	if strings.HasPrefix(c.opts.url, "https://") {
-		err := huh.NewConfirm().
+	if strings.HasPrefix(c.url, "https://") {
+		inquiry := huh.NewConfirm().
 			Title("Skip verify server TLS").
-			Value(&c.opts.insecureSkipTLSVerify).
-			Run()
-		if err != nil {
+			Value(&c.insecureSkipTLSVerify)
+		if err := inquiry.Run(); err != nil {
 			return err
 		} else {
-			fmt.Printf("Skip verify server TLS: %s\n", c.opts.url)
+			fmt.Printf("Skip verify server TLS: %s\n", c.url)
 		}
 	}
-	if c.opts.token == "" {
-		err := huh.NewInput().
+	if c.token == "" {
+		inquiry := huh.NewInput().
 			Title("Runner registration token?").
-			Value(&c.opts.token).
+			Value(&c.token).
 			EchoMode(huh.EchoModePassword).
-			Validate(IsNotEmpty).
-			Run()
-		if err != nil {
+			Validate(IsNotEmpty)
+		if err := inquiry.Run(); err != nil {
 			return err
 		} else {
-			fmt.Printf("Runner registration token: %s\n", c.opts.token)
+			fmt.Printf("Runner registration token: %s\n", c.token)
 		}
 	}
-	if c.opts.name == "" {
-		err := huh.NewInput().
+	if c.name == "" {
+		inquiry := huh.NewInput().
 			Title("Runner name?").
-			Value(&c.opts.name).
-			Validate(IsNotEmpty).
-			Run()
-		if err != nil {
+			Value(&c.name).
+			Validate(IsNotEmpty)
+		if err := inquiry.Run(); err != nil {
 			return err
 		} else {
-			fmt.Printf("Runner name: %s\n", c.opts.name)
+			fmt.Printf("Runner name: %s\n", c.name)
 		}
 	}
 
 	// TODO: prompt
-	c.opts.labels = []string{"ubuntu-latest", "ubuntu-22.04"}
+	c.labels = []string{"ubuntu-latest", "ubuntu-22.04"}
 
-	if c.opts.sandboxerKind == "" {
-		err := huh.NewInput().
+	if c.sandboxerKind == "" {
+		inquiry := huh.NewInput().
 			Title("Sandboxer Kind?").
-			Value(&c.opts.sandboxerKind).
-			Validate(IsNotEmpty).
-			Run()
-		if err != nil {
+			Value(&c.sandboxerKind).
+			Validate(IsNotEmpty)
+		if err := inquiry.Run(); err != nil {
 			return err
 		} else {
-			fmt.Printf("Sandboxer Kind: %s\n", c.opts.sandboxerKind)
+			fmt.Printf("Sandboxer Kind: %s\n", c.sandboxerKind)
 		}
 	}
 
-	if c.opts.sandboxerName == "" {
-		err := huh.NewInput().
+	if c.sandboxerName == "" {
+		inquiry := huh.NewInput().
 			Title("Sandboxer Name?").
-			Value(&c.opts.sandboxerName).
-			Validate(IsNotEmpty).
-			Run()
-		if err != nil {
+			Value(&c.sandboxerName).
+			Validate(IsNotEmpty)
+		if err := inquiry.Run(); err != nil {
 			return err
 		} else {
-			fmt.Printf("Sandboxer Name: %s\n", c.opts.sandboxerName)
+			fmt.Printf("Sandboxer Name: %s\n", c.sandboxerName)
 		}
 	}
 
@@ -153,23 +147,23 @@ func (c *registerCommand) run(ctx context.Context) error {
 	}
 }
 
-func (c *registerCommand) doRegister(ctx context.Context) (*giteav1a1.GiteaRunner, error) {
-	client := service.NewClient(c.opts.url, c.opts.insecureSkipTLSVerify, "", "")
+func (c *register) doRegister(ctx context.Context) (*giteav1a1.GiteaRunner, error) {
+	client := service.NewClient(c.url, c.insecureSkipTLSVerify, "", "")
 
 	for {
-		_, err := client.Ping(ctx, connect.NewRequest(&pingv1.PingRequest{
-			Data: c.opts.name,
-		}))
-		if err == nil {
+		req := connect.NewRequest(&pingv1.PingRequest{
+			Data: c.name,
+		})
+		if _, err := client.Ping(ctx, req); err == nil {
 			break
 		}
 	}
 
 	resp, err := client.Register(ctx, connect.NewRequest(&runnerv1.RegisterRequest{
-		Name:    c.opts.name,
-		Token:   c.opts.token,
+		Name:    c.name,
+		Token:   c.token,
 		Version: "dev",
-		Labels:  c.opts.labels,
+		Labels:  c.labels,
 	}))
 	if err != nil {
 		fmt.Printf("cannot register new runner")
@@ -188,13 +182,13 @@ func (c *registerCommand) doRegister(ctx context.Context) (*giteav1a1.GiteaRunne
 		Spec: giteav1a1.GiteaRunnerSpec{
 			UUID:                  resp.Msg.Runner.Uuid,
 			Token:                 resp.Msg.Runner.Token,
-			Address:               c.opts.url,
-			InsecureSkipTLSVerify: c.opts.insecureSkipTLSVerify,
+			Address:               c.url,
+			InsecureSkipTLSVerify: c.insecureSkipTLSVerify,
 			RunnerLabels:          resp.Msg.Runner.Labels,
 			SandboxerRef: corev1.TypedLocalObjectReference{
 				APIGroup: &apiGroup,
-				Kind:     c.opts.sandboxerKind,
-				Name:     c.opts.sandboxerName,
+				Kind:     c.sandboxerKind,
+				Name:     c.sandboxerName,
 			},
 		},
 	}
@@ -202,7 +196,7 @@ func (c *registerCommand) doRegister(ctx context.Context) (*giteav1a1.GiteaRunne
 	return &runner, nil
 }
 
-func (c *registerCommand) saveManifest(runner *giteav1a1.GiteaRunner) error {
+func (c *register) saveManifest(runner *giteav1a1.GiteaRunner) error {
 	b, err := yaml.Marshal(runner)
 	if err != nil {
 		return err
@@ -215,23 +209,21 @@ func (c *registerCommand) saveManifest(runner *giteav1a1.GiteaRunner) error {
 	fmt.Fprintln(os.Stdout, strings.Repeat("=", 50))
 
 	saveToFile := false
-	err = huh.NewConfirm().
+	confirm := huh.NewConfirm().
 		Title("Do you want to save it to file?").
-		Value(&saveToFile).
-		Run()
-	if err != nil {
+		Value(&saveToFile)
+	if err = confirm.Run(); err != nil {
 		return err
 	} else if !saveToFile {
 		return nil
 	}
 
 	var f string
-	err = huh.NewInput().
+	inquiry := huh.NewInput().
 		Title("Select file").
 		Value(&f).
-		Validate(IsNotEmpty).
-		Run()
-	if err != nil {
+		Validate(IsNotEmpty)
+	if err = inquiry.Run(); err != nil {
 		return err
 	}
 

@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package cmd
+package common
 
 import (
 	"fmt"
@@ -20,30 +20,30 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 )
 
-type commonOptions struct {
-	store     string
-	configDir string
+type Options struct {
+	Store     string
+	ConfigDir string
 }
 
-func (o *commonOptions) RegisterFlags(flags *pflag.FlagSet) {
-	flags.StringVar(&o.store, "store", "local", "Manifest store")
+func (o *Options) RegisterFlags(flags *pflag.FlagSet) {
+	flags.StringVar(&o.Store, "store", "local", "Manifest store")
 
-	flags.StringVar(&o.configDir, "config-dir", "", "Configuration directory")
+	flags.StringVar(&o.ConfigDir, "config-dir", "", "Configuration directory")
 	_ = cobra.MarkFlagDirname(flags, "config-dir")
 }
 
-func manifestStore(o *commonOptions) (manifest.Store, error) {
+func ManifestStore(o *Options) (manifest.Store, error) {
 	s, err := newScheme()
 	if err != nil {
 		return nil, err
 	}
 
-	if o.store == "local" {
-		if o.configDir == "" {
+	if o.Store == "local" {
+		if o.ConfigDir == "" {
 			return nil, fmt.Errorf("--config-dir is required")
 		}
 
-		absPath, err := filepath.Abs(o.configDir)
+		absPath, err := filepath.Abs(o.ConfigDir)
 		if err != nil {
 			return nil, fmt.Errorf("failed to resolve config-dir path: %v", err)
 		}
@@ -51,7 +51,7 @@ func manifestStore(o *commonOptions) (manifest.Store, error) {
 		return store, nil
 	}
 
-	return nil, fmt.Errorf("unknown manifest store: %s", o.store)
+	return nil, fmt.Errorf("unknown manifest store: %s", o.Store)
 }
 
 func newScheme() (*runtime.Scheme, error) {

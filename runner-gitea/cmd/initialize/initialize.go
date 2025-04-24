@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package cmd
+package initialize
 
 import (
 	"context"
@@ -13,13 +13,14 @@ import (
 	"os"
 	"path/filepath"
 
+	"drassi.run/gitea-runner/cmd/common"
 	"github.com/charmbracelet/huh"
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"github.com/spf13/cobra"
 )
 
-func NewInitCommand() *cobra.Command {
-	var opts commonOptions
+func New() *cobra.Command {
+	var opts common.Options
 
 	cmd := &cobra.Command{
 		Use:   "init",
@@ -37,26 +38,26 @@ func NewInitCommand() *cobra.Command {
 	return cmd
 }
 
-func runInit(ctx context.Context, opts *commonOptions) error {
-	switch opts.store {
+func runInit(ctx context.Context, opts *common.Options) error {
+	switch opts.Store {
 	case "", "local":
 		return runInitLocal(ctx, opts)
 	case "k8s":
 		return runInitK8s(ctx, opts)
 	default:
-		return fmt.Errorf("unknown store: %s", opts.store)
+		return fmt.Errorf("unknown store: %s", opts.Store)
 	}
 }
 
-func runInitK8s(ctx context.Context, opts *commonOptions) error {
+func runInitK8s(ctx context.Context, opts *common.Options) error {
 	return nil
 }
 
 //go:embed default.yaml
 var defaultManifest string
 
-func runInitLocal(ctx context.Context, opts *commonOptions) error {
-	dir := opts.configDir
+func runInitLocal(ctx context.Context, opts *common.Options) error {
+	dir := opts.ConfigDir
 	if dir == "" {
 		return fmt.Errorf("--config-dir is required")
 	}
@@ -78,14 +79,14 @@ func runInitLocal(ctx context.Context, opts *commonOptions) error {
 		return fmt.Errorf("%s is not a file", file)
 	}
 	var c string
-	err = huh.NewSelect[string]().
+	inquiry := huh.NewSelect[string]().
 		Title(fmt.Sprintf("File %s already exists", file)).
 		Value(&c).
 		Options(
 			huh.NewOption("Show Diff", "diff"),
 			huh.NewOption("Overwrite", "overwrite"),
-		).Run()
-	if err != nil {
+		)
+	if err = inquiry.Run(); err != nil {
 		return err
 	}
 
@@ -124,12 +125,11 @@ func showDiff(file string, manifest string) (bool, error) {
 	fmt.Print(dmp.DiffPrettyText(diffs))
 
 	var c bool
-	err := huh.NewConfirm().
+	confirm := huh.NewConfirm().
 		Title("Overwrite?").
 		Inline(true).
-		Value(&c).
-		Run()
-	if err != nil {
+		Value(&c)
+	if err := confirm.Run(); err != nil {
 		return false, err
 	}
 	return c, nil
