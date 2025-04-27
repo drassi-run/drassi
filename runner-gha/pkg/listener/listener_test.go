@@ -12,8 +12,10 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/base64"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"sync/atomic"
 	"testing"
 
@@ -197,6 +199,10 @@ func (s *BrokerListenerTestSuite) TestGetMessage_Empty() {
 
 func (s *BrokerListenerTestSuite) TestGetMessage_MigrationError() {
 	t := s.T()
+	// Mock session
+	err := s.l.SetSession(mockSession(nil))
+	require.NoError(t, err)
+
 	msg := &messages.Message{
 		Type: messages.TypeBrokerMigration,
 	}
@@ -205,7 +211,7 @@ func (s *BrokerListenerTestSuite) TestGetMessage_MigrationError() {
 		writeJsonResponse(t, w, msg)
 	})
 
-	_, err := s.l.GetMessage(t.Context(), "linux", "amd64")
+	_, err = s.l.GetMessage(t.Context(), "linux", "amd64")
 	assert.ErrorIs(t, err, notSupportMigrationErr)
 }
 
@@ -214,6 +220,241 @@ func (s *BrokerListenerTestSuite) TestDeleteMessage_Success() {
 	messageId := int64(123)
 	err := s.l.DeleteMessage(t.Context(), &Message{Id: messageId})
 	assert.NoError(t, err)
+}
+
+type MigratableListenerTestSuite struct {
+	suite.Suite
+
+	runnerMux *http.ServeMux
+	runner    *httptest.Server
+
+	brokerMux *http.ServeMux
+	broker    *httptest.Server
+
+	key *rsa.PrivateKey
+	l   *migratableListener
+}
+
+func TestMigratableListenerSuite(t *testing.T) {
+	suite.Run(t, new(MigratableListenerTestSuite))
+}
+
+func (s *MigratableListenerTestSuite) SetupTest() {
+	var err error
+	s.key, err = rsa.GenerateKey(rand.Reader, 2048)
+	s.Require().NoError(err)
+
+	s.runnerMux = http.NewServeMux()
+	s.runner = httptest.NewServer(s.runnerMux)
+
+	s.brokerMux = http.NewServeMux()
+	s.broker = httptest.NewServer(s.brokerMux)
+
+	l, err := NewMigratableListener(s.runner.URL, s.runner.Client(), s.key)
+	s.Require().NoError(err)
+	s.l = l.(*migratableListener)
+}
+
+func (s *MigratableListenerTestSuite) TearDownTest() {
+	s.runner.Close()
+	s.broker.Close()
+}
+
+func (s *MigratableListenerTestSuite) TestConnect_NoMigration_RunnerService() {
+	s.testConnect_NoMigration(func(sessionId string, runnerId, groupId int, done *atomic.Bool) {
+		t := s.T()
+
+		s.runnerMux.HandleFunc("POST /_apis/distributedtask/pools/{groupId}/sessions", func(w http.ResponseWriter, r *http.Request) {
+			s.Equal(strconv.Itoa(groupId), r.PathValue("groupId"))
+			var ss Session
+			readJsonRequest(t, r, &ss)
+			assert.Equal(t, runnerId, ss.Runner.Id)
+			assert.Equal(t, groupId, ss.Runner.GroupId)
+
+			writeJsonResponse(t, w, Session{Id: sessionId})
+		})
+
+		s.runnerMux.HandleFunc("DELETE /_apis/distributedtask/pools/{groupId}/sessions/{sessionId}", func(w http.ResponseWriter, r *http.Request) {
+			s.Equal(strconv.Itoa(groupId), r.PathValue("groupId"))
+			s.Equal(sessionId, r.PathValue("sessionId"))
+			done.Store(true)
+			w.WriteHeader(http.StatusOK)
+		})
+	})
+}
+
+func (s *MigratableListenerTestSuite) TestConnect_NoMigration_BrokerService() {
+	s.testConnect_NoMigration(func(sessionId string, runnerId, groupId int, done *atomic.Bool) {
+		t := s.T()
+		err := s.l.migrate(s.broker.URL) // Set current Service is Broker
+		require.NoError(t, err)
+
+		s.brokerMux.HandleFunc("POST /session", func(w http.ResponseWriter, r *http.Request) {
+			var ss Session
+			readJsonRequest(t, r, &ss)
+			assert.Equal(t, runnerId, ss.Runner.Id)
+			assert.Equal(t, groupId, ss.Runner.GroupId)
+
+			ss.Id = sessionId
+			writeJsonResponse(t, w, ss)
+		})
+
+		s.brokerMux.HandleFunc("DELETE /session", func(w http.ResponseWriter, r *http.Request) {
+			done.Store(true)
+			w.WriteHeader(http.StatusOK)
+		})
+	})
+}
+
+//goland:noinspection GoSnakeCaseUsage
+func (s *MigratableListenerTestSuite) testConnect_NoMigration(setup func(sessionId string, runnerId, groupId int, done *atomic.Bool)) {
+	wantSessionId := "broker-session-uuid"
+	runnerId, groupId := 123, 456
+	done := new(atomic.Bool)
+
+	setup(wantSessionId, runnerId, groupId, done)
+
+	cancel, err := s.l.Connect(s.T().Context(), runnerId, groupId)
+	s.NoError(err)
+	s.NotNil(cancel)
+	s.Equal(wantSessionId, s.l.Session().Id)
+	s.NoError(cancel())
+	s.True(done.Load())
+}
+
+func (s *MigratableListenerTestSuite) TestConnect_WithMigration() {
+	t := s.T()
+	wantSessionId := "broker-session-uuid"
+	runnerId, groupId := 123, 456
+
+	s.runnerMux.HandleFunc("POST /_apis/distributedtask/pools/{groupId}/sessions", func(w http.ResponseWriter, r *http.Request) {
+		s.Equal(strconv.Itoa(groupId), r.PathValue("groupId"))
+		ss := Session{
+			BrokerMigrationMessage: &messages.BrokerMigration{
+				BaseUrl: s.broker.URL,
+			},
+		}
+		writeJsonResponse(t, w, ss)
+	})
+
+	var brokerConnected atomic.Bool
+	s.brokerMux.HandleFunc("POST /session", func(w http.ResponseWriter, r *http.Request) {
+		brokerConnected.Store(true)
+
+		var ss Session
+		readJsonRequest(t, r, &ss)
+		assert.Equal(t, runnerId, ss.Runner.Id)
+		assert.Equal(t, groupId, ss.Runner.GroupId)
+
+		ss.Id = wantSessionId
+		writeJsonResponse(t, w, ss)
+	})
+
+	var done atomic.Bool
+	s.brokerMux.HandleFunc("DELETE /session", func(w http.ResponseWriter, r *http.Request) {
+		done.Store(true)
+		w.WriteHeader(http.StatusOK)
+	})
+
+	cancel, err := s.l.Connect(t.Context(), runnerId, groupId)
+	s.NoError(err)
+	s.NotNil(cancel)
+	s.True(brokerConnected.Load())
+	s.Equal((service)(s.l.bs), s.l.cur)
+	s.Equal(wantSessionId, s.l.Session().Id)
+	s.NoError(cancel())
+	s.True(done.Load())
+}
+
+func (s *MigratableListenerTestSuite) TestGetMessage_NoMigration_RunnerService() {
+	s.testGetMessage_NoMigration(func(msg *messages.Message) {
+		s.runnerMux.HandleFunc("GET /_apis/distributedtask/pools/{groupId}/messages", func(w http.ResponseWriter, r *http.Request) {
+			s.Equal(strconv.Itoa(s.l.Session().Runner.GroupId), r.PathValue("groupId"))
+			writeJsonResponse(s.T(), w, msg)
+		})
+	})
+}
+
+func (s *MigratableListenerTestSuite) TestGetMessage_NoMigration_BrokerService() {
+	s.testGetMessage_NoMigration(func(msg *messages.Message) {
+		t := s.T()
+		err := s.l.migrate(s.broker.URL) // Set current Service is Broker
+		require.NoError(t, err)
+
+		s.brokerMux.HandleFunc("GET /message", func(w http.ResponseWriter, r *http.Request) {
+			s.Equal(s.l.Session().Id, r.URL.Query().Get("sessionId"))
+			writeJsonResponse(t, w, msg)
+		})
+	})
+}
+
+//goland:noinspection GoSnakeCaseUsage
+func (s *MigratableListenerTestSuite) testGetMessage_NoMigration(setup func(msg *messages.Message)) {
+	t := s.T()
+	s.setSession()
+
+	plainText := []byte("hello runner")
+	msg := mockMessage(nil, plainText)
+	setup(msg)
+
+	m, err := s.l.GetMessage(t.Context(), "linux", "amd64")
+	s.NoError(err)
+	s.NotNil(m)
+	s.Equal(msg.Id, m.Id)
+	s.Equal(plainText, m.Body)
+}
+
+func (s *MigratableListenerTestSuite) TestGetMessage_WithMigration() {
+	t := s.T()
+	s.setSession()
+
+	// 1. Runner returns migration message
+	migrationBody, _ := json.Marshal(map[string]any{"brokerBaseUrl": s.broker.URL})
+	m1 := mockMessage(nil, migrationBody)
+	m1.Id, m1.Type = 1, messages.TypeBrokerMigration
+
+	s.runnerMux.HandleFunc("GET /_apis/distributedtask/pools/{groupId}/messages", func(w http.ResponseWriter, r *http.Request) {
+		s.Equal(strconv.Itoa(s.l.Session().Runner.GroupId), r.PathValue("groupId"))
+		writeJsonResponse(t, w, m1)
+	})
+
+	// 2. Broker returns real message
+	plainText := []byte("hello broker")
+	m2 := mockMessage(nil, plainText)
+	m2.Id = 2
+
+	s.brokerMux.HandleFunc("GET /message", func(w http.ResponseWriter, r *http.Request) {
+		s.Equal(s.l.Session().Id, r.URL.Query().Get("sessionId"))
+		writeJsonResponse(t, w, m2)
+	})
+
+	m, err := s.l.GetMessage(t.Context(), "linux", "amd64")
+	s.NoError(err)
+	s.NotNil(m)
+	s.Equal(int64(2), m.Id)
+	s.Equal(plainText, m.Body)
+	s.Equal((service)(s.l.bs), s.l.cur)
+}
+
+func (s *MigratableListenerTestSuite) TestDeleteMessage() {
+	t := s.T()
+	s.setSession()
+	msg := &Message{Id: 999}
+
+	s.runnerMux.HandleFunc("DELETE /_apis/distributedtask/pools/{groupId}/messages/{messageId}", func(w http.ResponseWriter, r *http.Request) {
+		s.Equal(strconv.Itoa(s.l.Session().Runner.GroupId), r.PathValue("groupId"))
+		s.Equal(strconv.FormatInt(msg.Id, 10), r.PathValue("messageId"))
+		w.WriteHeader(http.StatusOK)
+	})
+
+	err := s.l.DeleteMessage(t.Context(), msg)
+	s.NoError(err)
+}
+
+// Setup session manually to skip Connect
+func (s *MigratableListenerTestSuite) setSession() {
+	err := s.l.SetSession(mockSession(nil))
+	s.NoError(err)
 }
 
 func encryptMessage(plainText []byte, block cipher.Block) (iv, cipherText []byte) {
