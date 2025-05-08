@@ -1,0 +1,333 @@
+/*
+ * SPDX-FileCopyrightText: (c) 2024 The Drassi Authors
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+package worker
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"regexp"
+	"slices"
+	"strings"
+
+	"drassi.run/core/pkg/executor"
+	"drassi.run/core/pkg/executor/command"
+	"drassi.run/core/pkg/executor/problem"
+	"drassi.run/core/pkg/executor/secret"
+	"drassi.run/core/pkg/expression"
+	"drassi.run/core/pkg/expression/libraries"
+	"drassi.run/core/pkg/model"
+	"drassi.run/core/pkg/model/records"
+	"drassi.run/core/pkg/scribe"
+	"drassi.run/core/pkg/stream"
+	"drassi.run/core/pkg/wire/cmdhandler"
+	"drassi.run/core/pkg/wire/etc"
+	"drassi.run/core/pkg/wire/runtime"
+	"drassi.run/core/pkg/wire/streams"
+	"drassi.run/core/util/context"
+	"drassi.run/core/util/dig"
+	"drassi.run/gha-runner/pkg/holder"
+	"drassi.run/gha-runner/pkg/messages"
+	"drassi.run/gha-runner/pkg/reporter/service"
+	"go.uber.org/dig"
+	"golang.org/x/oauth2"
+)
+
+type Worker struct {
+	lease holder.Lease
+
+	ctx      context.Context
+	cancel   context.CancelCauseFunc
+	exec     executor.JobExecutor
+	cleaners []func(ctx context.Context) error
+}
+
+func New(lease holder.Lease) *Worker {
+	return &Worker{lease: lease}
+}
+
+func (w *Worker) setup(scope *dig.Scope) error {
+	if err := w.initScope(scope); err != nil {
+		return err
+	}
+	if err := w.initContext(scope); err != nil {
+		return err
+	}
+	if err := w.initExecutor(scope); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (w *Worker) initScope(scope *dig.Scope) error {
+	req := w.lease.GetMessage()
+
+	// expression.Env
+	dossier := new(records.Dossier)
+	if err := model.Decode(req.ContextData, dossier); err != nil {
+		return err
+	}
+	opts := []expression.Option{
+		expression.WithCache(true),
+		expression.WithLibrary(libraries.StdLib()),
+		expression.WithVariable("secrets", dossier.Secrets),
+		expression.WithVariable("vars", dossier.Variables),
+		expression.WithVariable("needs", dossier.Needs),
+		expression.WithVariable("strategy", dossier.Strategy),
+		expression.WithVariable("matrix", dossier.Matrix),
+		expression.WithVariable("inputs", dossier.Inputs),
+	}
+	if exprEnv, err := expression.NewEnv(opts...); err != nil {
+		return err
+	} else if err = xdig.Supply(scope, exprEnv); err != nil {
+		return err
+	}
+
+	// Env context
+	env := make(map[string]string)
+	if err := xdig.Supply(scope, env); err != nil {
+		return err
+	}
+
+	// GitHub context
+	// https://github.com/actions/runner/blob/v2.324.0/src/Runner.Worker/ExecutionContext.cs#L882-L891
+	github := dossier.Github
+	if github.Token == "" {
+		if v, ok := req.Variables["system.github.token"]; ok {
+			github.Token = v.Value
+		} else if v, ok = req.Variables["github_token"]; ok {
+			github.Token = v.Value
+		}
+	}
+	if github.Job == "" {
+		if v, ok := req.Variables["system.github.job"]; ok {
+			github.Job = v.Value
+		}
+	}
+	if err := xdig.Supply(scope, *github); err != nil {
+		return err
+	}
+
+	// secret.Masker
+	// https://github.com/actions/runner/blob/v2.323.0/src/Runner.Worker/Worker.cs#L140
+	sm := secret.NewMasker()
+	for _, v := range req.Variables {
+		if v.IsSecret {
+			sm.AddSecret(secret.NewValueSecret(v.Value))
+		}
+	}
+	for _, s := range req.MaskHints {
+		switch s.Type {
+		case messages.MaskTypeVariable:
+			sm.AddSecret(secret.NewValueSecret(s.Value))
+		case messages.MaskTypeRegex:
+			if re, err := regexp.Compile(s.Value); err != nil {
+				return fmt.Errorf("invalid regex %q: %w", s.Value, err)
+			} else {
+				sm.AddSecret(secret.NewRegexSecret(re))
+			}
+		default:
+			return fmt.Errorf("unknown mask type %q", s.Type)
+		}
+	}
+	if res := req.Resources; res != nil {
+		for _, ep := range res.Endpoints {
+			if authz := ep.Authorization; authz != nil {
+				for _, v := range authz.Parameters {
+					if v != "" {
+						sm.AddSecret(secret.NewValueSecret(v))
+					}
+				}
+			}
+		}
+	}
+	if err := xdig.Supply(scope, sm); err != nil {
+		return err
+	}
+
+	// problem.Matcher
+	pm := make(map[string]problem.Matcher)
+	if err := xdig.Supply(scope, pm); err != nil {
+		return err
+	}
+
+	// Wire scope
+	if err := scope.Provide(command.NewFileManager); err != nil {
+		return err
+	}
+	if err := scope.Provide(command.NewConsoleManager); err != nil {
+		return err
+	}
+	sup := executor.NewSupervisor()
+	if err := xdig.Supply(scope, sup); err != nil {
+		return err
+	}
+	if err := xdig.Supply[xcontext.Provider](scope, sup); err != nil {
+		return err
+	}
+	if err := wire_cmdhandler.ProvideTo(scope); err != nil {
+		return err
+	}
+	if err := wire_streams.ProvideTo(scope.Scope("internal(streams)")); err != nil {
+		return err
+	}
+	if err := wire_runtime.ProvideTo(scope); err != nil {
+		return err
+	}
+	if err := wire_streams.Wire(scope); err != nil {
+		return err
+	}
+	if err := etc.Wire(scope); err != nil {
+		return err
+	}
+
+	// https://github.com/actions/runner/blob/v2.323.0/src/Runner.Worker/Handlers/NodeScriptActionHandler.cs#L53-L78
+	// https://github.com/actions/runner/blob/v2.323.0/src/Runner.Worker/Handlers/ContainerActionHandler.cs#L218-L238
+	sysCon := req.ServiceEndpoint("SystemVssConnection")
+	if sysCon == nil {
+		return fmt.Errorf("service endpoint 'SystemVssConnection' not found")
+	}
+	var accessToken string
+	if authz := sysCon.Authorization; authz != nil && authz.Scheme == "OAuth" {
+		accessToken = authz.Parameters["AccessToken"]
+	}
+	sysEnv := map[string]string{
+		"GITHUB_ACTIONS":        "true",
+		"ACTIONS_RUNTIME_URL":   sysCon.Url,
+		"ACTIONS_RUNTIME_TOKEN": accessToken,
+	}
+	if url, ok := sysCon.Data["CacheServerUrl"]; ok && url != "" {
+		sysEnv["ACTIONS_CACHE_URL"] = url
+	}
+	if cacheV2, ok := req.Variables["actions_uses_cache_service_v2"]; ok && strings.ToLower(cacheV2.Value) == "true" {
+		sysEnv["ACTIONS_CACHE_SERVICE_V2"] = "True" // bool.TrueString
+	}
+	if url, ok := sysCon.Data["PipelinesServiceUrl"]; ok && url != "" {
+		sysEnv["ACTIONS_RUNTIME_URL"] = url
+	}
+	if url, ok := sysCon.Data["GenerateIdTokenUrl"]; ok && url != "" {
+		sysEnv["ACTIONS_ID_TOKEN_REQUEST_URL"] = url
+		sysEnv["ACTIONS_ID_TOKEN_REQUEST_TOKEN"] = accessToken
+	}
+	if url, ok := sysCon.Data["ResultsServiceUrl"]; ok && url != "" {
+		sysEnv["ACTIONS_RESULTS_URL"] = url
+	} else if v, ok := req.Variables["system.github.results_endpoint"]; ok {
+		sysEnv["ACTIONS_RESULTS_URL"] = v.Value
+	}
+	sup.Register(executor.Env(sysEnv))
+
+	hc := http.DefaultClient
+	if source, err := sysCon.TokenSource(); err == nil && source != nil {
+		hc = oauth2.NewClient(w.ctx, source)
+	}
+
+	cp := xcontext.NewStaticProvider(w.ctx)
+	if url, ok := sysCon.Data["FeedStreamUrl"]; ok && url != "" {
+		if log, err := service.NewConsoleLiveFeeder(cp, url, hc); err != nil {
+			return err
+		} else if err = xdig.Supply[stream.Handler](scope, log); err != nil {
+			return err
+		} else if err = log.Start(); err != nil {
+			return err
+		} else {
+			w.addCleaner(log.Close)
+		}
+	}
+
+	//rep := service.NewReporter(w.task.Id, client, cp, log, w.Cancel)
+	//if err := xdig.Supply[reporter.Reporter](scope, rep); err != nil {
+	//	return err
+	//}
+	//if err := rep.Start(); err != nil {
+	//	return err
+	//}
+	//w.addCleaner(rep.Close)
+
+	return scope.Invoke(func(streams stream.Streams) {
+		if closer, ok := streams.Out().(io.Closer); ok {
+			w.addCleaner(closer.Close)
+		}
+		if closer, ok := streams.Err().(io.Closer); ok {
+			w.addCleaner(closer.Close)
+		}
+	})
+}
+
+func (w *Worker) initContext(scope *dig.Scope) error {
+	var diary scribe.Diary
+	if err := xdig.Populate(scope, &diary); err != nil {
+		return err
+	}
+
+	w.ctx = scribe.ContextWithScribe(w.ctx, diary)
+	return nil
+}
+
+func (w *Worker) initExecutor(scope *dig.Scope) error {
+	req := w.lease.GetMessage()
+
+	jr, err := messages.ToJobRun(req)
+	if err != nil {
+		return err
+	}
+
+	w.exec = executor.NewJobExecutor(jr)
+	w.addCleanerContext(w.exec.Finalize)
+	scope = scope.Scope(fmt.Sprintf("job(%s)", executor.JobId(w.exec)))
+
+	return w.exec.Initialize(w.ctx, scope)
+}
+
+func (w *Worker) Run(ctx context.Context, scope *dig.Scope) (err error) {
+	w.ctx, w.cancel = context.WithCancelCause(ctx)
+	defer w.cancel(nil)
+
+	// setup & teardown worker
+	defer func() {
+		ex := w.teardown()
+		err = errors.Join(err, ex)
+	}()
+	if err = w.setup(scope); err != nil {
+		return err
+	}
+
+	// run main execution
+	go w.lease.Renew(ctx)
+	//defer w.lease.Complete(ctx) // TODO
+	r := w.exec.RunJob(w.ctx)
+	if r.Result != records.ResultSuccess {
+		return fmt.Errorf("job failed")
+	}
+	return nil
+}
+
+func (w *Worker) teardown() error {
+	errs := make([]error, 0)
+	for _, cleaner := range slices.Backward(w.cleaners) {
+		errs = append(errs, cleaner(w.ctx))
+	}
+	return errors.Join(errs...)
+}
+
+func (w *Worker) addCleaner(c func() error) {
+	w.cleaners = append(w.cleaners, func(context.Context) error {
+		return c()
+	})
+}
+
+func (w *Worker) addCleanerContext(c func(ctx context.Context) error) {
+	w.cleaners = append(w.cleaners, c)
+}
+
+func (w *Worker) Cancel(cause error) {
+	if w.cancel != nil {
+		w.cancel(cause)
+	}
+}

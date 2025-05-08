@@ -9,17 +9,23 @@ package launch
 import (
 	"context"
 	"crypto/rsa"
+	"drassi.run/core/pkg/model"
 	"fmt"
+	"go.uber.org/dig"
 	"log"
 	"net/http"
 	"time"
 
+	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/pkg/store/repository/gitstore"
+	"drassi.run/core/util/dig"
 	"drassi.run/core/util/oauth2/clientcredentials"
 	ghav1a1 "drassi.run/gha-runner/pkg/apis/v1alpha1"
 	"drassi.run/gha-runner/pkg/holder"
 	"drassi.run/gha-runner/pkg/listener"
 	"drassi.run/gha-runner/pkg/messages"
+	"drassi.run/gha-runner/pkg/worker"
 	"github.com/chainguard-dev/clog"
 	"github.com/spf13/cobra"
 	"golang.org/x/oauth2"
@@ -33,11 +39,13 @@ type options struct {
 }
 
 type launcher struct {
-	Runner      *ghav1a1.GitHubRunner
-	Key         *rsa.PrivateKey
-	Sandboxer   sandboxer.Engine
-	TokenSource oauth2.TokenSource
-	hc          *http.Client
+	Runner       *ghav1a1.GitHubRunner
+	Key          *rsa.PrivateKey
+	Sandboxer    sandboxer.Engine
+	TokenSource  oauth2.TokenSource
+	store        gitstore.Store
+	runnerRecord records.Runner
+	hc           *http.Client
 }
 
 func New() *cobra.Command {
@@ -82,6 +90,12 @@ func (l *launcher) Init(ctx context.Context, opts *options) (err error) {
 		return err
 	} else {
 		l.Runner = runner
+		l.runnerRecord = records.Runner{
+			Name:        runner.Status.RunnerName,
+			Os:          model.Linux,
+			Arch:        model.X64,
+			Environment: "self-hosted",
+		}
 	}
 
 	spec := l.Runner.Spec
@@ -114,6 +128,12 @@ func (l *launcher) Init(ctx context.Context, opts *options) (err error) {
 	}
 	l.TokenSource = config.TokenSource(ctx)
 	l.hc = oauth2.NewClient(ctx, l.TokenSource)
+
+	if s, err := gitstore.New(".cache"); err != nil {
+		return err
+	} else {
+		l.store = s
+	}
 
 	return nil
 }
@@ -287,6 +307,19 @@ func (l *launcher) forceRefreshToken(ctx context.Context) error {
 }
 
 func (l *launcher) doRun(ctx context.Context, lease holder.Lease) error {
-	log.Printf("%#v", lease)
-	return nil
+	scope := dig.New().Scope("runner")
+
+	// Runner context
+	if err := xdig.Supply(scope, l.runnerRecord); err != nil {
+		return err
+	}
+	if err := xdig.Supply(scope, l.Sandboxer); err != nil {
+		return err
+	}
+	if err := xdig.Supply(scope, l.store); err != nil {
+		return err
+	}
+
+	w := worker.New(lease)
+	return w.Run(ctx, scope)
 }

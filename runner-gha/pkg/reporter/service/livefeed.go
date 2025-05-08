@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 	"time"
 
 	"drassi.run/core/util/context"
@@ -11,11 +12,13 @@ import (
 	"github.com/coder/websocket"
 )
 
-func NewConsoleLiveFeeder(url string, contextual xcontext.Provider) (*ConsoleLiveFeeder, error) {
+func NewConsoleLiveFeeder(contextual xcontext.Provider, url string, hc *http.Client) (*ConsoleLiveFeeder, error) {
 	ctx := contextual.Context()
+	opts := &websocket.DialOptions{
+		HTTPClient: hc,
+	}
 
-	// TODO: header: Authorization, User-Agent
-	conn, _, err := websocket.Dial(ctx, url, nil)
+	conn, _, err := websocket.Dial(ctx, url, opts)
 	if err != nil {
 		return nil, err
 	}
