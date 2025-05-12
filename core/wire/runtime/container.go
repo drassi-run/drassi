@@ -21,8 +21,10 @@ import (
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/stream"
+	"drassi.run/core/util/context"
 	"drassi.run/core/util/string"
 	. "drassi.run/core/util/types"
+	"go.uber.org/dig"
 )
 
 const (
@@ -30,8 +32,12 @@ const (
 	tempDir      = "/opt/drassi/temp"
 )
 
+func ProvideTo(scope *dig.Scope) error {
+	return scope.Provide(NewContainerRuntime)
+}
+
 func NewContainerRuntime(
-	ctx context.Context,
+	contextual xcontext.Provider,
 	engine container.Engine,
 	streams stream.Streams,
 	sandbox sandboxer.Sandbox,
@@ -50,7 +56,7 @@ func NewContainerRuntime(
 	layout := sandbox.Layout()
 	var mounts []*types.Mount
 	if ctn := info.Container; ctn != nil {
-		ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+		ctx, cancel := context.WithTimeout(contextual.Context(), 3*time.Second)
 		defer cancel()
 
 		if spec, err := engine.ContainerInspect(ctx, ctn.Id); err != nil {
