@@ -154,11 +154,10 @@ func decodeGenericContextData(name string, o map[string]any) (any, error) {
 	if !ok {
 		return nil, fmt.Errorf("ContextData %s required field 't'", name)
 	}
-	typ := int(t)
 
 	// https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTPipelines/Pipelines/ContextData/PipelineContextData.cs
 	// https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTPipelines/Pipelines/ContextData/PipelineContextDataType.cs
-	switch typ {
+	switch typ := int(t); typ {
 	// https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTPipelines/Pipelines/ContextData/StringContextData.cs
 	case 0: // string
 		if s, ok := o["s"]; !ok {
@@ -183,12 +182,15 @@ func decodeGenericContextData(name string, o map[string]any) (any, error) {
 	case 2: // dictionary
 		if d, ok := o["d"]; !ok {
 			return nil, nil // default value
-		} else if dic, ok := d.([]map[string]any); ok {
-			return decodeMapContextData(name, dic)
-		} else if dic, ok := d.([]any); ok {
-			return decodeMapContextData(name, dic)
 		} else {
-			return nil, fmt.Errorf("field 'd' in DictionaryContextData %s must be a map, got %T", name, d)
+			switch dic := d.(type) {
+			case []map[string]any:
+				return decodeMapContextData(name, dic)
+			case []any:
+				return decodeMapContextData(name, dic)
+			default:
+				return nil, fmt.Errorf("field 'd' in DictionaryContextData %s must be a map, got %T", name, d)
+			}
 		}
 
 	// https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTPipelines/Pipelines/ContextData/BooleanContextData.cs
