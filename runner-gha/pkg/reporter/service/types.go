@@ -1,6 +1,12 @@
 package service
 
-import "time"
+import (
+	"time"
+
+	"drassi.run/core/pkg/executor/reporter"
+	"drassi.run/gha-runner/pkg/holder"
+	"drassi.run/gha-runner/pkg/messages"
+)
 
 ////////////// ResultService: Metadata Response for Create(Job/Step)Logs //////////////
 
@@ -117,9 +123,68 @@ type line struct {
 }
 
 // TimelineRecordFeedLinesWrapper in C#
-type liveFeed struct {
+type linesWrapper struct {
 	StepUid   string   `json:"step_id"`
-	Lines     []string `json:"value"`
+	Value     []string `json:"value"`
 	Count     int      `json:"count"`
 	StartLine int64    `json:"start_line"`
+}
+
+////////////// TimelineRecord //////////////
+
+// TimelineRecord in C#
+type record struct {
+	Id               string                            `json:"id,omitempty"`        // UUID
+	TimelineId       string                            `json:"-"`                   // UUID
+	ParentId         string                            `json:"parent_id,omitempty"` // UUID
+	Type             string                            `json:"type,omitempty"`      // RecordType
+	Name             string                            `json:"name,omitempty"`
+	StartTime        time.Time                         `json:"start_time,omitempty"`
+	FinishTime       time.Time                         `json:"finish_time,omitempty"`
+	CurrentOperation string                            `json:"current_operation,omitempty"`
+	PercentComplete  int32                             `json:"percent_complete,omitempty"`
+	State            holder.TimelineRecordState        `json:"state,omitempty"`
+	Result           holder.TaskResult                 `json:"result,omitempty"`
+	ResultCode       string                            `json:"result_code,omitempty"`
+	ChangeID         int32                             `json:"change_id,omitempty"`
+	LastModified     time.Time                         `json:"last_modified,omitempty"`
+	WorkerName       string                            `json:"worker_name,omitempty"`
+	Order            int32                             `json:"order,omitempty"`
+	RefName          string                            `json:"ref_name,omitempty"`
+	Log              *TaskLogReference                 `json:"log,omitempty"`
+	Details          *TimeLineReference                `json:"details,omitempty"`
+	ErrorCount       int                               `json:"error_count,omitempty"`
+	WarningCount     int                               `json:"warning_count,omitempty"`
+	NoticeCount      int                               `json:"notice_count,omitempty"`
+	Issues           []reporter.Issue                  `json:"issues,omitempty"`
+	Location         string                            `json:"location,omitempty"`
+	Attempt          int32                             `json:"attempt,omitempty"`
+	Identifier       string                            `json:"identifier,omitempty"`
+	AgentPlatform    string                            `json:"agent_platform,omitempty"`
+	PreviousAttempts []TimelineAttempt                 `json:"previous_attempts,omitempty"`
+	Variables        map[string]messages.VariableValue `json:"variables,omitempty"`
+}
+
+type TaskLogReference struct {
+	Id       int32  `json:"id,omitempty"`
+	Location string `json:"location,omitempty"`
+}
+
+type TimeLineReference struct {
+	Id       string `json:"id,omitempty"` // UUID
+	ChangeId int32  `json:"change_id,omitempty"`
+	Location string `json:"location,omitempty"`
+}
+
+type TimelineAttempt struct {
+	Identifier string `json:"identifier,omitempty"`
+	Attempt    int32  `json:"attempt,omitempty"`
+	TimelineId string `json:"timeline_id,omitempty"` // UUID
+	RecordId   string `json:"record_id,omitempty"`   // UUID
+}
+
+// VssJsonCollectionWrapper in C#
+type recordsWrapper struct {
+	Count int64     `json:"count,omitempty"`
+	Value []*record `json:"value,omitempty"`
 }

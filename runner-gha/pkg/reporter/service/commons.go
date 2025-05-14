@@ -39,7 +39,7 @@ type LiveFeeder interface {
 }
 
 type liveFeeder struct {
-	SendFn    func(data *liveFeed) error
+	SendFn    func(data *linesWrapper) error
 	CloseFn   func() error
 	batcher   reactive.Batcher[*line]
 	logOffset int64
@@ -112,9 +112,9 @@ func (lf *liveFeeder) sendE(stepUid string, lines []string, offset int64) error 
 		return nil
 	}
 
-	data := &liveFeed{
+	data := &linesWrapper{
 		StepUid:   stepUid,
-		Lines:     lines,
+		Value:     lines,
 		Count:     len(lines),
 		StartLine: offset,
 	}

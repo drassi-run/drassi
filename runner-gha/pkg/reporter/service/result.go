@@ -181,7 +181,7 @@ func (s *ResultService) LiveFeeder(contextual xcontext.Provider, wsUrl string) (
 
 	lf := &liveFeeder{
 		batcher: reactive.NewThrottleBatcher[*line](100, 500*time.Millisecond),
-		SendFn: func(data *liveFeed) error {
+		SendFn: func(data *linesWrapper) error {
 			ctx := contextual.Context()
 
 			if payload, err := json.Marshal(data); err != nil {
