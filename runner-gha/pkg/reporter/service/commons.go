@@ -7,7 +7,9 @@ import (
 
 	"drassi.run/core/pkg/stream"
 	"drassi.run/core/util/http"
+	"drassi.run/core/util/reactive"
 	"drassi.run/gha-runner/pkg/types"
+	"github.com/chainguard-dev/clog"
 )
 
 func newClient(url string, hc *http.Client) (*xhttp.Client, error) {
@@ -34,4 +36,87 @@ type LiveFeeder interface {
 	stream.Handler
 	io.Closer
 	Start() error
+}
+
+type liveFeeder struct {
+	SendFn    func(data *liveFeed) error
+	CloseFn   func() error
+	batcher   reactive.Batcher[*line]
+	logOffset int64
+}
+
+// https://github.com/actions/runner/blob/v2.324.0/src/Runner.Common/ResultsServer.cs#L220
+func (lf *liveFeeder) Handle(_ context.Context, s string) error {
+	l := &line{
+		stepUid: "TODO", // TODO add stepUid
+		number:  lf.logOffset,
+		content: s,
+	}
+	lf.logOffset++
+
+	return lf.batcher.Put(l)
+}
+
+func (lf *liveFeeder) Start() error {
+	return lf.batcher.Start(lf.send)
+}
+
+func (lf *liveFeeder) Close() error {
+	lf.batcher.Stop()
+
+	if lf.CloseFn != nil {
+		return lf.CloseFn()
+	}
+	return nil
+}
+
+// https://github.com/actions/runner/blob/v2.324.0/src/Runner.Common/ResultsServer.cs#L220
+func (lf *liveFeeder) send(lines []*line) {
+	var (
+		stepUid string
+		offset  int64
+		msg     []string
+	)
+
+	// split lines into segments by stepUid
+	var prev *line
+	for _, curr := range lines {
+		if prev != nil && prev.stepUid == curr.stepUid {
+			msg = append(msg, curr.content)
+			prev = curr
+			continue
+		}
+
+		// curr is start of a new segment
+		// => process the previous segment
+		if err := lf.sendE(stepUid, msg, offset); err != nil {
+			clog.Errorf("failed to upload logs: %v", err)
+		}
+
+		// save state of a new segment
+		stepUid, offset = curr.stepUid, curr.number
+		msg = []string{curr.content}
+		prev = curr
+	}
+
+	// process the last segment
+	if err := lf.sendE(stepUid, msg, offset); err != nil {
+		clog.Errorf("failed to upload logs: %v", err)
+	}
+
+	return
+}
+
+func (lf *liveFeeder) sendE(stepUid string, lines []string, offset int64) error {
+	if len(lines) == 0 {
+		return nil
+	}
+
+	data := &liveFeed{
+		StepUid:   stepUid,
+		Lines:     lines,
+		Count:     len(lines),
+		StartLine: offset,
+	}
+	return lf.SendFn(data)
 }
