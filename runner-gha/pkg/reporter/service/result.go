@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -9,31 +10,19 @@ import (
 	"time"
 
 	"drassi.run/core/pkg/executor"
+	"drassi.run/core/util/context"
 	"drassi.run/core/util/http"
+	"drassi.run/core/util/reactive"
 	"drassi.run/gha-runner/pkg/messages"
 	"drassi.run/gha-runner/pkg/reporter/store"
-	"drassi.run/gha-runner/pkg/types"
+	"github.com/chainguard-dev/clog"
+	"github.com/coder/websocket"
 )
 
 var (
 	receiverEndpoint = "twirp/results.services.receiver.Receiver/"
 	workflowEndpoint = "twirp/github.actions.results.api.v1.WorkflowStepUpdateService/"
 )
-
-func newClient(url string, hc *http.Client) (*xhttp.Client, error) {
-	client, err := xhttp.NewClient(url)
-	if err != nil {
-		return nil, err
-	}
-
-	client = client.WithDefaultErrorHandler(types.ParseActionsError).
-		WithDefaultHeader("User-Agent", "gha-runner") // TODO
-
-	if hc != nil {
-		client = client.WithHttpClient(hc)
-	}
-	return client, nil
-}
 
 func NewResultService(url string, hc *http.Client, msg *messages.PipelineAgentJobRequest) (*ResultService, error) {
 	url = path.Join(url, receiverEndpoint)
@@ -180,6 +169,27 @@ func (s *ResultService) StepSummaryUploader(stepUid string) Uploader {
 	return &stepSummaryResultUploader{svc: s, stepUid: stepUid}
 }
 
+func (s *ResultService) LiveFeeder(contextual xcontext.Provider, wsUrl string) (LiveFeeder, error) {
+	ctx := contextual.Context()
+	opts := &websocket.DialOptions{
+		HTTPClient: s.client.HttpClient(),
+	}
+
+	conn, _, err := websocket.Dial(ctx, wsUrl, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	batcher := reactive.NewThrottleBatcher[*line](100, 500*time.Millisecond)
+
+	lf := &resultLiveFeeder{
+		conn:       conn,
+		batcher:    batcher,
+		contextual: contextual,
+	}
+	return lf, nil
+}
+
 func (s *ResultService) RecordTimeline(ctx context.Context, event any) error {
 	return nil
 }
@@ -264,4 +274,92 @@ func (u *stepSummaryResultUploader) Upload(ctx context.Context, r io.Reader) err
 func (u *stepSummaryResultUploader) Complete(ctx context.Context, lineCount int64) error {
 	//TODO implement me
 	panic("implement me")
+}
+
+type resultLiveFeeder struct {
+	conn       *websocket.Conn
+	batcher    reactive.Batcher[*line]
+	contextual xcontext.Provider
+	logOffset  int64
+}
+
+// https://github.com/actions/runner/blob/v2.324.0/src/Runner.Common/ResultsServer.cs#L220
+func (lf *resultLiveFeeder) Handle(_ context.Context, s string) error {
+	l := &line{
+		stepUid: "TODO", // TODO add stepUid
+		number:  lf.logOffset,
+		content: s,
+	}
+	lf.logOffset++
+
+	return lf.batcher.Put(l)
+}
+
+func (lf *resultLiveFeeder) Start() error {
+	return lf.batcher.Start(lf.send)
+}
+
+func (lf *resultLiveFeeder) Close() error {
+	lf.batcher.Stop()
+	return lf.conn.Close(websocket.StatusNormalClosure, "bye")
+}
+
+// https://github.com/actions/runner/blob/v2.324.0/src/Runner.Common/ResultsServer.cs#L220
+func (lf *resultLiveFeeder) send(lines []*line) {
+	ctx := lf.contextual.Context()
+
+	var (
+		stepUid string
+		offset  int64
+		msg     []string
+	)
+
+	// split lines into segments by stepUid
+	var prev *line
+	for _, curr := range lines {
+		if prev != nil && prev.stepUid == curr.stepUid {
+			msg = append(msg, curr.content)
+			prev = curr
+			continue
+		}
+
+		// curr is start of a new segment
+		// => process the previous segment
+		if err := lf.sendE(ctx, stepUid, msg, offset); err != nil {
+			clog.Errorf("failed to upload logs: %v", err)
+		}
+
+		// save state of a new segment
+		stepUid, offset = curr.stepUid, curr.number
+		msg = []string{curr.content}
+		prev = curr
+	}
+
+	// process the last segment
+	if err := lf.sendE(ctx, stepUid, msg, offset); err != nil {
+		clog.Errorf("failed to upload logs: %v", err)
+	}
+
+	return
+}
+
+func (lf *resultLiveFeeder) sendE(ctx context.Context, stepUid string, lines []string, offset int64) error {
+	if len(lines) == 0 {
+		return nil
+	}
+
+	data := &liveFeed{
+		StepUid:   stepUid,
+		Lines:     lines,
+		Count:     len(lines),
+		StartLine: offset,
+	}
+	if w, err := lf.conn.Writer(ctx, websocket.MessageText); err != nil {
+		return err
+	} else if err = json.NewEncoder(w).Encode(data); err != nil {
+		_ = w.Close()
+		return err
+	} else {
+		return w.Close()
+	}
 }

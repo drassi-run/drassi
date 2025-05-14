@@ -40,6 +40,10 @@ func NewClient(baseUrl string) (*Client, error) {
 	return c, nil
 }
 
+func (c *Client) HttpClient() *http.Client {
+	return c.hc
+}
+
 func (c *Client) WithHttpClient(hc *http.Client) *Client {
 	client := c.clone()
 	client.hc = hc

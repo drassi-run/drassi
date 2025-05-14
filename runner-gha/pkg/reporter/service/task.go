@@ -7,8 +7,10 @@ import (
 	"net/http"
 	"path"
 
+	"drassi.run/core/util/context"
 	"drassi.run/core/util/http"
 	"drassi.run/gha-runner/pkg/messages"
+	"github.com/coder/websocket"
 )
 
 const (
@@ -88,6 +90,28 @@ func (s *TaskService) uploadAttach(ctx context.Context, recordId, kind, name str
 	return e.Do(ctx)
 }
 
+func (s *TaskService) LiveFeeder(contextual xcontext.Provider, wsUrl string) (LiveFeeder, error) {
+	ctx := contextual.Context()
+	opts := &websocket.DialOptions{
+		HTTPClient: s.client.HttpClient(),
+	}
+
+	var wsConn *websocket.Conn
+	if wsUrl != "" {
+		if conn, _, err := websocket.Dial(ctx, wsUrl, opts); err != nil {
+			return nil, err
+		} else {
+			wsConn = conn
+		}
+	}
+
+	lf := &taskLiveFeeder{
+		svc:    s,
+		wsConn: wsConn,
+	}
+	return lf, nil
+}
+
 func (s *TaskService) RecordTimeline(event any) error {
 	return nil
 }
@@ -116,4 +140,29 @@ func (u *attachmentTaskUploader) Upload(ctx context.Context, r io.Reader) error 
 
 func (u *attachmentTaskUploader) Complete(context.Context, int64) error {
 	return nil
+}
+
+type taskLiveFeeder struct {
+	svc    *TaskService
+	wsConn *websocket.Conn
+}
+
+// First, try push the log via websocket if avaiable, otherwise fallback to the REST API.
+//
+// https://github.com/actions/runner/blob/v2.324.0/src/Runner.Common/JobServerQueue.cs#L418
+// https://github.com/actions/runner/blob/v2.324.0/src/Runner.Common/JobServer.cs#L229
+// https://github.com/actions/runner/blob/v2.324.0/src/Sdk/DTGenerated/Generated/TaskHttpClientBase.cs#L115
+func (lf *taskLiveFeeder) Handle(ctx context.Context, s string) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (lf *taskLiveFeeder) Start() error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (lf *taskLiveFeeder) Close() error {
+	//TODO implement me
+	panic("implement me")
 }

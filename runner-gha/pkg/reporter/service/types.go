@@ -2,11 +2,13 @@ package service
 
 import "time"
 
+////////////// ResultService: Metadata Response for Create(Job/Step)Logs //////////////
+
 type metadataResponse struct {
 	Ok bool `json:"ok"`
 }
 
-////////////// Step Summary //////////////
+////////////// ResultService: Step Summary //////////////
 
 // GetSignedStepSummaryURLRequest in C#
 type signedUrlStepSummaryRequest struct {
@@ -31,7 +33,7 @@ type metadataStepSummaryRequest struct {
 	UploadedAt time.Time `json:"uploaded_at"`
 }
 
-////////////// Step Logs //////////////
+////////////// ResultService: Step Logs //////////////
 
 // GetSignedStepLogsURLRequest in C#
 type signedUrlStepLogsRequest struct {
@@ -56,7 +58,7 @@ type metadataStepLogsRequest struct {
 	UploadedAt time.Time `json:"uploaded_at"`
 }
 
-////////////// Job Logs //////////////
+////////////// ResultService: Job Logs //////////////
 
 // GetSignedJobLogsURLRequest in C#
 type signedUrlJobLogsRequest struct {
@@ -78,7 +80,7 @@ type metadataJobLogsRequest struct {
 	UploadedAt time.Time `json:"uploaded_at"`
 }
 
-////////////// Diagnostic Logs //////////////
+////////////// ResultService: Diagnostic Logs //////////////
 
 // GetSignedDiagnosticLogsURLRequest in C#
 type signedUrlDiagnosticLogsRequest struct {
@@ -90,4 +92,34 @@ type signedUrlDiagnosticLogsRequest struct {
 type signedUrlDiagnosticLogsResponse struct {
 	Url         string `json:"diag_logs_url"`
 	StorageType string `json:"blob_storage_type"`
+}
+
+////////////// TaskService: Diagnostic Logs //////////////
+
+// TaskLog in C#
+type taskLog struct {
+	Id            string    `json:"id"`
+	Location      string    `json:"location"`
+	IndexLocation string    `json:"index_location"`
+	Path          string    `json:"path"`
+	LineCount     int64     `json:"line_count"`
+	CreatedOn     time.Time `json:"created_on"`
+	LastChangedOn time.Time `json:"last_changed_on"`
+}
+
+////////////// LiveFeed //////////////
+
+// same TimelineRecordLogLine in C# with some extra info
+type line struct {
+	stepUid string
+	number  int64
+	content string
+}
+
+// TimelineRecordFeedLinesWrapper in C#
+type liveFeed struct {
+	StepUid   string   `json:"step_id"`
+	Lines     []string `json:"value"`
+	Count     int      `json:"count"`
+	StartLine int64    `json:"start_line"`
 }
