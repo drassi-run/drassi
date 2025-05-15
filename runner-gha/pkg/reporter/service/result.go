@@ -48,9 +48,31 @@ type ResultService struct {
 	sm store.Manager
 }
 
+////////////// Step Logs //////////////
+
+// StepLogsUploader return Uploader used to handle step logs upload
 // https://github.com/actions/runner/blob/v2.323.0/src/Sdk/WebApi/WebApi/ResultsHttpClient.cs#L454
 func (s *ResultService) StepLogsUploader(sr executor.StepRun) Uploader {
 	return &stepLogsResultUploader{svc: s, sr: sr}
+}
+
+type stepLogsResultUploader struct {
+	svc *ResultService
+	sr  executor.StepRun
+}
+
+func (u *stepLogsResultUploader) Upload(ctx context.Context, r io.Reader) error {
+	url, o, err := u.svc.getStepLogsSignedUrl(ctx, u.sr.StepId())
+	if err != nil {
+		return err
+	}
+
+	s := u.svc.sm.Get(o)
+	if s == nil {
+		return fmt.Errorf("no store found for %s", o)
+	}
+
+	return s.Put(ctx, url, r)
 }
 
 func (s *ResultService) getStepLogsSignedUrl(ctx context.Context, stepUid string) (string, string, error) {
@@ -71,6 +93,10 @@ func (s *ResultService) getStepLogsSignedUrl(ctx context.Context, stepUid string
 		return "", "", fmt.Errorf("StepLogs upload failed with empty url")
 	}
 	return resp.Url, resp.StorageType, nil
+}
+
+func (u *stepLogsResultUploader) Complete(ctx context.Context, lineCount int64) error {
+	return u.svc.createStepLogsMetadata(ctx, u.sr.StepId(), lineCount)
 }
 
 func (s *ResultService) createStepLogsMetadata(ctx context.Context, stepUid string, lineCount int64) error {
@@ -95,9 +121,30 @@ func (s *ResultService) createStepLogsMetadata(ctx context.Context, stepUid stri
 	return nil
 }
 
+////////////// Job Logs //////////////
+
+// JobLogsUploader return Uploader used to handle job logs upload
 // https://github.com/actions/runner/blob/v2.323.0/src/Sdk/WebApi/WebApi/ResultsHttpClient.cs#L479
 func (s *ResultService) JobLogsUploader() Uploader {
 	return &jobLogsResultUploader{svc: s}
+}
+
+type jobLogsResultUploader struct {
+	svc *ResultService
+}
+
+func (u *jobLogsResultUploader) Upload(ctx context.Context, r io.Reader) error {
+	url, o, err := u.svc.getJobLogsSignedUrl(ctx)
+	if err != nil {
+		return err
+	}
+
+	s := u.svc.sm.Get(o)
+	if s == nil {
+		return fmt.Errorf("no store found for %s", o)
+	}
+
+	return s.Put(ctx, url, r)
 }
 
 func (s *ResultService) getJobLogsSignedUrl(ctx context.Context) (string, string, error) {
@@ -117,6 +164,10 @@ func (s *ResultService) getJobLogsSignedUrl(ctx context.Context) (string, string
 		return "", "", fmt.Errorf("JobLogs upload failed with empty url")
 	}
 	return resp.Url, resp.StorageType, nil
+}
+
+func (u *jobLogsResultUploader) Complete(ctx context.Context, lineCount int64) error {
+	return u.svc.createJobLogsMetadata(ctx, lineCount)
 }
 
 func (s *ResultService) createJobLogsMetadata(ctx context.Context, lineCount int64) error {
@@ -140,9 +191,30 @@ func (s *ResultService) createJobLogsMetadata(ctx context.Context, lineCount int
 	return nil
 }
 
+////////////// Diagnostic Logs //////////////
+
+// DiagnosticLogsUploader return Uploader used to handle diagnostic logs upload
 // https://github.com/actions/runner/blob/v2.323.0/src/Sdk/WebApi/WebApi/ResultsHttpClient.cs#L503
 func (s *ResultService) DiagnosticLogsUploader() Uploader {
 	return &diagnosticLogsResultUploader{svc: s}
+}
+
+type diagnosticLogsResultUploader struct {
+	svc *ResultService
+}
+
+func (u *diagnosticLogsResultUploader) Upload(ctx context.Context, r io.Reader) error {
+	url, o, err := u.svc.getDiagnosticLogsSignedUrl(ctx)
+	if err != nil {
+		return err
+	}
+
+	s := u.svc.sm.Get(o)
+	if s == nil {
+		return fmt.Errorf("no store found for %s", o)
+	}
+
+	return s.Put(ctx, url, r)
 }
 
 func (s *ResultService) getDiagnosticLogsSignedUrl(ctx context.Context) (string, string, error) {
@@ -164,9 +236,84 @@ func (s *ResultService) getDiagnosticLogsSignedUrl(ctx context.Context) (string,
 	return resp.Url, resp.StorageType, nil
 }
 
+func (u *diagnosticLogsResultUploader) Complete(ctx context.Context, lineCount int64) error {
+	return nil
+}
+
+////////////// Step Summary //////////////
+
+// StepSummaryUploader return Uploader used to handle step summary upload
+// https://github.com/actions/runner/blob/v2.324.0/src/Sdk/WebApi/WebApi/ResultsHttpClient.cs#L398
 func (s *ResultService) StepSummaryUploader(stepUid string) Uploader {
 	return &stepSummaryResultUploader{svc: s, stepUid: stepUid}
 }
+
+type stepSummaryResultUploader struct {
+	svc     *ResultService
+	stepUid string
+}
+
+func (u *stepSummaryResultUploader) Upload(ctx context.Context, r io.Reader) error {
+	url, o, err := u.svc.getStepSummarySignedUrl(ctx, u.stepUid)
+	if err != nil {
+		return err
+	}
+
+	s := u.svc.sm.Get(o)
+	if s == nil {
+		return fmt.Errorf("no store found for %s", o)
+	}
+
+	return s.Put(ctx, url, r)
+}
+
+func (s *ResultService) getStepSummarySignedUrl(ctx context.Context, stepUid string) (string, string, error) {
+	req := &signedUrlStepSummaryRequest{
+		PlanUid: s.planUid,
+		JobUid:  s.jobUid,
+		StepUid: stepUid,
+	}
+	resp := new(signedUrlStepSummaryResponse)
+	e := s.client.Post("GetStepSummarySignedBlobURL").
+		WithBodyProvider(xhttp.JsonEncode(req)).
+		OnSuccess(xhttp.JsonDecode(resp))
+
+	if err := e.Do(ctx); err != nil {
+		return "", "", err
+	}
+	if resp.Url == "" {
+		return "", "", fmt.Errorf("StepSummary upload failed with empty url")
+	}
+	return resp.Url, resp.StorageType, nil
+}
+
+func (u *stepSummaryResultUploader) Complete(ctx context.Context, size int64) error {
+	return u.svc.createStepSummaryMetadata(ctx, u.stepUid, size) // TODO size
+}
+
+func (s *ResultService) createStepSummaryMetadata(ctx context.Context, stepUid string, size int64) error {
+	req := &metadataStepSummaryRequest{
+		PlanUid:    s.planUid,
+		JobUid:     s.jobUid,
+		StepUid:    stepUid,
+		UploadedAt: time.Now(),
+		Size:       size,
+	}
+	resp := new(metadataResponse)
+	e := s.client.Post("CreateStepSummaryMetadata").
+		WithBodyProvider(xhttp.JsonEncode(req)).
+		OnSuccess(xhttp.JsonDecode(resp))
+
+	if err := e.Do(ctx); err != nil {
+		return err
+	}
+	if !resp.Ok {
+		return fmt.Errorf("failed to mark StepSummary upload as complete")
+	}
+	return nil
+}
+
+////////////// Live Feed //////////////
 
 func (s *ResultService) LiveFeeder(contextual xcontext.Provider, wsUrl string) (LiveFeeder, error) {
 	ctx := contextual.Context()
@@ -197,88 +344,8 @@ func (s *ResultService) LiveFeeder(contextual xcontext.Provider, wsUrl string) (
 	return lf, nil
 }
 
+////////////// Timeline Record //////////////
+
 func (s *ResultService) RecordTimeline(ctx context.Context, event any) error {
 	return nil
-}
-
-type stepLogsResultUploader struct {
-	svc *ResultService
-	sr  executor.StepRun
-}
-
-func (u *stepLogsResultUploader) Upload(ctx context.Context, r io.Reader) error {
-	url, o, err := u.svc.getStepLogsSignedUrl(ctx, u.sr.StepId())
-	if err != nil {
-		return err
-	}
-
-	s := u.svc.sm.Get(o)
-	if s == nil {
-		return fmt.Errorf("no store found for %s", o)
-	}
-
-	return s.Put(ctx, url, r)
-}
-
-func (u *stepLogsResultUploader) Complete(ctx context.Context, lineCount int64) error {
-	return u.svc.createStepLogsMetadata(ctx, u.sr.StepId(), lineCount)
-}
-
-type jobLogsResultUploader struct {
-	svc *ResultService
-}
-
-func (u *jobLogsResultUploader) Upload(ctx context.Context, r io.Reader) error {
-	url, o, err := u.svc.getJobLogsSignedUrl(ctx)
-	if err != nil {
-		return err
-	}
-
-	s := u.svc.sm.Get(o)
-	if s == nil {
-		return fmt.Errorf("no store found for %s", o)
-	}
-
-	return s.Put(ctx, url, r)
-}
-
-func (u *jobLogsResultUploader) Complete(ctx context.Context, lineCount int64) error {
-	return u.svc.createJobLogsMetadata(ctx, lineCount)
-}
-
-type diagnosticLogsResultUploader struct {
-	svc *ResultService
-}
-
-func (u *diagnosticLogsResultUploader) Upload(ctx context.Context, r io.Reader) error {
-	url, o, err := u.svc.getDiagnosticLogsSignedUrl(ctx)
-	if err != nil {
-		return err
-	}
-
-	s := u.svc.sm.Get(o)
-	if s == nil {
-		return fmt.Errorf("no store found for %s", o)
-	}
-
-	return s.Put(ctx, url, r)
-}
-
-func (u *diagnosticLogsResultUploader) Complete(ctx context.Context, lineCount int64) error {
-	return nil
-}
-
-type stepSummaryResultUploader struct {
-	svc     *ResultService
-	stepUid string
-}
-
-func (u *stepSummaryResultUploader) Upload(ctx context.Context, r io.Reader) error {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (u *stepSummaryResultUploader) Complete(ctx context.Context, lineCount int64) error {
-	//TODO implement me
-	panic("implement me")
 }
