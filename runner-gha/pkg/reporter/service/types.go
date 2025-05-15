@@ -100,6 +100,45 @@ type signedUrlDiagnosticLogsResponse struct {
 	StorageType string `json:"blob_storage_type"`
 }
 
+////////////// ResultService: Diagnostic Logs //////////////
+
+// StepsUpdateRequest in C#
+type stepsUpdateRequest struct {
+	PlanUid     string `json:"workflow_run_backend_id"`
+	JobUid      string `json:"workflow_job_run_backend_id"`
+	ChangeOrder int64  `json:"change_order"`
+	Steps       []Step `json:"steps"`
+}
+
+type Step struct {
+	Id          string     `json:"external_id"`
+	Number      int64      `json:"number"`
+	Name        string     `json:"name"`
+	Status      Status     `json:"status"`
+	StartedAt   *time.Time `json:"started_at"`
+	CompletedAt *time.Time `json:"completed_at"`
+	Conclusion  Conclusion `json:"conclusion"`
+}
+
+type Status int
+
+const (
+	StatusUnknown    Status = 0
+	StatusInProgress Status = 3
+	StatusPending    Status = 5
+	StatusCompleted  Status = 6
+)
+
+type Conclusion int
+
+const (
+	ConclusionUnknown   Conclusion = 0
+	ConclusionSuccess   Conclusion = 2
+	ConclusionFailure   Conclusion = 3
+	ConclusionCancelled Conclusion = 4
+	ConclusionSkipped   Conclusion = 7
+)
+
 ////////////// TaskService: Diagnostic Logs //////////////
 
 // TaskLog in C#

@@ -349,3 +349,25 @@ func (s *ResultService) LiveFeeder(contextual xcontext.Provider, wsUrl string) (
 func (s *ResultService) RecordTimeline(ctx context.Context, event any) error {
 	return nil
 }
+
+// https://github.com/actions/runner/blob/v2.324.0/src/Sdk/WebApi/WebApi/ResultsHttpClient.cs#L567
+func (s *ResultService) updateWorkflowSteps(ctx context.Context, order int64, steps []Step) error {
+	req := &stepsUpdateRequest{
+		PlanUid:     s.planUid,
+		JobUid:      s.jobUid,
+		ChangeOrder: order,
+		Steps:       steps,
+	}
+	resp := new(metadataResponse)
+	e := s.client.Post(workflowEndpoint + "WorkflowStepsUpdate").
+		WithBodyProvider(xhttp.JsonEncode(req)).
+		OnSuccess(xhttp.JsonDecode(resp))
+
+	if err := e.Do(ctx); err != nil {
+		return err
+	}
+	if !resp.Ok {
+		return fmt.Errorf("failed to mark StepSummary upload as complete")
+	}
+	return nil
+}
