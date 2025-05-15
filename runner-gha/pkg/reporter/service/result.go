@@ -24,7 +24,6 @@ var (
 )
 
 func NewResultService(url string, hc *http.Client, msg *messages.PipelineAgentJobRequest) (*ResultService, error) {
-	url = path.Join(url, receiverEndpoint)
 	client, err := newClient(url, hc)
 	if err != nil {
 		return nil, err
@@ -82,7 +81,7 @@ func (s *ResultService) getStepLogsSignedUrl(ctx context.Context, stepUid string
 		StepUid: stepUid,
 	}
 	resp := new(signedUrlStepLogsResponse)
-	e := s.client.Post("GetStepLogsSignedBlobURL").
+	e := s.client.Post(path.Join(receiverEndpoint, "GetStepLogsSignedBlobURL")).
 		WithBodyProvider(xhttp.JsonEncode(req)).
 		OnSuccess(xhttp.JsonDecode(resp))
 
@@ -108,7 +107,7 @@ func (s *ResultService) createStepLogsMetadata(ctx context.Context, stepUid stri
 		LineCount:  lineCount,
 	}
 	resp := new(metadataResponse)
-	e := s.client.Post("CreateStepLogsMetadata").
+	e := s.client.Post(path.Join(receiverEndpoint, "CreateStepLogsMetadata")).
 		WithBodyProvider(xhttp.JsonEncode(req)).
 		OnSuccess(xhttp.JsonDecode(resp))
 
@@ -153,7 +152,7 @@ func (s *ResultService) getJobLogsSignedUrl(ctx context.Context) (string, string
 		JobUid:  s.jobUid,
 	}
 	resp := new(signedUrlJobLogsResponse)
-	e := s.client.Post("GetJobLogsSignedBlobURL").
+	e := s.client.Post(path.Join(receiverEndpoint, "GetJobLogsSignedBlobURL")).
 		WithBodyProvider(xhttp.JsonEncode(req)).
 		OnSuccess(xhttp.JsonDecode(resp))
 
@@ -178,7 +177,7 @@ func (s *ResultService) createJobLogsMetadata(ctx context.Context, lineCount int
 		LineCount:  lineCount,
 	}
 	resp := new(metadataResponse)
-	e := s.client.Post("CreateJobLogsMetadata").
+	e := s.client.Post(path.Join(receiverEndpoint, "CreateJobLogsMetadata")).
 		WithBodyProvider(xhttp.JsonEncode(req)).
 		OnSuccess(xhttp.JsonDecode(resp))
 
@@ -223,7 +222,7 @@ func (s *ResultService) getDiagnosticLogsSignedUrl(ctx context.Context) (string,
 		JobUid:  s.jobUid,
 	}
 	resp := new(signedUrlDiagnosticLogsResponse)
-	e := s.client.Post("GetJobDiagLogsSignedBlobURL").
+	e := s.client.Post(path.Join(receiverEndpoint, "GetJobDiagLogsSignedBlobURL")).
 		WithBodyProvider(xhttp.JsonEncode(req)).
 		OnSuccess(xhttp.JsonDecode(resp))
 
@@ -274,7 +273,7 @@ func (s *ResultService) getStepSummarySignedUrl(ctx context.Context, stepUid str
 		StepUid: stepUid,
 	}
 	resp := new(signedUrlStepSummaryResponse)
-	e := s.client.Post("GetStepSummarySignedBlobURL").
+	e := s.client.Post(path.Join(receiverEndpoint, "GetStepSummarySignedBlobURL")).
 		WithBodyProvider(xhttp.JsonEncode(req)).
 		OnSuccess(xhttp.JsonDecode(resp))
 
@@ -300,7 +299,7 @@ func (s *ResultService) createStepSummaryMetadata(ctx context.Context, stepUid s
 		Size:       size,
 	}
 	resp := new(metadataResponse)
-	e := s.client.Post("CreateStepSummaryMetadata").
+	e := s.client.Post(path.Join(receiverEndpoint, "CreateStepSummaryMetadata")).
 		WithBodyProvider(xhttp.JsonEncode(req)).
 		OnSuccess(xhttp.JsonDecode(resp))
 
@@ -359,7 +358,7 @@ func (s *ResultService) updateWorkflowSteps(ctx context.Context, order int64, st
 		Steps:       steps,
 	}
 	resp := new(metadataResponse)
-	e := s.client.Post(workflowEndpoint + "WorkflowStepsUpdate").
+	e := s.client.Post(path.Join(workflowEndpoint, "WorkflowStepsUpdate")).
 		WithBodyProvider(xhttp.JsonEncode(req)).
 		OnSuccess(xhttp.JsonDecode(resp))
 
