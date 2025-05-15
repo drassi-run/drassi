@@ -1,6 +1,18 @@
 package holder
 
-import "time"
+import (
+	"context"
+	"time"
+
+	"drassi.run/core/pkg/model/records"
+	"drassi.run/gha-runner/pkg/messages"
+)
+
+type Lease interface {
+	GetMessage() *messages.PipelineAgentJobRequest
+	Renew(ctx context.Context)
+	Complete(ctx context.Context, result records.Result) error
+}
 
 ////////////// RunService: request & response //////////////
 
@@ -20,15 +32,15 @@ type renewJobResponse struct {
 }
 
 type completeJobRequest struct {
-	PlanID         string              `json:"planId,omitempty"`
-	JobID          string              `json:"jobId,omitempty"`
-	Conclusion     string              `json:"conclusion,omitempty"`
-	Outputs        map[string]Variable `json:"outputs,omitempty"`
-	StepResults    []StepResult        `json:"stepResults,omitempty"`
-	Annotations    []Annotation        `json:"annotations,omitempty"`
-	Telemetry      []Telemetry         `json:"telemetry,omitempty"`
-	EnvironmentUrl string              `json:"environmentUrl,omitempty"`
-	BillingOwnerId string              `json:"billingOwnerId,omitempty"`
+	PlanID         string                            `json:"planId,omitempty"`
+	JobID          string                            `json:"jobId,omitempty"`
+	Conclusion     string                            `json:"conclusion,omitempty"`
+	Outputs        map[string]messages.VariableValue `json:"outputs,omitempty"`
+	StepResults    []StepResult                      `json:"stepResults,omitempty"`
+	Annotations    []Annotation                      `json:"annotations,omitempty"`
+	Telemetry      []Telemetry                       `json:"telemetry,omitempty"`
+	EnvironmentUrl string                            `json:"environmentUrl,omitempty"`
+	BillingOwnerId string                            `json:"billingOwnerId,omitempty"`
 }
 
 ////////////// RunnerService: request //////////////
@@ -56,11 +68,6 @@ type runnerJobRequest struct {
 	ExpectedDuration       time.Duration `json:"expected_duration,omitempty"`
 	OrchestrationId        string        `json:"orchestration_id,omitempty"`
 	MatchesAllAgentsInPool bool          `json:"matches_all_agents_in_pool,omitempty"`
-}
-
-type Variable struct {
-	Value    string `json:"value,omitempty"`
-	IsSecret bool   `json:"isSecret,omitempty"`
 }
 
 // https://github.com/actions/runner/blob/v2.323.0/src/Sdk/RSWebApi/Contracts/StepResult.cs

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/util/http"
 	"drassi.run/gha-runner/pkg/messages"
 	"github.com/chainguard-dev/clog"
@@ -114,6 +115,6 @@ func (l *runLease) Renew(ctx context.Context) {
 	l.svc.renewJob(ctx, l.msg)
 }
 
-func (l *runLease) Complete(ctx context.Context) error {
+func (l *runLease) Complete(ctx context.Context, result records.Result) error {
 	return l.svc.completeJob(ctx, l.msg)
 }

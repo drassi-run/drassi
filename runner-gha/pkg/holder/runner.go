@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/util/http"
 	"drassi.run/gha-runner/pkg/messages"
 	"github.com/chainguard-dev/clog"
@@ -51,9 +52,6 @@ func (s *RunnerService) Lease(msg *messages.PipelineAgentJobRequest) Lease {
 }
 
 // https://github.com/actions/runner/blob/v2.323.0/src/Sdk/DTWebApi/WebApi/TaskAgentHttpClient.cs#L93
-// orchId is extracted from
-// * `orch_id` claim in JWT from msg.Resources.Endpoints.Authorization.Parameters["AccessToken"]
-// * `system.orchestrationId` in msg.Variables
 func (s *RunnerService) renewJob(ctx context.Context, msg *messages.PipelineAgentJobRequest, orchId string) {
 	l := clog.FromContext(ctx)
 	req := &runnerJobRequest{RequestId: msg.RequestId}
@@ -61,7 +59,7 @@ func (s *RunnerService) renewJob(ctx context.Context, msg *messages.PipelineAgen
 	hr := s.client.Patch(fmt.Sprintf("_apis/distributedtask/pools/%d/jobrequests/%d", s.groupId, msg.RequestId)).
 		SetQuery("api-version", "5.1-preview").
 		// https://github.com/actions/runner/blob/v2.323.0/src/Runner.Listener/JobDispatcher.cs#L383
-		SetQuery("lockToken", "00000000-0000-0000-0000-000000000000"). // Guid.Empty
+		SetQuery("lockToken", lockToken).
 		WithBodyProvider(xhttp.JsonEncode(req)).
 		OnSuccess(xhttp.JsonDecode(resp))
 
@@ -120,12 +118,14 @@ func (l *runnerLease) GetMessage() *messages.PipelineAgentJobRequest {
 
 func (l *runnerLease) Renew(ctx context.Context) {
 	orchId := ""
+	// orchId also can be extracted from `orch_id` claim
+	// in JWT token from msg.Resources.Endpoints.Authorization.Parameters["AccessToken"]
 	if v, ok := l.msg.Variables["system.orchestrationId"]; ok {
 		orchId = v.Value
 	}
 	l.svc.renewJob(ctx, l.msg, orchId)
 }
 
-func (l *runnerLease) Complete(ctx context.Context) error {
+func (l *runnerLease) Complete(ctx context.Context, result records.Result) error {
 	return l.svc.completeJob(ctx, l.msg, TaskResultSucceeded)
 }
