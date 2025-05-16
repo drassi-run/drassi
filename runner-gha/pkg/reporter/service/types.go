@@ -139,7 +139,7 @@ const (
 	ConclusionSkipped   Conclusion = 7
 )
 
-////////////// TaskService: Diagnostic Logs //////////////
+////////////// JobService: Diagnostic Logs //////////////
 
 // TaskLog in C#
 type taskLog struct {

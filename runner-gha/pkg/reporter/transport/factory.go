@@ -39,29 +39,29 @@ func (fac *resultFactory) AttachmentCourier(kind, name string) Courier {
 	return nil
 }
 
-type taskFactory struct {
-	svc *service.TaskService
+type jobFactory struct {
+	svc *service.JobService
 }
 
-func (fac *taskFactory) StepLogsCourier(sr executor.StepRun) Courier {
+func (fac *jobFactory) StepLogsCourier(sr executor.StepRun) Courier {
 	recId := ""
 	u := fac.svc.LogUploader(recId)
 	return &fileCourier{uploader: u}
 }
 
-func (fac *taskFactory) JobLogsCourier() Courier {
+func (fac *jobFactory) JobLogsCourier() Courier {
 	recId := ""
 	u := fac.svc.LogUploader(recId)
 	return &fileCourier{uploader: u}
 }
 
-func (fac *taskFactory) DiagnosticLogsCourier() Courier {
+func (fac *jobFactory) DiagnosticLogsCourier() Courier {
 	recId := ""
 	u := fac.svc.LogUploader(recId)
 	return &fileCourier{uploader: u}
 }
 
-func (fac *taskFactory) AttachmentCourier(kind, name string) Courier {
+func (fac *jobFactory) AttachmentCourier(kind, name string) Courier {
 	recId := ""
 	u := fac.svc.AttachmentUploader(recId, kind, name)
 	return &fileCourier{uploader: u}
