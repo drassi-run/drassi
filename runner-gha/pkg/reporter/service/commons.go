@@ -48,7 +48,7 @@ type liveFeeder struct {
 // https://github.com/actions/runner/blob/v2.324.0/src/Runner.Common/ResultsServer.cs#L220
 func (lf *liveFeeder) Handle(_ context.Context, s string) error {
 	l := &line{
-		stepUid: "TODO", // TODO add stepUid
+		stepId:  "TODO", // TODO add stepId
 		number:  lf.logOffset,
 		content: s,
 	}
@@ -78,10 +78,10 @@ func (lf *liveFeeder) send(lines []*line) {
 		msg     []string
 	)
 
-	// split lines into segments by stepUid
+	// split lines into segments by stepId
 	var prev *line
 	for _, curr := range lines {
-		if prev != nil && prev.stepUid == curr.stepUid {
+		if prev != nil && prev.stepId == curr.stepId {
 			msg = append(msg, curr.content)
 			prev = curr
 			continue
@@ -94,7 +94,7 @@ func (lf *liveFeeder) send(lines []*line) {
 		}
 
 		// save state of a new segment
-		stepUid, offset = curr.stepUid, curr.number
+		stepUid, offset = curr.stepId, curr.number
 		msg = []string{curr.content}
 		prev = curr
 	}

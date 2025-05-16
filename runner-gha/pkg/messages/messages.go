@@ -138,7 +138,7 @@ type PipelineAgentJobRequest struct {
 	RequestId            int64                    `actions:"requestId,omitempty"`
 	Plan                 PlanReference            `actions:"plan,omitempty"`
 	Timeline             TimelineReference        `actions:"timeline,omitempty"`
-	JobId                string                   `actions:"jobId,omitempty"`
+	JobId                string                   `actions:"jobId,omitempty"` // UUID
 	JobName              string                   `actions:"jobName,omitempty"`
 	JobDisplayName       string                   `actions:"jobDisplayName,omitempty"`
 	JobContainer         *TemplateToken           `actions:"jobContainer,omitempty"`

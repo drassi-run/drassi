@@ -18,9 +18,9 @@ type metadataResponse struct {
 
 // GetSignedStepSummaryURLRequest in C#
 type signedUrlStepSummaryRequest struct {
-	PlanUid string `json:"workflow_run_backend_id"`
-	JobUid  string `json:"workflow_job_run_backend_id"`
-	StepUid string `json:"step_backend_id"`
+	PlanId string `json:"workflow_run_backend_id"`     // UUID
+	JobId  string `json:"workflow_job_run_backend_id"` // UUID
+	StepId string `json:"step_backend_id"`             // UUID
 }
 
 // GetSignedStepSummaryURLResponse in C#
@@ -32,9 +32,9 @@ type signedUrlStepSummaryResponse struct {
 
 // StepSummaryMetadataCreate in C#
 type metadataStepSummaryRequest struct {
-	PlanUid    string    `json:"workflow_run_backend_id"`
-	JobUid     string    `json:"workflow_job_run_backend_id"`
-	StepUid    string    `json:"step_backend_id"`
+	PlanId     string    `json:"workflow_run_backend_id"`     // UUID
+	JobId      string    `json:"workflow_job_run_backend_id"` // UUID
+	StepId     string    `json:"step_backend_id"`             // UUID
 	Size       int64     `json:"size"`
 	UploadedAt time.Time `json:"uploaded_at"`
 }
@@ -43,9 +43,9 @@ type metadataStepSummaryRequest struct {
 
 // GetSignedStepLogsURLRequest in C#
 type signedUrlStepLogsRequest struct {
-	PlanUid string `json:"workflow_run_backend_id"`
-	JobUid  string `json:"workflow_job_run_backend_id"`
-	StepUid string `json:"step_backend_id"`
+	PlanId string `json:"workflow_run_backend_id"`     // UUID
+	JobId  string `json:"workflow_job_run_backend_id"` // UUID
+	StepId string `json:"step_backend_id"`             // UUID
 }
 
 // GetSignedStepLogsURLResponse in C#
@@ -57,9 +57,9 @@ type signedUrlStepLogsResponse struct {
 
 // StepLogsMetadataCreate in C#
 type metadataStepLogsRequest struct {
-	PlanUid    string    `json:"workflow_run_backend_id"`
-	JobUid     string    `json:"workflow_job_run_backend_id"`
-	StepUid    string    `json:"step_backend_id"`
+	PlanId     string    `json:"workflow_run_backend_id"`     // UUID
+	JobId      string    `json:"workflow_job_run_backend_id"` // UUID
+	StepId     string    `json:"step_backend_id"`             // UUID
 	LineCount  int64     `json:"line_count"`
 	UploadedAt time.Time `json:"uploaded_at"`
 }
@@ -68,8 +68,8 @@ type metadataStepLogsRequest struct {
 
 // GetSignedJobLogsURLRequest in C#
 type signedUrlJobLogsRequest struct {
-	PlanUid string `json:"workflow_run_backend_id"`
-	JobUid  string `json:"workflow_job_run_backend_id"`
+	PlanId string `json:"workflow_run_backend_id"`     // UUID
+	JobId  string `json:"workflow_job_run_backend_id"` // UUID
 }
 
 // GetSignedJobLogsURLResponse in C#
@@ -80,8 +80,8 @@ type signedUrlJobLogsResponse struct {
 
 // JobLogsMetadataCreate in C#
 type metadataJobLogsRequest struct {
-	PlanUid    string    `json:"workflow_run_backend_id"`
-	JobUid     string    `json:"workflow_job_run_backend_id"`
+	PlanId     string    `json:"workflow_run_backend_id"`     // UUID
+	JobId      string    `json:"workflow_job_run_backend_id"` // UUID
 	LineCount  int64     `json:"line_count"`
 	UploadedAt time.Time `json:"uploaded_at"`
 }
@@ -90,8 +90,8 @@ type metadataJobLogsRequest struct {
 
 // GetSignedDiagnosticLogsURLRequest in C#
 type signedUrlDiagnosticLogsRequest struct {
-	PlanUid string `json:"workflow_run_backend_id"`
-	JobUid  string `json:"workflow_job_run_backend_id"`
+	PlanId string `json:"workflow_run_backend_id"`     // UUID
+	JobId  string `json:"workflow_job_run_backend_id"` // UUID
 }
 
 // GetSignedDiagnosticLogsURLResponse in C#
@@ -100,18 +100,18 @@ type signedUrlDiagnosticLogsResponse struct {
 	StorageType string `json:"blob_storage_type"`
 }
 
-////////////// ResultService: Diagnostic Logs //////////////
+////////////// ResultService: Timeline Records //////////////
 
 // StepsUpdateRequest in C#
 type stepsUpdateRequest struct {
-	PlanUid     string `json:"workflow_run_backend_id"`
-	JobUid      string `json:"workflow_job_run_backend_id"`
+	PlanId      string `json:"workflow_run_backend_id"`     // UUID
+	JobId       string `json:"workflow_job_run_backend_id"` // UUID
 	ChangeOrder int64  `json:"change_order"`
 	Steps       []Step `json:"steps"`
 }
 
 type Step struct {
-	Id          string     `json:"external_id"`
+	Id          string     `json:"external_id"` // UUID
 	Number      int64      `json:"number"`
 	Name        string     `json:"name"`
 	Status      Status     `json:"status"`
@@ -143,7 +143,7 @@ const (
 
 // TaskLog in C#
 type taskLog struct {
-	Id            string    `json:"id"`
+	Id            string    `json:"id"` // UUID
 	Location      string    `json:"location"`
 	IndexLocation string    `json:"index_location"`
 	Path          string    `json:"path"`
@@ -156,7 +156,7 @@ type taskLog struct {
 
 // same TimelineRecordLogLine in C# with some extra info
 type line struct {
-	stepUid string
+	stepId  string // UUID
 	number  int64
 	content string
 }

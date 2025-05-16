@@ -76,9 +76,9 @@ func (u *stepLogsResultUploader) Upload(ctx context.Context, r io.Reader) error 
 
 func (s *ResultService) getStepLogsSignedUrl(ctx context.Context, stepUid string) (string, string, error) {
 	req := &signedUrlStepLogsRequest{
-		PlanUid: s.planUid,
-		JobUid:  s.jobUid,
-		StepUid: stepUid,
+		PlanId: s.planUid,
+		JobId:  s.jobUid,
+		StepId: stepUid,
 	}
 	resp := new(signedUrlStepLogsResponse)
 	e := s.client.Post(path.Join(receiverEndpoint, "GetStepLogsSignedBlobURL")).
@@ -100,9 +100,9 @@ func (u *stepLogsResultUploader) Complete(ctx context.Context, lineCount int64) 
 
 func (s *ResultService) createStepLogsMetadata(ctx context.Context, stepUid string, lineCount int64) error {
 	req := &metadataStepLogsRequest{
-		PlanUid:    s.planUid,
-		JobUid:     s.jobUid,
-		StepUid:    stepUid,
+		PlanId:     s.planUid,
+		JobId:      s.jobUid,
+		StepId:     stepUid,
 		UploadedAt: time.Now(),
 		LineCount:  lineCount,
 	}
@@ -148,8 +148,8 @@ func (u *jobLogsResultUploader) Upload(ctx context.Context, r io.Reader) error {
 
 func (s *ResultService) getJobLogsSignedUrl(ctx context.Context) (string, string, error) {
 	req := &signedUrlJobLogsRequest{
-		PlanUid: s.planUid,
-		JobUid:  s.jobUid,
+		PlanId: s.planUid,
+		JobId:  s.jobUid,
 	}
 	resp := new(signedUrlJobLogsResponse)
 	e := s.client.Post(path.Join(receiverEndpoint, "GetJobLogsSignedBlobURL")).
@@ -171,8 +171,8 @@ func (u *jobLogsResultUploader) Complete(ctx context.Context, lineCount int64) e
 
 func (s *ResultService) createJobLogsMetadata(ctx context.Context, lineCount int64) error {
 	req := &metadataJobLogsRequest{
-		PlanUid:    s.planUid,
-		JobUid:     s.jobUid,
+		PlanId:     s.planUid,
+		JobId:      s.jobUid,
 		UploadedAt: time.Now(),
 		LineCount:  lineCount,
 	}
@@ -218,8 +218,8 @@ func (u *diagnosticLogsResultUploader) Upload(ctx context.Context, r io.Reader) 
 
 func (s *ResultService) getDiagnosticLogsSignedUrl(ctx context.Context) (string, string, error) {
 	req := &signedUrlDiagnosticLogsRequest{
-		PlanUid: s.planUid,
-		JobUid:  s.jobUid,
+		PlanId: s.planUid,
+		JobId:  s.jobUid,
 	}
 	resp := new(signedUrlDiagnosticLogsResponse)
 	e := s.client.Post(path.Join(receiverEndpoint, "GetJobDiagLogsSignedBlobURL")).
@@ -268,9 +268,9 @@ func (u *stepSummaryResultUploader) Upload(ctx context.Context, r io.Reader) err
 
 func (s *ResultService) getStepSummarySignedUrl(ctx context.Context, stepUid string) (string, string, error) {
 	req := &signedUrlStepSummaryRequest{
-		PlanUid: s.planUid,
-		JobUid:  s.jobUid,
-		StepUid: stepUid,
+		PlanId: s.planUid,
+		JobId:  s.jobUid,
+		StepId: stepUid,
 	}
 	resp := new(signedUrlStepSummaryResponse)
 	e := s.client.Post(path.Join(receiverEndpoint, "GetStepSummarySignedBlobURL")).
@@ -292,9 +292,9 @@ func (u *stepSummaryResultUploader) Complete(ctx context.Context, size int64) er
 
 func (s *ResultService) createStepSummaryMetadata(ctx context.Context, stepUid string, size int64) error {
 	req := &metadataStepSummaryRequest{
-		PlanUid:    s.planUid,
-		JobUid:     s.jobUid,
-		StepUid:    stepUid,
+		PlanId:     s.planUid,
+		JobId:      s.jobUid,
+		StepId:     stepUid,
 		UploadedAt: time.Now(),
 		Size:       size,
 	}
@@ -352,8 +352,8 @@ func (s *ResultService) RecordTimeline(ctx context.Context, event any) error {
 // https://github.com/actions/runner/blob/v2.324.0/src/Sdk/WebApi/WebApi/ResultsHttpClient.cs#L567
 func (s *ResultService) updateWorkflowSteps(ctx context.Context, order int64, steps []Step) error {
 	req := &stepsUpdateRequest{
-		PlanUid:     s.planUid,
-		JobUid:      s.jobUid,
+		PlanId:      s.planUid,
+		JobId:       s.jobUid,
 		ChangeOrder: order,
 		Steps:       steps,
 	}
