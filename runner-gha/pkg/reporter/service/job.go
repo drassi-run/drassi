@@ -7,8 +7,10 @@ import (
 	"net/http"
 	"path"
 
+	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/util/context"
 	"drassi.run/core/util/http"
+	"drassi.run/gha-runner/pkg/holder"
 	"drassi.run/gha-runner/pkg/messages"
 	"github.com/coder/websocket"
 )
@@ -165,4 +167,24 @@ func (lf *jobLiveFeeder) Start() error {
 func (lf *jobLiveFeeder) Close() error {
 	//TODO implement me
 	panic("implement me")
+}
+
+func (s *JobService) WrapLease(l holder.Lease) holder.Lease {
+	return l
+}
+
+func (s *JobService) completeJob(ctx context.Context, result records.Result) error {
+	return nil // TODO
+}
+
+type jobLeaseWrapper struct {
+	holder.Lease
+	svc *JobService
+}
+
+func (l *jobLeaseWrapper) Complete(ctx context.Context, result records.Result) error {
+	if err := l.svc.completeJob(ctx, result); err != nil {
+		return err
+	}
+	return l.Lease.Complete(ctx, result)
 }
