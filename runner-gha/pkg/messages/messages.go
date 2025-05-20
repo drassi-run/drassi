@@ -134,29 +134,29 @@ type RunnerJobRequest struct {
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTPipelines/Pipelines/AgentJobRequestMessage.cs
 type PipelineAgentJobRequest struct {
-	MessageType          string                   `actions:"messageType,omitempty"`
-	RequestId            int64                    `actions:"requestId,omitempty"`
-	Plan                 PlanReference            `actions:"plan,omitempty"`
-	Timeline             TimelineReference        `actions:"timeline,omitempty"`
-	JobId                string                   `actions:"jobId,omitempty"` // UUID
-	JobName              string                   `actions:"jobName,omitempty"`
-	JobDisplayName       string                   `actions:"jobDisplayName,omitempty"`
-	JobContainer         *TemplateToken           `actions:"jobContainer,omitempty"`
-	JobServiceContainers *TemplateToken           `actions:"jobServiceContainers,omitempty"`
-	JobOutputs           *TemplateToken           `actions:"jobOutputs,omitempty"`
-	LockedUntil          Time                     `actions:"lockedUntil,omitempty"`
-	Resources            *JobResources            `actions:"resources,omitempty"`
-	ContextData          ContextData              `actions:"contextData,omitempty"`
-	Workspace            *WorkspaceOptions        `actions:"workspace,omitempty"`
-	MaskHints            []MaskHint               `actions:"mask,omitempty"`
-	Env                  []TemplateToken          `actions:"environmentVariables,omitempty"`
-	Defaults             []TemplateToken          `actions:"defaults,omitempty"`
-	Environment          *EnvironmentReference    `actions:"actionsEnvironment,omitempty"`
-	Snapshot             *TemplateToken           `actions:"snapshot,omitempty"`
-	Variables            map[string]VariableValue `actions:"variables,omitempty"`
-	Steps                []JobStep                `actions:"steps,omitempty"`
-	FileTable            []string                 `actions:"fileTable,omitempty"`
-	BillingOwnerId       string                   `actions:"billing_owner_id,omitempty"`
+	MessageType          string                `actions:"messageType,omitempty"`
+	RequestId            int64                 `actions:"requestId,omitempty"`
+	Plan                 PlanReference         `actions:"plan,omitempty"`
+	Timeline             TimelineReference     `actions:"timeline,omitempty"`
+	JobId                string                `actions:"jobId,omitempty"` // UUID
+	JobName              string                `actions:"jobName,omitempty"`
+	JobDisplayName       string                `actions:"jobDisplayName,omitempty"`
+	JobContainer         *TemplateToken        `actions:"jobContainer,omitempty"`
+	JobServiceContainers *TemplateToken        `actions:"jobServiceContainers,omitempty"`
+	JobOutputs           *TemplateToken        `actions:"jobOutputs,omitempty"`
+	LockedUntil          Time                  `actions:"lockedUntil,omitempty"`
+	Resources            *JobResources         `actions:"resources,omitempty"`
+	ContextData          ContextData           `actions:"contextData,omitempty"`
+	Workspace            *WorkspaceOptions     `actions:"workspace,omitempty"`
+	MaskHints            []MaskHint            `actions:"mask,omitempty"`
+	Env                  []TemplateToken       `actions:"environmentVariables,omitempty"`
+	Defaults             []TemplateToken       `actions:"defaults,omitempty"`
+	Environment          *EnvironmentReference `actions:"actionsEnvironment,omitempty"`
+	Snapshot             *TemplateToken        `actions:"snapshot,omitempty"`
+	Variables            map[string]Variable   `actions:"variables,omitempty"`
+	Steps                []JobStep             `actions:"steps,omitempty"`
+	FileTable            []string              `actions:"fileTable,omitempty"`
+	BillingOwnerId       string                `actions:"billing_owner_id,omitempty"`
 }
 
 func (m *PipelineAgentJobRequest) ServiceEndpoint(name string) *ServiceEndpoint {
@@ -352,7 +352,7 @@ type EnvironmentReference struct {
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTWebApi/WebApi/VariableValue.cs
-type VariableValue struct {
+type Variable struct {
 	Value    string `actions:"value,omitempty"`
 	IsSecret bool   `actions:"isSecret,omitempty"`
 }

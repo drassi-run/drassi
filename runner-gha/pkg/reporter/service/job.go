@@ -7,11 +7,11 @@ import (
 	"net/http"
 	"path"
 
-	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/util/context"
 	"drassi.run/core/util/http"
 	"drassi.run/gha-runner/pkg/holder"
 	"drassi.run/gha-runner/pkg/messages"
+	"drassi.run/gha-runner/pkg/types"
 	"github.com/coder/websocket"
 )
 
@@ -173,7 +173,7 @@ func (s *JobService) WrapLease(l holder.Lease) holder.Lease {
 	return l
 }
 
-func (s *JobService) completeJob(ctx context.Context, result records.Result) error {
+func (s *JobService) completeJob(ctx context.Context, record *types.Record) error {
 	return nil // TODO
 }
 
@@ -182,9 +182,9 @@ type jobLeaseWrapper struct {
 	svc *JobService
 }
 
-func (l *jobLeaseWrapper) Complete(ctx context.Context, result records.Result) error {
-	if err := l.svc.completeJob(ctx, result); err != nil {
+func (l *jobLeaseWrapper) Complete(ctx context.Context, record *types.Record) error {
+	if err := l.svc.completeJob(ctx, record); err != nil {
 		return err
 	}
-	return l.Lease.Complete(ctx, result)
+	return l.Lease.Complete(ctx, record)
 }

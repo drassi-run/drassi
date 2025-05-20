@@ -4,43 +4,48 @@ import (
 	"context"
 	"time"
 
-	"drassi.run/core/pkg/model/records"
+	"drassi.run/core/pkg/executor/reporter"
 	"drassi.run/gha-runner/pkg/messages"
+	"drassi.run/gha-runner/pkg/types"
 )
 
 type Lease interface {
 	GetMessage() *messages.PipelineAgentJobRequest
 	Renew(ctx context.Context)
-	Complete(ctx context.Context, result records.Result) error
+	Complete(ctx context.Context, record *types.Record) error
 }
 
 ////////////// RunService: request & response //////////////
 
+// AcquireJobRequest in C#
 type acquireJobRequest struct {
 	JobMessageId   string `json:"jobMessageId,omitempty"`
 	RunnerOS       string `json:"runnerOS,omitempty"`
 	BillingOwnerId string `json:"billingOwnerId,omitempty"`
 }
 
+// RenewJobRequest in C#
 type renewJobRequest struct {
 	PlanID string `json:"planId,omitempty"`
 	JobId  string `json:"jobId,omitempty"`
 }
 
+// RenewJobResponse in C#
 type renewJobResponse struct {
 	LockedUntil time.Time `json:"lockedUntil,omitempty"`
 }
 
+// CompleteJobRequest in C#
 type completeJobRequest struct {
-	PlanID         string                            `json:"planId,omitempty"`
-	JobID          string                            `json:"jobId,omitempty"`
-	Conclusion     string                            `json:"conclusion,omitempty"`
-	Outputs        map[string]messages.VariableValue `json:"outputs,omitempty"`
-	StepResults    []StepResult                      `json:"stepResults,omitempty"`
-	Annotations    []Annotation                      `json:"annotations,omitempty"`
-	Telemetry      []Telemetry                       `json:"telemetry,omitempty"`
-	EnvironmentUrl string                            `json:"environmentUrl,omitempty"`
-	BillingOwnerId string                            `json:"billingOwnerId,omitempty"`
+	PlanID         string                       `json:"planId,omitempty"`
+	JobID          string                       `json:"jobId,omitempty"`
+	Conclusion     types.Result                 `json:"conclusion,omitempty"`
+	Outputs        map[string]messages.Variable `json:"outputs,omitempty"`
+	StepResults    []*StepResult                `json:"stepResults,omitempty"`
+	Annotations    []*Annotation                `json:"annotations,omitempty"`
+	Telemetry      []*Telemetry                 `json:"telemetry,omitempty"`
+	EnvironmentUrl string                       `json:"environmentUrl,omitempty"`
+	BillingOwnerId string                       `json:"billingOwnerId,omitempty"`
 }
 
 ////////////// RunnerService: request //////////////
@@ -52,7 +57,7 @@ type runnerJobRequest struct {
 	AssignTime             time.Time     `json:"assign_time,omitempty"`
 	ReceiveTime            time.Time     `json:"receive_time,omitempty"`
 	FinishTime             time.Time     `json:"finish_time,omitempty"`
-	Result                 TaskResult    `json:"result,omitempty"`
+	Result                 types.Result  `json:"result,omitempty"`
 	LockedUntil            time.Time     `json:"locked_until,omitempty"`
 	LockToken              string        `json:"lock_token,omitempty"`    // UUID
 	ServiceOwner           string        `json:"service_owner,omitempty"` // UUID
@@ -72,19 +77,19 @@ type runnerJobRequest struct {
 
 // https://github.com/actions/runner/blob/v2.323.0/src/Sdk/RSWebApi/Contracts/StepResult.cs
 type StepResult struct {
-	Uid               string              `json:"external_id,omitempty"`
-	Number            int                 `json:"number,omitempty"`
-	Name              string              `json:"name,omitempty"`        // e.g "Run actions/checkout@v3"
-	ActionName        string              `json:"action_name,omitempty"` // e.g "actions/checkout"
-	Ref               string              `json:"ref,omitempty"`
-	Type              string              `json:"type,omitempty"`
-	Status            TimelineRecordState `json:"status,omitempty"`
-	Conclusion        TaskResult          `json:"conclusion,omitempty"`
-	StartedAt         time.Time           `json:"started_at,omitempty"`
-	CompletedAt       time.Time           `json:"completed_at,omitempty"`
-	CompletedLogURL   string              `json:"completed_log_url,omitempty"`
-	CompletedLogLines int64               `json:"completed_log_lines,omitempty"`
-	Annotations       []Annotation        `json:"annotations,omitempty"`
+	Id                string        `json:"external_id,omitempty"`
+	Number            int           `json:"number,omitempty"`
+	Name              string        `json:"name,omitempty"`        // e.g "Run actions/checkout@v3"
+	ActionName        string        `json:"action_name,omitempty"` // e.g "actions/checkout"
+	ActionRef         string        `json:"ref,omitempty"`
+	ActionType        string        `json:"type,omitempty"`
+	Status            types.State   `json:"status,omitempty"`
+	Conclusion        types.Result  `json:"conclusion,omitempty"`
+	StartedAt         *time.Time    `json:"started_at,omitempty"`
+	CompletedAt       *time.Time    `json:"completed_at,omitempty"`
+	CompletedLogURL   string        `json:"completed_log_url,omitempty"`
+	CompletedLogLines int64         `json:"completed_log_lines,omitempty"`
+	Annotations       []*Annotation `json:"annotations,omitempty"`
 }
 
 // https://github.com/actions/runner/blob/v2.323.0/src/Sdk/RSWebApi/Contracts/Annotation.cs
@@ -103,25 +108,25 @@ type Annotation struct {
 }
 
 // https://github.com/actions/runner/blob/v2.323.0/src/Sdk/RSWebApi/Contracts/AnnotationLevel.cs
-type AnnotationLevel int
+type AnnotationLevel string
 
 const (
-	AnnotationLevelUnknown AnnotationLevel = iota
-	AnnotationLevelNotice
-	AnnotationLevelWarning
-	AnnotationLevelFailure
+	AnnotationLevelUnknown AnnotationLevel = ""
+	AnnotationLevelNotice  AnnotationLevel = "notice"
+	AnnotationLevelWarning AnnotationLevel = "warning"
+	AnnotationLevelFailure AnnotationLevel = "failure"
 )
 
-func (l AnnotationLevel) String() string {
-	switch l {
-	case AnnotationLevelNotice:
-		return "notice"
-	case AnnotationLevelWarning:
-		return "warning"
-	case AnnotationLevelFailure:
-		return "failure"
+func ToAnnotationLevel(t reporter.IssueType) AnnotationLevel {
+	switch t {
+	case reporter.IssueTypeError:
+		return AnnotationLevelFailure
+	case reporter.IssueTypeWarning:
+		return AnnotationLevelWarning
+	case reporter.IssueTypeNotice:
+		return AnnotationLevelNotice
 	default:
-		return "unknown"
+		return AnnotationLevelUnknown
 	}
 }
 
@@ -129,60 +134,4 @@ func (l AnnotationLevel) String() string {
 type Telemetry struct {
 	Message string `json:"message,omitempty"`
 	Type    string `json:"type,omitempty"`
-}
-
-// https://github.com/actions/runner/blob/v2.323.0/src/Sdk/DTWebApi/WebApi/TimelineRecordState.cs
-type TimelineRecordState int
-
-const (
-	TimelineRecordStatePending TimelineRecordState = iota
-	TimelineRecordStateInProgress
-	TimelineRecordStateCompleted
-	TimelineRecordStateDelayed
-)
-
-func (s TimelineRecordState) String() string {
-	switch s {
-	case TimelineRecordStatePending:
-		return "pending"
-	case TimelineRecordStateInProgress:
-		return "in_progress"
-	case TimelineRecordStateCompleted:
-		return "completed"
-	case TimelineRecordStateDelayed:
-		return "delayed"
-	default:
-		return "unknown"
-	}
-}
-
-// https://github.com/actions/runner/blob/v2.323.0/src/Sdk/DTWebApi/WebApi/TaskResult.cs
-type TaskResult int
-
-const (
-	TaskResultSucceeded TaskResult = iota
-	TaskResultSucceededWithIssues
-	TaskResultFailed
-	TaskResultCanceled
-	TaskResultSkipped
-	TaskResultAbandoned
-)
-
-func (r TaskResult) String() string {
-	switch r {
-	case TaskResultSucceeded:
-		return "succeeded"
-	case TaskResultSucceededWithIssues:
-		return "succeeded (w/ issues)"
-	case TaskResultFailed:
-		return "failed"
-	case TaskResultCanceled:
-		return "canceled"
-	case TaskResultSkipped:
-		return "skipped"
-	case TaskResultAbandoned:
-		return "abandoned"
-	default:
-		return "unknown"
-	}
 }

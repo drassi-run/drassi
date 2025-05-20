@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"time"
 
-	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/util/http"
 	"drassi.run/gha-runner/pkg/messages"
+	"drassi.run/gha-runner/pkg/types"
 	"github.com/chainguard-dev/clog"
 )
 
@@ -54,11 +54,13 @@ func (s *RunnerService) Lease(msg *messages.PipelineAgentJobRequest) Lease {
 // https://github.com/actions/runner/blob/v2.323.0/src/Sdk/DTWebApi/WebApi/TaskAgentHttpClient.cs#L93
 func (s *RunnerService) renewJob(ctx context.Context, msg *messages.PipelineAgentJobRequest, orchId string) {
 	l := clog.FromContext(ctx)
-	req := &runnerJobRequest{RequestId: msg.RequestId}
+	req := &runnerJobRequest{
+		RequestId:   msg.RequestId,
+		LockedUntil: msg.LockedUntil.Time,
+	}
 	resp := new(runnerJobRequest)
 	hr := s.client.Patch(fmt.Sprintf("_apis/distributedtask/pools/%d/jobrequests/%d", s.groupId, msg.RequestId)).
 		SetQuery("api-version", "5.1-preview").
-		// https://github.com/actions/runner/blob/v2.323.0/src/Runner.Listener/JobDispatcher.cs#L383
 		SetQuery("lockToken", lockToken).
 		WithBodyProvider(xhttp.JsonEncode(req)).
 		OnSuccess(xhttp.JsonDecode(resp))
@@ -92,7 +94,7 @@ func (s *RunnerService) renewJob(ctx context.Context, msg *messages.PipelineAgen
 }
 
 // https://github.com/actions/runner/blob/v2.323.0/src/Sdk/DTWebApi/WebApi/TaskAgentHttpClient.cs#L61
-func (s *RunnerService) completeJob(ctx context.Context, msg *messages.PipelineAgentJobRequest, result TaskResult) error {
+func (s *RunnerService) completeJob(ctx context.Context, msg *messages.PipelineAgentJobRequest, result types.Result) error {
 	req := &runnerJobRequest{
 		RequestId:  msg.RequestId,
 		FinishTime: time.Now(),
@@ -126,6 +128,6 @@ func (l *runnerLease) Renew(ctx context.Context) {
 	l.svc.renewJob(ctx, l.msg, orchId)
 }
 
-func (l *runnerLease) Complete(ctx context.Context, result records.Result) error {
-	return l.svc.completeJob(ctx, l.msg, TaskResultSucceeded)
+func (l *runnerLease) Complete(ctx context.Context, record *types.Record) error {
+	return l.svc.completeJob(ctx, l.msg, record.Result)
 }
