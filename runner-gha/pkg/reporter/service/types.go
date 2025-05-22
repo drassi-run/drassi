@@ -178,17 +178,17 @@ type record struct {
 	ParentId         string                       `json:"parent_id,omitempty"` // UUID
 	Type             string                       `json:"type,omitempty"`      // RecordType
 	Name             string                       `json:"name,omitempty"`
-	StartTime        time.Time                    `json:"start_time,omitempty"`
-	FinishTime       time.Time                    `json:"finish_time,omitempty"`
+	StartTime        *time.Time                   `json:"start_time,omitempty"`
+	FinishTime       *time.Time                   `json:"finish_time,omitempty"`
 	CurrentOperation string                       `json:"current_operation,omitempty"`
-	PercentComplete  int32                        `json:"percent_complete,omitempty"`
+	PercentComplete  int                          `json:"percent_complete,omitempty"`
 	State            types.State                  `json:"state,omitempty"`
 	Result           types.Result                 `json:"result,omitempty"`
 	ResultCode       string                       `json:"result_code,omitempty"`
-	ChangeID         int32                        `json:"change_id,omitempty"`
+	ChangeID         int                          `json:"change_id,omitempty"`
 	LastModified     time.Time                    `json:"last_modified,omitempty"`
 	WorkerName       string                       `json:"worker_name,omitempty"`
-	Order            int32                        `json:"order,omitempty"`
+	Order            int                          `json:"order,omitempty"`
 	RefName          string                       `json:"ref_name,omitempty"`
 	Log              *TaskLogReference            `json:"log,omitempty"`
 	Details          *TimeLineReference           `json:"details,omitempty"`
@@ -197,7 +197,7 @@ type record struct {
 	NoticeCount      int                          `json:"notice_count,omitempty"`
 	Issues           []reporter.Issue             `json:"issues,omitempty"`
 	Location         string                       `json:"location,omitempty"`
-	Attempt          int32                        `json:"attempt,omitempty"`
+	Attempt          int                          `json:"attempt,omitempty"`
 	Identifier       string                       `json:"identifier,omitempty"`
 	AgentPlatform    string                       `json:"agent_platform,omitempty"`
 	PreviousAttempts []TimelineAttempt            `json:"previous_attempts,omitempty"`

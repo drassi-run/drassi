@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"path"
 
+	"drassi.run/core/pkg/executor/reporter"
 	"drassi.run/core/util/context"
 	"drassi.run/core/util/http"
 	"drassi.run/gha-runner/pkg/holder"
@@ -18,6 +19,7 @@ import (
 const (
 	taskLogEndpoint        = "%s/_apis/distributedtask/hubs/%s/plans/%s/logs"
 	taskAttachmentEndpoint = "%s/_apis/distributedtask/hubs/%s/plans/%s/timelines/%s/records/%s/attachments"
+	taskTimelineEndpoint   = "%s/_apis/distributedtask/hubs/%s/plans/%s/timelines/%s/records"
 )
 
 func NewJobService(url string, hc *http.Client, msg *messages.PipelineAgentJobRequest) (*JobService, error) {
@@ -49,6 +51,15 @@ func (s *JobService) LogUploader(recordId string) Uploader {
 	return &logJobUploader{svc: s, recordId: recordId}
 }
 
+type logJobUploader struct {
+	svc      *JobService
+	recordId string
+}
+
+func (u *logJobUploader) Upload(ctx context.Context, r io.Reader) error {
+	return u.svc.uploadLog(ctx, u.recordId, r)
+}
+
 // https://github.com/actions/runner/blob/v2.323.0/src/Runner.Common/JobServerQueue.cs#L882-L896
 func (s *JobService) uploadLog(ctx context.Context, recordId string, r io.Reader) error {
 	// Create the log
@@ -75,8 +86,21 @@ func (s *JobService) uploadLog(ctx context.Context, recordId string, r io.Reader
 	// TODO: Create a new record and only set the Log field
 }
 
+func (u *logJobUploader) Complete(context.Context, int64) error {
+	return nil
+}
+
 func (s *JobService) AttachmentUploader(recordId, kind, name string) Uploader {
 	return &attachmentJobUploader{svc: s, recordId: recordId, kind: kind, name: name}
+}
+
+type attachmentJobUploader struct {
+	svc                  *JobService
+	recordId, kind, name string
+}
+
+func (u *attachmentJobUploader) Upload(ctx context.Context, r io.Reader) error {
+	return u.svc.uploadAttach(ctx, u.recordId, u.kind, u.name, r)
 }
 
 // https://github.com/actions/runner/blob/v2.323.0/src/Runner.Common/JobServerQueue.cs#L900-L903
@@ -90,6 +114,10 @@ func (s *JobService) uploadAttach(ctx context.Context, recordId, kind, name stri
 		WithBody(r)
 
 	return e.Do(ctx)
+}
+
+func (u *attachmentJobUploader) Complete(context.Context, int64) error {
+	return nil
 }
 
 func (s *JobService) LiveFeeder(contextual xcontext.Provider, wsUrl string) (LiveFeeder, error) {
@@ -112,36 +140,6 @@ func (s *JobService) LiveFeeder(contextual xcontext.Provider, wsUrl string) (Liv
 		wsConn: wsConn,
 	}
 	return lf, nil
-}
-
-func (s *JobService) RecordTimeline(event any) error {
-	return nil
-}
-
-type logJobUploader struct {
-	svc      *JobService
-	recordId string
-}
-
-func (u *logJobUploader) Upload(ctx context.Context, r io.Reader) error {
-	return u.svc.uploadLog(ctx, u.recordId, r)
-}
-
-func (u *logJobUploader) Complete(context.Context, int64) error {
-	return nil
-}
-
-type attachmentJobUploader struct {
-	svc                  *JobService
-	recordId, kind, name string
-}
-
-func (u *attachmentJobUploader) Upload(ctx context.Context, r io.Reader) error {
-	return u.svc.uploadAttach(ctx, u.recordId, u.kind, u.name, r)
-}
-
-func (u *attachmentJobUploader) Complete(context.Context, int64) error {
-	return nil
 }
 
 type jobLiveFeeder struct {
@@ -169,8 +167,88 @@ func (lf *jobLiveFeeder) Close() error {
 	panic("implement me")
 }
 
+func (s *JobService) TimelineRecorder() TimelineRecorder {
+	return &jobTimelineRecorder{svc: s}
+}
+
+type jobTimelineRecorder struct {
+	svc *JobService
+}
+
+func (r *jobTimelineRecorder) Update(ctx context.Context, records ...*types.Record) error {
+	if len(records) == 0 {
+		return nil
+	}
+
+	timelineRecords := make([]*record, len(records))
+	for _, rec := range records {
+		lr := toTimelineRecord("", r.svc.timelineUid, rec)
+		timelineRecords = append(timelineRecords, lr)
+	}
+
+	err := r.svc.updateTimelineRecord(ctx, timelineRecords)
+
+	return err
+}
+
+func (s *JobService) updateTimelineRecord(ctx context.Context, records []*record) error {
+	endpoint := fmt.Sprintf(taskTimelineEndpoint, s.scopeUid, s.planType, s.planUid, s.timelineUid)
+	body := &recordsWrapper{
+		Count: int64(len(records)),
+		Value: records,
+	}
+
+	e := s.client.Patch(endpoint).
+		SetQuery("api-version", "5.1-preview").
+		SetHeader("Content-Type", "application/octet-stream").
+		WithBodyProvider(xhttp.JsonEncode(body))
+
+	return e.Do(ctx)
+}
+
+func toTimelineRecord(parentId, timelineUid string, rec *types.Record) *record {
+	r := &record{
+		Id:         rec.Uid,
+		ParentId:   parentId,
+		Order:      rec.Order,
+		TimelineId: timelineUid,
+		StartTime:  rec.StartedAt,
+		FinishTime: rec.CompletedAt,
+		State:      rec.State,
+		Result:     rec.Result,
+		Issues:     rec.Issues,
+	}
+
+	for _, issue := range rec.Issues {
+		switch issue.Type {
+		case reporter.IssueTypeError:
+			r.ErrorCount++
+		case reporter.IssueTypeWarning:
+			r.WarningCount++
+		case reporter.IssueTypeNotice:
+			r.NoticeCount++
+		}
+	}
+
+	if rec.State == types.StateCompleted {
+		r.PercentComplete = 100
+	}
+
+	// https://github.com/actions/runner/blob/v2.324.0/src/Runner.Worker/ExecutionContext.cs#L27-L31
+	switch rec.Object.(type) {
+	case *types.JobObject:
+		r.Type = "Job"
+	case *types.StepObject:
+		r.Type = "Task"
+	}
+	return r
+}
+
 func (s *JobService) WrapLease(l holder.Lease) holder.Lease {
-	return l
+	return &jobLeaseWrapper{
+		Lease: l,
+		svc:   s,
+	}
 }
 
 func (s *JobService) completeJob(ctx context.Context, record *types.Record) error {
