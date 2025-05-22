@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"drassi.run/gha-runner/pkg/types"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -345,12 +346,34 @@ func (s *ResultService) LiveFeeder(contextual xcontext.Provider, wsUrl string) (
 
 ////////////// Timeline Record //////////////
 
-func (s *ResultService) RecordTimeline(ctx context.Context, event any) error {
-	return nil
+func (s *ResultService) TimelineRecorder() TimelineRecorder {
+	return &resultTimelineRecorder{svc: s}
+}
+
+type resultTimelineRecorder struct {
+	svc   *ResultService
+	order int
+}
+
+func (r *resultTimelineRecorder) Update(ctx context.Context, records ...*types.Record) error {
+	if len(records) == 0 {
+		return nil
+	}
+
+	steps := make([]*step, len(records))
+	for _, rec := range records {
+		s := toStep(rec)
+		steps = append(steps, s)
+	}
+
+	err := r.svc.updateWorkflowSteps(ctx, r.order, steps)
+	r.order++
+
+	return err
 }
 
 // https://github.com/actions/runner/blob/v2.324.0/src/Sdk/WebApi/WebApi/ResultsHttpClient.cs#L567
-func (s *ResultService) updateWorkflowSteps(ctx context.Context, order int64, steps []Step) error {
+func (s *ResultService) updateWorkflowSteps(ctx context.Context, order int, steps []*step) error {
 	req := &stepsUpdateRequest{
 		PlanId:      s.planUid,
 		JobId:       s.jobUid,
@@ -366,7 +389,50 @@ func (s *ResultService) updateWorkflowSteps(ctx context.Context, order int64, st
 		return err
 	}
 	if !resp.Ok {
-		return fmt.Errorf("failed to mark StepSummary upload as complete")
+		return fmt.Errorf("failed to update WorkflowSteps")
 	}
 	return nil
+}
+
+// https://github.com/actions/runner/blob/v2.324.0/src/Sdk/WebApi/WebApi/ResultsHttpClient.cs#L515
+func toStep(r *types.Record) *step {
+	return &step{
+		Id:          r.Uid,
+		Number:      r.Order,
+		Name:        "rec.Name",
+		Status:      toStepStatus(r.State),
+		Conclusion:  toStepConclusion(r.Result),
+		StartedAt:   r.StartedAt,
+		CompletedAt: r.CompletedAt,
+	}
+}
+
+// https://github.com/actions/runner/blob/v2.324.0/src/Sdk/WebApi/WebApi/ResultsHttpClient.cs#L529
+func toStepStatus(s types.State) stepStatus {
+	switch s {
+	case types.StatePending:
+		return stepStatusPending
+	case types.StateInProgress:
+		return stepStatusInProgress
+	case types.StateCompleted:
+		return stepStatusCompleted
+	default:
+		return stepStatusUnknown
+	}
+}
+
+// https://github.com/actions/runner/blob/v2.324.0/src/Sdk/WebApi/WebApi/ResultsHttpClient.cs#L544
+func toStepConclusion(r types.Result) stepConclusion {
+	switch r {
+	case types.ResultSucceeded:
+		return stepConclusionSuccess
+	case types.ResultFailed:
+		return stepConclusionFailure
+	case types.ResultCanceled:
+		return stepConclusionCancelled
+	case types.ResultSkipped:
+		return stepConclusionSkipped
+	default:
+		return stepConclusionUnknown
+	}
 }

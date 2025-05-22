@@ -38,6 +38,10 @@ type LiveFeeder interface {
 	Start() error
 }
 
+type TimelineRecorder interface {
+	Update(ctx context.Context, records ...*types.Record) error
+}
+
 type liveFeeder struct {
 	SendFn    func(data *linesWrapper) error
 	CloseFn   func() error

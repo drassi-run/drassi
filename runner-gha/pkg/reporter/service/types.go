@@ -104,39 +104,39 @@ type signedUrlDiagnosticLogsResponse struct {
 
 // StepsUpdateRequest in C#
 type stepsUpdateRequest struct {
-	PlanId      string `json:"workflow_run_backend_id"`     // UUID
-	JobId       string `json:"workflow_job_run_backend_id"` // UUID
-	ChangeOrder int64  `json:"change_order"`
-	Steps       []Step `json:"steps"`
+	PlanId      string  `json:"workflow_run_backend_id"`     // UUID
+	JobId       string  `json:"workflow_job_run_backend_id"` // UUID
+	ChangeOrder int     `json:"change_order"`
+	Steps       []*step `json:"steps"`
 }
 
-type Step struct {
-	Id          string     `json:"external_id"` // UUID
-	Number      int64      `json:"number"`
-	Name        string     `json:"name"`
-	Status      Status     `json:"status"`
-	StartedAt   *time.Time `json:"started_at"`
-	CompletedAt *time.Time `json:"completed_at"`
-	Conclusion  Conclusion `json:"conclusion"`
+type step struct {
+	Id          string         `json:"external_id"` // UUID
+	Number      int            `json:"number"`
+	Name        string         `json:"name"`
+	Status      stepStatus     `json:"status"`
+	StartedAt   *time.Time     `json:"started_at"`
+	CompletedAt *time.Time     `json:"completed_at"`
+	Conclusion  stepConclusion `json:"conclusion"`
 }
 
-type Status int
+type stepStatus int
 
 const (
-	StatusUnknown    Status = 0
-	StatusInProgress Status = 3
-	StatusPending    Status = 5
-	StatusCompleted  Status = 6
+	stepStatusUnknown    stepStatus = 0
+	stepStatusInProgress stepStatus = 3
+	stepStatusPending    stepStatus = 5
+	stepStatusCompleted  stepStatus = 6
 )
 
-type Conclusion int
+type stepConclusion int
 
 const (
-	ConclusionUnknown   Conclusion = 0
-	ConclusionSuccess   Conclusion = 2
-	ConclusionFailure   Conclusion = 3
-	ConclusionCancelled Conclusion = 4
-	ConclusionSkipped   Conclusion = 7
+	stepConclusionUnknown   stepConclusion = 0
+	stepConclusionSuccess   stepConclusion = 2
+	stepConclusionFailure   stepConclusion = 3
+	stepConclusionCancelled stepConclusion = 4
+	stepConclusionSkipped   stepConclusion = 7
 )
 
 ////////////// JobService: Diagnostic Logs //////////////
