@@ -27,6 +27,8 @@ type service interface {
 
 var _ service = (*runnerService)(nil)
 
+// runnerService implement message queue methods of the C# GitHub actions/runner.
+// https://github.com/actions/runner/blob/v2.324.0/src/Runner.Common/RunnerServer.cs#L38-L41
 type runnerService struct {
 	client *xhttp.Client
 

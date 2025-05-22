@@ -28,6 +28,14 @@ func NewRunnerService(url string, hc *http.Client, groupId int) (*RunnerService,
 // https://github.com/actions/runner/blob/v2.323.0/src/Runner.Listener/JobDispatcher.cs#L383
 var lockToken = "00000000-0000-0000-0000-000000000000" // Guid.Empty
 
+// RunnerService implements
+//   - the job request methods of [RunnerServer]
+//   - [ActionsRunServer]
+//
+// of the C# GitHub actions/runner
+//
+// [RunnerServer]: https://github.com/actions/runner/blob/v2.324.0/src/Runner.Common/RunnerServer.cs#L44-L46
+// [ActionsRunServer]: https://github.com/actions/runner/blob/v2.324.0/src/Runner.Common/ActionsRunServer.cs#L16
 type RunnerService struct {
 	client  *xhttp.Client
 	groupId int
