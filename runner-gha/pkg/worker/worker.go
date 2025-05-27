@@ -40,19 +40,27 @@ import (
 )
 
 type Worker struct {
-	lease holder.Lease
+	msg       *messages.PipelineAgentJobRequest
+	runnerSvc *holder.RunnerService
 
-	ctx      context.Context
-	cancel   context.CancelCauseFunc
+	ctx    context.Context
+	cancel context.CancelCauseFunc
+
+	lease    holder.Lease
+	recorder service.TimelineRecorder
+
 	exec     executor.JobExecutor
 	cleaners []func(ctx context.Context) error
 }
 
-func New(lease holder.Lease) *Worker {
-	return &Worker{lease: lease}
+func New(msg *messages.PipelineAgentJobRequest) *Worker {
+	return &Worker{msg: msg}
 }
 
 func (w *Worker) setup(scope *dig.Scope) error {
+	if err := w.initService(); err != nil {
+		return err
+	}
 	if err := w.initScope(scope); err != nil {
 		return err
 	}
@@ -61,6 +69,62 @@ func (w *Worker) setup(scope *dig.Scope) error {
 	}
 	if err := w.initExecutor(scope); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (w *Worker) initService() error {
+	ep := w.msg.ServiceEndpoint("SystemVssConnection")
+	if ep == nil {
+		return fmt.Errorf("SystemVssConnection service endpoint not available")
+	}
+
+	hc := http.DefaultClient
+	if source, err := ep.TokenSource(); err != nil {
+		return err
+	} else if source != nil {
+		hc = oauth2.NewClient(w.ctx, source)
+	}
+
+	switch typ := w.msg.MessageType; typ {
+	case messages.TypeRunnerJobRequest:
+		return w.initRunnerService(ep, hc)
+	case messages.TypePipelineAgentJobRequest:
+		return w.initPipelineAgentService(ep, hc)
+	default:
+		return fmt.Errorf("PipelineAgentJobRequest - unknown message type: %s", typ)
+	}
+}
+
+// init services used to handle MessageType="RunnerJobRequest"
+func (w *Worker) initRunnerService(ep *messages.ServiceEndpoint, hc *http.Client) error {
+	if svc, err := holder.NewRunService(ep.Url, hc); err != nil {
+		return err
+	} else {
+		w.lease = svc.Lease(w.msg)
+	}
+
+	if url := ep.Data["ResultsServiceUrl"]; url != "" {
+		if svc, err := service.NewResultService(url, hc, w.msg); err != nil {
+			return err
+		} else {
+			w.recorder = svc.TimelineRecorder()
+		}
+	}
+
+	return nil
+}
+
+// init services used to handle MessageType="PipelineAgentJobRequest"
+func (w *Worker) initPipelineAgentService(ep *messages.ServiceEndpoint, hc *http.Client) error {
+	w.lease = w.runnerSvc.Lease(w.msg)
+
+	if svc, err := service.NewJobService(ep.Url, hc, w.msg); err != nil {
+		return err
+	} else {
+		w.lease = svc.WrapLease(w.lease)
+		w.recorder = svc.TimelineRecorder()
 	}
 
 	return nil
@@ -203,44 +267,44 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 		"ACTIONS_RUNTIME_URL":   sysCon.Url,
 		"ACTIONS_RUNTIME_TOKEN": accessToken,
 	}
-	if url, ok := sysCon.Data["CacheServerUrl"]; ok && url != "" {
+	if url := sysCon.Data["CacheServerUrl"]; url != "" {
 		sysEnv["ACTIONS_CACHE_URL"] = url
 	}
-	if cacheV2, ok := req.Variables["actions_uses_cache_service_v2"]; ok && strings.ToLower(cacheV2.Value) == "true" {
+	if cacheV2 := req.Variables["actions_uses_cache_service_v2"]; strings.ToLower(cacheV2.Value) == "true" {
 		sysEnv["ACTIONS_CACHE_SERVICE_V2"] = "True" // bool.TrueString
 	}
-	if url, ok := sysCon.Data["PipelinesServiceUrl"]; ok && url != "" {
+	if url := sysCon.Data["PipelinesServiceUrl"]; url != "" {
 		sysEnv["ACTIONS_RUNTIME_URL"] = url
 	}
-	if url, ok := sysCon.Data["GenerateIdTokenUrl"]; ok && url != "" {
+	if url := sysCon.Data["GenerateIdTokenUrl"]; url != "" {
 		sysEnv["ACTIONS_ID_TOKEN_REQUEST_URL"] = url
 		sysEnv["ACTIONS_ID_TOKEN_REQUEST_TOKEN"] = accessToken
 	}
-	if url, ok := sysCon.Data["ResultsServiceUrl"]; ok && url != "" {
+	if url := sysCon.Data["ResultsServiceUrl"]; url != "" {
 		sysEnv["ACTIONS_RESULTS_URL"] = url
 	} else if v, ok := req.Variables["system.github.results_endpoint"]; ok {
 		sysEnv["ACTIONS_RESULTS_URL"] = v.Value
 	}
 	sup.Register(executor.Env(sysEnv))
 
-	hc := http.DefaultClient
-	if source, err := sysCon.TokenSource(); err == nil && source != nil {
-		hc = oauth2.NewClient(w.ctx, source)
-	}
-
-	cp := xcontext.NewStaticProvider(w.ctx)
-	if url, ok := sysCon.Data["FeedStreamUrl"]; ok && url != "" {
-		if log, err := service.NewConsoleLiveFeeder(cp, url, hc); err != nil {
-			return err
-		} else if err = xdig.Supply[stream.Handler](scope, log); err != nil {
-			return err
-		} else if err = log.Start(); err != nil {
-			return err
-		} else {
-			w.addCleaner(log.Close)
-		}
-	}
-
+	//hc := http.DefaultClient
+	//if source, err := sysCon.TokenSource(); err == nil && source != nil {
+	//	hc = oauth2.NewClient(w.ctx, source)
+	//}
+	//
+	//cp := xcontext.NewStaticProvider(w.ctx)
+	//if url, ok := sysCon.Data["FeedStreamUrl"]; ok && url != "" {
+	//	if log, err := service.NewConsoleLiveFeeder(cp, url, hc); err != nil {
+	//		return err
+	//	} else if err = xdig.Supply[stream.Handler](scope, log); err != nil {
+	//		return err
+	//	} else if err = log.Start(); err != nil {
+	//		return err
+	//	} else {
+	//		w.addCleaner(log.Close)
+	//	}
+	//}
+	//
 	//rep := service.NewReporter(w.task.Id, client, cp, log, w.Cancel)
 	//if err := xdig.Supply[reporter.Reporter](scope, rep); err != nil {
 	//	return err

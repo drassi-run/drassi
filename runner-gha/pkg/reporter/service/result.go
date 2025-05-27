@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"drassi.run/gha-runner/pkg/types"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -16,6 +15,7 @@ import (
 	"drassi.run/core/util/reactive"
 	"drassi.run/gha-runner/pkg/messages"
 	"drassi.run/gha-runner/pkg/reporter/store"
+	"drassi.run/gha-runner/pkg/types"
 	"github.com/coder/websocket"
 )
 
