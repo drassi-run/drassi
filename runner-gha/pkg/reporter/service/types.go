@@ -195,7 +195,7 @@ type record struct {
 	ErrorCount       int                          `json:"error_count,omitempty"`
 	WarningCount     int                          `json:"warning_count,omitempty"`
 	NoticeCount      int                          `json:"notice_count,omitempty"`
-	Issues           []reporter.Issue             `json:"issues,omitempty"`
+	Issues           []*reporter.Issue            `json:"issues,omitempty"`
 	Location         string                       `json:"location,omitempty"`
 	Attempt          int                          `json:"attempt,omitempty"`
 	Identifier       string                       `json:"identifier,omitempty"`

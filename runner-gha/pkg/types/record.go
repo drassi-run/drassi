@@ -19,7 +19,7 @@ type Record struct {
 	Result      Result
 	StartedAt   *time.Time
 	CompletedAt *time.Time
-	Issues      []reporter.Issue
+	Issues      []*reporter.Issue
 }
 
 // Result equals to TaskResult in C# of GitHub actions/runner
@@ -65,7 +65,7 @@ const (
 )
 
 type JobObject struct {
-	JobRun         executor.JobRun
+	JobRun         *executor.JobRun
 	Outputs        map[string]string
 	EnvironmentUrl string
 }

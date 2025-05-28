@@ -34,6 +34,7 @@ import (
 	"drassi.run/core/util/dig"
 	"drassi.run/gha-runner/pkg/holder"
 	"drassi.run/gha-runner/pkg/messages"
+	"drassi.run/gha-runner/pkg/reporter"
 	"drassi.run/gha-runner/pkg/reporter/service"
 	"go.uber.org/dig"
 	"golang.org/x/oauth2"
@@ -47,7 +48,7 @@ type Worker struct {
 	cancel context.CancelCauseFunc
 
 	lease    holder.Lease
-	recorder service.TimelineRecorder
+	reporter *reporter.GhaReporter
 
 	exec     executor.JobExecutor
 	cleaners []func(ctx context.Context) error
@@ -109,7 +110,8 @@ func (w *Worker) initRunnerService(ep *messages.ServiceEndpoint, hc *http.Client
 		if svc, err := service.NewResultService(url, hc, w.msg); err != nil {
 			return err
 		} else {
-			w.recorder = svc.TimelineRecorder()
+			recorder := svc.TimelineRecorder()
+			w.reporter = reporter.NewReporter(recorder)
 		}
 	}
 
@@ -124,7 +126,9 @@ func (w *Worker) initPipelineAgentService(ep *messages.ServiceEndpoint, hc *http
 		return err
 	} else {
 		w.lease = svc.WrapLease(w.lease)
-		w.recorder = svc.TimelineRecorder()
+
+		recorder := svc.TimelineRecorder()
+		w.reporter = reporter.NewReporter(recorder)
 	}
 
 	return nil
@@ -364,7 +368,12 @@ func (w *Worker) Run(ctx context.Context, scope *dig.Scope) (err error) {
 
 	// run main execution
 	go w.lease.Renew(ctx)
-	//defer w.lease.Complete(ctx) // TODO
+	defer func() {
+		record := w.reporter.JobRecord()
+		ex := w.lease.Complete(w.ctx, record)
+		err = errors.Join(err, ex)
+	}()
+
 	r := w.exec.RunJob(w.ctx)
 	if r.Result != records.ResultSuccess {
 		return fmt.Errorf("job failed")
