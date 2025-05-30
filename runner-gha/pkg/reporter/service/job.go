@@ -193,10 +193,7 @@ func (r *jobTimelineRecorder) Update(ctx context.Context, records ...*types.Reco
 
 func (s *JobService) updateTimelineRecord(ctx context.Context, records []*record) error {
 	endpoint := fmt.Sprintf(taskTimelineEndpoint, s.scopeUid, s.planType, s.planUid, s.timelineUid)
-	body := &recordsWrapper{
-		Count: int64(len(records)),
-		Value: records,
-	}
+	body := types.NewList(records)
 
 	e := s.client.Patch(endpoint).
 		SetQuery("api-version", "5.1-preview").

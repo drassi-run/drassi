@@ -117,9 +117,9 @@ func (lf *liveFeeder) sendE(stepUid string, lines []string, offset int64) error 
 	}
 
 	data := &linesWrapper{
-		StepUid:   stepUid,
 		Value:     lines,
 		Count:     len(lines),
+		StepId:    stepUid,
 		StartLine: offset,
 	}
 	return lf.SendFn(data)

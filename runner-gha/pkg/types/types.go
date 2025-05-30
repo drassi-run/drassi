@@ -12,9 +12,16 @@ import (
 	"drassi.run/gha-runner/pkg/dotnet"
 )
 
-type Response[T any] struct {
+type List[T any] struct {
 	Count int `json:"count"`
 	Value []T `json:"value"`
+}
+
+func NewList[T any](value []T) *List[T] {
+	return &List[T]{
+		Count: len(value),
+		Value: value,
+	}
 }
 
 type GroupType string

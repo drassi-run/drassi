@@ -163,9 +163,9 @@ type line struct {
 
 // TimelineRecordFeedLinesWrapper in C#
 type linesWrapper struct {
-	StepUid   string   `json:"step_id"`
 	Value     []string `json:"value"`
 	Count     int      `json:"count"`
+	StepId    string   `json:"step_id"`
 	StartLine int64    `json:"start_line"`
 }
 
@@ -191,7 +191,7 @@ type record struct {
 	Order            int                          `json:"order,omitempty"`
 	RefName          string                       `json:"ref_name,omitempty"`
 	Log              *TaskLogReference            `json:"log,omitempty"`
-	Details          *TimeLineReference           `json:"details,omitempty"`
+	Details          *TimelineReference           `json:"details,omitempty"`
 	ErrorCount       int                          `json:"error_count,omitempty"`
 	WarningCount     int                          `json:"warning_count,omitempty"`
 	NoticeCount      int                          `json:"notice_count,omitempty"`
@@ -209,7 +209,7 @@ type TaskLogReference struct {
 	Location string `json:"location,omitempty"`
 }
 
-type TimeLineReference struct {
+type TimelineReference struct {
 	Id       string `json:"id,omitempty"` // UUID
 	ChangeId int32  `json:"change_id,omitempty"`
 	Location string `json:"location,omitempty"`
@@ -220,10 +220,4 @@ type TimelineAttempt struct {
 	Attempt    int32  `json:"attempt,omitempty"`
 	TimelineId string `json:"timeline_id,omitempty"` // UUID
 	RecordId   string `json:"record_id,omitempty"`   // UUID
-}
-
-// VssJsonCollectionWrapper in C#
-type recordsWrapper struct {
-	Count int64     `json:"count,omitempty"`
-	Value []*record `json:"value,omitempty"`
 }
