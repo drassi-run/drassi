@@ -44,11 +44,9 @@ func (m *MockJobExecutor) EXPECT() *MockJobExecutorMockRecorder {
 }
 
 // AddPath mocks base method.
-func (m *MockJobExecutor) AddPath(paths []string) error {
+func (m *MockJobExecutor) AddPath(paths []string) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddPath", paths)
-	ret0, _ := ret[0].(error)
-	return ret0
+	m.ctrl.Call(m, "AddPath", paths)
 }
 
 // AddPath indicates an expected call of AddPath.
@@ -64,19 +62,19 @@ type MockJobExecutorAddPathCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockJobExecutorAddPathCall) Return(arg0 error) *MockJobExecutorAddPathCall {
-	c.Call = c.Call.Return(arg0)
+func (c *MockJobExecutorAddPathCall) Return() *MockJobExecutorAddPathCall {
+	c.Call = c.Call.Return()
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockJobExecutorAddPathCall) Do(f func([]string) error) *MockJobExecutorAddPathCall {
+func (c *MockJobExecutorAddPathCall) Do(f func([]string)) *MockJobExecutorAddPathCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockJobExecutorAddPathCall) DoAndReturn(f func([]string) error) *MockJobExecutorAddPathCall {
+func (c *MockJobExecutorAddPathCall) DoAndReturn(f func([]string)) *MockJobExecutorAddPathCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -234,11 +232,9 @@ func (c *MockJobExecutorRunJobCall) DoAndReturn(f func(context.Context) *records
 }
 
 // SetEnv mocks base method.
-func (m *MockJobExecutor) SetEnv(env map[string]string) error {
+func (m *MockJobExecutor) SetEnv(env map[string]string) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetEnv", env)
-	ret0, _ := ret[0].(error)
-	return ret0
+	m.ctrl.Call(m, "SetEnv", env)
 }
 
 // SetEnv indicates an expected call of SetEnv.
@@ -254,19 +250,19 @@ type MockJobExecutorSetEnvCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockJobExecutorSetEnvCall) Return(arg0 error) *MockJobExecutorSetEnvCall {
-	c.Call = c.Call.Return(arg0)
+func (c *MockJobExecutorSetEnvCall) Return() *MockJobExecutorSetEnvCall {
+	c.Call = c.Call.Return()
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockJobExecutorSetEnvCall) Do(f func(map[string]string) error) *MockJobExecutorSetEnvCall {
+func (c *MockJobExecutorSetEnvCall) Do(f func(map[string]string)) *MockJobExecutorSetEnvCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockJobExecutorSetEnvCall) DoAndReturn(f func(map[string]string) error) *MockJobExecutorSetEnvCall {
+func (c *MockJobExecutorSetEnvCall) DoAndReturn(f func(map[string]string)) *MockJobExecutorSetEnvCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -303,6 +299,44 @@ func (c *MockJobExecutorSetStatusCall) Do(f func(records.Result)) *MockJobExecut
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockJobExecutorSetStatusCall) DoAndReturn(f func(records.Result)) *MockJobExecutorSetStatusCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// Status mocks base method.
+func (m *MockJobExecutor) Status() records.Result {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Status")
+	ret0, _ := ret[0].(records.Result)
+	return ret0
+}
+
+// Status indicates an expected call of Status.
+func (mr *MockJobExecutorMockRecorder) Status() *MockJobExecutorStatusCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Status", reflect.TypeOf((*MockJobExecutor)(nil).Status))
+	return &MockJobExecutorStatusCall{Call: call}
+}
+
+// MockJobExecutorStatusCall wrap *gomock.Call
+type MockJobExecutorStatusCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockJobExecutorStatusCall) Return(arg0 records.Result) *MockJobExecutorStatusCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockJobExecutorStatusCall) Do(f func() records.Result) *MockJobExecutorStatusCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockJobExecutorStatusCall) DoAndReturn(f func() records.Result) *MockJobExecutorStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

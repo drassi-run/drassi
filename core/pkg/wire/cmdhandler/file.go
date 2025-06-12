@@ -23,9 +23,9 @@ var (
 )
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L107
-func FileAddPath(sup executor.Supervisor) *command.FileHandler {
+func FileAddPath(stack executor.Stack) *command.FileHandler {
 	run := func(ctx context.Context, r io.Reader) error {
-		job := sup.Job()
+		job := stack.Job()
 		if job == nil {
 			return ErrNoJobRunning
 		}
@@ -37,37 +37,38 @@ func FileAddPath(sup executor.Supervisor) *command.FileHandler {
 			for _, path := range paths {
 				s.Debugf("Add path: %q", path)
 			}
-			return job.AddPath(paths)
+			job.AddPath(paths)
+			return nil
 		}
 	}
 	return command.NewFileHandler("GITHUB_PATH", run)
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L132
-func FileSetEnv(sup executor.Supervisor) *command.FileHandler {
+func FileSetEnv(stack executor.Stack) *command.FileHandler {
 	run := func(ctx context.Context, r io.Reader) error {
-		step := sup.CurrentStep()
-		if step == nil {
-			return ErrNoStepRunning
+		env, err := parseEnvVars(r)
+		if err != nil {
+			return err
+		}
+		s := scribe.FromContext(ctx)
+		for k, v := range env {
+			s.Debugf("Set env: %s = %s", k, v)
 		}
 
-		if env, err := parseEnvVars(r); err != nil {
-			return err
-		} else {
-			s := scribe.FromContext(ctx)
-			for k, v := range env {
-				s.Debugf("Set env: %s = %s", k, v)
-			}
-			return step.SetEnv(env)
+		for _, step := range stack.Stack() {
+			step.SetEnv(env)
 		}
+		stack.Job().SetEnv(env)
+		return nil
 	}
 	return command.NewFileHandler("GITHUB_ENV", run)
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L260
-func FileSaveState(sup executor.Supervisor) *command.FileHandler {
+func FileSaveState(stack executor.Stack) *command.FileHandler {
 	run := func(ctx context.Context, r io.Reader) error {
-		step := sup.CurrentStep()
+		step := stack.Root()
 		if step == nil {
 			return ErrNoStepRunning
 		}
@@ -79,16 +80,17 @@ func FileSaveState(sup executor.Supervisor) *command.FileHandler {
 			for k, v := range state {
 				s.Debugf("Save intra-action state: %s = %s", k, v)
 			}
-			return step.SaveState(state)
+			step.SaveState(state)
+			return nil
 		}
 	}
 	return command.NewFileHandler("GITHUB_STATE", run)
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L293
-func FileSetOutput(sup executor.Supervisor) *command.FileHandler {
+func FileSetOutput(stack executor.Stack) *command.FileHandler {
 	run := func(ctx context.Context, r io.Reader) error {
-		step := sup.CurrentStep()
+		step := stack.Leaf()
 		if step == nil {
 			return ErrNoStepRunning
 		}
@@ -100,16 +102,17 @@ func FileSetOutput(sup executor.Supervisor) *command.FileHandler {
 			for k, v := range output {
 				s.Debugf("Set output: %s = %s", k, v)
 			}
-			return step.SetOutput(output)
+			step.SetOutput(output)
+			return nil
 		}
 	}
 	return command.NewFileHandler("GITHUB_OUTPUT", run)
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L186
-func CreateStepSummary(sup executor.Supervisor) *command.FileHandler {
+func CreateStepSummary(stack executor.Stack) *command.FileHandler {
 	run := func(ctx context.Context, r io.Reader) error {
-		step := sup.CurrentStep()
+		step := stack.Leaf()
 		if step == nil {
 			return ErrNoStepRunning
 		}

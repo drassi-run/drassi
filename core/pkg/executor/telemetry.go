@@ -99,7 +99,7 @@ func WithTelemetryStepExecutor(exec StepExecutor) StepExecutor {
 func (e *telemetryStepExecutor) Initialize(ctx context.Context, scope *dig.Scope) (err error) {
 	stepId := StepId(e)
 	ctx, span := xotel.StartSpan(ctx, fmt.Sprintf("StepExecutor.Initialize(%s)", stepId),
-		trace.WithAttributes(xotel.DrassiStep(FullStepId(e))),
+		trace.WithAttributes(xotel.DrassiStep(stepId)),
 	)
 	defer xotel.EndSpan(span, &err)
 
@@ -127,7 +127,7 @@ func (e *telemetryStepExecutor) RunStep(ctx context.Context, fn func(StepRun) *T
 	ctx, span := xotel.StartSpan(ctx, fmt.Sprintf("StepExecutor.RunStep(%s)", stepId),
 		trace.WithAttributes(
 			xotel.DrassiStage(string(task.Stage)),
-			xotel.DrassiStep(FullStepId(e)),
+			xotel.DrassiStep(stepId),
 		),
 	)
 	defer span.End()

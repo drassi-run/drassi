@@ -15,7 +15,6 @@ import (
 
 	"drassi.run/core/pkg/executor/evaluator"
 	"drassi.run/core/pkg/expression"
-	"drassi.run/core/pkg/expression/libraries"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/scribe"
 	"drassi.run/core/pkg/store/repository"
@@ -26,53 +25,34 @@ import (
 
 type StepExecutor interface {
 	StepRun() StepRun
-	JobExecutor() JobExecutor
-	NewChildExecutor(stepRun StepRun) StepExecutor
-	ChildExecutor(id string) StepExecutor
-	ParentExecutor() StepExecutor
 
 	Initialize(ctx context.Context, scope *dig.Scope) error
 	RunStep(ctx context.Context, fn func(StepRun) *Task) *records.Step
-	ComposeEnv(systemEnv bool) map[string]string
-	SetStatus(status records.Result)
 
-	SetEnv(env map[string]string) error
+	Status() records.Result
+	SetStatus(status records.Result)
+	ComposeEnv(systemEnv bool) map[string]string
+	SetEnv(env map[string]string)
+	SaveState(state map[string]string)
+	SetOutput(output map[string]string)
 	CreateStepSummary(r io.Reader) error
-	SaveState(state map[string]string) error
-	SetOutput(output map[string]string) error
 }
 
 func StepId(e StepExecutor) string {
 	return e.StepRun().StepId()
 }
 
-func FullStepId(e StepExecutor) string {
-	s := StepId(e)
-	for parent := e.ParentExecutor(); parent != nil; parent = parent.ParentExecutor() {
-		s = StepId(parent) + "/" + s
-	}
-	return s
-}
-
 func StepUid(e StepExecutor) string {
 	return e.StepRun().Base().Uid
 }
 
-func newStepExecutor(job JobExecutor, parent StepExecutor, stepRun StepRun) StepExecutor {
-	exec := &stepExecutor{
-		job:      job,
-		parent:   parent,
-		children: make(map[string]StepExecutor),
-		stepRun:  stepRun,
-	}
+func NewStepExecutor(stepRun StepRun) StepExecutor {
+	exec := &stepExecutor{stepRun: stepRun}
 	return WithTelemetryStepExecutor(exec)
 }
 
 type stepExecutor struct {
-	job      JobExecutor
-	parent   StepExecutor
-	children map[string]StepExecutor
-	stepRun  StepRun
+	stepRun StepRun
 
 	// records
 	github   records.Github
@@ -87,32 +67,6 @@ type stepExecutor struct {
 
 func (e *stepExecutor) StepRun() StepRun {
 	return e.stepRun
-}
-
-func (e *stepExecutor) JobExecutor() JobExecutor {
-	return e.job
-}
-
-func (e *stepExecutor) NewChildExecutor(stepRun StepRun) StepExecutor {
-	cExec := newStepExecutor(e.job, e, stepRun)
-	e.children[stepRun.StepId()] = cExec
-	return cExec
-}
-
-func (e *stepExecutor) ChildExecutor(id string) StepExecutor {
-	return e.children[id]
-}
-
-func (e *stepExecutor) ParentExecutor() StepExecutor {
-	return e.parent
-}
-
-func (e *stepExecutor) rootExecutor() StepExecutor {
-	var exec StepExecutor = e
-	for exec.ParentExecutor() != nil {
-		exec = exec.ParentExecutor()
-	}
-	return exec
 }
 
 func (e *stepExecutor) Initialize(ctx context.Context, scope *dig.Scope) error {
@@ -156,9 +110,6 @@ func (e *stepExecutor) Initialize(ctx context.Context, scope *dig.Scope) error {
 	opts := []expression.Option{
 		expression.WithVariable("github", &e.github),
 		expression.WithVariable("env", e.env),
-	}
-	if e.parent != nil {
-		opts = append(opts, expression.WithLibrary(libraries.StatusLib(e.step)))
 	}
 	if exprEnv, err := e.exprEnv.New(opts...); err != nil {
 		return err
@@ -350,16 +301,24 @@ func (e *stepExecutor) ComposeEnv(systemEnv bool) map[string]string {
 	return m
 }
 
+func (e *stepExecutor) Status() records.Result {
+	if e.step != nil {
+		return e.step.Outcome
+	}
+	return records.ResultSuccess
+}
+
 func (e *stepExecutor) SetStatus(status records.Result) {
 	e.github.ActionStatus = status
 	e.step.Outcome = status
 }
 
-// SetEnv make an environment variable available to any subsequent steps in a workflow job
+// SetEnv make an environment variable available to any subsequent steps in a workflow job.
+// Environment variables should be applied to all StepExecutor in the Stack as well as the JobExecutor.
 //
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L132
 // https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#setting-an-environment-variable
-func (e *stepExecutor) SetEnv(env map[string]string) error {
+func (e *stepExecutor) SetEnv(env map[string]string) {
 	for k := range env {
 		if setEnvBlockList.Has(k) {
 			// TODO context.AddIssue
@@ -367,11 +326,6 @@ func (e *stepExecutor) SetEnv(env map[string]string) error {
 		}
 	}
 	maps.Copy(e.env, env)
-	if e.parent != nil {
-		return e.parent.SetEnv(env)
-	} else {
-		return e.job.SetEnv(env)
-	}
 }
 
 // CreateStepSummary create custom Markdown that it will be displayed on the summary page of a workflow run.
@@ -384,25 +338,18 @@ func (e *stepExecutor) CreateStepSummary(io.Reader) error {
 }
 
 // SaveState used to create environment variables for sharing pre: or post: action state.
+// You should identify the root step by using [Stack.Root] to store the state.
 //
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L260
 // https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#sending-values-to-the-pre-and-post-actions
-func (e *stepExecutor) SaveState(state map[string]string) error {
-	// if it's embedded step, forward state to the root step
-	if e.parent != nil {
-		root := e.rootExecutor()
-		return root.SaveState(state)
-	}
-	// in root step, save the state
+func (e *stepExecutor) SaveState(state map[string]string) {
 	maps.Copy(e.state, state)
-	return nil
 }
 
 // SetOutput sets a step's output parameter.
 //
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L293
 // https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#setting-an-output-parameter
-func (e *stepExecutor) SetOutput(output map[string]string) error {
+func (e *stepExecutor) SetOutput(output map[string]string) {
 	maps.Copy(e.step.Outputs, output)
-	return nil
 }

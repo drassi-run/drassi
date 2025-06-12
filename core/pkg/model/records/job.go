@@ -28,10 +28,6 @@ type Job struct {
 	Outputs map[string]string `json:"outputs" yaml:"outputs" actions:"outputs"`
 }
 
-func (j *Job) Status() Result {
-	return j.Result
-}
-
 // The `steps` context contains information about the steps in the current job that have an `id` specified and have already run.
 // https://docs.github.com/en/actions/learn-github-actions/contexts#steps-context
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/StepsContext.cs
@@ -39,10 +35,6 @@ type Step struct {
 	Outputs    map[string]string `json:"outputs" yaml:"outputs" actions:"outputs"`
 	Conclusion Result            `json:"conclusion" yaml:"conclusion" actions:"conclusion"`
 	Outcome    Result            `json:"outcome" yaml:"outcome" actions:"outcome"`
-}
-
-func (s *Step) Status() Result {
-	return s.Outcome
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Common/ActionResult.cs

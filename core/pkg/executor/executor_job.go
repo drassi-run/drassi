@@ -38,11 +38,12 @@ type JobExecutor interface {
 	Initialize(ctx context.Context, scope *dig.Scope) error
 	RunJob(ctx context.Context) *records.Job
 	Finalize(ctx context.Context) error
-	SystemPaths() []string
-	SetStatus(status records.Result)
 
-	AddPath(paths []string) error
-	SetEnv(env map[string]string) error
+	Status() records.Result
+	SetStatus(status records.Result)
+	SystemPaths() []string
+	AddPath(paths []string)
+	SetEnv(env map[string]string)
 }
 
 func JobId(e JobExecutor) string {
@@ -78,16 +79,6 @@ type jobExecutor struct {
 
 func (e *jobExecutor) JobRun() *JobRun {
 	return e.jobRun
-}
-
-func (e *jobExecutor) NewStepExecutor(step StepRun) StepExecutor {
-	exec := newStepExecutor(e, nil, step)
-	e.stepExecutors[step.StepId()] = exec
-	return exec
-}
-
-func (e *jobExecutor) StepExecutor(id string) StepExecutor {
-	return e.stepExecutors[id]
 }
 
 func (e *jobExecutor) Initialize(ctx context.Context, scope *dig.Scope) (ex error) {
@@ -202,7 +193,7 @@ func (e *jobExecutor) initializeJob(s *scribe.Scribe, scope *dig.Scope) error {
 		expression.WithVariable("job", e.jobInfo),
 		expression.WithVariable("steps", e.steps),
 		expression.WithVariable("env", e.env),
-		expression.WithLibrary(libraries.StatusLib(e.job)),
+		expression.WithLibrary(libraries.StatusLib(e)),
 	}
 	if exprEnv, err := e.exprEnv.New(opts...); err != nil {
 		return err
@@ -215,8 +206,8 @@ func (e *jobExecutor) initializeJob(s *scribe.Scribe, scope *dig.Scope) error {
 	env := make(map[string]string)
 	if err := evaluator.Evaluate(e.exprEnv, e.jobRun.Env, &env); err != nil {
 		return err
-	} else if err = e.SetEnv(env); err != nil {
-		return err
+	} else {
+		e.SetEnv(env)
 	}
 
 	s.Debugf("Evaluating job defaults")
@@ -427,7 +418,9 @@ func (e *jobExecutor) initializeSteps(ctx context.Context, scope *dig.Scope) err
 	//return g.Wait()
 
 	for _, step := range e.jobRun.Steps {
-		exec := e.NewStepExecutor(step)
+		exec := NewStepExecutor(step)
+		e.stepExecutors[step.StepId()] = exec
+
 		s := scope.Scope(fmt.Sprintf("step(%s)", step.StepId()))
 		if err := exec.Initialize(ctx, s); err != nil {
 			return err
@@ -457,7 +450,7 @@ func (e *jobExecutor) runStage(ctx context.Context, stage Stage, fn func(StepRun
 		slices.Reverse(ids) // in place reverse
 	}
 	for _, id := range ids {
-		exec := e.StepExecutor(id)
+		exec := e.stepExecutors[id]
 		res := exec.RunStep(ctx, fn)
 		if res == nil {
 			continue
@@ -480,6 +473,13 @@ func (e *jobExecutor) SystemPaths() []string {
 	return slices.Clone(e.paths)
 }
 
+func (e *jobExecutor) Status() records.Result {
+	if e.job != nil {
+		return e.job.Result
+	}
+	return records.ResultSuccess
+}
+
 func (e *jobExecutor) SetStatus(status records.Result) {
 	e.job.Result = status
 	e.jobInfo.Status = status
@@ -490,9 +490,9 @@ func (e *jobExecutor) SetStatus(status records.Result) {
 //
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L107
 // https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#adding-a-system-path
-func (e *jobExecutor) AddPath(paths []string) error {
+func (e *jobExecutor) AddPath(paths []string) {
 	if len(paths) == 0 {
-		return nil
+		return
 	}
 
 	newPaths := make([]string, 0, len(e.paths))
@@ -512,7 +512,6 @@ func (e *jobExecutor) AddPath(paths []string) error {
 	}
 
 	e.paths = newPaths
-	return nil
 }
 
 var setEnvBlockList = sets.New("NODE_OPTIONS")
@@ -521,7 +520,7 @@ var setEnvBlockList = sets.New("NODE_OPTIONS")
 //
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L132
 // https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#setting-an-environment-variable
-func (e *jobExecutor) SetEnv(env map[string]string) error {
+func (e *jobExecutor) SetEnv(env map[string]string) {
 	for k, v := range env {
 		if setEnvBlockList.Has(k) {
 			// TODO context.AddIssue
@@ -529,7 +528,6 @@ func (e *jobExecutor) SetEnv(env map[string]string) error {
 		}
 		e.env[k] = v
 	}
-	return nil
 }
 
 func (e *jobExecutor) setupEventFile(ctx context.Context) (string, error) {

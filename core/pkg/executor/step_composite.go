@@ -13,6 +13,7 @@ import (
 
 	"drassi.run/core/pkg/executor/evaluator"
 	"drassi.run/core/pkg/expression"
+	"drassi.run/core/pkg/expression/libraries"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/util/dig"
@@ -23,8 +24,9 @@ type CompositeStepRun struct {
 	BaseStepRun
 	StepRuns []StepRun
 
-	exprEnv expression.Env
-	inputs  map[string]string
+	children map[string]StepExecutor
+	exprEnv  expression.Env
+	inputs   map[string]string
 }
 
 func (sr *CompositeStepRun) Initialize(ctx context.Context, scope *dig.Scope) error {
@@ -42,6 +44,7 @@ func (sr *CompositeStepRun) Initialize(ctx context.Context, scope *dig.Scope) er
 	opts := []expression.Option{
 		// inputs from upper layers will NOT be passed to child steps
 		expression.WithVariable("inputs", sr.inputs),
+		expression.WithLibrary(libraries.StatusLib(exec)),
 	}
 	if exprEnv, err := sr.exprEnv.New(opts...); err != nil {
 		return err
@@ -64,8 +67,11 @@ func (sr *CompositeStepRun) Initialize(ctx context.Context, scope *dig.Scope) er
 	//}
 	//return g.Wait()
 
+	sr.children = make(map[string]StepExecutor, len(sr.StepRuns))
 	for _, step := range sr.StepRuns {
-		cExec := exec.NewChildExecutor(step)
+		cExec := NewStepExecutor(step)
+		sr.children[step.StepId()] = cExec
+
 		cScope := scope.Scope(fmt.Sprintf("step(%s)", step.StepId()))
 		if err := cExec.Initialize(ctx, cScope); err != nil {
 			return err
@@ -101,7 +107,7 @@ func (sr *CompositeStepRun) createStageTask(stage Stage, fn func(StepRun) *Task)
 		}
 
 		for _, id := range taskIds {
-			cExec := exec.ChildExecutor(id)
+			cExec := sr.children[id]
 			if cExec == nil {
 				return fmt.Errorf("task %q has no child context", id)
 			}
@@ -140,5 +146,6 @@ func (sr *CompositeStepRun) produceOutputs(exec StepExecutor) error {
 	if err := evaluator.Evaluate(sr.exprEnv, sr.Outputs, &outputs); err != nil {
 		return err
 	}
-	return exec.SetOutput(outputs)
+	exec.SetOutput(outputs)
+	return nil
 }

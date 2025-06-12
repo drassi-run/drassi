@@ -34,6 +34,7 @@ type ScriptStepRun struct {
 	WorkingDir workflows.Evaluable[string]
 
 	// injected values
+	stack    Stack
 	sandbox  sandboxer.Sandbox
 	streams  stream.Streams
 	exprEnv  expression.Env
@@ -111,7 +112,7 @@ func (sr *ScriptStepRun) executeMain(ctx context.Context, exec StepExecutor) err
 	)
 
 	script = shell.FixupScript(script)
-	scriptPath := sr.computeScriptPath(exec, shell.Extension())
+	scriptPath := sr.computeScriptPath(shell.Extension())
 	sr.expandCommand(cmd, scriptPath)
 
 	if err = sr.transferScriptIn(ctx, script, scriptPath); err != nil {
@@ -119,7 +120,7 @@ func (sr *ScriptStepRun) executeMain(ctx context.Context, exec StepExecutor) err
 	}
 
 	env := exec.ComposeEnv(true)
-	paths := exec.JobExecutor().SystemPaths()
+	paths := sr.stack.Job().SystemPaths()
 	return sr.sandbox.Execute(ctx, cmd, paths, env, workdir, sr.streams)
 }
 
@@ -130,14 +131,8 @@ func (sr *ScriptStepRun) expandCommand(cmd []string, scriptPath string) {
 	}
 }
 
-func (sr *ScriptStepRun) computeScriptPath(exec StepExecutor, ext string) string {
-	file := sr.Id
-	for parent := exec.ParentExecutor(); parent != nil; parent = parent.ParentExecutor() {
-		file = fmt.Sprintf("%s-composite-%s", StepId(parent), file)
-	}
-	ext = xstring.EnsurePrefix(ext, ".")
-	file += ext
-
+func (sr *ScriptStepRun) computeScriptPath(ext string) string {
+	file := sr.Uid + xstring.EnsurePrefix(ext, ".")
 	return path.Join("scripts", file)
 }
 
