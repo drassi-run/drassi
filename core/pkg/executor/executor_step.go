@@ -319,12 +319,6 @@ func (e *stepExecutor) SetStatus(status records.Result) {
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L132
 // https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#setting-an-environment-variable
 func (e *stepExecutor) SetEnv(env map[string]string) {
-	for k := range env {
-		if setEnvBlockList.Has(k) {
-			// TODO context.AddIssue
-			delete(env, k)
-		}
-	}
 	maps.Copy(e.env, env)
 }
 

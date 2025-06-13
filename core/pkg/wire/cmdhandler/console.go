@@ -22,6 +22,7 @@ import (
 	"drassi.run/core/pkg/scribe"
 	"drassi.run/core/util/path"
 	"drassi.run/core/util/tar"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L384
@@ -208,17 +209,27 @@ func ConsoleAddPath(stack executor.Stack) *command.ConsoleHandler {
 	return command.NewConsoleHandler("add-path", true, run)
 }
 
+var setEnvBlockList = sets.New("NODE_OPTIONS")
+
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L234
-func ConsoleSetEnv(stack executor.Stack) *command.ConsoleHandler {
+func ConsoleSetEnv(stack executor.Stack, tracker executor.Tracker) *command.ConsoleHandler {
 	run := func(ctx context.Context, cmd *command.Command) error {
 		name, ok := cmd.Params["name"]
 		if !ok || name == "" {
 			return fmt.Errorf("%w %q: required field %q is missing", command.ErrInvalidCommand, "set-env", "name")
 		}
 
-		env := map[string]string{
-			name: cmd.Value,
+		if setEnvBlockList.Has(name) {
+			iss := &executor.Issue{
+				Type:    executor.IssueTypeError,
+				Message: fmt.Sprintf("Can't update %q environment variable using ::%s:: command.", name, cmd.Name),
+			}
+			if err := tracker.AddIssue(iss); err != nil {
+				return err
+			}
 		}
+
+		env := map[string]string{name: cmd.Value}
 		scribe.Debugf(ctx, "Set env: %s = %s", name, cmd.Value)
 
 		for _, step := range stack.Stack() {

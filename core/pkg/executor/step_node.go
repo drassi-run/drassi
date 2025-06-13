@@ -38,7 +38,7 @@ type NodeStepRun struct {
 	PostIf workflows.Conditional
 
 	// injected values
-	stack   Stack
+	jobExec JobExecutor
 	exprEnv expression.Env
 	sandbox sandboxer.Sandbox
 	streams stream.Streams
@@ -128,7 +128,7 @@ func (sr *NodeStepRun) execute(stage Stage) TaskRun {
 			env["INPUT_"+k] = v
 		}
 
-		paths := sr.stack.Job().SystemPaths()
+		paths := sr.jobExec.SystemPaths()
 		return sr.sandbox.Execute(ctx, cmd, paths, env, "", sr.streams)
 	}
 }

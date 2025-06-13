@@ -9,6 +9,7 @@ package wire_cmdhandler
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 
 	"drassi.run/core/pkg/executor"
@@ -45,15 +46,26 @@ func FileAddPath(stack executor.Stack) *command.FileHandler {
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L132
-func FileSetEnv(stack executor.Stack) *command.FileHandler {
+func FileSetEnv(stack executor.Stack, tracker executor.Tracker) *command.FileHandler {
 	run := func(ctx context.Context, r io.Reader) error {
 		env, err := parseEnvVars(r)
 		if err != nil {
 			return err
 		}
+
 		s := scribe.FromContext(ctx)
 		for k, v := range env {
-			s.Debugf("Set env: %s = %s", k, v)
+			if setEnvBlockList.Has(k) {
+				iss := &executor.Issue{
+					Type:    executor.IssueTypeError,
+					Message: fmt.Sprintf("Can't update %q environment variable using '$GITHUB_ENV' command.", k),
+				}
+				if err := tracker.AddIssue(iss); err != nil {
+					return err
+				}
+			} else {
+				s.Debugf("Set env: %s = %s", k, v)
+			}
 		}
 
 		for _, step := range stack.Stack() {

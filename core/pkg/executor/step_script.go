@@ -34,7 +34,7 @@ type ScriptStepRun struct {
 	WorkingDir workflows.Evaluable[string]
 
 	// injected values
-	stack    Stack
+	jobExec  JobExecutor
 	sandbox  sandboxer.Sandbox
 	streams  stream.Streams
 	exprEnv  expression.Env
@@ -120,7 +120,7 @@ func (sr *ScriptStepRun) executeMain(ctx context.Context, exec StepExecutor) err
 	}
 
 	env := exec.ComposeEnv(true)
-	paths := sr.stack.Job().SystemPaths()
+	paths := sr.jobExec.SystemPaths()
 	return sr.sandbox.Execute(ctx, cmd, paths, env, workdir, sr.streams)
 }
 

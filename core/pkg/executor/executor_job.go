@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"path"
 	"slices"
 	"strings"
@@ -305,6 +306,9 @@ func (e *jobExecutor) initializeScope(scope *dig.Scope) error {
 	if err := xdig.Supply(scope, e.env); err != nil {
 		return err
 	}
+	if err := xdig.Supply[JobExecutor](scope, e); err != nil {
+		return err
+	}
 
 	// initialize ConsoleCommand & FileCommand
 	// NOTE: some handlers are depended on sandbox
@@ -514,20 +518,12 @@ func (e *jobExecutor) AddPath(paths []string) {
 	e.paths = newPaths
 }
 
-var setEnvBlockList = sets.New("NODE_OPTIONS")
-
 // SetEnv make an environment variable available to any subsequent steps in a workflow job.
 //
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L132
 // https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#setting-an-environment-variable
 func (e *jobExecutor) SetEnv(env map[string]string) {
-	for k, v := range env {
-		if setEnvBlockList.Has(k) {
-			// TODO context.AddIssue
-			continue
-		}
-		e.env[k] = v
-	}
+	maps.Copy(e.env, env)
 }
 
 func (e *jobExecutor) setupEventFile(ctx context.Context) (string, error) {
