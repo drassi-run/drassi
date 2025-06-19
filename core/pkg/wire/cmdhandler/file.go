@@ -60,7 +60,7 @@ func FileSetEnv(stack executor.Stack, tracker executor.Tracker) *command.FileHan
 					Type:    executor.IssueTypeError,
 					Message: fmt.Sprintf("Can't update %q environment variable using '$GITHUB_ENV' command.", k),
 				}
-				if err := tracker.AddIssue(iss); err != nil {
+				if err := tracker.AddIssue(ctx, iss); err != nil {
 					return err
 				}
 			} else {

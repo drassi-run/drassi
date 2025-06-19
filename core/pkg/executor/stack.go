@@ -36,8 +36,8 @@ type Tracker interface {
 	Env() map[string]string
 	ProvideEnv(func() map[string]string)
 
-	AddIssue(issue *Issue) error
-	AttachFile(kind, name string, reader io.Reader) error
+	AddIssue(ctx context.Context, issue *Issue) error
+	AttachFile(ctx context.Context, kind, name string, reader io.Reader) error
 }
 
 type Stack interface {

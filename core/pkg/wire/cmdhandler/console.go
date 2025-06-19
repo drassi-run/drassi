@@ -224,7 +224,7 @@ func ConsoleSetEnv(stack executor.Stack, tracker executor.Tracker) *command.Cons
 				Type:    executor.IssueTypeError,
 				Message: fmt.Sprintf("Can't update %q environment variable using ::%s:: command.", name, cmd.Name),
 			}
-			if err := tracker.AddIssue(iss); err != nil {
+			if err := tracker.AddIssue(ctx, iss); err != nil {
 				return err
 			}
 		}
