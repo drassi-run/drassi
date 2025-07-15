@@ -61,8 +61,8 @@ type stepExecutor struct {
 	upperEnv map[string]string // env variables from upper layers
 	state    map[string]string // Intra action state
 
-	exprEnv    expression.Env
-	supervisor Supervisor
+	tracker Tracker
+	exprEnv expression.Env
 }
 
 func (e *stepExecutor) StepRun() StepRun {
@@ -71,9 +71,6 @@ func (e *stepExecutor) StepRun() StepRun {
 
 func (e *stepExecutor) Initialize(ctx context.Context, scope *dig.Scope) error {
 	// inject dependencies
-	if err := xdig.Populate(scope, &e.supervisor); err != nil {
-		return err
-	}
 	if err := xdig.Populate(scope, &e.exprEnv); err != nil {
 		return err
 	}
@@ -147,10 +144,6 @@ func (e *stepExecutor) RunStep(ctx context.Context, fn func(StepRun) *Task) *rec
 }
 
 func (e *stepExecutor) beginTask(ctx context.Context, task *Task) error {
-	if err := e.supervisor.BeforeStepRun(task.Stage, e); err != nil {
-		return err
-	}
-
 	base := e.stepRun.Base()
 
 	clear(e.env)
@@ -187,14 +180,8 @@ func (e *stepExecutor) runTask(ctx context.Context, task *Task) error {
 		ctx, cancel = context.WithTimeout(ctx, time.Duration(timeout)*time.Minute)
 		defer cancel()
 
-		stop := e.supervisor.StartContext(ctx)
+		stop := e.tracker.StartContext(ctx)
 		defer stop()
-	}
-
-	if err := e.supervisor.BeforeTaskRun(task, e); err != nil {
-		l.Errorf("Error while before TaskRun: %v", err)
-		e.SetStatus(records.ResultFailure)
-		return err
 	}
 
 	ch := make(chan error)
@@ -214,12 +201,6 @@ func (e *stepExecutor) runTask(ctx context.Context, task *Task) error {
 		//logger.WithField("stepResult", stepResult.Outcome).Errorf("  \u274C  Failure - %s %s", stage, stepString)
 	} else {
 		e.SetStatus(records.ResultSuccess)
-	}
-
-	if err = e.supervisor.AfterTaskRun(task, e); err != nil {
-		l.Errorf("Error while after TaskRun: %v", err)
-		e.SetStatus(records.ResultFailure)
-		return err
 	}
 	return nil
 }
@@ -242,10 +223,6 @@ func (e *stepExecutor) endTask(ctx context.Context, task *Task) {
 	if e.step.Conclusion == "" {
 		e.step.Conclusion = e.step.Outcome
 	}
-
-	if err := e.supervisor.AfterStepRun(task.Stage, e, e.step); err != nil {
-		l.Errorf("Error while after StepRun: %v", err)
-	}
 }
 
 func (e *stepExecutor) ComposeEnv(systemEnv bool) map[string]string {
@@ -254,7 +231,7 @@ func (e *stepExecutor) ComposeEnv(systemEnv bool) map[string]string {
 		return m
 	}
 
-	maps.Copy(m, e.supervisor.ProvideEnv())
+	maps.Copy(m, e.tracker.Env())
 
 	// set GITHUB_* env
 	ghEnv := map[string]string{

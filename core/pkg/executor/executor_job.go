@@ -8,7 +8,6 @@ package executor
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"maps"
 	"path"
@@ -72,10 +71,10 @@ type jobExecutor struct {
 	env     map[string]string
 	paths   []string
 
+	tracker       Tracker
 	exprEnv       expression.Env
 	sandbox       sandboxer.Sandbox
 	stepExecutors map[string]StepExecutor
-	supervisor    Supervisor
 }
 
 func (e *jobExecutor) JobRun() *JobRun {
@@ -126,21 +125,6 @@ func (e *jobExecutor) RunJob(ctx context.Context) *records.Job {
 }
 
 func (e *jobExecutor) Finalize(ctx context.Context) (err error) {
-	defer func() {
-		errs := make([]error, 0)
-		if err != nil {
-			errs = append(errs, err)
-		}
-
-		if err := e.supervisor.AfterJobRun(e, e.job); err != nil {
-			errs = append(errs, err)
-		}
-
-		if len(errs) > 0 {
-			err = errors.Join(errs...)
-		}
-	}()
-
 	if e.sandbox == nil {
 		return
 	}
@@ -157,9 +141,6 @@ func (e *jobExecutor) Finalize(ctx context.Context) (err error) {
 
 func (e *jobExecutor) initializeJob(s *scribe.Scribe, scope *dig.Scope) error {
 	// inject dependencies
-	if err := xdig.Populate(scope, &e.supervisor); err != nil {
-		return err
-	}
 	if err := xdig.Populate(scope, &e.exprEnv); err != nil {
 		return err
 	}
@@ -183,10 +164,6 @@ func (e *jobExecutor) initializeJob(s *scribe.Scribe, scope *dig.Scope) error {
 	e.jobInfo = new(records.JobInfo)
 	e.job = new(records.Job)
 	e.steps = make(map[string]*records.Step, len(e.jobRun.Steps))
-
-	if err := e.supervisor.BeforeJobRun(e); err != nil {
-		return err
-	}
 
 	// setup expression.Env
 	opts := []expression.Option{
@@ -281,7 +258,7 @@ func (e *jobExecutor) initializeSandbox(ctx context.Context, s *scribe.Scribe, s
 
 	// register SandboxLib (e.g. hashFiles func) to expression.Env
 	opts := []expression.Option{
-		expression.WithLibrary(libraries.SandboxLib(e.supervisor, e.sandbox)),
+		expression.WithLibrary(libraries.SandboxLib(e.tracker, e.sandbox)),
 	}
 	if exprEnv, err := e.exprEnv.New(opts...); err != nil {
 		return err
@@ -349,48 +326,49 @@ func (e *jobExecutor) initializeScope(scope *dig.Scope) error {
 		}
 	}
 
-	err := scope.Invoke(func(cmdMgr command.FileManager) error {
-		cb := func(ctx context.Context, _ *Task, exec StepExecutor) error {
-			suffix := StepUid(exec)
-			return cmdMgr.Initialize(ctx, suffix)
-		}
-		e.supervisor.Register(BeforeRunTaskCallback(cb))
+	// TODO
+	//err := scope.Invoke(func(cmdMgr command.FileManager) error {
+	//	cb := func(ctx context.Context, _ *Task, exec StepExecutor) error {
+	//		suffix := StepUid(exec)
+	//		return cmdMgr.Initialize(ctx, suffix)
+	//	}
+	//	e.supervisor.Register(BeforeRunTaskCallback(cb))
+	//
+	//	cb = func(ctx context.Context, _ *Task, exec StepExecutor) error {
+	//		suffix := StepUid(exec)
+	//		return cmdMgr.Process(ctx, suffix)
+	//	}
+	//	e.supervisor.Register(AfterRunTaskCallback(cb))
+	//
+	//	ep := func() map[string]string {
+	//		exec := e.supervisor.CurrentStep()
+	//		if exec == nil {
+	//			return nil
+	//		}
+	//
+	//		suffix := StepUid(exec)
+	//		return cmdMgr.Env(suffix)
+	//	}
+	//	e.supervisor.Register(EnvProvider(ep))
+	//
+	//	return nil
+	//})
+	//
+	//runnerEnv := map[string]string{
+	//	"RUNNER_NAME":        e.runner.Name,
+	//	"RUNNER_ARCH":        string(e.runner.Arch),
+	//	"RUNNER_OS":          string(e.runner.Os),
+	//	"RUNNER_ENVIRONMENT": e.runner.Environment,
+	//	"RUNNER_TEMP":        e.runner.Temp,
+	//	"RUNNER_TOOL_CACHE":  e.runner.ToolCache,
+	//	"RUNNER_WORKSPACE":   e.runner.Workspace,
+	//}
+	//if e.runner.Debug == "1" {
+	//	runnerEnv["RUNNER_DEBUG"] = "1"
+	//}
+	//e.supervisor.Register(Env(runnerEnv))
 
-		cb = func(ctx context.Context, _ *Task, exec StepExecutor) error {
-			suffix := StepUid(exec)
-			return cmdMgr.Process(ctx, suffix)
-		}
-		e.supervisor.Register(AfterRunTaskCallback(cb))
-
-		ep := func() map[string]string {
-			exec := e.supervisor.CurrentStep()
-			if exec == nil {
-				return nil
-			}
-
-			suffix := StepUid(exec)
-			return cmdMgr.Env(suffix)
-		}
-		e.supervisor.Register(EnvProvider(ep))
-
-		return nil
-	})
-
-	runnerEnv := map[string]string{
-		"RUNNER_NAME":        e.runner.Name,
-		"RUNNER_ARCH":        string(e.runner.Arch),
-		"RUNNER_OS":          string(e.runner.Os),
-		"RUNNER_ENVIRONMENT": e.runner.Environment,
-		"RUNNER_TEMP":        e.runner.Temp,
-		"RUNNER_TOOL_CACHE":  e.runner.ToolCache,
-		"RUNNER_WORKSPACE":   e.runner.Workspace,
-	}
-	if e.runner.Debug == "1" {
-		runnerEnv["RUNNER_DEBUG"] = "1"
-	}
-	e.supervisor.Register(Env(runnerEnv))
-
-	return err
+	return nil
 }
 
 type consoleCommandParams struct {
@@ -443,7 +421,7 @@ func (e *jobExecutor) runStage(ctx context.Context, stage Stage, fn func(StepRun
 	ctx, logger := xotel.ChildLogger(ctx, "stage", stage)
 	logger.Infof("running stage %q", stage)
 
-	stop := e.supervisor.StartContext(ctx)
+	stop := e.tracker.StartContext(ctx)
 	defer stop()
 
 	ids := make([]string, len(e.jobRun.Steps))
