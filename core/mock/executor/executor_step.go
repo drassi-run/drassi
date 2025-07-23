@@ -159,17 +159,17 @@ func (c *MockStepExecutorInitializeCall) DoAndReturn(f func(context.Context, *di
 }
 
 // RunStep mocks base method.
-func (m *MockStepExecutor) RunStep(ctx context.Context, fn func(executor.StepRun) *executor.Task) *records.Step {
+func (m *MockStepExecutor) RunStep(ctx context.Context, stage executor.Stage) *records.Step {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RunStep", ctx, fn)
+	ret := m.ctrl.Call(m, "RunStep", ctx, stage)
 	ret0, _ := ret[0].(*records.Step)
 	return ret0
 }
 
 // RunStep indicates an expected call of RunStep.
-func (mr *MockStepExecutorMockRecorder) RunStep(ctx, fn any) *MockStepExecutorRunStepCall {
+func (mr *MockStepExecutorMockRecorder) RunStep(ctx, stage any) *MockStepExecutorRunStepCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunStep", reflect.TypeOf((*MockStepExecutor)(nil).RunStep), ctx, fn)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunStep", reflect.TypeOf((*MockStepExecutor)(nil).RunStep), ctx, stage)
 	return &MockStepExecutorRunStepCall{Call: call}
 }
 
@@ -185,13 +185,13 @@ func (c *MockStepExecutorRunStepCall) Return(arg0 *records.Step) *MockStepExecut
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStepExecutorRunStepCall) Do(f func(context.Context, func(executor.StepRun) *executor.Task) *records.Step) *MockStepExecutorRunStepCall {
+func (c *MockStepExecutorRunStepCall) Do(f func(context.Context, executor.Stage) *records.Step) *MockStepExecutorRunStepCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStepExecutorRunStepCall) DoAndReturn(f func(context.Context, func(executor.StepRun) *executor.Task) *records.Step) *MockStepExecutorRunStepCall {
+func (c *MockStepExecutorRunStepCall) DoAndReturn(f func(context.Context, executor.Stage) *records.Step) *MockStepExecutorRunStepCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

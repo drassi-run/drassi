@@ -27,7 +27,7 @@ type StepExecutor interface {
 	StepRun() StepRun
 
 	Initialize(ctx context.Context, scope *dig.Scope) error
-	RunStep(ctx context.Context, fn func(StepRun) *Task) *records.Step
+	RunStep(ctx context.Context, stage Stage) *records.Step
 
 	Status() records.Result
 	SetStatus(status records.Result)
@@ -61,15 +61,32 @@ type stepExecutor struct {
 	upperEnv map[string]string // env variables from upper layers
 	state    map[string]string // Intra action state
 
-	tracker Tracker
-	exprEnv expression.Env
+	tracker  Tracker
+	listener StepListener
+	exprEnv  expression.Env
 }
 
 func (e *stepExecutor) StepRun() StepRun {
 	return e.stepRun
 }
 
-func (e *stepExecutor) Initialize(ctx context.Context, scope *dig.Scope) error {
+func (e *stepExecutor) Initialize(ctx context.Context, scope *dig.Scope) (ex error) {
+	l := clog.FromContext(ctx)
+
+	// setup listener
+	if err := xdig.Populate(scope, &e.listener); err != nil {
+		l.Errorf("Failed to initialize step: %v", err)
+		return err
+	}
+	if eh := e.listener.OnInitializeStep(e, scope); eh != nil {
+		err := eh.Begin(ctx)
+		defer end(eh, &ex)
+		if err != nil {
+			return err
+		}
+	}
+
+	// do step initialization
 	// inject dependencies
 	if err := xdig.Populate(scope, &e.exprEnv); err != nil {
 		return err
@@ -128,53 +145,70 @@ func (e *stepExecutor) Initialize(ctx context.Context, scope *dig.Scope) error {
 	return nil
 }
 
-func (e *stepExecutor) RunStep(ctx context.Context, fn func(StepRun) *Task) *records.Step {
-	task := fn(e.stepRun)
+func (e *stepExecutor) RunStep(ctx context.Context, stage Stage) *records.Step {
+	task := e.getTask(stage)
 	if task == nil {
 		return nil
 	}
 
-	defer e.endTask(ctx, task)
-	_ = e.beginTask(ctx, task) // TODO logging error
-	if e.step.Outcome == "" {
-		_ = e.runTask(ctx, task)
+	// setup listener
+	if eh := e.listener.OnRunStep(e, stage); eh != nil {
+		err := eh.Begin(ctx)
+		defer end(eh, &err)
+		if err != nil {
+			return nil
+		}
 	}
 
+	// do step run
+	e.runTask(ctx, task)
 	return e.step
 }
 
-func (e *stepExecutor) beginTask(ctx context.Context, task *Task) error {
+func (e *stepExecutor) getTask(stage Stage) *Task {
+	switch stage {
+	case StagePre:
+		return e.stepRun.PreTask()
+	case StageMain:
+		return e.stepRun.MainTask()
+	case StagePost:
+		return e.stepRun.PostTask()
+	default:
+		return nil
+	}
+}
+
+func (e *stepExecutor) runTask(ctx context.Context, task *Task) {
+	s := scribe.FromContext(ctx)
 	base := e.stepRun.Base()
+	stepId, displayName := base.StepId(), e.stepRun.DisplayName(task.Stage)
 
 	clear(e.env)
 	maps.Copy(e.env, e.upperEnv)
 	if err := evaluator.Evaluate(e.exprEnv, base.Env, &e.env); err != nil {
 		e.SetStatus(records.ResultFailure)
-		return err
+		return
 	}
 
-	scribe.Debugf(ctx, "Evaluating condition for step: %q (%s)", e.stepRun.DisplayName(task.Stage), StepId(e))
+	s.Debugf("Evaluating condition for step: %q (%s)", displayName, stepId)
 	if meet, err := evaluator.Meet(e.exprEnv, task.Condition); err != nil {
 		e.SetStatus(records.ResultFailure)
 		e.step.Conclusion = records.ResultFailure
-		return err
+		s.Errorf("Error while evaluate 'if': %v", err)
+		return
 	} else if !meet {
 		e.SetStatus(records.ResultSkipped)
 		e.step.Conclusion = records.ResultSkipped
-		clog.InfoContextf(ctx, "Skipped step %q (%s)", e.stepRun.DisplayName(task.Stage), StepId(e))
+		s.Writef("Skipped step %q (%s)", displayName, stepId)
+		return
 	}
-	return nil
-}
-
-func (e *stepExecutor) runTask(ctx context.Context, task *Task) error {
-	l := clog.FromContext(ctx)
-	base := e.stepRun.Base()
 
 	timeout := int64(-1)
+	s.Debugf("Evaluating 'timeout-minutes' for step: %q (%s)", displayName, stepId)
 	if err := evaluator.Evaluate(e.exprEnv, base.TimeoutInMinutes, &timeout); err != nil {
-		l.Errorf("Error while evaluate 'timeout-minutes': %v", err)
+		s.Errorf("Error while evaluate 'timeout-minutes': %v", err)
 		e.SetStatus(records.ResultFailure)
-		return err
+		return
 	} else if timeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, time.Duration(timeout)*time.Minute)
@@ -184,45 +218,40 @@ func (e *stepExecutor) runTask(ctx context.Context, task *Task) error {
 		defer stop()
 	}
 
-	ch := make(chan error)
-	go func() {
-		ch <- task.Run(ctx, e)
-	}()
-
-	var err error
-	select {
-	case <-ctx.Done():
-		err = ctx.Err()
-	case err = <-ch:
-	}
-
-	if err != nil {
+	if err := e.doTask(ctx, task); err != nil {
+		s.Errorf("Error while running task %q (%s): %v", displayName, stepId, err)
 		e.SetStatus(records.ResultFailure)
-		//logger.WithField("stepResult", stepResult.Outcome).Errorf("  \u274C  Failure - %s %s", stage, stepString)
 	} else {
 		e.SetStatus(records.ResultSuccess)
 	}
-	return nil
-}
-
-func (e *stepExecutor) endTask(ctx context.Context, task *Task) {
-	l := clog.FromContext(ctx)
 
 	if e.step.Outcome == records.ResultFailure {
-		base := e.stepRun.Base()
-
 		continueOnError := false
+		s.Debugf("Evaluating 'continue-on-error' for step: %q (%s)", displayName, stepId)
 		if err := evaluator.Evaluate(e.exprEnv, base.ContinueOnError, &continueOnError); err != nil {
 			e.step.Conclusion = records.ResultFailure
-			l.Errorf("Error while evaluate 'continue-on-error' %v", err)
+			s.Errorf("Error while evaluate 'continue-on-error' %v", err)
 		} else if continueOnError {
 			e.step.Conclusion = records.ResultSuccess
-			l.Warn("Step failed but continue next step")
+			s.Warningf("Step failed but continue next step")
 		}
 	}
 	if e.step.Conclusion == "" {
 		e.step.Conclusion = e.step.Outcome
 	}
+}
+
+func (e *stepExecutor) doTask(ctx context.Context, task *Task) (ex error) {
+	// setup listener
+	if eh := e.listener.OnRunTask(e, task); eh != nil {
+		err := eh.Begin(ctx)
+		defer end(eh, &ex)
+		if err != nil {
+			return err
+		}
+	}
+
+	return task.Run(ctx, e)
 }
 
 func (e *stepExecutor) ComposeEnv(systemEnv bool) map[string]string {
