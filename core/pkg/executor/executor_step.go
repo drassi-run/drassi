@@ -8,6 +8,7 @@ package executor
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"maps"
 	"strconv"
@@ -19,6 +20,7 @@ import (
 	"drassi.run/core/pkg/scribe"
 	"drassi.run/core/pkg/store/repository"
 	"drassi.run/core/util/dig"
+	"drassi.run/core/util/otel"
 	"github.com/chainguard-dev/clog"
 	"go.uber.org/dig"
 )
@@ -47,8 +49,7 @@ func StepUid(e StepExecutor) string {
 }
 
 func NewStepExecutor(stepRun StepRun) StepExecutor {
-	exec := &stepExecutor{stepRun: stepRun}
-	return WithTelemetryStepExecutor(exec)
+	return &stepExecutor{stepRun: stepRun}
 }
 
 type stepExecutor struct {
@@ -71,6 +72,13 @@ func (e *stepExecutor) StepRun() StepRun {
 }
 
 func (e *stepExecutor) Initialize(ctx context.Context, scope *dig.Scope) (ex error) {
+	stepId := StepId(e)
+	ctx, done := xotel.SetupTelemetry(ctx,
+		fmt.Sprintf("StepExecutor.Initialize(%s)", stepId),
+		xotel.DrassiStep(stepId),
+	)
+	defer done(&ex)
+
 	l := clog.FromContext(ctx)
 
 	// setup listener
@@ -150,6 +158,13 @@ func (e *stepExecutor) RunStep(ctx context.Context, stage Stage) *records.Step {
 	if task == nil {
 		return nil
 	}
+
+	stepId := StepId(e)
+	ctx, done := xotel.SetupTelemetry(ctx,
+		fmt.Sprintf("StepExecutor.RunStep(%s, %s)", stepId, stage),
+		xotel.DrassiStep(stepId), xotel.DrassiStage(stage),
+	)
+	defer done(nil)
 
 	// setup listener
 	if eh := e.listener.OnRunStep(e, stage); eh != nil {
@@ -242,6 +257,11 @@ func (e *stepExecutor) runTask(ctx context.Context, task *Task) {
 }
 
 func (e *stepExecutor) doTask(ctx context.Context, task *Task) (ex error) {
+	ctx, done := xotel.SetupTelemetry(ctx,
+		fmt.Sprintf("StepExecutor.RunTask(%s, %s)", StepId(e), task.Stage),
+	)
+	defer done(&ex)
+
 	// setup listener
 	if eh := e.listener.OnRunTask(e, task); eh != nil {
 		err := eh.Begin(ctx)

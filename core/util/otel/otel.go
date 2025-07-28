@@ -8,10 +8,12 @@ package xotel
 
 import (
 	"context"
+	"log/slog"
 	"sync"
 
 	"github.com/chainguard-dev/clog"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
@@ -50,12 +52,29 @@ func EndSpan(span trace.Span, err *error) {
 	span.End()
 }
 
-func ChildLogger(ctx context.Context, args ...any) (context.Context, *clog.Logger) {
+func ChildLogger(ctx context.Context, attrs []slog.Attr) (context.Context, *clog.Logger) {
 	logger := clog.FromContext(ctx)
-	if len(args) > 0 {
+	if len(attrs) > 0 {
+		args := make([]any, len(attrs))
+		for i, attr := range attrs {
+			args[i] = attr
+		}
+
 		logger = logger.With(args...)
 		ctx = clog.WithLogger(ctx, logger)
 	}
 
 	return ctx, logger
+}
+
+func SetupTelemetry(ctx context.Context, method string, attrs ...attribute.KeyValue) (context.Context, func(*error)) {
+	ctx, span := StartSpan(ctx, method, trace.WithAttributes(attrs...))
+	ctx, logger := ChildLogger(ctx, ToSlogAttrs(attrs...))
+	logger.Infof("===== %s =====>", method)
+
+	done := func(err *error) {
+		EndSpan(span, err)
+	}
+
+	return ctx, done
 }

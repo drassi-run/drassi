@@ -26,7 +26,6 @@ import (
 	"drassi.run/core/util/otel"
 	"drassi.run/core/util/tar"
 	"github.com/chainguard-dev/clog"
-	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -54,8 +53,7 @@ func JobUid(e JobExecutor) string {
 }
 
 func NewJobExecutor(run *JobRun) JobExecutor {
-	exec := &jobExecutor{jobRun: run}
-	return WithTelemetryJobExecutor(exec)
+	return &jobExecutor{jobRun: run}
 }
 
 type jobExecutor struct {
@@ -82,6 +80,13 @@ func (e *jobExecutor) JobRun() *JobRun {
 }
 
 func (e *jobExecutor) Initialize(ctx context.Context, scope *dig.Scope) (ex error) {
+	jobId := JobId(e)
+	ctx, done := xotel.SetupTelemetry(ctx,
+		fmt.Sprintf("JobExecutor.Initialize(%s)", jobId),
+		xotel.DrassiJob(jobId),
+	)
+	defer done(&ex)
+
 	l := clog.FromContext(ctx)
 	s := scribe.FromContext(ctx)
 
@@ -118,6 +123,13 @@ func (e *jobExecutor) Initialize(ctx context.Context, scope *dig.Scope) (ex erro
 }
 
 func (e *jobExecutor) RunJob(ctx context.Context) *records.Job {
+	jobId := JobId(e)
+	ctx, done := xotel.SetupTelemetry(ctx,
+		fmt.Sprintf("JobExecutor.RunJob(%s)", jobId),
+		xotel.DrassiJob(jobId),
+	)
+	defer done(nil)
+
 	// setup listener
 	if eh := e.listener.OnRunJob(e); eh != nil {
 		err := eh.Begin(ctx)
@@ -149,6 +161,13 @@ func (e *jobExecutor) RunJob(ctx context.Context) *records.Job {
 }
 
 func (e *jobExecutor) Finalize(ctx context.Context) (ex error) {
+	jobId := JobId(e)
+	ctx, done := xotel.SetupTelemetry(ctx,
+		fmt.Sprintf("JobExecutor.Finalize(%s)", jobId),
+		xotel.DrassiJob(jobId),
+	)
+	defer done(&ex)
+
 	// setup listener
 	l := clog.FromContext(ctx)
 	if eh := e.listener.OnFinalizeJob(e); eh != nil {
@@ -369,17 +388,12 @@ func (e *jobExecutor) initializeSteps(ctx context.Context, scope *dig.Scope) err
 }
 
 func (e *jobExecutor) runStage(ctx context.Context, stage Stage) (ex error) {
-	spanName := fmt.Sprintf("JobExecutor.runStage(%s)", stage)
-	ctx, span := xotel.StartSpan(ctx, spanName,
-		trace.WithAttributes(xotel.DrassiStage(string(stage))),
+	jobId := JobId(e)
+	ctx, done := xotel.SetupTelemetry(ctx,
+		fmt.Sprintf("JobExecutor.RunStage(%s, %s)", jobId, stage),
+		xotel.DrassiStage(stage),
 	)
-	defer xotel.EndSpan(span, &ex)
-
-	ctx, logger := xotel.ChildLogger(ctx, "stage", stage)
-	logger.Infof("running stage %q", stage)
-
-	stop := e.tracker.StartContext(ctx)
-	defer stop()
+	defer done(&ex)
 
 	// setup listener
 	if eh := e.listener.OnRunStage(e, stage); eh != nil {
@@ -410,7 +424,7 @@ func (e *jobExecutor) runStage(ctx context.Context, stage Stage) (ex error) {
 		}
 		if res.Conclusion == records.ResultFailure {
 			e.job.Result = records.ResultFailure
-			logger.Warnf("set job.Result='failure' because of step %s failed", id)
+			clog.WarnContextf(ctx, "set job.Result='failure' because of step %s failed", id)
 			return fmt.Errorf(`step %q (%s) failed`, id, stage)
 		}
 	}

@@ -170,7 +170,7 @@ func (sr *ActionStepRun) loadActionManifest(r io.ReadCloser) error {
 	if actionRun, err := FromAction(action, sr.BaseStepRun); err != nil {
 		return err
 	} else {
-		sr.actionRun = WithTelemetryStepRun(actionRun)
+		sr.actionRun = actionRun
 	}
 
 	return nil
@@ -181,7 +181,7 @@ func (sr *ActionStepRun) createDockerfileAction(dockerfile string) error {
 		BaseStepRun: sr.BaseStepRun,
 		Image:       dockerfile,
 	}
-	sr.actionRun = WithTelemetryStepRun(actionRun)
+	sr.actionRun = actionRun
 	return nil
 }
 
