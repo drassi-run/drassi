@@ -8,6 +8,8 @@ package etc
 
 import (
 	"drassi.run/core/pkg/executor"
+	"drassi.run/core/util/context"
+	"drassi.run/core/util/dig"
 	"go.uber.org/dig"
 )
 
@@ -21,4 +23,20 @@ func provideEnv(sup executor.Supervisor) {
 		"GITHUB_ACTIONS": "true",
 	}
 	sup.Register(executor.Env(m))
+}
+
+func x(scope *dig.Scope) error {
+	s := new(stack)
+	err := xdig.Supply(scope, s,
+		dig.As(new(executor.Stack), new(xcontext.Provider)),
+	)
+	if err != nil {
+		return err
+	}
+
+	l := &listener{stack: s}
+	return xdig.Supply(scope, l,
+		dig.As(new(executor.JobListener), new(executor.StepListener)),
+		dig.Name("stack"),
+	)
 }
