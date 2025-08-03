@@ -11,6 +11,7 @@ import (
 
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/executor/command"
+	"drassi.run/core/pkg/executor/support"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/scribe"
 	"drassi.run/core/util/dig"
@@ -67,6 +68,10 @@ func (eh *jobInitEventHandler) End(err error) error {
 		return err
 	}
 
+	if err = eh.scope.Invoke(eh.provideEnv); err != nil {
+		return err
+	}
+
 	var runner records.Runner
 	if err = xdig.Populate(eh.scope, &runner); err != nil {
 		return err
@@ -115,6 +120,19 @@ func (eh *jobInitEventHandler) registerFileCommands(p fileCommandParams) error {
 		}
 	}
 	return nil
+}
+
+func (eh *jobInitEventHandler) provideEnv(env support.EnvProvider, stack executor.Stack, cmdMgr command.FileManager) {
+	ep := func() map[string]string {
+		exec := stack.Leaf()
+		if exec == nil {
+			return nil
+		}
+
+		suffix := executor.StepUid(exec)
+		return cmdMgr.Env(suffix)
+	}
+	env.ProvideEnv(ep)
 }
 
 func (eh *jobInitEventHandler) setDiaryDebug(diary scribe.Diary) {

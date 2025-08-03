@@ -16,12 +16,14 @@ import (
 	"time"
 
 	"drassi.run/core/pkg/executor/evaluator"
+	"drassi.run/core/pkg/executor/support"
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/expression/libraries"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/scribe"
+	"drassi.run/core/util/context"
 	"drassi.run/core/util/dig"
 	"drassi.run/core/util/otel"
 	"drassi.run/core/util/tar"
@@ -39,7 +41,6 @@ type JobExecutor interface {
 
 	Status() records.Result
 	SetStatus(status records.Result)
-	SystemPaths() []string
 	AddPath(paths []string)
 	SetEnv(env map[string]string)
 }
@@ -68,7 +69,6 @@ type jobExecutor struct {
 	env     map[string]string
 	paths   []string
 
-	tracker       Tracker
 	listener      JobListener
 	exprEnv       expression.Env
 	sandbox       sandboxer.Sandbox
@@ -312,10 +312,12 @@ func (e *jobExecutor) initializeSandbox(ctx context.Context, s *scribe.Scribe, s
 	}
 
 	// register SandboxLib (e.g. hashFiles func) to expression.Env
-	opts := []expression.Option{
-		expression.WithLibrary(libraries.SandboxLib(e.tracker, e.sandbox)),
+	var cp xcontext.Provider
+	if err := xdig.Populate(scope, &cp); err != nil {
+		return err
 	}
-	if exprEnv, err := e.exprEnv.New(opts...); err != nil {
+	opt := expression.WithLibrary(libraries.SandboxLib(cp, e.sandbox))
+	if exprEnv, err := e.exprEnv.New(opt); err != nil {
 		return err
 	} else {
 		e.exprEnv = exprEnv
@@ -338,10 +340,14 @@ func (e *jobExecutor) initializeScope(scope *dig.Scope) error {
 	if err := xdig.Supply(scope, e.env); err != nil {
 		return err
 	}
-	if err := xdig.Supply[JobExecutor](scope, e); err != nil {
+	if err := xdig.Supply[support.PathProvider](scope, e); err != nil {
 		return err
 	}
 
+	return scope.Invoke(e.provideEnv)
+}
+
+func (e *jobExecutor) provideEnv(envProv support.EnvProvider) {
 	runnerEnv := map[string]string{
 		"RUNNER_NAME":        e.runner.Name,
 		"RUNNER_ARCH":        string(e.runner.Arch),
@@ -354,11 +360,7 @@ func (e *jobExecutor) initializeScope(scope *dig.Scope) error {
 	if e.runner.Debug == "1" {
 		runnerEnv["RUNNER_DEBUG"] = "1"
 	}
-	e.tracker.ProvideEnv(func() map[string]string {
-		return runnerEnv
-	})
-
-	return nil
+	envProv.ProvideEnv(support.StaticEnv(runnerEnv))
 }
 
 func (e *jobExecutor) initializeSteps(ctx context.Context, scope *dig.Scope) error {

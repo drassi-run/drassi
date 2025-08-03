@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"drassi.run/core/pkg/executor/evaluator"
+	"drassi.run/core/pkg/executor/support"
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/scribe"
@@ -62,7 +63,7 @@ type stepExecutor struct {
 	upperEnv map[string]string // env variables from upper layers
 	state    map[string]string // Intra action state
 
-	tracker  Tracker
+	envProv  support.EnvProvider
 	listener StepListener
 	exprEnv  expression.Env
 }
@@ -103,6 +104,9 @@ func (e *stepExecutor) Initialize(ctx context.Context, scope *dig.Scope) (ex err
 		return err
 	} else {
 		e.github.Action = StepId(e)
+	}
+	if err := xdig.Populate(scope, &e.envProv); err != nil {
+		return err
 	}
 	if err := xdig.Populate(scope, &e.upperEnv); err != nil {
 		return err
@@ -228,9 +232,6 @@ func (e *stepExecutor) runTask(ctx context.Context, task *Task) {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, time.Duration(timeout)*time.Minute)
 		defer cancel()
-
-		stop := e.tracker.StartContext(ctx)
-		defer stop()
 	}
 
 	if err := e.doTask(ctx, task); err != nil {
@@ -280,7 +281,7 @@ func (e *stepExecutor) ComposeEnv(systemEnv bool) map[string]string {
 		return m
 	}
 
-	maps.Copy(m, e.tracker.Env())
+	maps.Copy(m, e.envProv.Env())
 
 	// set GITHUB_* env
 	ghEnv := map[string]string{

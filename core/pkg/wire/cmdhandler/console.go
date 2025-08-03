@@ -18,6 +18,7 @@ import (
 	"drassi.run/core/pkg/executor/command"
 	"drassi.run/core/pkg/executor/problem"
 	"drassi.run/core/pkg/executor/secret"
+	"drassi.run/core/pkg/executor/support"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/scribe"
 	"drassi.run/core/util/path"
@@ -212,7 +213,7 @@ func ConsoleAddPath(stack executor.Stack) *command.ConsoleHandler {
 var setEnvBlockList = sets.New("NODE_OPTIONS")
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L234
-func ConsoleSetEnv(stack executor.Stack, tracker executor.Tracker) *command.ConsoleHandler {
+func ConsoleSetEnv(stack executor.Stack, tracker support.Tracker) *command.ConsoleHandler {
 	run := func(ctx context.Context, cmd *command.Command) error {
 		name, ok := cmd.Params["name"]
 		if !ok || name == "" {
@@ -220,8 +221,8 @@ func ConsoleSetEnv(stack executor.Stack, tracker executor.Tracker) *command.Cons
 		}
 
 		if setEnvBlockList.Has(name) {
-			iss := &executor.Issue{
-				Type:    executor.IssueTypeError,
+			iss := &support.Issue{
+				Type:    support.IssueTypeError,
 				Message: fmt.Sprintf("Can't update %q environment variable using ::%s:: command.", name, cmd.Name),
 			}
 			if err := tracker.AddIssue(ctx, iss); err != nil {
