@@ -9,8 +9,6 @@ package wire_streams
 import (
 	"slices"
 
-	"drassi.run/core/pkg/executor"
-	"drassi.run/core/pkg/executor/reporter"
 	"drassi.run/core/pkg/scribe"
 	"drassi.run/core/pkg/stream"
 	"drassi.run/core/util/context"
@@ -71,17 +69,4 @@ func newScribeDiary(p scribeParams) scribe.Diary {
 	handler := p.Handler
 	handler = p.MaskSecret(handler)
 	return stream.NewScribeDiary(handler)
-}
-
-func Wire(scope *dig.Scope) error {
-	return scope.Invoke(registerCallbacks)
-}
-
-func registerCallbacks(rep reporter.Reporter, sup executor.Supervisor) error {
-	sup.Register(executor.BeforeRunJobCallback(rep.StartJob))
-	sup.Register(executor.AfterRunJobCallback(rep.EndJob))
-	sup.Register(executor.BeforeRunStepCallback(rep.StartStep))
-	sup.Register(executor.AfterRunStepCallback(rep.EndStep))
-
-	return nil
 }

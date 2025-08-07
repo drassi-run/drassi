@@ -54,12 +54,12 @@ func TestAddSecretMask(t *testing.T) {
 	})
 }
 
-type consoleHdlCreator func(executor.Supervisor) *command.ConsoleHandler
+type consoleHdlCreator func(stack executor.Stack) *command.ConsoleHandler
 
 func testInvalidCommand(ctrl *gomock.Controller, creator consoleHdlCreator, cmd *command.Command) func(t *testing.T) {
 	return func(t *testing.T) {
-		sup := mock_executor.NewMockSupervisor(ctrl)
-		h := creator(sup)
+		stack := mock_executor.NewMockStack(ctrl)
+		h := creator(stack)
 		err := command.ConsoleRun(t.Context(), h, cmd)
 		assert.ErrorIs(t, err, command.ErrInvalidCommand)
 	}
@@ -67,10 +67,10 @@ func testInvalidCommand(ctrl *gomock.Controller, creator consoleHdlCreator, cmd 
 
 func testConsoleNoJob(ctrl *gomock.Controller, creator consoleHdlCreator, cmd *command.Command) func(t *testing.T) {
 	return func(t *testing.T) {
-		sup := mock_executor.NewMockSupervisor(ctrl)
-		sup.EXPECT().Job().Return(nil)
+		stack := mock_executor.NewMockStack(ctrl)
+		stack.EXPECT().Job().Return(nil)
 
-		h := creator(sup)
+		h := creator(stack)
 		err := command.ConsoleRun(t.Context(), h, cmd)
 		assert.ErrorIs(t, err, ErrNoJobRunning)
 	}
@@ -78,8 +78,8 @@ func testConsoleNoJob(ctrl *gomock.Controller, creator consoleHdlCreator, cmd *c
 
 func testConsoleNoStep(ctrl *gomock.Controller, creator consoleHdlCreator, cmd *command.Command) func(t *testing.T) {
 	return func(t *testing.T) {
-		sup := mock_executor.NewMockSupervisor(ctrl)
-		sup.EXPECT().CurrentStep().Return(nil)
+		sup := mock_executor.NewMockStack(ctrl)
+		sup.EXPECT().Leaf().Return(nil)
 
 		h := creator(sup)
 		err := command.ConsoleRun(t.Context(), h, cmd)
@@ -98,12 +98,12 @@ func TestConsoleAddPath(t *testing.T) {
 
 	t.Run("success", func(t *testing.T) {
 		job := mock_executor.NewMockJobExecutor(ctrl)
-		sup := mock_executor.NewMockSupervisor(ctrl)
-		sup.EXPECT().Job().Return(job)
+		stack := mock_executor.NewMockStack(ctrl)
+		stack.EXPECT().Job().Return(job)
 
-		h := ConsoleAddPath(sup)
+		h := ConsoleAddPath(stack)
 
-		job.EXPECT().AddPath([]string{"foobar"}).Return(nil)
+		job.EXPECT().AddPath([]string{"foobar"})
 		err := command.ConsoleRun(t.Context(), h, cmd)
 		assert.NoError(t, err)
 	})

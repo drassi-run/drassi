@@ -22,6 +22,7 @@ import (
 	"drassi.run/core/pkg/executor/reporter"
 	"drassi.run/core/pkg/executor/runtime"
 	"drassi.run/core/pkg/executor/secret"
+	"drassi.run/core/pkg/executor/support"
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/expression/libraries"
 	"drassi.run/core/pkg/model"
@@ -129,13 +130,6 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 	if err := scope.Provide(command.NewConsoleManager); err != nil {
 		return err
 	}
-	sup := executor.NewSupervisor()
-	if err := xdig.Supply(scope, sup); err != nil {
-		return err
-	}
-	if err := xdig.Supply[xcontext.Provider](scope, sup); err != nil {
-		return err
-	}
 	if err := wire_cmdhandler.ProvideTo(scope); err != nil {
 		return err
 	}
@@ -175,33 +169,7 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 	}
 	w.addCleaner(rep.Close)
 
-	if err := wire_streams.Wire(scope); err != nil {
-		return err
-	}
-
-	err := scope.Invoke(func(client service.GiteaClient, sup executor.Supervisor) error {
-		endpoint := client.Address()
-		endpoint = strings.TrimSuffix(endpoint, "/")
-
-		taskContext := w.task.Context.Fields
-		giteaRuntimeToken := taskContext["gitea_runtime_token"].GetStringValue()
-		if giteaRuntimeToken == "" {
-			// use task token to action api token for previous Gitea Server Versions
-			giteaRuntimeToken = github.Token
-		}
-
-		env = map[string]string{
-			"GITEA_ACTIONS":         "true",
-			"ACTIONS_RUNTIME_URL":   endpoint + "/api/actions_pipeline/",
-			"ACTIONS_RUNTIME_TOKEN": giteaRuntimeToken,
-			"ACTIONS_RESULTS_URL":   endpoint,
-			//"ACTIONS_CACHE_URL":     "", // TODO
-		}
-
-		sup.Register(executor.Env(env))
-		return nil
-	})
-	if err != nil {
+	if err := scope.Invoke(w.provideEnv); err != nil {
 		return err
 	}
 
@@ -222,6 +190,29 @@ func (w *Worker) initContext(scope *dig.Scope) error {
 	}
 
 	w.ctx = scribe.ContextWithScribe(w.ctx, diary)
+	return nil
+}
+
+func (w *Worker) provideEnv(client service.GiteaClient, github records.Github, envProv support.EnvProvider) error {
+	endpoint := client.Address()
+	endpoint = strings.TrimSuffix(endpoint, "/")
+
+	taskContext := w.task.Context.Fields
+	giteaRuntimeToken := taskContext["gitea_runtime_token"].GetStringValue()
+	if giteaRuntimeToken == "" {
+		// use task token to action api token for previous Gitea Server Versions
+		giteaRuntimeToken = github.Token
+	}
+
+	m := map[string]string{
+		"GITEA_ACTIONS":         "true",
+		"ACTIONS_RUNTIME_URL":   endpoint + "/api/actions_pipeline/",
+		"ACTIONS_RUNTIME_TOKEN": giteaRuntimeToken,
+		"ACTIONS_RESULTS_URL":   endpoint,
+		//"ACTIONS_CACHE_URL":     "", // TODO
+	}
+
+	envProv.ProvideEnv(m)
 	return nil
 }
 
