@@ -39,8 +39,10 @@ type JobExecutor interface {
 	RunJob(ctx context.Context) *records.Job
 	Finalize(ctx context.Context) error
 
+	State() *records.Job
 	Status() records.Result
 	SetStatus(status records.Result)
+
 	AddPath(paths []string)
 	SetEnv(env map[string]string)
 }
@@ -434,8 +436,8 @@ func (e *jobExecutor) runStage(ctx context.Context, stage Stage) (ex error) {
 	return nil
 }
 
-func (e *jobExecutor) SystemPaths() []string {
-	return slices.Clone(e.paths)
+func (e *jobExecutor) State() *records.Job {
+	return e.job
 }
 
 func (e *jobExecutor) Status() records.Result {
@@ -448,6 +450,10 @@ func (e *jobExecutor) Status() records.Result {
 func (e *jobExecutor) SetStatus(status records.Result) {
 	e.job.Result = status
 	e.jobInfo.Status = status
+}
+
+func (e *jobExecutor) SystemPaths() []string {
+	return slices.Clone(e.paths)
 }
 
 // AddPath prepending a directory to the system PATH variable (and remove duplicates).

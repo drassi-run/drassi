@@ -32,8 +32,10 @@ type StepExecutor interface {
 	Initialize(ctx context.Context, scope *dig.Scope) error
 	RunStep(ctx context.Context, stage Stage) *records.Step
 
+	State() *records.Step
 	Status() records.Result
 	SetStatus(status records.Result)
+
 	ComposeEnv(systemEnv bool) map[string]string
 	SetEnv(env map[string]string)
 	SaveState(state map[string]string)
@@ -326,6 +328,10 @@ func (e *stepExecutor) ComposeEnv(systemEnv bool) map[string]string {
 		m[k] = v
 	}
 	return m
+}
+
+func (e *stepExecutor) State() *records.Step {
+	return e.step
 }
 
 func (e *stepExecutor) Status() records.Result {

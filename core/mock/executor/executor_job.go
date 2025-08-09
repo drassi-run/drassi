@@ -303,6 +303,44 @@ func (c *MockJobExecutorSetStatusCall) DoAndReturn(f func(records.Result)) *Mock
 	return c
 }
 
+// State mocks base method.
+func (m *MockJobExecutor) State() *records.Job {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "State")
+	ret0, _ := ret[0].(*records.Job)
+	return ret0
+}
+
+// State indicates an expected call of State.
+func (mr *MockJobExecutorMockRecorder) State() *MockJobExecutorStateCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockJobExecutor)(nil).State))
+	return &MockJobExecutorStateCall{Call: call}
+}
+
+// MockJobExecutorStateCall wrap *gomock.Call
+type MockJobExecutorStateCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockJobExecutorStateCall) Return(arg0 *records.Job) *MockJobExecutorStateCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockJobExecutorStateCall) Do(f func() *records.Job) *MockJobExecutorStateCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockJobExecutorStateCall) DoAndReturn(f func() *records.Job) *MockJobExecutorStateCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // Status mocks base method.
 func (m *MockJobExecutor) Status() records.Result {
 	m.ctrl.T.Helper()

@@ -19,7 +19,6 @@ import (
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/executor/command"
 	"drassi.run/core/pkg/executor/problem"
-	"drassi.run/core/pkg/executor/reporter"
 	"drassi.run/core/pkg/executor/runtime"
 	"drassi.run/core/pkg/executor/secret"
 	"drassi.run/core/pkg/executor/support"
@@ -37,6 +36,7 @@ import (
 	"drassi.run/core/pkg/wire/streams"
 	"drassi.run/core/util/context"
 	"drassi.run/core/util/dig"
+	"drassi.run/gitea-runner/pkg/reporter"
 	"drassi.run/gitea-runner/pkg/service"
 	"go.uber.org/dig"
 )
@@ -151,7 +151,7 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 
 	cp := xcontext.NewStaticProvider(w.ctx)
 
-	log := service.NewLogStreamer(w.task.Id, cp, client)
+	log := reporter.NewLogStreamer(w.task.Id, cp, client)
 	if err := xdig.Supply[stream.Handler](scope, log); err != nil {
 		return err
 	}
@@ -160,14 +160,27 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 	}
 	w.addCleaner(log.Close)
 
-	rep := service.NewReporter(w.task.Id, client, cp, log, w.Cancel)
-	if err := xdig.Supply[reporter.Reporter](scope, rep); err != nil {
+	rep := reporter.New(w.task.Id, client, cp, log, w.Cancel)
+	if err := xdig.Supply(scope, rep); err != nil {
 		return err
 	}
 	if err := rep.Start(); err != nil {
 		return err
 	}
 	w.addCleaner(rep.Close)
+
+	if err := scope.Provide(reporter.NewListener,
+		dig.As(new(executor.JobListener), new(executor.StepListener)),
+		dig.Name("reporter")); err != nil {
+		return err
+	}
+
+	if err := scope.Provide(composeJobListener); err != nil {
+		return err
+	}
+	if err := scope.Provide(composeStepListener); err != nil {
+		return err
+	}
 
 	if err := scope.Invoke(w.provideEnv); err != nil {
 		return err
@@ -289,4 +302,19 @@ func newContainerRuntime(ctx context.Context, gh *records.Github) func(
 	) (runtime.Container, error) {
 		return wire_runtime.NewContainerRuntime(ctx, engine, streams, sandbox, info, gh)
 	}
+}
+
+type listenerParams[L any] struct {
+	dig.In
+	Stack    L `name:"stack"`
+	Reporter L `name:"reporter"`
+	Command  L `name:"command"`
+}
+
+func composeJobListener(p listenerParams[executor.JobListener]) executor.JobListener {
+	return executor.NewCompositeJobListener(p.Stack, p.Reporter, p.Command)
+}
+
+func composeStepListener(p listenerParams[executor.StepListener]) executor.StepListener {
+	return executor.NewCompositeStepListener(p.Stack, p.Reporter, p.Command)
 }

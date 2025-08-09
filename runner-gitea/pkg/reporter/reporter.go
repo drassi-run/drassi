@@ -4,19 +4,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package service
+package reporter
 
 import (
 	"context"
 	"fmt"
-	"io"
 	"time"
 
 	runnerv1 "code.gitea.io/actions-proto-go/runner/v1"
 	"code.gitea.io/actions-proto-go/runner/v1/runnerv1connect"
 	"connectrpc.com/connect"
 	"drassi.run/core/pkg/executor"
-	"drassi.run/core/pkg/executor/reporter"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/util/context"
 	"drassi.run/core/util/reactive"
@@ -32,7 +30,7 @@ var resultMap = map[records.Result]runnerv1.Result{
 	records.ResultSkipped:   runnerv1.Result_RESULT_SKIPPED,
 }
 
-type GiteaReporter struct {
+type Reporter struct {
 	taskId      int64
 	client      runnerv1connect.RunnerServiceClient
 	contextual  xcontext.Provider
@@ -51,14 +49,14 @@ type GiteaReporter struct {
 
 var ErrServerCancel = fmt.Errorf("task cancelled by Gitea server")
 
-func NewReporter(
+func New(
 	taskId int64,
 	client runnerv1connect.RunnerServiceClient,
 	contextual xcontext.Provider,
 	logStreamer *LogStreamer,
 	cancel context.CancelCauseFunc,
-) *GiteaReporter {
-	r := &GiteaReporter{
+) *Reporter {
+	r := &Reporter{
 		taskId:      taskId,
 		client:      client,
 		contextual:  contextual,
@@ -71,27 +69,26 @@ func NewReporter(
 	return r
 }
 
-func (r *GiteaReporter) StartJob(_ context.Context, je executor.JobExecutor) error {
+func (r *Reporter) StartJob(jr *executor.JobRun) error {
 	if r.jobUid != "" {
-		if r.jobUid == executor.JobUid(je) {
+		if r.jobUid == jr.Uid {
 			return fmt.Errorf("job already running")
 		} else {
 			return fmt.Errorf("another job is running")
 		}
 	}
 
-	r.jobUid = executor.JobUid(je)
-	jobRun := je.JobRun()
+	r.jobUid = jr.Uid
 
 	r.jobState = &runnerv1.TaskState{
 		Id:        r.taskId,
 		StartedAt: timestamppb.Now(),
-		Steps:     make([]*runnerv1.StepState, len(jobRun.Steps)),
+		Steps:     make([]*runnerv1.StepState, len(jr.Steps)),
 	}
 	r.jobOutputs = make(map[string]string)
 
-	r.stepStates = make(map[string]*runnerv1.StepState, len(jobRun.Steps))
-	for i, step := range jobRun.Steps {
+	r.stepStates = make(map[string]*runnerv1.StepState, len(jr.Steps))
+	for i, step := range jr.Steps {
 		s := &runnerv1.StepState{Id: int64(i)}
 		r.jobState.Steps[i] = s
 		r.stepStates[step.StepId()] = s
@@ -101,33 +98,29 @@ func (r *GiteaReporter) StartJob(_ context.Context, je executor.JobExecutor) err
 	return nil
 }
 
-func (r *GiteaReporter) EndJob(_ context.Context, je executor.JobExecutor, result *records.Job) error {
+func (r *Reporter) EndJob(jr *executor.JobRun, state *records.Job) error {
 	if r.jobUid == "" {
 		return fmt.Errorf("no job already running")
 	}
-	if r.jobUid != executor.JobUid(je) {
+	if r.jobUid != jr.Uid {
 		return fmt.Errorf("another job is running")
 	}
 
 	r.jobState.StoppedAt = timestamppb.Now()
-	r.jobState.Result = resultMap[result.Result]
-	r.jobOutputs = result.Outputs
+	r.jobState.Result = resultMap[state.Result]
+	r.jobOutputs = state.Outputs
 
 	r.timer.Reset(0)
 	return nil
 }
 
-func (r *GiteaReporter) StartStep(_ context.Context, stage executor.Stage, se executor.StepExecutor) error {
+func (r *Reporter) StartStep(sr executor.StepRun, stage executor.Stage) error {
 	if stage != executor.StageMain {
 		// Gitea only report main stage for now
 		return nil
 	}
-	if se.ParentExecutor() != nil {
-		// ignore report embeded step
-		return nil
-	}
 
-	stepState := r.stepStates[executor.StepId(se)]
+	stepState := r.stepStates[sr.Base().StepId()]
 	stepState.StartedAt = timestamppb.Now()
 	stepState.LogIndex = r.logStreamer.Offset()
 
@@ -135,37 +128,23 @@ func (r *GiteaReporter) StartStep(_ context.Context, stage executor.Stage, se ex
 	return nil
 }
 
-func (r *GiteaReporter) EndStep(_ context.Context, stage executor.Stage, se executor.StepExecutor, result *records.Step) error {
+func (r *Reporter) EndStep(sr executor.StepRun, stage executor.Stage, state *records.Step) error {
 	if stage != executor.StageMain {
 		// Gitea only report main stage for now
 		return nil
 	}
-	if se.ParentExecutor() != nil {
-		// ignore report embeded step
-		return nil
-	}
 
-	stepState := r.stepStates[executor.StepId(se)]
+	stepState := r.stepStates[sr.Base().StepId()]
 
 	stepState.StoppedAt = timestamppb.Now()
-	stepState.Result = resultMap[result.Conclusion]
+	stepState.Result = resultMap[state.Conclusion]
 	stepState.LogLength = r.logStreamer.Offset() - stepState.LogIndex
 
 	r.timer.Reset(0)
 	return nil
 }
 
-func (r *GiteaReporter) AddIssue(ctx context.Context, issue *reporter.Issue) error {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (r *GiteaReporter) AttachFile(kind, name string, reader io.Reader) error {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (r *GiteaReporter) Start() error {
+func (r *Reporter) Start() error {
 	if r.ws.Get() != reactive.StateCreated {
 		return fmt.Errorf("reporter already started")
 	}
@@ -175,7 +154,7 @@ func (r *GiteaReporter) Start() error {
 	return nil
 }
 
-func (r *GiteaReporter) start() {
+func (r *Reporter) start() {
 	r.ws.Set(reactive.StateRunning)
 	defer r.ws.Set(reactive.StateStopped)
 
@@ -192,7 +171,7 @@ func (r *GiteaReporter) start() {
 	}
 }
 
-func (r *GiteaReporter) Close() error {
+func (r *Reporter) Close() error {
 	close(r.stopCh)
 	r.ws.Wait(reactive.StateStopped)
 
@@ -202,7 +181,7 @@ func (r *GiteaReporter) Close() error {
 	return nil
 }
 
-func (r *GiteaReporter) updateTask() {
+func (r *Reporter) updateTask() {
 	ctx := r.contextual.Context()
 
 	req := &runnerv1.UpdateTaskRequest{

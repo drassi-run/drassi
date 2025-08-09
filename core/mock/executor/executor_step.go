@@ -340,6 +340,44 @@ func (c *MockStepExecutorSetStatusCall) DoAndReturn(f func(records.Result)) *Moc
 	return c
 }
 
+// State mocks base method.
+func (m *MockStepExecutor) State() *records.Step {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "State")
+	ret0, _ := ret[0].(*records.Step)
+	return ret0
+}
+
+// State indicates an expected call of State.
+func (mr *MockStepExecutorMockRecorder) State() *MockStepExecutorStateCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockStepExecutor)(nil).State))
+	return &MockStepExecutorStateCall{Call: call}
+}
+
+// MockStepExecutorStateCall wrap *gomock.Call
+type MockStepExecutorStateCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStepExecutorStateCall) Return(arg0 *records.Step) *MockStepExecutorStateCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStepExecutorStateCall) Do(f func() *records.Step) *MockStepExecutorStateCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStepExecutorStateCall) DoAndReturn(f func() *records.Step) *MockStepExecutorStateCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // Status mocks base method.
 func (m *MockStepExecutor) Status() records.Result {
 	m.ctrl.T.Helper()
