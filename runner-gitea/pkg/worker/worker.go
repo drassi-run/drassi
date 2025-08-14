@@ -36,8 +36,8 @@ import (
 	"drassi.run/core/pkg/wire/streams"
 	"drassi.run/core/util/context"
 	"drassi.run/core/util/dig"
+	"drassi.run/gitea-runner/pkg/gitea"
 	"drassi.run/gitea-runner/pkg/reporter"
-	"drassi.run/gitea-runner/pkg/service"
 	"go.uber.org/dig"
 )
 
@@ -144,7 +144,7 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 		return err
 	}
 
-	var client service.GiteaClient
+	var client gitea.Client
 	if err := xdig.Populate(scope, &client); err != nil {
 		return err
 	}
@@ -206,7 +206,7 @@ func (w *Worker) initContext(scope *dig.Scope) error {
 	return nil
 }
 
-func (w *Worker) provideEnv(client service.GiteaClient, github records.Github, envProv support.EnvProvider) error {
+func (w *Worker) provideEnv(client gitea.Client, github records.Github, envProv support.EnvProvider) error {
 	endpoint := client.Address()
 	endpoint = strings.TrimSuffix(endpoint, "/")
 
@@ -225,7 +225,7 @@ func (w *Worker) provideEnv(client service.GiteaClient, github records.Github, e
 		//"ACTIONS_CACHE_URL":     "", // TODO
 	}
 
-	envProv.ProvideEnv(m)
+	envProv.ProvideEnv(support.StaticEnv(m))
 	return nil
 }
 
