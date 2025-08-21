@@ -3,16 +3,20 @@ package reporter
 import (
 	"context"
 	"fmt"
-	"io"
 	"time"
 
 	"drassi.run/core/pkg/executor"
-	"drassi.run/core/pkg/executor/reporter"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/gha-runner/pkg/reporter/service"
 	"drassi.run/gha-runner/pkg/types"
 	"github.com/google/uuid"
 )
+
+func New(recorder service.TimelineRecorder) *GhaReporter {
+	return &GhaReporter{
+		recorder: recorder,
+	}
+}
 
 type GhaReporter struct {
 	order     int
@@ -20,12 +24,6 @@ type GhaReporter struct {
 	records   []*types.Record
 
 	recorder service.TimelineRecorder
-}
-
-func NewReporter(recorder service.TimelineRecorder) *GhaReporter {
-	return &GhaReporter{
-		recorder: recorder,
-	}
 }
 
 func (r *GhaReporter) JobRecord() *types.Record {
@@ -109,22 +107,6 @@ func (r *GhaReporter) EndStep(ctx context.Context, stage executor.Stage, se exec
 		return r.recorder.Update(ctx, record)
 	}
 	return nil
-}
-
-func (r *GhaReporter) AddIssue(_ context.Context, issue *reporter.Issue) error {
-	if len(r.records) == 0 {
-		return fmt.Errorf("no records found for stage")
-	}
-
-	record := r.records[len(r.records)-1]
-	record.Issues = append(record.Issues, issue)
-
-	return nil
-}
-
-func (r *GhaReporter) AttachFile(kind, name string, reader io.Reader) error {
-	//TODO implement me
-	panic("implement me")
 }
 
 func (r *GhaReporter) Close() error {

@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"path"
 
-	"drassi.run/core/pkg/executor/reporter"
+	"drassi.run/core/pkg/executor/support"
 	"drassi.run/core/util/context"
 	"drassi.run/core/util/http"
 	"drassi.run/gha-runner/pkg/holder"
@@ -218,11 +218,11 @@ func toTimelineRecord(parentId, timelineUid string, rec *types.Record) *record {
 
 	for _, issue := range rec.Issues {
 		switch issue.Type {
-		case reporter.IssueTypeError:
+		case support.IssueTypeError:
 			r.ErrorCount++
-		case reporter.IssueTypeWarning:
+		case support.IssueTypeWarning:
 			r.WarningCount++
-		case reporter.IssueTypeNotice:
+		case support.IssueTypeNotice:
 			r.NoticeCount++
 		}
 	}

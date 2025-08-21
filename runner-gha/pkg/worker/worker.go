@@ -26,12 +26,12 @@ import (
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/scribe"
 	"drassi.run/core/pkg/stream"
-	"drassi.run/core/pkg/wire/cmdhandler"
-	"drassi.run/core/pkg/wire/etc"
-	"drassi.run/core/pkg/wire/runtime"
-	"drassi.run/core/pkg/wire/streams"
 	"drassi.run/core/util/context"
 	"drassi.run/core/util/dig"
+	"drassi.run/core/wire/cmdhandler"
+	"drassi.run/core/wire/etc"
+	"drassi.run/core/wire/runtime"
+	"drassi.run/core/wire/streams"
 	"drassi.run/gha-runner/pkg/holder"
 	"drassi.run/gha-runner/pkg/messages"
 	"drassi.run/gha-runner/pkg/reporter"
@@ -111,7 +111,7 @@ func (w *Worker) initRunnerService(ep *messages.ServiceEndpoint, hc *http.Client
 			return err
 		} else {
 			recorder := svc.TimelineRecorder()
-			w.reporter = reporter.NewReporter(recorder)
+			w.reporter = reporter.New(recorder)
 		}
 	}
 
@@ -128,7 +128,7 @@ func (w *Worker) initPipelineAgentService(ep *messages.ServiceEndpoint, hc *http
 		w.lease = svc.WrapLease(w.lease)
 
 		recorder := svc.TimelineRecorder()
-		w.reporter = reporter.NewReporter(recorder)
+		w.reporter = reporter.New(recorder)
 	}
 
 	return nil
@@ -309,7 +309,7 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 	//	}
 	//}
 	//
-	//rep := service.NewReporter(w.task.Id, client, cp, log, w.Cancel)
+	//rep := service.New(w.task.Id, client, cp, log, w.Cancel)
 	//if err := xdig.Supply[reporter.Reporter](scope, rep); err != nil {
 	//	return err
 	//}

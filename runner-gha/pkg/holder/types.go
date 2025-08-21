@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"drassi.run/core/pkg/executor/reporter"
+	"drassi.run/core/pkg/executor/support"
 	"drassi.run/gha-runner/pkg/messages"
 	"drassi.run/gha-runner/pkg/types"
 )
@@ -117,13 +117,13 @@ const (
 	AnnotationLevelFailure AnnotationLevel = "failure"
 )
 
-func ToAnnotationLevel(t reporter.IssueType) AnnotationLevel {
+func ToAnnotationLevel(t support.IssueType) AnnotationLevel {
 	switch t {
-	case reporter.IssueTypeError:
+	case support.IssueTypeError:
 		return AnnotationLevelFailure
-	case reporter.IssueTypeWarning:
+	case support.IssueTypeWarning:
 		return AnnotationLevelWarning
-	case reporter.IssueTypeNotice:
+	case support.IssueTypeNotice:
 		return AnnotationLevelNotice
 	default:
 		return AnnotationLevelUnknown

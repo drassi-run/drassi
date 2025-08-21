@@ -3,7 +3,7 @@ package service
 import (
 	"time"
 
-	"drassi.run/core/pkg/executor/reporter"
+	"drassi.run/core/pkg/executor/support"
 	"drassi.run/gha-runner/pkg/messages"
 	"drassi.run/gha-runner/pkg/types"
 )
@@ -195,7 +195,7 @@ type record struct {
 	ErrorCount       int                          `json:"error_count,omitempty"`
 	WarningCount     int                          `json:"warning_count,omitempty"`
 	NoticeCount      int                          `json:"notice_count,omitempty"`
-	Issues           []*reporter.Issue            `json:"issues,omitempty"`
+	Issues           []*support.Issue             `json:"issues,omitempty"`
 	Location         string                       `json:"location,omitempty"`
 	Attempt          int                          `json:"attempt,omitempty"`
 	Identifier       string                       `json:"identifier,omitempty"`

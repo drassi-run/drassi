@@ -316,12 +316,11 @@ func (s *ResultService) createStepSummaryMetadata(ctx context.Context, stepUid s
 ////////////// Live Feed //////////////
 
 func (s *ResultService) LiveFeeder(contextual xcontext.Provider, wsUrl string) (LiveFeeder, error) {
-	ctx := contextual.Context()
 	opts := &websocket.DialOptions{
 		HTTPClient: s.client.HttpClient(),
 	}
 
-	conn, _, err := websocket.Dial(ctx, wsUrl, opts)
+	conn, _, err := websocket.Dial(contextual.Context(), wsUrl, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -329,12 +328,10 @@ func (s *ResultService) LiveFeeder(contextual xcontext.Provider, wsUrl string) (
 	lf := &liveFeeder{
 		batcher: reactive.NewThrottleBatcher[*line](100, 500*time.Millisecond),
 		SendFn: func(data *linesWrapper) error {
-			ctx := contextual.Context()
-
 			if payload, err := json.Marshal(data); err != nil {
 				return err
 			} else {
-				return conn.Write(ctx, websocket.MessageText, payload)
+				return conn.Write(contextual.Context(), websocket.MessageText, payload)
 			}
 		},
 		CloseFn: func() error {
