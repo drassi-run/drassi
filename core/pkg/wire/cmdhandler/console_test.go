@@ -56,10 +56,11 @@ func TestAddSecretMask(t *testing.T) {
 
 type consoleHdlCreator func(stack executor.Stack) *command.ConsoleHandler
 
-func testInvalidCommand(ctrl *gomock.Controller, creator consoleHdlCreator, cmd *command.Command) func(t *testing.T) {
+func testInvalidCommand(ctrl *gomock.Controller, creator consoleHdlCreator) func(t *testing.T) {
 	return func(t *testing.T) {
 		stack := mock_executor.NewMockStack(ctrl)
 		h := creator(stack)
+		cmd := new(command.Command)
 		err := command.ConsoleRun(t.Context(), h, cmd)
 		assert.ErrorIs(t, err, command.ErrInvalidCommand)
 	}
@@ -78,10 +79,12 @@ func testConsoleNoJob(ctrl *gomock.Controller, creator consoleHdlCreator, cmd *c
 
 func testConsoleNoStep(ctrl *gomock.Controller, creator consoleHdlCreator, cmd *command.Command) func(t *testing.T) {
 	return func(t *testing.T) {
-		sup := mock_executor.NewMockStack(ctrl)
-		sup.EXPECT().Leaf().Return(nil)
+		stack := mock_executor.NewMockStack(ctrl)
+		stack.EXPECT().Leaf().Return(nil).AnyTimes()
+		stack.EXPECT().Root().Return(nil).AnyTimes()
+		stack.EXPECT().Stack().Return(nil).AnyTimes()
 
-		h := creator(sup)
+		h := creator(stack)
 		err := command.ConsoleRun(t.Context(), h, cmd)
 		assert.ErrorIs(t, err, ErrNoStepRunning)
 	}
@@ -91,7 +94,7 @@ func TestConsoleAddPath(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	t.Run("empty-value", testInvalidCommand(ctrl, ConsoleAddPath, new(command.Command)))
+	t.Run("empty-value", testInvalidCommand(ctrl, ConsoleAddPath))
 
 	cmd := &command.Command{Name: "add-path", Value: "foobar"}
 	t.Run("no-job", testConsoleNoJob(ctrl, ConsoleAddPath, cmd))
@@ -113,19 +116,27 @@ func TestConsoleSetEnv(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	t.Run("empty-name", testInvalidCommand(ctrl, ConsoleSetEnv, new(command.Command)))
+	creator := func(stack executor.Stack) *command.ConsoleHandler {
+		return ConsoleSetEnv(stack, nil)
+	}
+
+	t.Run("empty-name", testInvalidCommand(ctrl, creator))
 
 	cmd := &command.Command{Name: "set-env", Params: map[string]string{"name": "XXX"}, Value: "set-env-value"}
-	t.Run("no-step", testConsoleNoStep(ctrl, ConsoleSetEnv, cmd))
+	t.Run("no-step", testConsoleNoStep(ctrl, creator, cmd))
 
 	t.Run("success", func(t *testing.T) {
 		step := mock_executor.NewMockStepExecutor(ctrl)
-		sup := mock_executor.NewMockSupervisor(ctrl)
-		sup.EXPECT().CurrentStep().Return(step)
+		job := mock_executor.NewMockJobExecutor(ctrl)
 
-		h := ConsoleSetEnv(sup)
+		stack := mock_executor.NewMockStack(ctrl)
+		stack.EXPECT().Stack().Return([]executor.StepExecutor{step})
+		stack.EXPECT().Job().Return(job)
 
-		step.EXPECT().SetEnv(map[string]string{"XXX": "set-env-value"}).Return(nil)
+		h := ConsoleSetEnv(stack, nil)
+
+		step.EXPECT().SetEnv(map[string]string{"XXX": "set-env-value"})
+		job.EXPECT().SetEnv(map[string]string{"XXX": "set-env-value"})
 		err := command.ConsoleRun(t.Context(), h, cmd)
 		assert.NoError(t, err)
 	})
@@ -135,19 +146,20 @@ func TestConsoleSetOutput(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	t.Run("empty-name", testInvalidCommand(ctrl, ConsoleSetOutput, new(command.Command)))
+	t.Run("empty-name", testInvalidCommand(ctrl, ConsoleSetOutput))
 
 	cmd := &command.Command{Name: "set-output", Params: map[string]string{"name": "XXX"}, Value: "set-output-value"}
 	t.Run("no-step", testConsoleNoStep(ctrl, ConsoleSetOutput, cmd))
 
 	t.Run("success", func(t *testing.T) {
 		step := mock_executor.NewMockStepExecutor(ctrl)
-		sup := mock_executor.NewMockSupervisor(ctrl)
-		sup.EXPECT().CurrentStep().Return(step)
 
-		h := ConsoleSetOutput(sup)
+		stack := mock_executor.NewMockStack(ctrl)
+		stack.EXPECT().Leaf().Return(step)
 
-		step.EXPECT().SetOutput(map[string]string{"XXX": "set-output-value"}).Return(nil)
+		h := ConsoleSetOutput(stack)
+
+		step.EXPECT().SetOutput(map[string]string{"XXX": "set-output-value"})
 		err := command.ConsoleRun(t.Context(), h, cmd)
 		assert.NoError(t, err)
 	})
@@ -157,19 +169,20 @@ func TestConsoleSaveState(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	t.Run("empty-name", testInvalidCommand(ctrl, ConsoleSaveState, new(command.Command)))
+	t.Run("empty-name", testInvalidCommand(ctrl, ConsoleSaveState))
 
 	cmd := &command.Command{Name: "save-state", Params: map[string]string{"name": "XXX"}, Value: "save-state-value"}
 	t.Run("no-step", testConsoleNoStep(ctrl, ConsoleSaveState, cmd))
 
 	t.Run("success", func(t *testing.T) {
 		step := mock_executor.NewMockStepExecutor(ctrl)
-		sup := mock_executor.NewMockSupervisor(ctrl)
-		sup.EXPECT().CurrentStep().Return(step)
 
-		h := ConsoleSaveState(sup)
+		stack := mock_executor.NewMockStack(ctrl)
+		stack.EXPECT().Root().Return(step)
 
-		step.EXPECT().SaveState(map[string]string{"XXX": "save-state-value"}).Return(nil)
+		h := ConsoleSaveState(stack)
+
+		step.EXPECT().SaveState(map[string]string{"XXX": "save-state-value"})
 		err := command.ConsoleRun(t.Context(), h, cmd)
 		assert.NoError(t, err)
 	})

@@ -233,7 +233,12 @@ func ConsoleSetEnv(stack executor.Stack, tracker support.Tracker) *command.Conso
 		env := map[string]string{name: cmd.Value}
 		scribe.Debugf(ctx, "Set env: %s = %s", name, cmd.Value)
 
-		for _, step := range stack.Stack() {
+		steps := stack.Stack()
+		if len(steps) == 0 {
+			return ErrNoStepRunning
+		}
+
+		for _, step := range steps {
 			step.SetEnv(env)
 		}
 		stack.Job().SetEnv(env)

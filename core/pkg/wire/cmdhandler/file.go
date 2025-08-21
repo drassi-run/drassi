@@ -49,6 +49,11 @@ func FileAddPath(stack executor.Stack) *command.FileHandler {
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L132
 func FileSetEnv(stack executor.Stack, tracker support.Tracker) *command.FileHandler {
 	run := func(ctx context.Context, r io.Reader) error {
+		steps := stack.Stack()
+		if len(steps) == 0 {
+			return ErrNoStepRunning
+		}
+
 		env, err := parseEnvVars(r)
 		if err != nil {
 			return err
@@ -69,7 +74,7 @@ func FileSetEnv(stack executor.Stack, tracker support.Tracker) *command.FileHand
 			}
 		}
 
-		for _, step := range stack.Stack() {
+		for _, step := range steps {
 			step.SetEnv(env)
 		}
 		stack.Job().SetEnv(env)
