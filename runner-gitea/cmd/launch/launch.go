@@ -27,7 +27,7 @@ import (
 	"drassi.run/core/util/error"
 	"drassi.run/gitea-runner/cmd/common"
 	giteav1a1 "drassi.run/gitea-runner/pkg/apis/v1alpha1"
-	"drassi.run/gitea-runner/pkg/service"
+	"drassi.run/gitea-runner/pkg/gitea"
 	"drassi.run/gitea-runner/pkg/worker"
 	"github.com/chainguard-dev/clog"
 	"github.com/spf13/cobra"
@@ -54,7 +54,7 @@ func (o *option) RegisterFlags(flags *pflag.FlagSet) {
 type launcher struct {
 	runnerName  string
 	concurrency int
-	client      service.GiteaClient
+	client      gitea.Client
 	runtime     sandboxer.Engine
 	store       gitstore.Store
 
@@ -101,7 +101,7 @@ func (c *launcher) Init(ctx context.Context, opts *option) error {
 
 	spec := o.Spec
 	c.concurrency = spec.Concurrency
-	c.client = service.NewClient(
+	c.client = gitea.NewClient(
 		spec.Address, spec.InsecureSkipTLSVerify,
 		spec.UUID, spec.Token,
 	)

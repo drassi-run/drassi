@@ -19,9 +19,9 @@ import (
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/executor/command"
 	"drassi.run/core/pkg/executor/problem"
-	"drassi.run/core/pkg/executor/reporter"
 	"drassi.run/core/pkg/executor/runtime"
 	"drassi.run/core/pkg/executor/secret"
+	"drassi.run/core/pkg/executor/support"
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/expression/libraries"
 	"drassi.run/core/pkg/model"
@@ -36,7 +36,8 @@ import (
 	"drassi.run/core/pkg/wire/streams"
 	"drassi.run/core/util/context"
 	"drassi.run/core/util/dig"
-	"drassi.run/gitea-runner/pkg/service"
+	"drassi.run/gitea-runner/pkg/gitea"
+	"drassi.run/gitea-runner/pkg/reporter"
 	"go.uber.org/dig"
 )
 
@@ -129,13 +130,6 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 	if err := scope.Provide(command.NewConsoleManager); err != nil {
 		return err
 	}
-	sup := executor.NewSupervisor()
-	if err := xdig.Supply(scope, sup); err != nil {
-		return err
-	}
-	if err := xdig.Supply[xcontext.Provider](scope, sup); err != nil {
-		return err
-	}
 	if err := wire_cmdhandler.ProvideTo(scope); err != nil {
 		return err
 	}
@@ -150,14 +144,14 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 		return err
 	}
 
-	var client service.GiteaClient
+	var client gitea.Client
 	if err := xdig.Populate(scope, &client); err != nil {
 		return err
 	}
 
 	cp := xcontext.NewStaticProvider(w.ctx)
 
-	log := service.NewLogStreamer(w.task.Id, cp, client)
+	log := reporter.NewLogStreamer(w.task.Id, cp, client)
 	if err := xdig.Supply[stream.Handler](scope, log); err != nil {
 		return err
 	}
@@ -166,8 +160,8 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 	}
 	w.addCleaner(log.Close)
 
-	rep := service.NewReporter(w.task.Id, client, cp, log, w.Cancel)
-	if err := xdig.Supply[reporter.Reporter](scope, rep); err != nil {
+	rep := reporter.New(w.task.Id, client, cp, log, w.Cancel)
+	if err := xdig.Supply(scope, rep); err != nil {
 		return err
 	}
 	if err := rep.Start(); err != nil {
@@ -175,33 +169,20 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 	}
 	w.addCleaner(rep.Close)
 
-	if err := wire_streams.Wire(scope); err != nil {
+	if err := scope.Provide(reporter.NewListener,
+		dig.As(new(executor.JobListener), new(executor.StepListener)),
+		dig.Name("reporter")); err != nil {
 		return err
 	}
 
-	err := scope.Invoke(func(client service.GiteaClient, sup executor.Supervisor) error {
-		endpoint := client.Address()
-		endpoint = strings.TrimSuffix(endpoint, "/")
+	if err := scope.Provide(composeJobListener); err != nil {
+		return err
+	}
+	if err := scope.Provide(composeStepListener); err != nil {
+		return err
+	}
 
-		taskContext := w.task.Context.Fields
-		giteaRuntimeToken := taskContext["gitea_runtime_token"].GetStringValue()
-		if giteaRuntimeToken == "" {
-			// use task token to action api token for previous Gitea Server Versions
-			giteaRuntimeToken = github.Token
-		}
-
-		env = map[string]string{
-			"GITEA_ACTIONS":         "true",
-			"ACTIONS_RUNTIME_URL":   endpoint + "/api/actions_pipeline/",
-			"ACTIONS_RUNTIME_TOKEN": giteaRuntimeToken,
-			"ACTIONS_RESULTS_URL":   endpoint,
-			//"ACTIONS_CACHE_URL":     "", // TODO
-		}
-
-		sup.Register(executor.Env(env))
-		return nil
-	})
-	if err != nil {
+	if err := scope.Invoke(w.provideEnv); err != nil {
 		return err
 	}
 
@@ -222,6 +203,29 @@ func (w *Worker) initContext(scope *dig.Scope) error {
 	}
 
 	w.ctx = scribe.ContextWithScribe(w.ctx, diary)
+	return nil
+}
+
+func (w *Worker) provideEnv(client gitea.Client, github records.Github, envProv support.EnvProvider) error {
+	endpoint := client.Address()
+	endpoint = strings.TrimSuffix(endpoint, "/")
+
+	taskContext := w.task.Context.Fields
+	giteaRuntimeToken := taskContext["gitea_runtime_token"].GetStringValue()
+	if giteaRuntimeToken == "" {
+		// use task token to action api token for previous Gitea Server Versions
+		giteaRuntimeToken = github.Token
+	}
+
+	m := map[string]string{
+		"GITEA_ACTIONS":         "true",
+		"ACTIONS_RUNTIME_URL":   endpoint + "/api/actions_pipeline/",
+		"ACTIONS_RUNTIME_TOKEN": giteaRuntimeToken,
+		"ACTIONS_RESULTS_URL":   endpoint,
+		//"ACTIONS_CACHE_URL":     "", // TODO
+	}
+
+	envProv.ProvideEnv(support.StaticEnv(m))
 	return nil
 }
 
@@ -298,4 +302,19 @@ func newContainerRuntime(ctx context.Context, gh *records.Github) func(
 	) (runtime.Container, error) {
 		return wire_runtime.NewContainerRuntime(ctx, engine, streams, sandbox, info, gh)
 	}
+}
+
+type listenerParams[L any] struct {
+	dig.In
+	Stack    L `name:"stack"`
+	Reporter L `name:"reporter"`
+	Command  L `name:"command"`
+}
+
+func composeJobListener(p listenerParams[executor.JobListener]) executor.JobListener {
+	return executor.NewCompositeJobListener(p.Stack, p.Reporter, p.Command)
+}
+
+func composeStepListener(p listenerParams[executor.StepListener]) executor.StepListener {
+	return executor.NewCompositeStepListener(p.Stack, p.Reporter, p.Command)
 }

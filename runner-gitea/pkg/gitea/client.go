@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package service
+package gitea
 
 import (
 	"context"
@@ -17,16 +17,16 @@ import (
 	"connectrpc.com/connect"
 )
 
-type GiteaClient interface {
+type Client interface {
 	pingv1connect.PingServiceClient
 	runnerv1connect.RunnerServiceClient
 	Address() string
 	Insecure() bool
 }
 
-var _ GiteaClient = (*client)(nil)
+var _ Client = (*client)(nil)
 
-// An client manages communication with the runner API.
+// A client manages communication with the runner API.
 type client struct {
 	pingv1connect.PingServiceClient
 	runnerv1connect.RunnerServiceClient
@@ -42,8 +42,8 @@ func (c *client) Insecure() bool {
 	return c.insecure
 }
 
-// NewClient returns a new runner client.
-func NewClient(endpoint string, insecure bool, uuid, token string, opts ...connect.ClientOption) GiteaClient {
+// NewClient returns a new Gitea runner client.
+func NewClient(endpoint string, insecure bool, uuid, token string, opts ...connect.ClientOption) Client {
 	baseURL := strings.TrimRight(endpoint, "/") + "/api/actions"
 
 	var interceptor connect.UnaryInterceptorFunc = func(next connect.UnaryFunc) connect.UnaryFunc {

@@ -8,71 +8,55 @@ package executor
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"maps"
 	"strconv"
 	"time"
 
 	"drassi.run/core/pkg/executor/evaluator"
+	"drassi.run/core/pkg/executor/support"
 	"drassi.run/core/pkg/expression"
-	"drassi.run/core/pkg/expression/libraries"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/scribe"
 	"drassi.run/core/pkg/store/repository"
 	"drassi.run/core/util/dig"
+	"drassi.run/core/util/otel"
 	"github.com/chainguard-dev/clog"
 	"go.uber.org/dig"
 )
 
 type StepExecutor interface {
 	StepRun() StepRun
-	JobExecutor() JobExecutor
-	NewChildExecutor(stepRun StepRun) StepExecutor
-	ChildExecutor(id string) StepExecutor
-	ParentExecutor() StepExecutor
 
 	Initialize(ctx context.Context, scope *dig.Scope) error
-	RunStep(ctx context.Context, fn func(StepRun) *Task) *records.Step
-	ComposeEnv(systemEnv bool) map[string]string
+	RunStep(ctx context.Context, stage Stage) *records.Step
+
+	State() *records.Step
+	Status() records.Result
 	SetStatus(status records.Result)
 
-	SetEnv(env map[string]string) error
+	ComposeEnv(systemEnv bool) map[string]string
+	SetEnv(env map[string]string)
+	SaveState(state map[string]string)
+	SetOutput(output map[string]string)
 	CreateStepSummary(r io.Reader) error
-	SaveState(state map[string]string) error
-	SetOutput(output map[string]string) error
 }
 
 func StepId(e StepExecutor) string {
 	return e.StepRun().StepId()
 }
 
-func FullStepId(e StepExecutor) string {
-	s := StepId(e)
-	for parent := e.ParentExecutor(); parent != nil; parent = parent.ParentExecutor() {
-		s = StepId(parent) + "/" + s
-	}
-	return s
-}
-
 func StepUid(e StepExecutor) string {
 	return e.StepRun().Base().Uid
 }
 
-func newStepExecutor(job JobExecutor, parent StepExecutor, stepRun StepRun) StepExecutor {
-	exec := &stepExecutor{
-		job:      job,
-		parent:   parent,
-		children: make(map[string]StepExecutor),
-		stepRun:  stepRun,
-	}
-	return WithTelemetryStepExecutor(exec)
+func NewStepExecutor(stepRun StepRun) StepExecutor {
+	return &stepExecutor{stepRun: stepRun}
 }
 
 type stepExecutor struct {
-	job      JobExecutor
-	parent   StepExecutor
-	children map[string]StepExecutor
-	stepRun  StepRun
+	stepRun StepRun
 
 	// records
 	github   records.Github
@@ -81,45 +65,40 @@ type stepExecutor struct {
 	upperEnv map[string]string // env variables from upper layers
 	state    map[string]string // Intra action state
 
-	exprEnv    expression.Env
-	supervisor Supervisor
+	envProv  support.EnvProvider
+	listener StepListener
+	exprEnv  expression.Env
 }
 
 func (e *stepExecutor) StepRun() StepRun {
 	return e.stepRun
 }
 
-func (e *stepExecutor) JobExecutor() JobExecutor {
-	return e.job
-}
+func (e *stepExecutor) Initialize(ctx context.Context, scope *dig.Scope) (ex error) {
+	stepId := StepId(e)
+	ctx, done := xotel.SetupTelemetry(ctx,
+		fmt.Sprintf("StepExecutor.Initialize(%s)", stepId),
+		xotel.DrassiStep(stepId),
+	)
+	defer done(&ex)
 
-func (e *stepExecutor) NewChildExecutor(stepRun StepRun) StepExecutor {
-	cExec := newStepExecutor(e.job, e, stepRun)
-	e.children[stepRun.StepId()] = cExec
-	return cExec
-}
+	l := clog.FromContext(ctx)
 
-func (e *stepExecutor) ChildExecutor(id string) StepExecutor {
-	return e.children[id]
-}
-
-func (e *stepExecutor) ParentExecutor() StepExecutor {
-	return e.parent
-}
-
-func (e *stepExecutor) rootExecutor() StepExecutor {
-	var exec StepExecutor = e
-	for exec.ParentExecutor() != nil {
-		exec = exec.ParentExecutor()
-	}
-	return exec
-}
-
-func (e *stepExecutor) Initialize(ctx context.Context, scope *dig.Scope) error {
-	// inject dependencies
-	if err := xdig.Populate(scope, &e.supervisor); err != nil {
+	// setup listener
+	if err := xdig.Populate(scope, &e.listener); err != nil {
+		l.Errorf("Failed to initialize step: %v", err)
 		return err
 	}
+	if eh := e.listener.OnInitializeStep(e, scope); eh != nil {
+		err := eh.Begin(ctx)
+		defer end(eh, &ex)
+		if err != nil {
+			return err
+		}
+	}
+
+	// do step initialization
+	// inject dependencies
 	if err := xdig.Populate(scope, &e.exprEnv); err != nil {
 		return err
 	}
@@ -127,6 +106,9 @@ func (e *stepExecutor) Initialize(ctx context.Context, scope *dig.Scope) error {
 		return err
 	} else {
 		e.github.Action = StepId(e)
+	}
+	if err := xdig.Populate(scope, &e.envProv); err != nil {
+		return err
 	}
 	if err := xdig.Populate(scope, &e.upperEnv); err != nil {
 		return err
@@ -157,9 +139,6 @@ func (e *stepExecutor) Initialize(ctx context.Context, scope *dig.Scope) error {
 		expression.WithVariable("github", &e.github),
 		expression.WithVariable("env", e.env),
 	}
-	if e.parent != nil {
-		opts = append(opts, expression.WithLibrary(libraries.StatusLib(e.step)))
-	}
 	if exprEnv, err := e.exprEnv.New(opts...); err != nil {
 		return err
 	} else {
@@ -180,121 +159,122 @@ func (e *stepExecutor) Initialize(ctx context.Context, scope *dig.Scope) error {
 	return nil
 }
 
-func (e *stepExecutor) RunStep(ctx context.Context, fn func(StepRun) *Task) *records.Step {
-	task := fn(e.stepRun)
+func (e *stepExecutor) RunStep(ctx context.Context, stage Stage) *records.Step {
+	task := e.getTask(stage)
 	if task == nil {
 		return nil
 	}
 
-	defer e.endTask(ctx, task)
-	_ = e.beginTask(ctx, task) // TODO logging error
-	if e.step.Outcome == "" {
-		_ = e.runTask(ctx, task)
+	stepId := StepId(e)
+	ctx, done := xotel.SetupTelemetry(ctx,
+		fmt.Sprintf("StepExecutor.RunStep(%s, %s)", stepId, stage),
+		xotel.DrassiStep(stepId), xotel.DrassiStage(stage),
+	)
+	defer done(nil)
+
+	// setup listener
+	if eh := e.listener.OnRunStep(e, stage); eh != nil {
+		err := eh.Begin(ctx)
+		defer end(eh, &err)
+		if err != nil {
+			return nil
+		}
 	}
 
+	// do step run
+	e.runTask(ctx, task)
 	return e.step
 }
 
-func (e *stepExecutor) beginTask(ctx context.Context, task *Task) error {
-	if err := e.supervisor.BeforeStepRun(task.Stage, e); err != nil {
-		return err
+func (e *stepExecutor) getTask(stage Stage) *Task {
+	switch stage {
+	case StagePre:
+		return e.stepRun.PreTask()
+	case StageMain:
+		return e.stepRun.MainTask()
+	case StagePost:
+		return e.stepRun.PostTask()
+	default:
+		return nil
 	}
+}
 
+func (e *stepExecutor) runTask(ctx context.Context, task *Task) {
+	s := scribe.FromContext(ctx)
 	base := e.stepRun.Base()
+	stepId, displayName := base.StepId(), e.stepRun.DisplayName(task.Stage)
 
 	clear(e.env)
 	maps.Copy(e.env, e.upperEnv)
 	if err := evaluator.Evaluate(e.exprEnv, base.Env, &e.env); err != nil {
 		e.SetStatus(records.ResultFailure)
-		return err
+		return
 	}
 
-	scribe.Debugf(ctx, "Evaluating condition for step: %q (%s)", e.stepRun.DisplayName(task.Stage), StepId(e))
+	s.Debugf("Evaluating condition for step: %q (%s)", displayName, stepId)
 	if meet, err := evaluator.Meet(e.exprEnv, task.Condition); err != nil {
 		e.SetStatus(records.ResultFailure)
 		e.step.Conclusion = records.ResultFailure
-		return err
+		s.Errorf("Error while evaluate 'if': %v", err)
+		return
 	} else if !meet {
 		e.SetStatus(records.ResultSkipped)
 		e.step.Conclusion = records.ResultSkipped
-		clog.InfoContextf(ctx, "Skipped step %q (%s)", e.stepRun.DisplayName(task.Stage), StepId(e))
+		s.Writef("Skipped step %q (%s)", displayName, stepId)
+		return
 	}
-	return nil
-}
-
-func (e *stepExecutor) runTask(ctx context.Context, task *Task) error {
-	l := clog.FromContext(ctx)
-	base := e.stepRun.Base()
 
 	timeout := int64(-1)
+	s.Debugf("Evaluating 'timeout-minutes' for step: %q (%s)", displayName, stepId)
 	if err := evaluator.Evaluate(e.exprEnv, base.TimeoutInMinutes, &timeout); err != nil {
-		l.Errorf("Error while evaluate 'timeout-minutes': %v", err)
+		s.Errorf("Error while evaluate 'timeout-minutes': %v", err)
 		e.SetStatus(records.ResultFailure)
-		return err
+		return
 	} else if timeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, time.Duration(timeout)*time.Minute)
 		defer cancel()
-
-		stop := e.supervisor.StartContext(ctx)
-		defer stop()
 	}
 
-	if err := e.supervisor.BeforeTaskRun(task, e); err != nil {
-		l.Errorf("Error while before TaskRun: %v", err)
+	if err := e.doTask(ctx, task); err != nil {
+		s.Errorf("Error while running task %q (%s): %v", displayName, stepId, err)
 		e.SetStatus(records.ResultFailure)
-		return err
-	}
-
-	ch := make(chan error)
-	go func() {
-		ch <- task.Run(ctx, e)
-	}()
-
-	var err error
-	select {
-	case <-ctx.Done():
-		err = ctx.Err()
-	case err = <-ch:
-	}
-
-	if err != nil {
-		e.SetStatus(records.ResultFailure)
-		//logger.WithField("stepResult", stepResult.Outcome).Errorf("  \u274C  Failure - %s %s", stage, stepString)
 	} else {
 		e.SetStatus(records.ResultSuccess)
 	}
 
-	if err = e.supervisor.AfterTaskRun(task, e); err != nil {
-		l.Errorf("Error while after TaskRun: %v", err)
-		e.SetStatus(records.ResultFailure)
-		return err
-	}
-	return nil
-}
-
-func (e *stepExecutor) endTask(ctx context.Context, task *Task) {
-	l := clog.FromContext(ctx)
-
 	if e.step.Outcome == records.ResultFailure {
-		base := e.stepRun.Base()
-
 		continueOnError := false
+		s.Debugf("Evaluating 'continue-on-error' for step: %q (%s)", displayName, stepId)
 		if err := evaluator.Evaluate(e.exprEnv, base.ContinueOnError, &continueOnError); err != nil {
 			e.step.Conclusion = records.ResultFailure
-			l.Errorf("Error while evaluate 'continue-on-error' %v", err)
+			s.Errorf("Error while evaluate 'continue-on-error' %v", err)
 		} else if continueOnError {
 			e.step.Conclusion = records.ResultSuccess
-			l.Warn("Step failed but continue next step")
+			s.Warningf("Step failed but continue next step")
 		}
 	}
 	if e.step.Conclusion == "" {
 		e.step.Conclusion = e.step.Outcome
 	}
+}
 
-	if err := e.supervisor.AfterStepRun(task.Stage, e, e.step); err != nil {
-		l.Errorf("Error while after StepRun: %v", err)
+func (e *stepExecutor) doTask(ctx context.Context, task *Task) (ex error) {
+	ctx, done := xotel.SetupTelemetry(ctx,
+		fmt.Sprintf("StepExecutor.RunTask(%s, %s)", StepId(e), task.Stage),
+	)
+	defer done(&ex)
+
+	// setup listener
+	if eh := e.listener.OnRunTask(e, task); eh != nil {
+		err := eh.Begin(ctx)
+		defer end(eh, &ex)
+		if err != nil {
+			return err
+		}
 	}
+
+	return task.Run(ctx, e)
 }
 
 func (e *stepExecutor) ComposeEnv(systemEnv bool) map[string]string {
@@ -303,7 +283,7 @@ func (e *stepExecutor) ComposeEnv(systemEnv bool) map[string]string {
 		return m
 	}
 
-	maps.Copy(m, e.supervisor.ProvideEnv())
+	maps.Copy(m, e.envProv.Env())
 
 	// set GITHUB_* env
 	ghEnv := map[string]string{
@@ -350,28 +330,29 @@ func (e *stepExecutor) ComposeEnv(systemEnv bool) map[string]string {
 	return m
 }
 
+func (e *stepExecutor) State() *records.Step {
+	return e.step
+}
+
+func (e *stepExecutor) Status() records.Result {
+	if e.step != nil {
+		return e.step.Outcome
+	}
+	return records.ResultSuccess
+}
+
 func (e *stepExecutor) SetStatus(status records.Result) {
 	e.github.ActionStatus = status
 	e.step.Outcome = status
 }
 
-// SetEnv make an environment variable available to any subsequent steps in a workflow job
+// SetEnv make an environment variable available to any subsequent steps in a workflow job.
+// Environment variables should be applied to all StepExecutor in the Stack as well as the JobExecutor.
 //
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L132
 // https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#setting-an-environment-variable
-func (e *stepExecutor) SetEnv(env map[string]string) error {
-	for k := range env {
-		if setEnvBlockList.Has(k) {
-			// TODO context.AddIssue
-			delete(env, k)
-		}
-	}
+func (e *stepExecutor) SetEnv(env map[string]string) {
 	maps.Copy(e.env, env)
-	if e.parent != nil {
-		return e.parent.SetEnv(env)
-	} else {
-		return e.job.SetEnv(env)
-	}
 }
 
 // CreateStepSummary create custom Markdown that it will be displayed on the summary page of a workflow run.
@@ -384,25 +365,18 @@ func (e *stepExecutor) CreateStepSummary(io.Reader) error {
 }
 
 // SaveState used to create environment variables for sharing pre: or post: action state.
+// You should identify the root step by using [Stack.Root] to store the state.
 //
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L260
 // https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#sending-values-to-the-pre-and-post-actions
-func (e *stepExecutor) SaveState(state map[string]string) error {
-	// if it's embedded step, forward state to the root step
-	if e.parent != nil {
-		root := e.rootExecutor()
-		return root.SaveState(state)
-	}
-	// in root step, save the state
+func (e *stepExecutor) SaveState(state map[string]string) {
 	maps.Copy(e.state, state)
-	return nil
 }
 
 // SetOutput sets a step's output parameter.
 //
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L293
 // https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#setting-an-output-parameter
-func (e *stepExecutor) SetOutput(output map[string]string) error {
+func (e *stepExecutor) SetOutput(output map[string]string) {
 	maps.Copy(e.step.Outputs, output)
-	return nil
 }

@@ -6,7 +6,11 @@
 
 package xotel
 
-import "go.opentelemetry.io/otel/attribute"
+import (
+	"log/slog"
+
+	"go.opentelemetry.io/otel/attribute"
+)
 
 var (
 	DrassiWorkflowKey = attribute.Key("drassi.workflow")
@@ -38,8 +42,8 @@ func DrassiRun(s string) attribute.KeyValue {
 	return DrassiRunKey.String(s)
 }
 
-func DrassiStage(s string) attribute.KeyValue {
-	return DrassiStageKey.String(s)
+func DrassiStage[S ~string](s S) attribute.KeyValue {
+	return DrassiStageKey.String(string(s))
 }
 
 func ActionPath(s string) attribute.KeyValue {
@@ -56,4 +60,24 @@ func ActionScript(s string) attribute.KeyValue {
 
 func DrassiCommand(s string) attribute.KeyValue {
 	return DrassiCommandKey.String(s)
+}
+
+func ToSlogAttrs(kv ...attribute.KeyValue) []slog.Attr {
+	attrs := make([]slog.Attr, 0)
+	for _, attr := range kv {
+		k, v := string(attr.Key), attr.Value
+		switch attr.Value.Type() {
+		case attribute.BOOL:
+			attrs = append(attrs, slog.Bool(k, v.AsBool()))
+		case attribute.INT64:
+			attrs = append(attrs, slog.Int64(k, v.AsInt64()))
+		case attribute.FLOAT64:
+			attrs = append(attrs, slog.Float64(k, v.AsFloat64()))
+		case attribute.STRING:
+			attrs = append(attrs, slog.String(k, v.AsString()))
+		default:
+			// ignore
+		}
+	}
+	return attrs
 }

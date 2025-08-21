@@ -16,20 +16,20 @@ import (
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/executor/command"
 	"drassi.run/core/pkg/executor/problem"
-	"drassi.run/core/pkg/executor/reporter"
 	"drassi.run/core/pkg/executor/secret"
+	"drassi.run/core/pkg/executor/support"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/stream"
 )
 
 type Middleware func(handler stream.Handler) stream.Handler
 
-func ProcessCommand(consoleMgr command.ConsoleManager, sup executor.Supervisor) Middleware {
+func ProcessCommand(consoleMgr command.ConsoleManager, stack executor.Stack) Middleware {
 	return func(handler stream.Handler) stream.Handler {
 		return &commandProcessor{
 			handler:    handler,
 			consoleMgr: consoleMgr,
-			sup:        sup,
+			stack:      stack,
 		}
 	}
 }
@@ -37,7 +37,7 @@ func ProcessCommand(consoleMgr command.ConsoleManager, sup executor.Supervisor) 
 type commandProcessor struct {
 	handler    stream.Handler
 	consoleMgr command.ConsoleManager
-	sup        executor.Supervisor
+	stack      executor.Stack
 }
 
 func (mw *commandProcessor) Handle(ctx context.Context, line string) error {
@@ -47,7 +47,7 @@ func (mw *commandProcessor) Handle(ctx context.Context, line string) error {
 	}
 
 	if err := mw.consoleMgr.Process(ctx, line, cmd); err != nil {
-		if step := mw.sup.CurrentStep(); step != nil {
+		if step := mw.stack.Leaf(); step != nil {
 			step.SetStatus(records.ResultFailure)
 		}
 		return err
@@ -55,25 +55,25 @@ func (mw *commandProcessor) Handle(ctx context.Context, line string) error {
 	return nil
 }
 
-func ScanProblem(pm map[string]problem.Matcher, rep reporter.Reporter) Middleware {
+func ScanProblem(pm map[string]problem.Matcher, tracker support.Tracker) Middleware {
 	return func(handler stream.Handler) stream.Handler {
 		return &problemScanner{
-			hdl: handler,
-			pm:  pm,
-			rep: rep,
+			handler: handler,
+			matcher: pm,
+			tracker: tracker,
 		}
 	}
 }
 
 type problemScanner struct {
-	hdl stream.Handler
-	pm  map[string]problem.Matcher
-	rep reporter.Reporter
+	handler stream.Handler
+	matcher map[string]problem.Matcher
+	tracker support.Tracker
 }
 
 func (mw *problemScanner) Handle(ctx context.Context, line string) error {
 	err1 := mw.scan(ctx, line)
-	err2 := mw.hdl.Handle(ctx, line)
+	err2 := mw.handler.Handle(ctx, line)
 	return errors.Join(err1, err2)
 }
 
@@ -85,7 +85,7 @@ func (mw *problemScanner) scan(ctx context.Context, line string) error {
 	var pbl *problem.Problem
 
 	line = colorCodeRegex.ReplaceAllLiteralString(line, "")
-	for o, m := range mw.pm {
+	for o, m := range mw.matcher {
 		if p := m.Match(line); p != nil {
 			owner, pbl = o, p
 			break
@@ -99,7 +99,7 @@ func (mw *problemScanner) scan(ctx context.Context, line string) error {
 
 	// Matched
 	// 1. Reset other matchers
-	for o, m := range mw.pm {
+	for o, m := range mw.matcher {
 		if o != owner {
 			m.Reset()
 		}
@@ -112,7 +112,7 @@ func (mw *problemScanner) scan(ctx context.Context, line string) error {
 	}
 
 	// 3. Report the issue
-	return mw.rep.AddIssue(ctx, issue)
+	return mw.tracker.AddIssue(ctx, issue)
 }
 
 const skippedIssueMsg = "skipped logging an issue for the matched line because of"
@@ -120,22 +120,22 @@ const skippedIssueMsg = "skipped logging an issue for the matched line because o
 var numberRegex = regexp.MustCompile(`^[+\-]?\d+$`)
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/Handlers/OutputManager.cs#L200
-func (mw *problemScanner) toIssuer(pbl *problem.Problem) (*reporter.Issue, error) {
+func (mw *problemScanner) toIssuer(pbl *problem.Problem) (*support.Issue, error) {
 	if pbl.Message == "" {
 		return nil, fmt.Errorf("%s empty message", skippedIssueMsg)
 	}
-	iss := &reporter.Issue{
+	iss := &support.Issue{
 		Message: pbl.Message,
 		Data:    make(map[string]string),
 	}
 
 	switch strings.ToUpper(pbl.Severity) {
 	case "", "ERROR":
-		iss.Type = reporter.IssueTypeError
+		iss.Type = support.IssueTypeError
 	case "WARNING":
-		iss.Type = reporter.IssueTypeWarning
+		iss.Type = support.IssueTypeWarning
 	case "NOTICE":
-		iss.Type = reporter.IssueTypeNotice
+		iss.Type = support.IssueTypeNotice
 	default:
 		return nil, fmt.Errorf("%s unknown severity %q", skippedIssueMsg, pbl.Severity)
 	}

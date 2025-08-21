@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"drassi.run/core/pkg/executor/evaluator"
+	"drassi.run/core/pkg/executor/support"
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
@@ -38,10 +39,11 @@ type NodeStepRun struct {
 	PostIf workflows.Conditional
 
 	// injected values
-	exprEnv expression.Env
-	sandbox sandboxer.Sandbox
-	streams stream.Streams
-	repo    *repository.Repository
+	pathProv support.PathProvider
+	exprEnv  expression.Env
+	sandbox  sandboxer.Sandbox
+	streams  stream.Streams
+	repo     *repository.Repository
 }
 
 func (sr *NodeStepRun) Initialize(ctx context.Context, scope *dig.Scope) error {
@@ -55,6 +57,9 @@ func (sr *NodeStepRun) Initialize(ctx context.Context, scope *dig.Scope) error {
 		return err
 	}
 	if err := xdig.Populate(scope, &sr.repo); err != nil {
+		return err
+	}
+	if err := xdig.Populate(scope, &sr.pathProv); err != nil {
 		return err
 	}
 
@@ -127,7 +132,7 @@ func (sr *NodeStepRun) execute(stage Stage) TaskRun {
 			env["INPUT_"+k] = v
 		}
 
-		paths := exec.JobExecutor().SystemPaths()
+		paths := sr.pathProv.SystemPaths()
 		return sr.sandbox.Execute(ctx, cmd, paths, env, "", sr.streams)
 	}
 }

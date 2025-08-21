@@ -24,14 +24,19 @@ var (
 	ur  *unraveler
 )
 
+type staticStatusProvider records.Result
+
+func (s staticStatusProvider) Status() records.Result {
+	return records.Result(s)
+}
+
 func init() {
-	job := new(records.Job)
-	job.Result = records.ResultSuccess
+	sp := staticStatusProvider(records.ResultSuccess)
 
 	var err error
 	env, err = expression.NewEnv(
 		expression.WithLibrary(libraries.StdLib()),
-		expression.WithLibrary(libraries.StatusLib(job)),
+		expression.WithLibrary(libraries.StatusLib(sp)),
 		expression.WithVariable("la", la),
 		expression.WithVariable("ls", ls),
 		expression.WithVariable("ms", ms),
@@ -50,11 +55,10 @@ func TestConditional(t *testing.T) {
 }
 
 func testConditionalSuccess(t *testing.T) {
-	fJob := new(records.Job)
-	fJob.Result = records.ResultFailure
+	sp := staticStatusProvider(records.ResultFailure)
 
 	fEnv, err := env.New(
-		expression.WithLibrary(libraries.StatusLib(fJob)),
+		expression.WithLibrary(libraries.StatusLib(sp)),
 	)
 	assert.NoError(t, err)
 

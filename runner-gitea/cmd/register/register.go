@@ -17,7 +17,7 @@ import (
 	"connectrpc.com/connect"
 	sandboxerv1a1 "drassi.run/core/pkg/sandboxer/apis/v1alpha1"
 	giteav1a1 "drassi.run/gitea-runner/pkg/apis/v1alpha1"
-	"drassi.run/gitea-runner/pkg/service"
+	"drassi.run/gitea-runner/pkg/gitea"
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
@@ -148,7 +148,7 @@ func (c *register) Run(ctx context.Context) error {
 }
 
 func (c *register) doRegister(ctx context.Context) (*giteav1a1.GiteaRunner, error) {
-	client := service.NewClient(c.url, c.insecureSkipTLSVerify, "", "")
+	client := gitea.NewClient(c.url, c.insecureSkipTLSVerify, "", "")
 
 	for {
 		req := connect.NewRequest(&pingv1.PingRequest{

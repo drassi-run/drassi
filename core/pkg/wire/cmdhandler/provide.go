@@ -6,7 +6,10 @@
 
 package wire_cmdhandler
 
-import "go.uber.org/dig"
+import (
+	"drassi.run/core/pkg/executor"
+	"go.uber.org/dig"
+)
 
 func ProvideTo(scope *dig.Scope) error {
 	if err := provideConsoleHandlers(scope); err != nil {
@@ -17,7 +20,10 @@ func ProvideTo(scope *dig.Scope) error {
 		return err
 	}
 
-	return nil
+	return scope.Provide(NewListener,
+		dig.As(new(executor.JobListener), new(executor.StepListener)),
+		dig.Name("command"),
+	)
 }
 
 func provideConsoleHandlers(scope *dig.Scope) error {

@@ -8,26 +8,26 @@ package executor
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"maps"
 	"path"
 	"slices"
 	"strings"
 	"time"
 
-	"drassi.run/core/pkg/executor/command"
 	"drassi.run/core/pkg/executor/evaluator"
+	"drassi.run/core/pkg/executor/support"
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/expression/libraries"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/scribe"
+	"drassi.run/core/util/context"
 	"drassi.run/core/util/dig"
 	"drassi.run/core/util/otel"
 	"drassi.run/core/util/tar"
 	"github.com/chainguard-dev/clog"
-	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -38,11 +38,13 @@ type JobExecutor interface {
 	Initialize(ctx context.Context, scope *dig.Scope) error
 	RunJob(ctx context.Context) *records.Job
 	Finalize(ctx context.Context) error
-	SystemPaths() []string
+
+	State() *records.Job
+	Status() records.Result
 	SetStatus(status records.Result)
 
-	AddPath(paths []string) error
-	SetEnv(env map[string]string) error
+	AddPath(paths []string)
+	SetEnv(env map[string]string)
 }
 
 func JobId(e JobExecutor) string {
@@ -54,8 +56,7 @@ func JobUid(e JobExecutor) string {
 }
 
 func NewJobExecutor(run *JobRun) JobExecutor {
-	exec := &jobExecutor{jobRun: run}
-	return WithTelemetryJobExecutor(exec)
+	return &jobExecutor{jobRun: run}
 }
 
 type jobExecutor struct {
@@ -70,30 +71,41 @@ type jobExecutor struct {
 	env     map[string]string
 	paths   []string
 
+	listener      JobListener
 	exprEnv       expression.Env
 	sandbox       sandboxer.Sandbox
 	stepExecutors map[string]StepExecutor
-	supervisor    Supervisor
 }
 
 func (e *jobExecutor) JobRun() *JobRun {
 	return e.jobRun
 }
 
-func (e *jobExecutor) NewStepExecutor(step StepRun) StepExecutor {
-	exec := newStepExecutor(e, nil, step)
-	e.stepExecutors[step.StepId()] = exec
-	return exec
-}
-
-func (e *jobExecutor) StepExecutor(id string) StepExecutor {
-	return e.stepExecutors[id]
-}
-
 func (e *jobExecutor) Initialize(ctx context.Context, scope *dig.Scope) (ex error) {
+	jobId := JobId(e)
+	ctx, done := xotel.SetupTelemetry(ctx,
+		fmt.Sprintf("JobExecutor.Initialize(%s)", jobId),
+		xotel.DrassiJob(jobId),
+	)
+	defer done(&ex)
+
 	l := clog.FromContext(ctx)
 	s := scribe.FromContext(ctx)
 
+	// setup listener
+	if err := xdig.Populate(scope, &e.listener); err != nil {
+		l.Errorf("Failed to initialize job: %v", err)
+		return err
+	}
+	if eh := e.listener.OnInitializeJob(e, scope); eh != nil {
+		err := eh.Begin(ctx)
+		defer end(eh, &ex)
+		if err != nil {
+			return err
+		}
+	}
+
+	// do job initialization
 	if err := e.initializeJob(s, scope); err != nil {
 		l.Errorf("Failed to initialize job: %v", err)
 		return err
@@ -113,17 +125,34 @@ func (e *jobExecutor) Initialize(ctx context.Context, scope *dig.Scope) (ex erro
 }
 
 func (e *jobExecutor) RunJob(ctx context.Context) *records.Job {
+	jobId := JobId(e)
+	ctx, done := xotel.SetupTelemetry(ctx,
+		fmt.Sprintf("JobExecutor.RunJob(%s)", jobId),
+		xotel.DrassiJob(jobId),
+	)
+	defer done(nil)
+
+	// setup listener
+	if eh := e.listener.OnRunJob(e); eh != nil {
+		err := eh.Begin(ctx)
+		defer end(eh, &err)
+		if err != nil {
+			return nil
+		}
+	}
+
+	// do job run
 	e.SetStatus(records.ResultSuccess)
 
-	if err := e.runStage(ctx, StagePre, StepRun.PreTask); err != nil {
+	if err := e.runStage(ctx, StagePre); err != nil {
 		e.SetStatus(records.ResultFailure)
 		//log err
 	}
-	if err := e.runStage(ctx, StageMain, StepRun.MainTask); err != nil {
+	if err := e.runStage(ctx, StageMain); err != nil {
 		e.SetStatus(records.ResultFailure)
 		//log err
 	}
-	if err := e.runStage(ctx, StagePost, StepRun.PostTask); err != nil {
+	if err := e.runStage(ctx, StagePost); err != nil {
 		e.SetStatus(records.ResultFailure)
 		//log err
 	}
@@ -133,22 +162,26 @@ func (e *jobExecutor) RunJob(ctx context.Context) *records.Job {
 	return e.job
 }
 
-func (e *jobExecutor) Finalize(ctx context.Context) (err error) {
-	defer func() {
-		errs := make([]error, 0)
+func (e *jobExecutor) Finalize(ctx context.Context) (ex error) {
+	jobId := JobId(e)
+	ctx, done := xotel.SetupTelemetry(ctx,
+		fmt.Sprintf("JobExecutor.Finalize(%s)", jobId),
+		xotel.DrassiJob(jobId),
+	)
+	defer done(&ex)
+
+	// setup listener
+	l := clog.FromContext(ctx)
+	if eh := e.listener.OnFinalizeJob(e); eh != nil {
+		err := eh.Begin(ctx)
+		defer end(eh, &ex)
 		if err != nil {
-			errs = append(errs, err)
+			l.Errorf("error OnFinalizeJob.Start: %v", err)
+			// terminate sandbox even if listener failed
 		}
+	}
 
-		if err := e.supervisor.AfterJobRun(e, e.job); err != nil {
-			errs = append(errs, err)
-		}
-
-		if len(errs) > 0 {
-			err = errors.Join(errs...)
-		}
-	}()
-
+	// do job run
 	if e.sandbox == nil {
 		return
 	}
@@ -165,9 +198,6 @@ func (e *jobExecutor) Finalize(ctx context.Context) (err error) {
 
 func (e *jobExecutor) initializeJob(s *scribe.Scribe, scope *dig.Scope) error {
 	// inject dependencies
-	if err := xdig.Populate(scope, &e.supervisor); err != nil {
-		return err
-	}
 	if err := xdig.Populate(scope, &e.exprEnv); err != nil {
 		return err
 	}
@@ -192,17 +222,13 @@ func (e *jobExecutor) initializeJob(s *scribe.Scribe, scope *dig.Scope) error {
 	e.job = new(records.Job)
 	e.steps = make(map[string]*records.Step, len(e.jobRun.Steps))
 
-	if err := e.supervisor.BeforeJobRun(e); err != nil {
-		return err
-	}
-
 	// setup expression.Env
 	opts := []expression.Option{
 		expression.WithVariable("github", &e.github),
 		expression.WithVariable("job", e.jobInfo),
 		expression.WithVariable("steps", e.steps),
 		expression.WithVariable("env", e.env),
-		expression.WithLibrary(libraries.StatusLib(e.job)),
+		expression.WithLibrary(libraries.StatusLib(e)),
 	}
 	if exprEnv, err := e.exprEnv.New(opts...); err != nil {
 		return err
@@ -215,8 +241,8 @@ func (e *jobExecutor) initializeJob(s *scribe.Scribe, scope *dig.Scope) error {
 	env := make(map[string]string)
 	if err := evaluator.Evaluate(e.exprEnv, e.jobRun.Env, &env); err != nil {
 		return err
-	} else if err = e.SetEnv(env); err != nil {
-		return err
+	} else {
+		e.SetEnv(env)
 	}
 
 	s.Debugf("Evaluating job defaults")
@@ -288,10 +314,12 @@ func (e *jobExecutor) initializeSandbox(ctx context.Context, s *scribe.Scribe, s
 	}
 
 	// register SandboxLib (e.g. hashFiles func) to expression.Env
-	opts := []expression.Option{
-		expression.WithLibrary(libraries.SandboxLib(e.supervisor, e.sandbox)),
+	var cp xcontext.Provider
+	if err := xdig.Populate(scope, &cp); err != nil {
+		return err
 	}
-	if exprEnv, err := e.exprEnv.New(opts...); err != nil {
+	opt := expression.WithLibrary(libraries.SandboxLib(cp, e.sandbox))
+	if exprEnv, err := e.exprEnv.New(opt); err != nil {
 		return err
 	} else {
 		e.exprEnv = exprEnv
@@ -314,73 +342,14 @@ func (e *jobExecutor) initializeScope(scope *dig.Scope) error {
 	if err := xdig.Supply(scope, e.env); err != nil {
 		return err
 	}
-
-	// initialize ConsoleCommand & FileCommand
-	// NOTE: some handlers are depended on sandbox
-	if err := scope.Invoke(func(p consoleCommandParams) error {
-		for _, h := range p.Handlers {
-			if err := p.CmdMgr.Register(h); err != nil {
-				return err
-			}
-		}
-		return nil
-	}); err != nil {
+	if err := xdig.Supply[support.PathProvider](scope, e); err != nil {
 		return err
 	}
 
-	if err := scope.Invoke(func(p fileCommandParams) error {
-		for _, h := range p.Handlers {
-			if err := p.CmdMgr.Register(h); err != nil {
-				return err
-			}
-		}
-		return nil
-	}); err != nil {
-		return err
-	}
+	return scope.Invoke(e.provideEnv)
+}
 
-	if e.runner.Debug == "1" {
-		if err := scope.Invoke(func(diary scribe.Diary) {
-			diary.SetDebug(true)
-		}); err != nil {
-			return err
-		}
-
-		if err := scope.Invoke(func(cmdMgr command.ConsoleManager) error {
-			cmd := &command.Command{Name: "echo", Value: "ON"}
-			return cmdMgr.Process(context.Background(), "", cmd)
-		}); err != nil {
-			return err
-		}
-	}
-
-	err := scope.Invoke(func(cmdMgr command.FileManager) error {
-		cb := func(ctx context.Context, _ *Task, exec StepExecutor) error {
-			suffix := StepUid(exec)
-			return cmdMgr.Initialize(ctx, suffix)
-		}
-		e.supervisor.Register(BeforeRunTaskCallback(cb))
-
-		cb = func(ctx context.Context, _ *Task, exec StepExecutor) error {
-			suffix := StepUid(exec)
-			return cmdMgr.Process(ctx, suffix)
-		}
-		e.supervisor.Register(AfterRunTaskCallback(cb))
-
-		ep := func() map[string]string {
-			exec := e.supervisor.CurrentStep()
-			if exec == nil {
-				return nil
-			}
-
-			suffix := StepUid(exec)
-			return cmdMgr.Env(suffix)
-		}
-		e.supervisor.Register(EnvProvider(ep))
-
-		return nil
-	})
-
+func (e *jobExecutor) provideEnv(envProv support.EnvProvider) {
 	runnerEnv := map[string]string{
 		"RUNNER_NAME":        e.runner.Name,
 		"RUNNER_ARCH":        string(e.runner.Arch),
@@ -393,23 +362,7 @@ func (e *jobExecutor) initializeScope(scope *dig.Scope) error {
 	if e.runner.Debug == "1" {
 		runnerEnv["RUNNER_DEBUG"] = "1"
 	}
-	e.supervisor.Register(Env(runnerEnv))
-
-	return err
-}
-
-type consoleCommandParams struct {
-	dig.In
-
-	CmdMgr   command.ConsoleManager
-	Handlers []*command.ConsoleHandler `group:"console-handlers"`
-}
-
-type fileCommandParams struct {
-	dig.In
-
-	CmdMgr   command.FileManager
-	Handlers []*command.FileHandler `group:"file-handlers"`
+	envProv.ProvideEnv(support.StaticEnv(runnerEnv))
 }
 
 func (e *jobExecutor) initializeSteps(ctx context.Context, scope *dig.Scope) error {
@@ -427,7 +380,9 @@ func (e *jobExecutor) initializeSteps(ctx context.Context, scope *dig.Scope) err
 	//return g.Wait()
 
 	for _, step := range e.jobRun.Steps {
-		exec := e.NewStepExecutor(step)
+		exec := NewStepExecutor(step)
+		e.stepExecutors[step.StepId()] = exec
+
 		s := scope.Scope(fmt.Sprintf("step(%s)", step.StepId()))
 		if err := exec.Initialize(ctx, s); err != nil {
 			return err
@@ -436,19 +391,24 @@ func (e *jobExecutor) initializeSteps(ctx context.Context, scope *dig.Scope) err
 	return nil
 }
 
-func (e *jobExecutor) runStage(ctx context.Context, stage Stage, fn func(StepRun) *Task) (ex error) {
-	spanName := fmt.Sprintf("JobExecutor.runStage(%s)", stage)
-	ctx, span := xotel.StartSpan(ctx, spanName,
-		trace.WithAttributes(xotel.DrassiStage(string(stage))),
+func (e *jobExecutor) runStage(ctx context.Context, stage Stage) (ex error) {
+	jobId := JobId(e)
+	ctx, done := xotel.SetupTelemetry(ctx,
+		fmt.Sprintf("JobExecutor.RunStage(%s, %s)", jobId, stage),
+		xotel.DrassiStage(stage),
 	)
-	defer xotel.EndSpan(span, &ex)
+	defer done(&ex)
 
-	ctx, logger := xotel.ChildLogger(ctx, "stage", stage)
-	logger.Infof("running stage %q", stage)
+	// setup listener
+	if eh := e.listener.OnRunStage(e, stage); eh != nil {
+		err := eh.Begin(ctx)
+		defer end(eh, &ex)
+		if err != nil {
+			return err
+		}
+	}
 
-	stop := e.supervisor.StartContext(ctx)
-	defer stop()
-
+	// do stage run
 	ids := make([]string, len(e.jobRun.Steps))
 	for i, step := range e.jobRun.Steps {
 		ids[i] = step.StepId()
@@ -457,8 +417,8 @@ func (e *jobExecutor) runStage(ctx context.Context, stage Stage, fn func(StepRun
 		slices.Reverse(ids) // in place reverse
 	}
 	for _, id := range ids {
-		exec := e.StepExecutor(id)
-		res := exec.RunStep(ctx, fn)
+		exec := e.stepExecutors[id]
+		res := exec.RunStep(ctx, stage)
 		if res == nil {
 			continue
 		}
@@ -468,7 +428,7 @@ func (e *jobExecutor) runStage(ctx context.Context, stage Stage, fn func(StepRun
 		}
 		if res.Conclusion == records.ResultFailure {
 			e.job.Result = records.ResultFailure
-			logger.Warnf("set job.Result='failure' because of step %s failed", id)
+			clog.WarnContextf(ctx, "set job.Result='failure' because of step %s failed", id)
 			return fmt.Errorf(`step %q (%s) failed`, id, stage)
 		}
 	}
@@ -476,8 +436,15 @@ func (e *jobExecutor) runStage(ctx context.Context, stage Stage, fn func(StepRun
 	return nil
 }
 
-func (e *jobExecutor) SystemPaths() []string {
-	return slices.Clone(e.paths)
+func (e *jobExecutor) State() *records.Job {
+	return e.job
+}
+
+func (e *jobExecutor) Status() records.Result {
+	if e.job != nil {
+		return e.job.Result
+	}
+	return records.ResultSuccess
 }
 
 func (e *jobExecutor) SetStatus(status records.Result) {
@@ -485,14 +452,18 @@ func (e *jobExecutor) SetStatus(status records.Result) {
 	e.jobInfo.Status = status
 }
 
+func (e *jobExecutor) SystemPaths() []string {
+	return slices.Clone(e.paths)
+}
+
 // AddPath prepending a directory to the system PATH variable (and remove duplicates).
 // It automatically makes it available to all subsequent actions in the current job.
 //
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L107
 // https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#adding-a-system-path
-func (e *jobExecutor) AddPath(paths []string) error {
+func (e *jobExecutor) AddPath(paths []string) {
 	if len(paths) == 0 {
-		return nil
+		return
 	}
 
 	newPaths := make([]string, 0, len(e.paths))
@@ -512,24 +483,14 @@ func (e *jobExecutor) AddPath(paths []string) error {
 	}
 
 	e.paths = newPaths
-	return nil
 }
-
-var setEnvBlockList = sets.New("NODE_OPTIONS")
 
 // SetEnv make an environment variable available to any subsequent steps in a workflow job.
 //
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L132
 // https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#setting-an-environment-variable
-func (e *jobExecutor) SetEnv(env map[string]string) error {
-	for k, v := range env {
-		if setEnvBlockList.Has(k) {
-			// TODO context.AddIssue
-			continue
-		}
-		e.env[k] = v
-	}
-	return nil
+func (e *jobExecutor) SetEnv(env map[string]string) {
+	maps.Copy(e.env, env)
 }
 
 func (e *jobExecutor) setupEventFile(ctx context.Context) (string, error) {

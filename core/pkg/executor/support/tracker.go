@@ -4,14 +4,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package reporter
+package support
 
 import (
 	"context"
 	"io"
-
-	"drassi.run/core/pkg/executor"
-	"drassi.run/core/pkg/model/records"
 )
 
 // https://github.com/actions/runner/blob/main/src/Sdk/DTWebApi/WebApi/Issue.cs
@@ -32,15 +29,7 @@ type Issue struct {
 	Data     map[string]string `json:"data,omitempty" yaml:"data,omitempty"`
 }
 
-type Reporter interface {
-	StartJob(ctx context.Context, je executor.JobExecutor) error
-	EndJob(ctx context.Context, je executor.JobExecutor, result *records.Job) error
-
-	StartStep(ctx context.Context, stage executor.Stage, se executor.StepExecutor) error
-	EndStep(ctx context.Context, stage executor.Stage, se executor.StepExecutor, result *records.Step) error
-
+type Tracker interface {
 	AddIssue(ctx context.Context, issue *Issue) error
-	AttachFile(kind, name string, reader io.Reader) error
-
-	Close() error
+	AttachFile(ctx context.Context, kind, name string, reader io.Reader) error
 }
