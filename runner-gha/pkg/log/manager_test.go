@@ -20,6 +20,7 @@ import (
 
 func TestNewManager(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "log-manager-*")
+	defer os.RemoveAll(tempDir)
 	require.NoError(t, err)
 
 	maxSize := int64(1024)
@@ -55,7 +56,11 @@ func (s *ManagerTestSuite) SetupTest() {
 }
 
 func (s *ManagerTestSuite) TearDownTest() {
-	_ = os.RemoveAll(s.m.dir)
+	err := s.m.Stop()
+	s.Require().NoError(err)
+
+	err = s.m.Close()
+	s.Require().NoError(err)
 }
 
 func (s *ManagerTestSuite) TestStartStop() {

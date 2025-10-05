@@ -202,5 +202,6 @@ func (m *Manager) Close() error {
 	for _, sub := range m.subs {
 		close(sub)
 	}
-	return nil
+	m.subs = nil // avoid panic when close twice
+	return os.RemoveAll(m.dir)
 }
