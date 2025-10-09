@@ -22,12 +22,9 @@ const (
 )
 
 type Event struct {
-	Kind     EventKind
-	Uid      string // UUID of step/job
-	File     string // File location
-	Complete bool   // Is File completed or not
-	Line     int64  // Line number of log record
-	Offset   int64  // Offset at the end of log record
+	Kind EventKind
+	Uid  string // UUID of step/job
+	*Update
 }
 
 func NewManager(dir string, maxSize int64) (*Manager, error) {
@@ -87,12 +84,14 @@ func (m *Manager) Handle(_ context.Context, line string) error {
 	}
 
 	e := &Event{
-		Uid:      m.currUid,
-		Kind:     OnRecordLog,
-		File:     m.currFile(),
-		Complete: false,
-		Line:     m.currLines,
-		Offset:   m.currSize,
+		Uid:  m.currUid,
+		Kind: OnRecordLog,
+		Update: &Update{
+			File:     m.currFile(),
+			Complete: false,
+			Line:     m.currLines,
+			Offset:   m.currSize,
+		},
 	}
 
 	if m.currSize >= m.maxSize {
@@ -176,10 +175,12 @@ func (m *Manager) Stop() error {
 	}
 
 	if m.f != nil {
-		e.File = m.currFile()
-		e.Complete = true
-		e.Line = m.currLines
-		e.Offset = m.currSize
+		e.Update = &Update{
+			File:     m.currFile(),
+			Complete: true,
+			Line:     m.currLines,
+			Offset:   m.currSize,
+		}
 
 		if err := m.rotate(); err != nil {
 			return err

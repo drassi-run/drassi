@@ -220,7 +220,7 @@ func (s *ManagerTestSuite) TestSubscribe() {
 		case e := <-sub:
 			assert.Equal(t, OnRecordStop, e.Kind)
 			assert.Equal(t, uid, e.Uid)
-			assert.Empty(t, e.File)
+			assert.Nil(t, e.Update)
 		case <-time.After(time.Second):
 			t.Fatal("timed out waiting for OnRecordStop")
 		}
