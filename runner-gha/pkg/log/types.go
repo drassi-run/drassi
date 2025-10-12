@@ -20,7 +20,7 @@ type Update struct {
 //
 // It describes a logical slice of filePath bounded by byte offsets
 // [startOffset, endOffset), and the corresponding line range
-// [startLine, endLine].
+// [startLine, endLine).
 type Section struct {
 	filePath    string
 	startOffset int64
