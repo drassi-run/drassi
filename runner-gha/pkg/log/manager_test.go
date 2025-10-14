@@ -184,7 +184,7 @@ func (s *ManagerTestSuite) TestSubscribe() {
 			assert.Equal(t, uid, e.Uid)
 			assert.Equal(t, filepath.Join(s.m.dir, uid+".0.log"), e.File)
 			assert.False(t, e.Complete)
-			assert.EqualValues(t, 1, e.Line)
+			assert.Equal(t, 1, e.Line)
 			assert.EqualValues(t, size, e.Offset)
 		case <-time.After(time.Second):
 			t.Fatal("timed out waiting for OnRecordLog")
@@ -201,7 +201,7 @@ func (s *ManagerTestSuite) TestSubscribe() {
 			assert.Equal(t, uid, e.Uid)
 			assert.Equal(t, filepath.Join(s.m.dir, uid+".0.log"), e.File)
 			assert.True(t, e.Complete)
-			assert.EqualValues(t, 2, e.Line)
+			assert.Equal(t, 2, e.Line)
 			assert.EqualValues(t, size, e.Offset)
 		case <-time.After(time.Second):
 			t.Fatal("timed out waiting for OnRecordLog")
@@ -243,7 +243,7 @@ func (s *ManagerTestSuite) TestSubscribe() {
 			assert.Equal(t, uid, e.Uid)
 			assert.Equal(t, file, e.File)
 			assert.False(t, e.Complete)
-			assert.EqualValues(t, 1, e.Line)
+			assert.Equal(t, 1, e.Line)
 			assert.EqualValues(t, size, e.Offset)
 		case <-time.After(time.Second):
 			t.Fatal("timed out waiting for OnRecordLog")
@@ -259,7 +259,7 @@ func (s *ManagerTestSuite) TestSubscribe() {
 			assert.Equal(t, uid, e.Uid)
 			assert.Equal(t, file, e.File)
 			assert.True(t, e.Complete)
-			assert.EqualValues(t, 1, e.Line)
+			assert.Equal(t, 1, e.Line)
 			assert.EqualValues(t, size, e.Offset)
 		case <-time.After(time.Second):
 			t.Fatal("timed out waiting for OnRecordStop")

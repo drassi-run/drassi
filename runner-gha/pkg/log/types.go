@@ -12,21 +12,21 @@ import (
 type Update struct {
 	File     string // File location
 	Complete bool   // Is File completed or not
-	Line     int64  // Line number of log record
 	Offset   int64  // Offset at the end of log record
+	Line     int    // Line number of log record
 }
 
 // Section represents a segment - contiguous region of a file.
 //
 // It describes a logical slice of filePath bounded by byte offsets
-// [startOffset, endOffset), and the corresponding line range
+// [startOffset, endOffset), and the corresponding 0-indexed line range
 // [startLine, endLine).
 type Section struct {
 	filePath    string
 	startOffset int64
 	endOffset   int64
-	startLine   int64
-	endLine     int64
+	startLine   int
+	endLine     int
 	eof         bool
 }
 
@@ -34,7 +34,7 @@ func (s *Section) Size() int64 {
 	return s.endOffset - s.startOffset
 }
 
-func (s *Section) Lines() int64 {
+func (s *Section) Lines() int {
 	return s.endLine - s.startLine
 }
 
@@ -79,8 +79,8 @@ func (c Chunk) Size() int64 {
 	return t
 }
 
-func (c Chunk) Lines() int64 {
-	t := int64(0)
+func (c Chunk) Lines() int {
+	t := 0
 	for _, s := range c {
 		t += s.Lines()
 	}

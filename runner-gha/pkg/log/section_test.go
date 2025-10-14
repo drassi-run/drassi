@@ -48,7 +48,7 @@ func (s *SectionTestSuite) TestMetadata() {
 	}
 
 	s.EqualValues(15, sec.Size())
-	s.EqualValues(3, sec.Lines())
+	s.Equal(3, sec.Lines())
 }
 
 func (s *SectionTestSuite) TestReader_Full() {
@@ -60,7 +60,7 @@ func (s *SectionTestSuite) TestReader_Full() {
 		startOffset: 0,
 		endOffset:   int64(len(content)),
 		startLine:   0,
-		endLine:     int64(len(s.lines)),
+		endLine:     len(s.lines),
 	}
 
 	r, err := sec.Reader()

@@ -46,8 +46,8 @@ type Manager struct {
 	maxSize int64
 
 	currUid   string
-	currLines int64
 	currSize  int64
+	currLines int
 	idx       int
 	f         *os.File
 
@@ -89,8 +89,8 @@ func (m *Manager) Handle(_ context.Context, line string) error {
 		Update: &Update{
 			File:     m.currFile(),
 			Complete: false,
-			Line:     m.currLines,
 			Offset:   m.currSize,
+			Line:     m.currLines,
 		},
 	}
 
@@ -178,8 +178,8 @@ func (m *Manager) Stop() error {
 		e.Update = &Update{
 			File:     m.currFile(),
 			Complete: true,
-			Line:     m.currLines,
 			Offset:   m.currSize,
+			Line:     m.currLines,
 		}
 
 		if err := m.rotate(); err != nil {
