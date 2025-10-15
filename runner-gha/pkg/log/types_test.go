@@ -2,6 +2,8 @@ package log
 
 import (
 	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -123,4 +125,182 @@ func (s *MultiReaderTestSuite) TestSeek_Edge() {
 
 	_, err = s.m.Read(buf)
 	assert.ErrorIs(t, io.EOF, err)
+}
+
+type SectionTestSuite struct {
+	suite.Suite
+	tempFile string
+	lines    []string
+}
+
+func TestSectionTestSuite(t *testing.T) {
+	suite.Run(t, new(SectionTestSuite))
+}
+
+func (s *SectionTestSuite) SetupSuite() {
+	f, err := os.CreateTemp("", "section-test-*.log")
+	s.Require().NoError(err)
+	s.tempFile = f.Name()
+	s.lines = []string{
+		"line1",
+		"line2",
+		"line3",
+		"line4",
+		"line5",
+	}
+	_, err = f.WriteString(strings.Join(s.lines, "\n"))
+	s.Require().NoError(err)
+	f.Close()
+}
+
+func (s *SectionTestSuite) TearDownSuite() {
+	os.Remove(s.tempFile)
+}
+
+func (s *SectionTestSuite) TestMetadata() {
+	sec := &Section{
+		startOffset: 10,
+		endOffset:   25,
+		startLine:   2,
+		endLine:     5,
+	}
+
+	s.EqualValues(15, sec.Size())
+	s.Equal(3, sec.Lines())
+}
+
+func (s *SectionTestSuite) TestReader_Full() {
+	content := strings.Join(s.lines, "\n")
+
+	// Full file section
+	sec := &Section{
+		filePath:    s.tempFile,
+		startOffset: 0,
+		endOffset:   int64(len(content)),
+		startLine:   0,
+		endLine:     len(s.lines),
+	}
+
+	r, err := sec.Reader()
+	s.Require().NoError(err)
+	defer r.Close()
+
+	buf, err := io.ReadAll(r)
+	s.Require().NoError(err)
+	s.EqualValues(content, buf)
+	s.True(sec.EOF())
+}
+
+func (s *SectionTestSuite) TestReader_Partial() {
+	// Partial section
+	sec := &Section{
+		filePath:    s.tempFile,
+		startOffset: 6,  // after "line1\n"
+		endOffset:   24, // includes "line4\n"
+		startLine:   1,
+		endLine:     4,
+	}
+
+	r, err := sec.Reader()
+	s.Require().NoError(err)
+	defer r.Close()
+
+	buf, err := io.ReadAll(r)
+	s.Require().NoError(err)
+	s.EqualValues(strings.Join(s.lines[1:4], "\n")+"\n", buf)
+	s.False(sec.EOF())
+	s.EqualValues(3, sec.Lines())
+}
+
+func (s *SectionTestSuite) TestReader_NonExistentFile() {
+	sec := &Section{
+		filePath: "non-existent-file.log",
+	}
+
+	_, err := sec.Reader()
+	s.Error(err)
+	s.True(os.IsNotExist(err))
+}
+
+type ChunkTestSuite struct {
+	suite.Suite
+	tmpDir string
+	f1     string
+	f2     string
+}
+
+func TestChunkTestSuite(t *testing.T) {
+	suite.Run(t, new(ChunkTestSuite))
+}
+
+func (s *ChunkTestSuite) SetupTest() {
+	var err error
+	s.tmpDir, err = os.MkdirTemp("", "chunk-test")
+	s.Require().NoError(err)
+
+	s.f1 = filepath.Join(s.tmpDir, "f1.log")
+	err = os.WriteFile(s.f1, []byte("line1\nline2\n"), 0644)
+	s.Require().NoError(err)
+
+	s.f2 = filepath.Join(s.tmpDir, "f2.log")
+	err = os.WriteFile(s.f2, []byte("line3\nline4\nline5\n"), 0644)
+	s.Require().NoError(err)
+}
+
+func (s *ChunkTestSuite) TearDownTest() {
+	os.RemoveAll(s.tmpDir)
+}
+
+func (s *ChunkTestSuite) TestEmpty() {
+	assert.True(s.T(), Chunk{}.Empty())
+	assert.False(s.T(), Chunk{&Section{}}.Empty())
+}
+
+func (s *ChunkTestSuite) TestSize() {
+	c := Chunk{
+		{startOffset: 0, endOffset: 12},
+		{startOffset: 0, endOffset: 18},
+	}
+	assert.EqualValues(s.T(), 30, c.Size())
+}
+
+func (s *ChunkTestSuite) TestLines() {
+	c := Chunk{
+		{startLine: 0, endLine: 2},
+		{startLine: 0, endLine: 3},
+	}
+	assert.EqualValues(s.T(), 5, c.Lines())
+}
+
+func (s *ChunkTestSuite) TestReader_Empty() {
+	r, err := Chunk{}.Reader()
+	require.NoError(s.T(), err)
+	defer r.Close()
+
+	content, err := io.ReadAll(r)
+	require.NoError(s.T(), err)
+	assert.Empty(s.T(), content)
+}
+
+func (s *ChunkTestSuite) TestReader_Single() {
+	s1 := &Section{filePath: s.f1, startOffset: 0, endOffset: 12, startLine: 0, endLine: 2}
+	r, err := Chunk{s1}.Reader()
+	s.Require().NoError(err)
+	defer r.Close()
+
+	content, err := io.ReadAll(r)
+	s.Require().NoError(err)
+	s.EqualValues("line1\nline2\n", content)
+}
+
+func (s *ChunkTestSuite) TestReader_Multiple() {
+	s1 := &Section{filePath: s.f1, startOffset: 0, endOffset: 12, startLine: 0, endLine: 2}
+	s2 := &Section{filePath: s.f2, startOffset: 0, endOffset: 18, startLine: 0, endLine: 3}
+	r, err := Chunk{s1, s2}.Reader()
+	s.Require().NoError(err)
+	defer r.Close()
+
+	content, err := io.ReadAll(r)
+	s.Require().NoError(err)
+	s.EqualValues("line1\nline2\nline3\nline4\nline5\n", content)
 }
