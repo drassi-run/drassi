@@ -16,6 +16,14 @@ type Update struct {
 	Line     int    // Line number of log record
 }
 
+func newSection(u *Update) *Section {
+	return &Section{
+		filePath:  u.File,
+		endOffset: u.Offset,
+		endLine:   u.Line,
+	}
+}
+
 // Section represents a segment - contiguous region of a file.
 //
 // It describes a logical slice of filePath bounded by byte offsets
@@ -30,6 +38,10 @@ type Section struct {
 	eof         bool
 }
 
+func (s *Section) Empty() bool {
+	return s == nil || s.Size() <= 0
+}
+
 func (s *Section) Size() int64 {
 	return s.endOffset - s.startOffset
 }
@@ -41,6 +53,24 @@ func (s *Section) Lines() int {
 // EOF indicate Section is end of file or not
 func (s *Section) EOF() bool {
 	return s.eof
+}
+
+// update endOffset and endLine from u
+func (s *Section) update(u *Update) *Section {
+	s.endOffset = u.Offset
+	s.endLine = u.Line
+	return s
+}
+
+// next return new Section start from the end of current one
+func (s *Section) next() *Section {
+	return &Section{
+		filePath:    s.filePath,
+		startOffset: s.endOffset,
+		endOffset:   s.endOffset,
+		startLine:   s.endLine,
+		endLine:     s.endLine,
+	}
 }
 
 func (s *Section) Reader() (io.ReadSeekCloser, error) {
@@ -68,7 +98,12 @@ func (s *Section) Reader() (io.ReadSeekCloser, error) {
 type Chunk []*Section
 
 func (c Chunk) Empty() bool {
-	return len(c) == 0
+	for _, s := range c {
+		if !s.Empty() {
+			return false
+		}
+	}
+	return true
 }
 
 func (c Chunk) Size() int64 {

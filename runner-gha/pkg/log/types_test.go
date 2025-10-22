@@ -253,7 +253,7 @@ func (s *ChunkTestSuite) TearDownTest() {
 
 func (s *ChunkTestSuite) TestEmpty() {
 	assert.True(s.T(), Chunk{}.Empty())
-	assert.False(s.T(), Chunk{&Section{}}.Empty())
+	assert.False(s.T(), Chunk{&Section{startOffset: 0, endOffset: 2}}.Empty())
 }
 
 func (s *ChunkTestSuite) TestSize() {

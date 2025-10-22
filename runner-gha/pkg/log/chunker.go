@@ -14,13 +14,12 @@ func NewChunker(softLimit int64) *Chunker {
 type Chunker struct {
 	softLimit int64
 
-	mu       sync.Mutex
-	ch       chan Chunk
-	chunk    Chunk
-	size     int64  // Total size of current chunk
-	lastFile string // Last file processed
-	offset   int64  // Offset (byte) of last file
-	line     int    // Line number of last file
+	mu sync.Mutex
+	ch chan Chunk
+
+	chunk   Chunk    // current Chunk
+	size    int64    // pre-computed Chunk size
+	section *Section // current Section
 }
 
 func (cr *Chunker) Channel() <-chan Chunk {
@@ -28,7 +27,7 @@ func (cr *Chunker) Channel() <-chan Chunk {
 }
 
 func (cr *Chunker) Update(u *Update) {
-	if c := cr.update(u); c != nil {
+	if c := cr.update(u); !c.Empty() {
 		cr.ch <- c
 	}
 }
@@ -37,50 +36,44 @@ func (cr *Chunker) update(u *Update) Chunk {
 	cr.mu.Lock()
 	defer cr.mu.Unlock()
 
-	if cr.lastFile != u.File {
-		cr.lastFile = u.File
-		cr.offset = 0
-		cr.line = 0
+	if cr.section == nil {
+		cr.section = newSection(u)
+	} else if cr.section.filePath != u.File {
+		s := newSection(u)
+		cr.stageSection(s)
+	} else {
+		cr.section.update(u)
 	}
 
 	if u.Complete {
-		if cr.offset < u.Offset {
-			cr.appendSection(u)
-		}
-		if cr.size >= cr.softLimit {
-			return cr.flush()
-		}
-	} else {
-		if cr.offset < u.Offset {
-			cr.appendSection(u)
-		}
-		if cr.size >= cr.softLimit {
-			return cr.flush()
-		}
+		cr.stageSection(nil)
+	} else if cr.size+cr.section.Size() >= cr.softLimit {
+		s := cr.section.next()
+		cr.stageSection(s)
 	}
 
+	if cr.size >= cr.softLimit {
+		return cr.flush()
+	}
 	return nil
 }
 
-func (cr *Chunker) appendSection(u *Update) {
-	s := &Section{
-		filePath:    u.File,
-		startOffset: cr.offset,
-		endOffset:   u.Offset,
-		startLine:   cr.line,
-		endLine:     u.Line,
+// append current Section to the Chunk (if any) and assign it to new one
+func (cr *Chunker) stageSection(new *Section) {
+	if !cr.section.Empty() {
+		cr.chunk = append(cr.chunk, cr.section)
+		cr.size += cr.section.Size()
 	}
-	cr.chunk = append(cr.chunk, s)
-	cr.size += u.Offset - cr.offset
-	cr.offset, cr.line = u.Offset, u.Line
+	cr.section = new
 }
 
 func (cr *Chunker) Close() error {
 	cr.mu.Lock()
+	cr.stageSection(nil)
 	c := cr.flush()
 	cr.mu.Unlock()
 
-	if c != nil {
+	if !c.Empty() {
 		cr.ch <- c
 	}
 	close(cr.ch)
