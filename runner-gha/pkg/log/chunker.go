@@ -14,12 +14,13 @@ func NewChunker(softLimit int64) *Chunker {
 type Chunker struct {
 	softLimit int64
 
-	mu     sync.Mutex
-	ch     chan Chunk
-	chunk  Chunk
-	size   int64 // Total size of current chunk
-	offset int64 // Offset (byte) of last file
-	line   int   // Line number of last file
+	mu       sync.Mutex
+	ch       chan Chunk
+	chunk    Chunk
+	size     int64  // Total size of current chunk
+	lastFile string // Last file processed
+	offset   int64  // Offset (byte) of last file
+	line     int    // Line number of last file
 }
 
 func (cr *Chunker) Channel() <-chan Chunk {
@@ -36,20 +37,25 @@ func (cr *Chunker) update(u *Update) Chunk {
 	cr.mu.Lock()
 	defer cr.mu.Unlock()
 
+	if cr.lastFile != u.File {
+		cr.lastFile = u.File
+		cr.offset = 0
+		cr.line = 0
+	}
+
 	if u.Complete {
 		if cr.offset < u.Offset {
 			cr.appendSection(u)
 		}
 		if cr.size >= cr.softLimit {
-			return cr.reset()
+			return cr.flush()
 		}
 	} else {
-		if cr.size+u.Offset-cr.offset >= cr.softLimit {
+		if cr.offset < u.Offset {
 			cr.appendSection(u)
-
-			c := cr.chunk
-			cr.chunk = nil
-			return c
+		}
+		if cr.size >= cr.softLimit {
+			return cr.flush()
 		}
 	}
 
@@ -71,7 +77,7 @@ func (cr *Chunker) appendSection(u *Update) {
 
 func (cr *Chunker) Close() error {
 	cr.mu.Lock()
-	c := cr.reset()
+	c := cr.flush()
 	cr.mu.Unlock()
 
 	if c != nil {
@@ -81,10 +87,10 @@ func (cr *Chunker) Close() error {
 	return nil
 }
 
-// Reset state and return the current Chunk if any.
+// flush state and return the current Chunk if any.
 // NOTE: The caller MUST be inside mu.Lock
-func (cr *Chunker) reset() Chunk {
+func (cr *Chunker) flush() Chunk {
 	c := cr.chunk
-	cr.chunk, cr.size, cr.offset = nil, 0, 0
+	cr.chunk, cr.size = nil, 0
 	return c
 }
