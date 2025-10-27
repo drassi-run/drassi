@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: (c) 2024 The Drassi Authors
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 package log
 
 import "sync"
@@ -17,9 +23,9 @@ type Chunker struct {
 	mu sync.Mutex
 	ch chan Chunk
 
-	chunk   Chunk    // current Chunk
+	chunk   Chunk    // stating Chunk
 	size    int64    // pre-computed Chunk size
-	section *Section // current Section
+	section *Section // stating Section
 }
 
 func (cr *Chunker) Channel() <-chan Chunk {
