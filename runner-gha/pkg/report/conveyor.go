@@ -17,6 +17,62 @@ type Conveyor interface {
 	Run(ctx context.Context) (*Stat, error)
 }
 
+func NewStorageAwareConveyor(f func(context.Context) (signedUrlResponse, error)) Conveyor {
+	return &storageAwareConveyor{getUrl: f}
+}
+
+// storageAwareConveyor implement Conveyor that selects the appropriate storage backend
+// (e.g., S3, Azure Blob, or GCS) based on response of getUrl.
+type storageAwareConveyor struct {
+	Conveyor
+	getUrl func(context.Context) (signedUrlResponse, error)
+}
+
+func (s *storageAwareConveyor) Run(ctx context.Context) (*Stat, error) {
+	if c, err := s.underlay(ctx); err != nil {
+		return nil, err
+	} else {
+		return c.Run(ctx)
+	}
+}
+
+func (s *storageAwareConveyor) underlay(ctx context.Context) (Conveyor, error) {
+	if s.Conveyor == nil {
+		r, err := s.getUrl(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		softLimit := int64(10) * 1024 * 1024 // 10MBi
+		if i, ok := r.(interface{ GetSoftSizeLimit() int64 }); ok {
+			softLimit = i.GetSoftSizeLimit()
+		}
+		//goland:noinspection GoResourceLeak
+		chunker := log.NewChunker(softLimit)
+
+		switch typ := r.GetStorageType(); typ {
+		case StorageAzureBlob:
+			s.Conveyor = &azureBlobConveyor{chunker, s.getUrlString}
+		default:
+			return nil, fmt.Errorf("unsupported storage type %s", typ)
+		}
+	}
+
+	return s.Conveyor, nil
+}
+
+func (s *storageAwareConveyor) getUrlString(ctx context.Context) (string, error) {
+	if r, err := s.getUrl(ctx); err != nil {
+		return "", err
+	} else {
+		return r.GetUrl(), nil
+	}
+}
+
+// azureBlobConveyor is Conveyor implementation for Azure Blob storage backend.
+// It upload Chunks into [AppendBlob].
+//
+// [AppendBlob]: https://learn.microsoft.com/en-us/rest/api/storageservices/operations-on-append-blobs
 type azureBlobConveyor struct {
 	chunker *log.Chunker
 	getUrl  func(context.Context) (string, error)
