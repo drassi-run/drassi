@@ -9,9 +9,11 @@ go 1.26
 require (
 	drassi.run/core v0.0.0-00010101000000-000000000000
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.21.0
+	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.6.4
 	github.com/chainguard-dev/clog v1.7.0
 	github.com/charmbracelet/huh v0.6.0
 	github.com/charmbracelet/huh/spinner v0.0.0-20250331173942-310cd4a379ac
+	github.com/coder/websocket v1.8.14
 	github.com/google/go-cmp v0.7.0
 	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.11.1
