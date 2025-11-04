@@ -74,7 +74,7 @@ func (s *storageAwareConveyor) getUrlString(ctx context.Context) (string, error)
 //
 // [AppendBlob]: https://learn.microsoft.com/en-us/rest/api/storageservices/operations-on-append-blobs
 type azureBlobConveyor struct {
-	chunker *log.Chunker
+	chunker log.Chunker
 	getUrl  func(context.Context) (string, error)
 }
 

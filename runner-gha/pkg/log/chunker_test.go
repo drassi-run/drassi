@@ -14,7 +14,7 @@ import (
 
 type ChunkerTestSuite struct {
 	suite.Suite
-	cr *Chunker
+	cr *chunker
 }
 
 func TestChunkerTestSuite(t *testing.T) {
@@ -22,7 +22,7 @@ func TestChunkerTestSuite(t *testing.T) {
 }
 
 func (s *ChunkerTestSuite) SetupTest() {
-	s.cr = NewChunker(100)
+	s.cr = NewChunker(100).(*chunker)
 }
 
 func (s *ChunkerTestSuite) TestBasicChunking() {
@@ -48,7 +48,7 @@ func (s *ChunkerTestSuite) TestBasicChunking() {
 }
 
 func (s *ChunkerTestSuite) TestMultipleSections() {
-	// Chunk 2: test1, test2 + test3(offset=50)
+	// Chunk 1: test1, test2 + test3(offset=50)
 	s.cr.Update(&Update{File: "test1.log", Complete: true, Offset: 40, Line: 5})
 	s.cr.Update(&Update{File: "test2.log", Complete: true, Offset: 30, Line: 3})
 	select {
@@ -159,10 +159,11 @@ func (s *ChunkerTestSuite) TestMultipleFiles() {
 
 	select {
 	case c := <-s.cr.Channel():
+		ck := c.(chunk)
 		s.Len(c, 2)
 		s.EqualValues(120, c.Size())
-		s.Equal("file1.log", c[0].filePath)
-		s.Equal("file2.log", c[1].filePath)
+		s.Equal("file1.log", ck[0].filePath)
+		s.Equal("file2.log", ck[1].filePath)
 	default:
 		s.FailNow("Expected a chunk to be emitted")
 	}

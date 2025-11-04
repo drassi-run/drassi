@@ -22,88 +22,17 @@ type Update struct {
 	Line     int    // Line number of log record
 }
 
-func newSection(u *Update) *Section {
-	return &Section{
-		filePath:  u.File,
-		endOffset: u.Offset,
-		endLine:   u.Line,
-	}
+type Chunk interface {
+	Empty() bool
+	Size() int64
+	Lines() int
+	Reader() (io.ReadSeekCloser, error)
 }
 
-// Section represents a segment - contiguous region of a file.
-//
-// It describes a logical slice of filePath bounded by byte offsets
-// [startOffset, endOffset), and the corresponding 0-indexed line range
-// [startLine, endLine).
-type Section struct {
-	filePath    string
-	startOffset int64
-	endOffset   int64
-	startLine   int
-	endLine     int
-	eof         bool
-}
+// chunk aggregates multiple section from different files and treat as a single logical block.
+type chunk []*section
 
-func (s *Section) Empty() bool {
-	return s == nil || s.Size() <= 0
-}
-
-func (s *Section) Size() int64 {
-	return s.endOffset - s.startOffset
-}
-
-func (s *Section) Lines() int {
-	return s.endLine - s.startLine
-}
-
-// EOF indicate Section is end of file or not
-func (s *Section) EOF() bool {
-	return s.eof
-}
-
-// update endOffset and endLine from u
-func (s *Section) update(u *Update) *Section {
-	s.endOffset = u.Offset
-	s.endLine = u.Line
-	return s
-}
-
-// next return new Section start from the end of current one
-func (s *Section) next() *Section {
-	return &Section{
-		filePath:    s.filePath,
-		startOffset: s.endOffset,
-		endOffset:   s.endOffset,
-		startLine:   s.endLine,
-		endLine:     s.endLine,
-	}
-}
-
-func (s *Section) Reader() (io.ReadSeekCloser, error) {
-	f, err := os.Open(s.filePath)
-	if err != nil {
-		return nil, err
-	}
-
-	var size int64
-	if stat, err := f.Stat(); err != nil {
-		return nil, err
-	} else {
-		size = stat.Size()
-	}
-
-	s.eof = s.endOffset >= size
-	if s.startOffset <= 0 && size <= s.endOffset {
-		return f, nil
-	}
-	sr := io.NewSectionReader(f, s.startOffset, s.Size())
-	return rsc{sr, f}, nil
-}
-
-// Chunk aggregates multiple Section from different files and treat as a single logical block.
-type Chunk []*Section
-
-func (c Chunk) Empty() bool {
+func (c chunk) Empty() bool {
 	for _, s := range c {
 		if !s.Empty() {
 			return false
@@ -112,7 +41,7 @@ func (c Chunk) Empty() bool {
 	return true
 }
 
-func (c Chunk) Size() int64 {
+func (c chunk) Size() int64 {
 	t := int64(0)
 	for _, s := range c {
 		t += s.Size()
@@ -120,7 +49,7 @@ func (c Chunk) Size() int64 {
 	return t
 }
 
-func (c Chunk) Lines() int {
+func (c chunk) Lines() int {
 	t := 0
 	for _, s := range c {
 		t += s.Lines()
@@ -128,7 +57,7 @@ func (c Chunk) Lines() int {
 	return t
 }
 
-func (c Chunk) Reader() (io.ReadSeekCloser, error) {
+func (c chunk) Reader() (io.ReadSeekCloser, error) {
 	switch len(c) {
 	case 0:
 		return empty, nil
@@ -147,6 +76,84 @@ func (c Chunk) Reader() (io.ReadSeekCloser, error) {
 		}
 		return m, nil
 	}
+}
+
+func newSection(u *Update) *section {
+	return &section{
+		filePath:  u.File,
+		endOffset: u.Offset,
+		endLine:   u.Line,
+	}
+}
+
+// section represents a segment - contiguous region of a file.
+//
+// It describes a logical slice of filePath bounded by byte offsets
+// [startOffset, endOffset), and the corresponding 0-indexed line range
+// [startLine, endLine).
+type section struct {
+	filePath    string
+	startOffset int64
+	endOffset   int64
+	startLine   int
+	endLine     int
+	eof         bool
+}
+
+func (s *section) Empty() bool {
+	return s == nil || s.Size() <= 0
+}
+
+func (s *section) Size() int64 {
+	return s.endOffset - s.startOffset
+}
+
+func (s *section) Lines() int {
+	return s.endLine - s.startLine
+}
+
+// EOF indicate section is end of file or not
+func (s *section) EOF() bool {
+	return s.eof
+}
+
+// update endOffset and endLine from u
+func (s *section) update(u *Update) *section {
+	s.endOffset = u.Offset
+	s.endLine = u.Line
+	return s
+}
+
+// next return new section start from the end of current one
+func (s *section) next() *section {
+	return &section{
+		filePath:    s.filePath,
+		startOffset: s.endOffset,
+		endOffset:   s.endOffset,
+		startLine:   s.endLine,
+		endLine:     s.endLine,
+	}
+}
+
+func (s *section) Reader() (io.ReadSeekCloser, error) {
+	f, err := os.Open(s.filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	var size int64
+	if stat, err := f.Stat(); err != nil {
+		return nil, err
+	} else {
+		size = stat.Size()
+	}
+
+	s.eof = s.endOffset >= size
+	if s.startOffset <= 0 && size <= s.endOffset {
+		return f, nil
+	}
+	sr := io.NewSectionReader(f, s.startOffset, s.Size())
+	return rsc{sr, f}, nil
 }
 
 var empty = streaming.NopCloser(strings.NewReader(""))
