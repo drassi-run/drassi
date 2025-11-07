@@ -2,20 +2,24 @@ package report
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
-	"drassi.run/gha-runner/mock/log"
+	mock_log "drassi.run/gha-runner/mock/log"
 	"drassi.run/gha-runner/pkg/log"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/streaming"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
 )
 
-func TestAzureBlobConveyorTestSuite(t *testing.T) {
+func TestAzureBlobConveyorSuite(t *testing.T) {
 	suite.Run(t, new(AzureBlobConveyorTestSuite))
 }
 
@@ -181,4 +185,75 @@ func azureBlobError(httpCode int, errorCode, message string) http.HandlerFunc {
 
 		fmt.Fprintf(w, "<Error>\n\t<Code>%s</Code>\n\t<Message>%s</Message>\n</Error>", errorCode, message)
 	}
+}
+
+type mockConveyor struct {
+	Conveyor
+	mock.Mock
+}
+
+func (c *mockConveyor) Run(ctx context.Context) (*Stat, error) {
+	args := c.Called(ctx)
+	var stat *Stat
+	if s := args.Get(0); s != nil {
+		stat = s.(*Stat)
+	}
+	return stat, args.Error(1)
+}
+
+func TestStorageAwareConveyor(t *testing.T) {
+	t.Run("azure_blob", func(t *testing.T) {
+		s := NewStorageAwareConveyor(func(context.Context) (signedUrlResponse, error) {
+			r := &signedUrlJobLogsResponse{StorageType: StorageAzureBlob}
+			return r, nil
+		}).(*storageAwareConveyor)
+
+		u, err := s.underlay(t.Context())
+		require.NoError(t, err)
+		assert.IsType(t, new(azureBlobConveyor), u)
+	})
+
+	t.Run("invalid", func(t *testing.T) {
+		s := NewStorageAwareConveyor(func(context.Context) (signedUrlResponse, error) {
+			r := &signedUrlJobLogsResponse{StorageType: "UNSUPPORTED"}
+			return r, nil
+		}).(*storageAwareConveyor)
+
+		_, err := s.underlay(t.Context())
+		require.ErrorContains(t, err, "unsupported storage type")
+	})
+
+	t.Run("getUrl-error", func(t *testing.T) {
+		s := NewStorageAwareConveyor(func(context.Context) (signedUrlResponse, error) {
+			return nil, errors.New("getUrl error")
+		}).(*storageAwareConveyor)
+
+		_, err := s.underlay(t.Context())
+		require.ErrorContains(t, err, "getUrl error")
+	})
+
+	t.Run("upload-success", func(t *testing.T) {
+		ctx := t.Context()
+		stat := NewStat(10, 100)
+
+		con := new(mockConveyor)
+		con.On("Run", ctx).Return(stat, nil)
+		c := &storageAwareConveyor{Conveyor: con}
+
+		res, err := c.Run(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, stat, res)
+	})
+
+	t.Run("upload-error", func(t *testing.T) {
+		ctx := t.Context()
+
+		con := new(mockConveyor)
+		con.On("Run", ctx).Return(nil, errors.New("upload error"))
+		c := &storageAwareConveyor{Conveyor: con}
+
+		stat, err := c.Run(ctx)
+		require.ErrorContains(t, err, "upload error")
+		assert.Nil(t, stat)
+	})
 }
