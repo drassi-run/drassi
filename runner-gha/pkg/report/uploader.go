@@ -2,6 +2,7 @@ package report
 
 import (
 	"context"
+	"fmt"
 	"io"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/blockblob"
@@ -10,6 +11,51 @@ import (
 // Uploader used to one-shot upload a file to cloud storage
 type Uploader interface {
 	Upload(ctx context.Context, r io.Reader, stat *Stat) error
+}
+
+func NewStorageAwareUploader(f func(context.Context) (signedUrlResponse, error)) Uploader {
+	return &storageAwareUploader{getUrl: f}
+}
+
+// storageAwareUploader implement Uploader that selects the appropriate storage backend
+// (e.g., S3, Azure Blob, or GCS) based on response of getUrl.
+type storageAwareUploader struct {
+	Uploader
+	getUrl func(context.Context) (signedUrlResponse, error)
+}
+
+func (s *storageAwareUploader) Upload(ctx context.Context, r io.Reader, stat *Stat) error {
+	if u, err := s.underlay(ctx); err != nil {
+		return err
+	} else {
+		return u.Upload(ctx, r, stat)
+	}
+}
+
+func (s *storageAwareUploader) underlay(ctx context.Context) (Uploader, error) {
+	if s.Uploader == nil {
+		r, err := s.getUrl(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		switch typ := r.GetStorageType(); typ {
+		case StorageAzureBlob:
+			s.Uploader = &azureBlobUploader{s.getUrlString}
+		default:
+			return nil, fmt.Errorf("unsupported storage type %s", typ)
+		}
+	}
+
+	return s.Uploader, nil
+}
+
+func (s *storageAwareUploader) getUrlString(ctx context.Context) (string, error) {
+	if r, err := s.getUrl(ctx); err != nil {
+		return "", err
+	} else {
+		return r.GetUrl(), nil
+	}
 }
 
 // azureBlobUploader is Uploader implementation for Azure Blob storage backend.
