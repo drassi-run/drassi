@@ -22,13 +22,6 @@ type Update struct {
 	Line     int    // Line number of log record
 }
 
-type Chunk interface {
-	Empty() bool
-	Size() int64
-	Lines() int
-	Reader() (io.ReadSeekCloser, error)
-}
-
 // chunk aggregates multiple section from different files and treat as a single logical block.
 type chunk []*section
 

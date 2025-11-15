@@ -6,7 +6,17 @@
 
 package log
 
-import "sync"
+import (
+	"io"
+	"sync"
+)
+
+type Chunk interface {
+	Empty() bool
+	Size() int64
+	Lines() int
+	Reader() (io.ReadSeekCloser, error)
+}
 
 type Chunker interface {
 	Channel() <-chan Chunk
