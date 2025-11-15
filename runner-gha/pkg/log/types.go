@@ -7,10 +7,12 @@
 package log
 
 import (
+	"bufio"
 	"errors"
 	"io"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/streaming"
 )
@@ -69,6 +71,38 @@ func (c chunk) Reader() (io.ReadSeekCloser, error) {
 		}
 		return m, nil
 	}
+}
+
+func (c chunk) Scan() ([]string, error) {
+	l := len(c)
+	if l == 0 {
+		return nil, nil
+	}
+	if l == 1 {
+		return c[0].Scan()
+	}
+
+	pages := make([][]string, l)
+	errs := make([]error, l)
+	var wg sync.WaitGroup
+	wg.Add(l)
+	for i, s := range c {
+		go func(sec *section) {
+			pages[i], errs[i] = sec.Scan()
+			wg.Done()
+		}(s)
+	}
+
+	wg.Wait()
+	return c.flatten(pages), errors.Join(errs...)
+}
+
+func (c chunk) flatten(in [][]string) []string {
+	var out []string
+	for _, arr := range in {
+		out = append(out, arr...)
+	}
+	return out
 }
 
 func newSection(u *Update) *section {
@@ -147,6 +181,25 @@ func (s *section) Reader() (io.ReadSeekCloser, error) {
 	}
 	sr := io.NewSectionReader(f, s.startOffset, s.Size())
 	return rsc{sr, f}, nil
+}
+
+func (s *section) Scan() ([]string, error) {
+	r, err := s.Reader()
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+
+	scanner := bufio.NewScanner(r)
+	lines := make([]string, 0, s.Lines())
+
+	for scanner.Scan() {
+		lines = append(lines, scanner.Text())
+	}
+	if err = scanner.Err(); err != nil {
+		return nil, err
+	}
+	return lines, nil
 }
 
 var empty = streaming.NopCloser(strings.NewReader(""))
