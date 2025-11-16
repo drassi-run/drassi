@@ -228,6 +228,21 @@ func (s *SectionTestSuite) TestReader_NonExistentFile() {
 	s.True(os.IsNotExist(err))
 }
 
+func (s *SectionTestSuite) TestScan() {
+	content := strings.Join(s.lines, "\n")
+	sec := &section{
+		filePath:    s.tempFile,
+		startOffset: 0,
+		endOffset:   int64(len(content)),
+		startLine:   0,
+		endLine:     len(s.lines),
+	}
+
+	lines, err := sec.Scan()
+	s.Require().NoError(err)
+	s.Equal(s.lines, lines)
+}
+
 type ChunkTestSuite struct {
 	suite.Suite
 	tmpDir string
@@ -309,4 +324,25 @@ func (s *ChunkTestSuite) TestReader_Multiple() {
 	content, err := io.ReadAll(r)
 	s.Require().NoError(err)
 	s.EqualValues("line1\nline2\nline3\nline4\nline5\n", content)
+}
+
+func (s *ChunkTestSuite) TestScan_Empty() {
+	lines, err := new(chunk).Scan()
+	s.Require().NoError(err)
+	s.Nil(lines)
+}
+
+func (s *ChunkTestSuite) TestScan_Single() {
+	s1 := &section{filePath: s.f1, startOffset: 0, endOffset: 12, startLine: 0, endLine: 2}
+	lines, err := chunk{s1}.Scan()
+	s.Require().NoError(err)
+	s.Equal([]string{"line1", "line2"}, lines)
+}
+
+func (s *ChunkTestSuite) TestScan_Multiple() {
+	s1 := &section{filePath: s.f1, startOffset: 0, endOffset: 12, startLine: 0, endLine: 2}
+	s2 := &section{filePath: s.f2, startOffset: 0, endOffset: 18, startLine: 0, endLine: 3}
+	lines, err := chunk{s1, s2}.Scan()
+	s.Require().NoError(err)
+	s.Equal([]string{"line1", "line2", "line3", "line4", "line5"}, lines)
 }
