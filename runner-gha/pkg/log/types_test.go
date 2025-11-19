@@ -243,20 +243,20 @@ func (s *SectionTestSuite) TestScan() {
 	s.Equal(s.lines, lines)
 }
 
-type ChunkTestSuite struct {
+type SectionsTestSuite struct {
 	suite.Suite
 	tmpDir string
 	f1     string
 	f2     string
 }
 
-func TestChunkTestSuite(t *testing.T) {
-	suite.Run(t, new(ChunkTestSuite))
+func TestSectionsTestSuite(t *testing.T) {
+	suite.Run(t, new(SectionsTestSuite))
 }
 
-func (s *ChunkTestSuite) SetupTest() {
+func (s *SectionsTestSuite) SetupTest() {
 	var err error
-	s.tmpDir, err = os.MkdirTemp("", "chunk-test")
+	s.tmpDir, err = os.MkdirTemp("", "sections-test")
 	s.Require().NoError(err)
 
 	s.f1 = filepath.Join(s.tmpDir, "f1.log")
@@ -268,33 +268,33 @@ func (s *ChunkTestSuite) SetupTest() {
 	s.Require().NoError(err)
 }
 
-func (s *ChunkTestSuite) TearDownTest() {
+func (s *SectionsTestSuite) TearDownTest() {
 	os.RemoveAll(s.tmpDir)
 }
 
-func (s *ChunkTestSuite) TestEmpty() {
-	assert.True(s.T(), chunk{}.Empty())
-	assert.False(s.T(), chunk{&section{startOffset: 0, endOffset: 2}}.Empty())
+func (s *SectionsTestSuite) TestEmpty() {
+	assert.True(s.T(), sections{}.Empty())
+	assert.False(s.T(), sections{&section{startOffset: 0, endOffset: 2}}.Empty())
 }
 
-func (s *ChunkTestSuite) TestSize() {
-	c := chunk{
+func (s *SectionsTestSuite) TestSize() {
+	c := sections{
 		{startOffset: 0, endOffset: 12},
 		{startOffset: 0, endOffset: 18},
 	}
 	assert.EqualValues(s.T(), 30, c.Size())
 }
 
-func (s *ChunkTestSuite) TestLines() {
-	c := chunk{
+func (s *SectionsTestSuite) TestLines() {
+	c := sections{
 		{startLine: 0, endLine: 2},
 		{startLine: 0, endLine: 3},
 	}
 	assert.EqualValues(s.T(), 5, c.Lines())
 }
 
-func (s *ChunkTestSuite) TestReader_Empty() {
-	r, err := chunk{}.Reader()
+func (s *SectionsTestSuite) TestReader_Empty() {
+	r, err := sections{}.Reader()
 	require.NoError(s.T(), err)
 	defer r.Close()
 
@@ -303,9 +303,9 @@ func (s *ChunkTestSuite) TestReader_Empty() {
 	assert.Empty(s.T(), content)
 }
 
-func (s *ChunkTestSuite) TestReader_Single() {
+func (s *SectionsTestSuite) TestReader_Single() {
 	s1 := &section{filePath: s.f1, startOffset: 0, endOffset: 12, startLine: 0, endLine: 2}
-	r, err := chunk{s1}.Reader()
+	r, err := sections{s1}.Reader()
 	s.Require().NoError(err)
 	defer r.Close()
 
@@ -314,10 +314,10 @@ func (s *ChunkTestSuite) TestReader_Single() {
 	s.EqualValues("line1\nline2\n", content)
 }
 
-func (s *ChunkTestSuite) TestReader_Multiple() {
+func (s *SectionsTestSuite) TestReader_Multiple() {
 	s1 := &section{filePath: s.f1, startOffset: 0, endOffset: 12, startLine: 0, endLine: 2}
 	s2 := &section{filePath: s.f2, startOffset: 0, endOffset: 18, startLine: 0, endLine: 3}
-	r, err := chunk{s1, s2}.Reader()
+	r, err := sections{s1, s2}.Reader()
 	s.Require().NoError(err)
 	defer r.Close()
 
@@ -326,23 +326,23 @@ func (s *ChunkTestSuite) TestReader_Multiple() {
 	s.EqualValues("line1\nline2\nline3\nline4\nline5\n", content)
 }
 
-func (s *ChunkTestSuite) TestScan_Empty() {
-	lines, err := new(chunk).Scan()
+func (s *SectionsTestSuite) TestScan_Empty() {
+	lines, err := new(sections).Scan()
 	s.Require().NoError(err)
 	s.Nil(lines)
 }
 
-func (s *ChunkTestSuite) TestScan_Single() {
+func (s *SectionsTestSuite) TestScan_Single() {
 	s1 := &section{filePath: s.f1, startOffset: 0, endOffset: 12, startLine: 0, endLine: 2}
-	lines, err := chunk{s1}.Scan()
+	lines, err := sections{s1}.Scan()
 	s.Require().NoError(err)
 	s.Equal([]string{"line1", "line2"}, lines)
 }
 
-func (s *ChunkTestSuite) TestScan_Multiple() {
+func (s *SectionsTestSuite) TestScan_Multiple() {
 	s1 := &section{filePath: s.f1, startOffset: 0, endOffset: 12, startLine: 0, endLine: 2}
 	s2 := &section{filePath: s.f2, startOffset: 0, endOffset: 18, startLine: 0, endLine: 3}
-	lines, err := chunk{s1, s2}.Scan()
+	lines, err := sections{s1, s2}.Scan()
 	s.Require().NoError(err)
 	s.Equal([]string{"line1", "line2", "line3", "line4", "line5"}, lines)
 }

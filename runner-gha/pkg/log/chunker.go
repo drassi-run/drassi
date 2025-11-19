@@ -39,7 +39,7 @@ type chunker struct {
 	mu sync.Mutex
 	ch chan Chunk
 
-	chunk   chunk    // stating chunk
+	chunk   sections // stating chunk
 	size    int64    // pre-computed chunk size
 	section *section // stating section
 }
@@ -54,7 +54,7 @@ func (cr *chunker) Update(u *Update) {
 	}
 }
 
-func (cr *chunker) update(u *Update) chunk {
+func (cr *chunker) update(u *Update) sections {
 	cr.mu.Lock()
 	defer cr.mu.Unlock()
 
@@ -80,7 +80,7 @@ func (cr *chunker) update(u *Update) chunk {
 	return nil
 }
 
-// append current section to the chunk (if any) and assign it to new one
+// append current section to the sections (if any) and assign it to new one
 func (cr *chunker) stageSection(new *section) {
 	if !cr.section.Empty() {
 		cr.chunk = append(cr.chunk, cr.section)
@@ -104,7 +104,7 @@ func (cr *chunker) Close() error {
 
 // flush state and return the current chunk if any.
 // NOTE: The caller MUST be inside mu.Lock
-func (cr *chunker) flush() chunk {
+func (cr *chunker) flush() sections {
 	c := cr.chunk
 	cr.chunk, cr.size = nil, 0
 	return c

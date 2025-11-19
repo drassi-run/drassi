@@ -24,11 +24,11 @@ type Update struct {
 	Line     int    // Line number of log record
 }
 
-// chunk aggregates multiple section from different files and treat as a single logical block.
-type chunk []*section
+// sections aggregates multiple section from different files and treat as a single logical block.
+type sections []*section
 
-func (c chunk) Empty() bool {
-	for _, s := range c {
+func (b sections) Empty() bool {
+	for _, s := range b {
 		if !s.Empty() {
 			return false
 		}
@@ -36,31 +36,31 @@ func (c chunk) Empty() bool {
 	return true
 }
 
-func (c chunk) Size() int64 {
+func (b sections) Size() int64 {
 	t := int64(0)
-	for _, s := range c {
+	for _, s := range b {
 		t += s.Size()
 	}
 	return t
 }
 
-func (c chunk) Lines() int {
+func (b sections) Lines() int {
 	t := 0
-	for _, s := range c {
+	for _, s := range b {
 		t += s.Lines()
 	}
 	return t
 }
 
-func (c chunk) Reader() (io.ReadSeekCloser, error) {
-	switch len(c) {
+func (b sections) Reader() (io.ReadSeekCloser, error) {
+	switch len(b) {
 	case 0:
 		return empty, nil
 	case 1:
-		return c[0].Reader()
+		return b[0].Reader()
 	default:
 		var m = new(multiReader)
-		for _, r := range c {
+		for _, r := range b {
 			reader, err := r.Reader()
 			if err != nil {
 				_ = m.Close()
@@ -73,20 +73,20 @@ func (c chunk) Reader() (io.ReadSeekCloser, error) {
 	}
 }
 
-func (c chunk) Scan() ([]string, error) {
-	l := len(c)
+func (b sections) Scan() ([]string, error) {
+	l := len(b)
 	if l == 0 {
 		return nil, nil
 	}
 	if l == 1 {
-		return c[0].Scan()
+		return b[0].Scan()
 	}
 
 	pages := make([][]string, l)
 	errs := make([]error, l)
 	var wg sync.WaitGroup
 	wg.Add(l)
-	for i, s := range c {
+	for i, s := range b {
 		go func(sec *section) {
 			pages[i], errs[i] = sec.Scan()
 			wg.Done()
@@ -94,10 +94,10 @@ func (c chunk) Scan() ([]string, error) {
 	}
 
 	wg.Wait()
-	return c.flatten(pages), errors.Join(errs...)
+	return b.flatten(pages), errors.Join(errs...)
 }
 
-func (c chunk) flatten(in [][]string) []string {
+func (b sections) flatten(in [][]string) []string {
 	var out []string
 	for _, arr := range in {
 		out = append(out, arr...)
