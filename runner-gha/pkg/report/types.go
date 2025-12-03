@@ -86,7 +86,7 @@ type metadataStepLogsRequest struct {
 	PlanId     string    `json:"workflow_run_backend_id"`     // UUID
 	JobId      string    `json:"workflow_job_run_backend_id"` // UUID
 	StepId     string    `json:"step_backend_id"`             // UUID
-	LineCount  int64     `json:"line_count"`
+	LineCount  int       `json:"line_count"`
 	UploadedAt time.Time `json:"uploaded_at"`
 }
 
@@ -111,7 +111,7 @@ func (s *signedUrlJobLogsResponse) GetStorageType() string { return s.StorageTyp
 type metadataJobLogsRequest struct {
 	PlanId     string    `json:"workflow_run_backend_id"`     // UUID
 	JobId      string    `json:"workflow_job_run_backend_id"` // UUID
-	LineCount  int64     `json:"line_count"`
+	LineCount  int       `json:"line_count"`
 	UploadedAt time.Time `json:"uploaded_at"`
 }
 
