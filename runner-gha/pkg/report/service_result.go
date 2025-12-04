@@ -192,3 +192,27 @@ func (s *ResultService) createJobLogsMetadata(ctx context.Context, lineCount int
 	}
 	return nil
 }
+
+////////////// Diagnostic Logs //////////////
+
+// DiagnosticLogsUploader return Uploader used to handle diagnostic logs upload
+// https://github.com/actions/runner/blob/v2.323.0/src/Sdk/WebApi/WebApi/ResultsHttpClient.cs#L503
+func (s *ResultService) DiagnosticLogsUploader() Uploader {
+	return NewStorageAwareUploader(s.getDiagnosticLogsSignedUrl)
+}
+
+func (s *ResultService) getDiagnosticLogsSignedUrl(ctx context.Context) (signedUrlResponse, error) {
+	req := &signedUrlDiagnosticLogsRequest{
+		PlanId: s.planUid,
+		JobId:  s.jobUid,
+	}
+	resp := new(signedUrlDiagnosticLogsResponse)
+	e := s.client.Post(path.Join(receiverEndpoint, "GetJobDiagLogsSignedBlobURL")).
+		WithBodyProvider(xhttp.JsonEncode(req)).
+		OnSuccess(xhttp.JsonDecode(resp))
+
+	if err := e.Do(ctx); err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
