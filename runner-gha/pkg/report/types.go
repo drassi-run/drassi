@@ -170,3 +170,16 @@ const (
 	stepConclusionCancelled stepConclusion = 4
 	stepConclusionSkipped   stepConclusion = 7
 )
+
+////////////// JobService: Diagnostic Logs //////////////
+
+// TaskLog in C#
+type taskLog struct {
+	Id            string    `json:"id"` // UUID
+	Location      string    `json:"location"`
+	IndexLocation string    `json:"index_location"`
+	Path          string    `json:"path"`
+	LineCount     int64     `json:"line_count"`
+	CreatedOn     time.Time `json:"created_on"`
+	LastChangedOn time.Time `json:"last_changed_on"`
+}
