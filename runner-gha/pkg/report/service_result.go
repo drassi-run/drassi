@@ -9,6 +9,7 @@ package report
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"path"
 	"time"
@@ -215,4 +216,72 @@ func (s *ResultService) getDiagnosticLogsSignedUrl(ctx context.Context) (signedU
 		return nil, err
 	}
 	return resp, nil
+}
+
+////////////// Step Summary //////////////
+
+// StepSummaryUploader return Uploader used to handle step summary upload
+// https://github.com/actions/runner/blob/v2.324.0/src/Sdk/WebApi/WebApi/ResultsHttpClient.cs#L398
+func (s *ResultService) StepSummaryUploader(stepUid string) Uploader {
+	u := NewStorageAwareUploader(func(ctx context.Context) (signedUrlResponse, error) {
+		return s.getStepSummarySignedUrl(ctx, stepUid)
+	})
+	u = &resultStepSummaryUploader{
+		Uploader: u,
+		svc:      s,
+		stepUid:  stepUid,
+	}
+	return u
+}
+
+type resultStepSummaryUploader struct {
+	Uploader
+	svc     *ResultService
+	stepUid string
+}
+
+func (u *resultStepSummaryUploader) Upload(ctx context.Context, r io.Reader, stat *Stat) error {
+	if err := u.Uploader.Upload(ctx, r, stat); err != nil {
+		return err
+	}
+	return u.svc.createStepSummaryMetadata(ctx, u.stepUid, stat.Size)
+}
+
+func (s *ResultService) getStepSummarySignedUrl(ctx context.Context, stepUid string) (signedUrlResponse, error) {
+	req := &signedUrlStepSummaryRequest{
+		PlanId: s.planUid,
+		JobId:  s.jobUid,
+		StepId: stepUid,
+	}
+	resp := new(signedUrlStepSummaryResponse)
+	e := s.client.Post(path.Join(receiverEndpoint, "GetStepSummarySignedBlobURL")).
+		WithBodyProvider(xhttp.JsonEncode(req)).
+		OnSuccess(xhttp.JsonDecode(resp))
+
+	if err := e.Do(ctx); err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func (s *ResultService) createStepSummaryMetadata(ctx context.Context, stepUid string, size int64) error {
+	req := &metadataStepSummaryRequest{
+		PlanId:     s.planUid,
+		JobId:      s.jobUid,
+		StepId:     stepUid,
+		UploadedAt: time.Now(),
+		Size:       size,
+	}
+	resp := new(metadataResponse)
+	e := s.client.Post(path.Join(receiverEndpoint, "CreateStepSummaryMetadata")).
+		WithBodyProvider(xhttp.JsonEncode(req)).
+		OnSuccess(xhttp.JsonDecode(resp))
+
+	if err := e.Do(ctx); err != nil {
+		return err
+	}
+	if !resp.Ok {
+		return fmt.Errorf("failed to mark StepSummary upload as complete")
+	}
+	return nil
 }
