@@ -88,3 +88,31 @@ func (s *JobService) uploadLogs(ctx context.Context, uid string, r io.Reader) er
 
 	// TODO: Create a new record and only set the Log field
 }
+
+////////////// Attachment //////////////
+
+func (s *JobService) AttachmentUploader(uid, kind, name string) Uploader {
+	return &jobAttachmentUploader{svc: s, uid: uid, kind: kind, name: name}
+}
+
+type jobAttachmentUploader struct {
+	svc             *JobService
+	uid, kind, name string
+}
+
+func (u *jobAttachmentUploader) Upload(ctx context.Context, r io.Reader, _ *Stat) error {
+	return u.svc.uploadAttach(ctx, u.uid, u.kind, u.name, r)
+}
+
+// https://github.com/actions/runner/blob/v2.323.0/src/Runner.Common/JobServerQueue.cs#L900-L903
+func (s *JobService) uploadAttach(ctx context.Context, uid, kind, name string, r io.Reader) error {
+	endpoint := fmt.Sprintf(taskAttachmentEndpoint, s.scopeUid, s.planType, s.planUid, s.timelineUid, uid)
+	endpoint = path.Join(endpoint, kind, name)
+
+	e := s.client.Post(endpoint).
+		SetQuery("api-version", "5.1-preview").
+		SetHeader("Content-Type", "application/octet-stream").
+		WithBody(r)
+
+	return e.Do(ctx)
+}
