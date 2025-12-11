@@ -13,6 +13,7 @@ require (
 	github.com/chainguard-dev/clog v1.7.0
 	github.com/charmbracelet/huh v0.6.0
 	github.com/charmbracelet/huh/spinner v0.0.0-20250331173942-310cd4a379ac
+	github.com/coder/websocket v1.8.14
 	github.com/google/go-cmp v0.7.0
 	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.11.1
@@ -107,6 +108,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/skeema/knownhosts v1.2.2 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f // indirect
