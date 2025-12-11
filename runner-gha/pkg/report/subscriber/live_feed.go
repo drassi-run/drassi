@@ -8,56 +8,44 @@ package subscriber
 
 import (
 	"context"
-	"encoding/json"
-	"net/http"
 	"sync"
-	"sync/atomic"
+	"time"
 
-	xotel "drassi.run/core/util/otel"
+	"drassi.run/core/util/context"
+	"drassi.run/core/util/otel"
 	"drassi.run/gha-runner/pkg/log"
-	"github.com/coder/websocket"
+	"drassi.run/gha-runner/pkg/report"
 )
 
-func NewLiveFeedSubscriber(ctx context.Context, wsUrl string, hc *http.Client) (Subscriber, error) {
-	opts := &websocket.DialOptions{
-		HTTPClient:      hc,
-		CompressionMode: websocket.CompressionContextTakeover,
+func NewLiveFeedSubscriber(context xcontext.Provider, app report.Appender) Subscriber {
+	return &liveFeedSubscriber{
+		ctx: context.Context(),
+		app: app,
 	}
-
-	conn, _, err := websocket.Dial(ctx, wsUrl, opts)
-	if err != nil {
-		return nil, err
-	}
-
-	lf := &liveFeedSubscriber{
-		ctx:  ctx,
-		conn: conn,
-	}
-	return lf, nil
 }
 
 type liveFeedSubscriber struct {
-	ctx  context.Context
-	conn *websocket.Conn
+	ctx context.Context
+	app report.Appender
 
 	mu sync.Mutex
 	wg sync.WaitGroup
 
 	currUid     string
 	currBatcher log.Batcher
-	lines       atomic.Int64
+	lineCount   int
 }
 
 func (s *liveFeedSubscriber) Run(ch <-chan *log.Event) {
 	s.wg.Add(1)
 	defer s.wg.Done()
 
-	for event := range ch {
-		b := s.batcher(event.Uid)
-		if u := event.Update; u != nil {
-			b.Update(event.Update)
+	for e := range ch {
+		b := s.batcher(e.Uid)
+		if u := e.Update; u != nil {
+			b.Update(u)
 		}
-		if event.Kind == log.OnRecordStop {
+		if e.Kind == log.OnRecordStop {
 			_ = b.Close()
 		}
 	}
@@ -67,23 +55,23 @@ func (s *liveFeedSubscriber) batcher(uid string) log.Batcher {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.currBatcher != nil {
-		if s.currUid == uid {
-			return s.currBatcher
-		}
-		_ = s.currBatcher.Close() // batcher of another step
+	if s.currUid == uid {
+		return s.currBatcher
 	}
 
-	b := log.NewBatcher()
+	if s.currUid != "" { // batcher of another step
+		_ = s.currBatcher.Close()
+		s.currUid, s.currBatcher = "", nil
+	}
+
+	b := log.NewBatcher(100, time.Second)
 	s.currUid, s.currBatcher = uid, b
 
 	s.wg.Add(1)
 	go func() {
 		defer s.wg.Done()
-
 		s.run(uid, b)
 	}()
-
 	return b
 }
 
@@ -93,21 +81,12 @@ func (s *liveFeedSubscriber) run(uid string, batcher log.Batcher) {
 	)
 
 	for b := range batcher.Channel() {
-		data := &linesWrapper{
-			Value:     b,
-			Count:     len(b),
-			StepId:    uid,
-			StartLine: s.lines.Load(),
-		}
-		s.lines.Add(int64(data.Count))
-
-		if payload, err := json.Marshal(data); err != nil {
+		if lines, err := b.Scan(); err != nil {
 			logger.Errorf("%v", err)
-		} else if err = s.conn.Write(ctx, websocket.MessageText, payload); err != nil {
+		} else if err = s.app.Append(ctx, uid, s.lineCount, lines); err != nil {
 			logger.Errorf("%v", err)
-		} else {
-			logger.Infof("successful live feeding log from=[%d-%d)", data.StartLine, data.StartLine+int64(data.Count))
 		}
+		s.lineCount += b.Lines()
 	}
 }
 
@@ -117,12 +96,5 @@ func (s *liveFeedSubscriber) Wait() {
 
 func (s *liveFeedSubscriber) Close() error {
 	s.Wait()
-	return s.conn.Close(websocket.StatusNormalClosure, "bye")
-}
-
-type linesWrapper struct {
-	Value     []string `json:"value"`
-	Count     int      `json:"count"`
-	StepId    string   `json:"step_id"`
-	StartLine int64    `json:"start_line"`
+	return s.app.Close()
 }
