@@ -20,6 +20,7 @@ import (
 const (
 	taskLogEndpoint        = "%s/_apis/distributedtask/hubs/%s/plans/%s/logs"
 	taskAttachmentEndpoint = "%s/_apis/distributedtask/hubs/%s/plans/%s/timelines/%s/records/%s/attachments"
+	taskLiveFeedEndpoint   = "%s/_apis/distributedtask/hubs/%s/plans/%s/timelines/%s/records/%s/feed"
 	taskTimelineEndpoint   = "%s/_apis/distributedtask/hubs/%s/plans/%s/timelines/%s/records"
 )
 
@@ -113,6 +114,30 @@ func (s *JobService) uploadAttach(ctx context.Context, uid, kind, name string, r
 		SetQuery("api-version", "5.1-preview").
 		SetHeader("Content-Type", "application/octet-stream").
 		WithBody(r)
+
+	return e.Do(ctx)
+}
+
+////////////// Live Feed //////////////
+
+func (s *JobService) LiveFeedAppender() Appender {
+	return funcAppender(s.feedingLogs)
+}
+
+// https://github.com/actions/runner/blob/v2.332.0/src/Runner.Common/JobServer.cs#L285-L295
+// https://github.com/actions/runner/blob/v2.332.0/src/Sdk/DTGenerated/Generated/TaskHttpClientBase.cs#L115-L141
+func (s *JobService) feedingLogs(ctx context.Context, uid string, startAt int, lines []string) error {
+	data := &linesWrapper{
+		Value:     lines,
+		Count:     len(lines),
+		StepId:    uid,
+		StartLine: startAt,
+	}
+
+	endpoint := fmt.Sprintf(taskLiveFeedEndpoint, s.scopeUid, s.planType, s.planUid, s.timelineUid, uid)
+	e := s.client.Post(endpoint).
+		SetQuery("api-version", "5.1-preview").
+		WithBodyProvider(xhttp.JsonEncode(data))
 
 	return e.Do(ctx)
 }

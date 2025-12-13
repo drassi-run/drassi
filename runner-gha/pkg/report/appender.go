@@ -60,6 +60,14 @@ func (a *wsAppender) Close() error {
 	return a.conn.Close(websocket.StatusNormalClosure, "bye")
 }
 
+type funcAppender func(ctx context.Context, uid string, startAt int, lines []string) error
+
+func (f funcAppender) Append(ctx context.Context, uid string, startAt int, lines []string) error {
+	return f(ctx, uid, startAt, lines)
+}
+
+func (f funcAppender) Close() error { return nil }
+
 type linesWrapper struct {
 	Value     []string `json:"value"`
 	Count     int      `json:"count"`
