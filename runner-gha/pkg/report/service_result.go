@@ -16,7 +16,8 @@ import (
 
 	"drassi.run/core/util/http"
 	"drassi.run/gha-runner/pkg/messages"
-	"drassi.run/gha-runner/pkg/types"
+	"drassi.run/gha-runner/pkg/report/types"
+	util "drassi.run/gha-runner/pkg/types"
 )
 
 const (
@@ -30,7 +31,7 @@ func newClient(url string, hc *http.Client) (*xhttp.Client, error) {
 		return nil, err
 	}
 
-	client = client.WithDefaultErrorHandler(types.ParseActionsError).
+	client = client.WithDefaultErrorHandler(util.ParseActionsError).
 		WithDefaultHeader("User-Agent", "gha-runner") // TODO
 
 	if hc != nil {
@@ -64,8 +65,8 @@ type ResultService struct {
 
 // StepLogsConveyor return Conveyor used to handle step logs upload
 // https://github.com/actions/runner/blob/v2.323.0/src/Sdk/WebApi/WebApi/ResultsHttpClient.cs#L454
-func (s *ResultService) StepLogsConveyor(stepUid string) Conveyor {
-	c := NewStorageAwareConveyor(func(ctx context.Context) (signedUrlResponse, error) {
+func (s *ResultService) StepLogsConveyor(stepUid string) types.Conveyor {
+	c := types.NewStorageAwareConveyor(func(ctx context.Context) (types.SignedUrlResponse, error) {
 		return s.getStepLogsSignedUrl(ctx, stepUid)
 	})
 	c = &resultStepLogsConveyor{
@@ -77,12 +78,12 @@ func (s *ResultService) StepLogsConveyor(stepUid string) Conveyor {
 }
 
 type resultStepLogsConveyor struct {
-	Conveyor
+	types.Conveyor
 	svc     *ResultService
 	stepUid string
 }
 
-func (c *resultStepLogsConveyor) Run(ctx context.Context) (*Stat, error) {
+func (c *resultStepLogsConveyor) Run(ctx context.Context) (*types.Stat, error) {
 	if s, err := c.Conveyor.Run(ctx); err != nil {
 		return s, err
 	} else {
@@ -91,7 +92,7 @@ func (c *resultStepLogsConveyor) Run(ctx context.Context) (*Stat, error) {
 	}
 }
 
-func (s *ResultService) getStepLogsSignedUrl(ctx context.Context, stepUid string) (signedUrlResponse, error) {
+func (s *ResultService) getStepLogsSignedUrl(ctx context.Context, stepUid string) (types.SignedUrlResponse, error) {
 	req := &signedUrlStepLogsRequest{
 		PlanId: s.planUid,
 		JobId:  s.jobUid,
@@ -134,8 +135,8 @@ func (s *ResultService) createStepLogsMetadata(ctx context.Context, stepUid stri
 
 // JobLogsConveyor return Conveyor used to handle job logs upload
 // https://github.com/actions/runner/blob/v2.323.0/src/Sdk/WebApi/WebApi/ResultsHttpClient.cs#L479
-func (s *ResultService) JobLogsConveyor() Conveyor {
-	c := NewStorageAwareConveyor(s.getJobLogsSignedUrl)
+func (s *ResultService) JobLogsConveyor() types.Conveyor {
+	c := types.NewStorageAwareConveyor(s.getJobLogsSignedUrl)
 	c = &resultJobLogsConveyor{
 		Conveyor: c,
 		svc:      s,
@@ -144,11 +145,11 @@ func (s *ResultService) JobLogsConveyor() Conveyor {
 }
 
 type resultJobLogsConveyor struct {
-	Conveyor
+	types.Conveyor
 	svc *ResultService
 }
 
-func (c *resultJobLogsConveyor) Run(ctx context.Context) (*Stat, error) {
+func (c *resultJobLogsConveyor) Run(ctx context.Context) (*types.Stat, error) {
 	if s, err := c.Conveyor.Run(ctx); err != nil {
 		return s, err
 	} else {
@@ -157,7 +158,7 @@ func (c *resultJobLogsConveyor) Run(ctx context.Context) (*Stat, error) {
 	}
 }
 
-func (s *ResultService) getJobLogsSignedUrl(ctx context.Context) (signedUrlResponse, error) {
+func (s *ResultService) getJobLogsSignedUrl(ctx context.Context) (types.SignedUrlResponse, error) {
 	req := &signedUrlJobLogsRequest{
 		PlanId: s.planUid,
 		JobId:  s.jobUid,
@@ -198,11 +199,11 @@ func (s *ResultService) createJobLogsMetadata(ctx context.Context, lineCount int
 
 // DiagnosticLogsUploader return Uploader used to handle diagnostic logs upload
 // https://github.com/actions/runner/blob/v2.323.0/src/Sdk/WebApi/WebApi/ResultsHttpClient.cs#L503
-func (s *ResultService) DiagnosticLogsUploader() Uploader {
-	return NewStorageAwareUploader(s.getDiagnosticLogsSignedUrl)
+func (s *ResultService) DiagnosticLogsUploader() types.Uploader {
+	return types.NewStorageAwareUploader(s.getDiagnosticLogsSignedUrl)
 }
 
-func (s *ResultService) getDiagnosticLogsSignedUrl(ctx context.Context) (signedUrlResponse, error) {
+func (s *ResultService) getDiagnosticLogsSignedUrl(ctx context.Context) (types.SignedUrlResponse, error) {
 	req := &signedUrlDiagnosticLogsRequest{
 		PlanId: s.planUid,
 		JobId:  s.jobUid,
@@ -222,8 +223,8 @@ func (s *ResultService) getDiagnosticLogsSignedUrl(ctx context.Context) (signedU
 
 // StepSummaryUploader return Uploader used to handle step summary upload
 // https://github.com/actions/runner/blob/v2.324.0/src/Sdk/WebApi/WebApi/ResultsHttpClient.cs#L398
-func (s *ResultService) StepSummaryUploader(stepUid string) Uploader {
-	u := NewStorageAwareUploader(func(ctx context.Context) (signedUrlResponse, error) {
+func (s *ResultService) StepSummaryUploader(stepUid string) types.Uploader {
+	u := types.NewStorageAwareUploader(func(ctx context.Context) (types.SignedUrlResponse, error) {
 		return s.getStepSummarySignedUrl(ctx, stepUid)
 	})
 	u = &resultStepSummaryUploader{
@@ -235,19 +236,19 @@ func (s *ResultService) StepSummaryUploader(stepUid string) Uploader {
 }
 
 type resultStepSummaryUploader struct {
-	Uploader
+	types.Uploader
 	svc     *ResultService
 	stepUid string
 }
 
-func (u *resultStepSummaryUploader) Upload(ctx context.Context, r io.Reader, stat *Stat) error {
+func (u *resultStepSummaryUploader) Upload(ctx context.Context, r io.Reader, stat *types.Stat) error {
 	if err := u.Uploader.Upload(ctx, r, stat); err != nil {
 		return err
 	}
 	return u.svc.createStepSummaryMetadata(ctx, u.stepUid, stat.Size)
 }
 
-func (s *ResultService) getStepSummarySignedUrl(ctx context.Context, stepUid string) (signedUrlResponse, error) {
+func (s *ResultService) getStepSummarySignedUrl(ctx context.Context, stepUid string) (types.SignedUrlResponse, error) {
 	req := &signedUrlStepSummaryRequest{
 		PlanId: s.planUid,
 		JobId:  s.jobUid,

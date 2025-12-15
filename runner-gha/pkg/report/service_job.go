@@ -15,6 +15,7 @@ import (
 
 	"drassi.run/core/util/http"
 	"drassi.run/gha-runner/pkg/messages"
+	"drassi.run/gha-runner/pkg/report/types"
 )
 
 const (
@@ -51,7 +52,7 @@ type JobService struct {
 
 ////////////// Logs //////////////
 
-func (s *JobService) LogsUploader(uid string) Uploader {
+func (s *JobService) LogsUploader(uid string) types.Uploader {
 	return &jobLogsUploader{svc: s, uid: uid}
 }
 
@@ -60,7 +61,7 @@ type jobLogsUploader struct {
 	uid string
 }
 
-func (u *jobLogsUploader) Upload(ctx context.Context, r io.Reader, _ *Stat) error {
+func (u *jobLogsUploader) Upload(ctx context.Context, r io.Reader, _ *types.Stat) error {
 	return u.svc.uploadLogs(ctx, u.uid, r)
 }
 
@@ -92,7 +93,7 @@ func (s *JobService) uploadLogs(ctx context.Context, uid string, r io.Reader) er
 
 ////////////// Attachment //////////////
 
-func (s *JobService) AttachmentUploader(uid, kind, name string) Uploader {
+func (s *JobService) AttachmentUploader(uid, kind, name string) types.Uploader {
 	return &jobAttachmentUploader{svc: s, uid: uid, kind: kind, name: name}
 }
 
@@ -101,7 +102,7 @@ type jobAttachmentUploader struct {
 	uid, kind, name string
 }
 
-func (u *jobAttachmentUploader) Upload(ctx context.Context, r io.Reader, _ *Stat) error {
+func (u *jobAttachmentUploader) Upload(ctx context.Context, r io.Reader, _ *types.Stat) error {
 	return u.svc.uploadAttach(ctx, u.uid, u.kind, u.name, r)
 }
 
@@ -120,14 +121,14 @@ func (s *JobService) uploadAttach(ctx context.Context, uid, kind, name string, r
 
 ////////////// Live Feed //////////////
 
-func (s *JobService) LiveFeedAppender() Appender {
-	return funcAppender(s.feedingLogs)
+func (s *JobService) LiveFeedAppender() types.Appender {
+	return types.FuncAppender(s.feedingLogs)
 }
 
 // https://github.com/actions/runner/blob/v2.332.0/src/Runner.Common/JobServer.cs#L285-L295
 // https://github.com/actions/runner/blob/v2.332.0/src/Sdk/DTGenerated/Generated/TaskHttpClientBase.cs#L115-L141
 func (s *JobService) feedingLogs(ctx context.Context, uid string, startAt int, lines []string) error {
-	data := &linesWrapper{
+	data := &types.LinesWrapper{
 		Value:     lines,
 		Count:     len(lines),
 		StepId:    uid,

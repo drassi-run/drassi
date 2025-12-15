@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package report
+package types
 
 import (
 	"context"
@@ -23,7 +23,7 @@ type Conveyor interface {
 	Run(ctx context.Context) (*Stat, error)
 }
 
-func NewStorageAwareConveyor(f func(context.Context) (signedUrlResponse, error)) Conveyor {
+func NewStorageAwareConveyor(f func(context.Context) (SignedUrlResponse, error)) Conveyor {
 	return &storageAwareConveyor{getUrl: f}
 }
 
@@ -31,7 +31,7 @@ func NewStorageAwareConveyor(f func(context.Context) (signedUrlResponse, error))
 // (e.g., S3, Azure Blob, or GCS) based on response of getUrl.
 type storageAwareConveyor struct {
 	Conveyor
-	getUrl func(context.Context) (signedUrlResponse, error)
+	getUrl func(context.Context) (SignedUrlResponse, error)
 }
 
 func (s *storageAwareConveyor) Run(ctx context.Context) (*Stat, error) {

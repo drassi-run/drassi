@@ -14,15 +14,16 @@ import (
 	"drassi.run/core/util/otel"
 	"drassi.run/gha-runner/pkg/log"
 	"drassi.run/gha-runner/pkg/report"
+	"drassi.run/gha-runner/pkg/report/types"
 )
 
 ////////////// StepLogs Subscriber for ResultService //////////////
 
-func NewResultServiceStepLogsSubscriber(context xcontext.Provider, svc *report.ResultService) Subscriber {
+func NewResultServiceStepLogsSubscriber(context xcontext.Provider, svc *report.ResultService) types.Subscriber {
 	return &resultServiceStepLogsSubscriber{
 		svc:  svc,
 		ctx:  context.Context(),
-		cons: make(map[string]report.Conveyor),
+		cons: make(map[string]types.Conveyor),
 	}
 }
 
@@ -33,7 +34,7 @@ type resultServiceStepLogsSubscriber struct {
 	mu sync.Mutex
 	wg sync.WaitGroup
 
-	cons map[string]report.Conveyor
+	cons map[string]types.Conveyor
 }
 
 func (s *resultServiceStepLogsSubscriber) Run(ch <-chan *log.Event) {
@@ -55,7 +56,7 @@ func (s *resultServiceStepLogsSubscriber) Run(ch <-chan *log.Event) {
 	}
 }
 
-func (s *resultServiceStepLogsSubscriber) conveyor(uid string) report.Conveyor {
+func (s *resultServiceStepLogsSubscriber) conveyor(uid string) types.Conveyor {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -74,7 +75,7 @@ func (s *resultServiceStepLogsSubscriber) conveyor(uid string) report.Conveyor {
 	return c
 }
 
-func (s *resultServiceStepLogsSubscriber) run(uid string, c report.Conveyor) {
+func (s *resultServiceStepLogsSubscriber) run(uid string, c types.Conveyor) {
 	ctx, logger := xotel.ChildLogger(s.ctx,
 		xotel.ToSlogAttrs(xotel.DrassiStep(uid)),
 	)

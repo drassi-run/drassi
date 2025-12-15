@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package report
+package types
 
 import (
 	"context"
@@ -97,8 +97,8 @@ func (u *mockUploader) Upload(ctx context.Context, r io.Reader, stat *Stat) erro
 
 func TestStorageAwareUploader(t *testing.T) {
 	t.Run("azure_blob", func(t *testing.T) {
-		s := NewStorageAwareUploader(func(context.Context) (signedUrlResponse, error) {
-			r := &signedUrlJobLogsResponse{StorageType: StorageAzureBlob}
+		s := NewStorageAwareUploader(func(context.Context) (SignedUrlResponse, error) {
+			r := &mockSignedUrl{StorageType: StorageAzureBlob}
 			return r, nil
 		}).(*storageAwareUploader)
 
@@ -108,8 +108,8 @@ func TestStorageAwareUploader(t *testing.T) {
 	})
 
 	t.Run("invalid", func(t *testing.T) {
-		s := NewStorageAwareUploader(func(context.Context) (signedUrlResponse, error) {
-			r := &signedUrlJobLogsResponse{StorageType: "UNSUPPORTED"}
+		s := NewStorageAwareUploader(func(context.Context) (SignedUrlResponse, error) {
+			r := &mockSignedUrl{StorageType: "UNSUPPORTED"}
 			return r, nil
 		}).(*storageAwareUploader)
 
@@ -118,7 +118,7 @@ func TestStorageAwareUploader(t *testing.T) {
 	})
 
 	t.Run("getUrl-error", func(t *testing.T) {
-		s := NewStorageAwareUploader(func(context.Context) (signedUrlResponse, error) {
+		s := NewStorageAwareUploader(func(context.Context) (SignedUrlResponse, error) {
 			return nil, errors.New("getUrl error")
 		}).(*storageAwareUploader)
 

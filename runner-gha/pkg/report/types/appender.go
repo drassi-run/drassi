@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package report
+package types
 
 import (
 	"context"
@@ -46,7 +46,7 @@ type wsAppender struct {
 // JobServer: https://github.com/actions/runner/blob/v2.332.0/src/Runner.Common/JobServer.cs#L242-L257
 // ResultServer: https://github.com/actions/runner/blob/v2.332.0/src/Runner.Common/ResultsServer.cs#L234-L255
 func (a *wsAppender) Append(ctx context.Context, uid string, startAt int, lines []string) error {
-	data := &linesWrapper{
+	data := &LinesWrapper{
 		Value:     lines,
 		Count:     len(lines),
 		StepId:    uid,
@@ -60,15 +60,15 @@ func (a *wsAppender) Close() error {
 	return a.conn.Close(websocket.StatusNormalClosure, "bye")
 }
 
-type funcAppender func(ctx context.Context, uid string, startAt int, lines []string) error
+type FuncAppender func(ctx context.Context, uid string, startAt int, lines []string) error
 
-func (f funcAppender) Append(ctx context.Context, uid string, startAt int, lines []string) error {
+func (f FuncAppender) Append(ctx context.Context, uid string, startAt int, lines []string) error {
 	return f(ctx, uid, startAt, lines)
 }
 
-func (f funcAppender) Close() error { return nil }
+func (f FuncAppender) Close() error { return nil }
 
-type linesWrapper struct {
+type LinesWrapper struct {
 	Value     []string `json:"value"`
 	Count     int      `json:"count"`
 	StepId    string   `json:"step_id"`

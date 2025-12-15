@@ -14,10 +14,10 @@ import (
 	"drassi.run/core/util/context"
 	"drassi.run/core/util/otel"
 	"drassi.run/gha-runner/pkg/log"
-	"drassi.run/gha-runner/pkg/report"
+	"drassi.run/gha-runner/pkg/report/types"
 )
 
-func NewLiveFeedSubscriber(context xcontext.Provider, app report.Appender) Subscriber {
+func NewLiveFeedSubscriber(context xcontext.Provider, app types.Appender) types.Subscriber {
 	return &liveFeedSubscriber{
 		ctx: context.Context(),
 		app: app,
@@ -26,7 +26,7 @@ func NewLiveFeedSubscriber(context xcontext.Provider, app report.Appender) Subsc
 
 type liveFeedSubscriber struct {
 	ctx context.Context
-	app report.Appender
+	app types.Appender
 
 	mu sync.Mutex
 	wg sync.WaitGroup

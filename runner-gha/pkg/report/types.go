@@ -6,30 +6,12 @@
 
 package report
 
-import (
-	"time"
-)
-
-const StorageAzureBlob = "BLOB_STORAGE_TYPE_AZURE"
-
-type Stat struct {
-	Lines int
-	Size  int64
-}
-
-func NewStat(lines int, size int64) *Stat {
-	return &Stat{lines, size}
-}
+import "time"
 
 ////////////// ResultService: Metadata Response for Create(Job/Step)Logs //////////////
 
 type metadataResponse struct {
 	Ok bool `json:"ok"`
-}
-
-type signedUrlResponse interface {
-	GetUrl() string
-	GetStorageType() string
 }
 
 ////////////// ResultService: Step Summary //////////////

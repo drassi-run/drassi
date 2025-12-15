@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package report
+package types
 
 import (
 	"context"
@@ -19,7 +19,7 @@ type Uploader interface {
 	Upload(ctx context.Context, r io.Reader, stat *Stat) error
 }
 
-func NewStorageAwareUploader(f func(context.Context) (signedUrlResponse, error)) Uploader {
+func NewStorageAwareUploader(f func(context.Context) (SignedUrlResponse, error)) Uploader {
 	return &storageAwareUploader{getUrl: f}
 }
 
@@ -27,7 +27,7 @@ func NewStorageAwareUploader(f func(context.Context) (signedUrlResponse, error))
 // (e.g., S3, Azure Blob, or GCS) based on response of getUrl.
 type storageAwareUploader struct {
 	Uploader
-	getUrl func(context.Context) (signedUrlResponse, error)
+	getUrl func(context.Context) (SignedUrlResponse, error)
 }
 
 func (s *storageAwareUploader) Upload(ctx context.Context, r io.Reader, stat *Stat) error {
