@@ -21,8 +21,8 @@ import (
 )
 
 const (
-	receiverEndpoint = "twirp/results.services.receiver.Receiver/"
-	workflowEndpoint = "twirp/github.actions.results.api.v1.WorkflowStepUpdateService/"
+	receiverEndpoint = "/twirp/results.services.receiver.Receiver/"
+	workflowEndpoint = "/twirp/github.actions.results.api.v1.WorkflowStepUpdateService/"
 )
 
 func newClient(url string, hc *http.Client) (*xhttp.Client, error) {
