@@ -19,10 +19,10 @@ import (
 )
 
 const (
-	taskLogEndpoint        = "%s/_apis/distributedtask/hubs/%s/plans/%s/logs"
-	taskAttachmentEndpoint = "%s/_apis/distributedtask/hubs/%s/plans/%s/timelines/%s/records/%s/attachments"
-	taskLiveFeedEndpoint   = "%s/_apis/distributedtask/hubs/%s/plans/%s/timelines/%s/records/%s/feed"
-	taskTimelineEndpoint   = "%s/_apis/distributedtask/hubs/%s/plans/%s/timelines/%s/records"
+	taskLogEndpoint        = "/%s/_apis/distributedtask/hubs/%s/plans/%s/logs"
+	taskAttachmentEndpoint = "/%s/_apis/distributedtask/hubs/%s/plans/%s/timelines/%s/records/%s/attachments"
+	taskLiveFeedEndpoint   = "/%s/_apis/distributedtask/hubs/%s/plans/%s/timelines/%s/records/%s/feed"
+	taskTimelineEndpoint   = "/%s/_apis/distributedtask/hubs/%s/plans/%s/timelines/%s/records"
 )
 
 func NewJobService(url string, hc *http.Client, msg *messages.PipelineAgentJobRequest) (*JobService, error) {
