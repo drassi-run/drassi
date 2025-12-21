@@ -37,14 +37,14 @@ func NewWebsocketAppender(ctx context.Context, wsUrl string, hc *http.Client) (A
 	return a, nil
 }
 
+// wsAppender implement Appender that write log lines into websocket connection.
+//
+// JobServer: https://github.com/actions/runner/blob/v2.332.0/src/Runner.Common/JobServer.cs#L242-L257
+// ResultServer: https://github.com/actions/runner/blob/v2.332.0/src/Runner.Common/ResultsServer.cs#L234-L255
 type wsAppender struct {
 	conn *websocket.Conn
 }
 
-// Append log lines into websocket connection.
-//
-// JobServer: https://github.com/actions/runner/blob/v2.332.0/src/Runner.Common/JobServer.cs#L242-L257
-// ResultServer: https://github.com/actions/runner/blob/v2.332.0/src/Runner.Common/ResultsServer.cs#L234-L255
 func (a *wsAppender) Append(ctx context.Context, uid string, startAt int, lines []string) error {
 	data := &LinesWrapper{
 		Value:     lines,
