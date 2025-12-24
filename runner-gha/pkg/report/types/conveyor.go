@@ -9,7 +9,6 @@ package types
 import (
 	"context"
 	"fmt"
-	"io"
 
 	"drassi.run/gha-runner/pkg/log"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/appendblob"
@@ -18,9 +17,9 @@ import (
 
 // Conveyor used to continuous upload files to cloud storage by chunks
 type Conveyor interface {
-	io.Closer
 	Update(u *log.Update)
 	Run(ctx context.Context) (*Stat, error)
+	Close() error
 }
 
 func NewStorageAwareConveyor(f func(context.Context) (SignedUrlResponse, error)) Conveyor {

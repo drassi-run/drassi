@@ -88,3 +88,9 @@ func (u *azureBlobUploader) getClient(ctx context.Context) (*blockblob.Client, e
 		return blockblob.NewClientWithNoCredential(url, nil)
 	}
 }
+
+type FuncUploader func(ctx context.Context, r io.Reader, stat *Stat) error
+
+func (f FuncUploader) Upload(ctx context.Context, r io.Reader, stat *Stat) error {
+	return f(ctx, r, stat)
+}

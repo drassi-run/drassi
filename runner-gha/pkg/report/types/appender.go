@@ -8,7 +8,6 @@ package types
 
 import (
 	"context"
-	"io"
 	"net/http"
 
 	"github.com/coder/websocket"
@@ -16,8 +15,8 @@ import (
 )
 
 type Appender interface {
-	io.Closer
 	Append(ctx context.Context, uid string, startAt int, lines []string) error
+	Close() error
 }
 
 func NewWebsocketAppender(ctx context.Context, wsUrl string, hc *http.Client) (Appender, error) {
