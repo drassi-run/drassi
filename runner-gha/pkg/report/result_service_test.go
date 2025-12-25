@@ -26,7 +26,7 @@ type ResultServiceTestSuite struct {
 	ctrl   *gomock.Controller
 	mux    *http.ServeMux
 	server *httptest.Server
-	svc    *ResultService
+	svc    *resultService
 }
 
 func TestResultServiceTestSuite(t *testing.T) {
@@ -44,9 +44,9 @@ func (s *ResultServiceTestSuite) SetupTest() {
 		},
 		JobId: "job-id",
 	}
-	var err error
-	s.svc, err = NewResultService(s.server.URL, nil, msg)
+	svc, err := NewResultService(s.server.URL, nil, msg)
 	s.Require().NoError(err)
+	s.svc = svc.(*resultService)
 }
 
 func (s *ResultServiceTestSuite) TearDownTest() {

@@ -25,13 +25,19 @@ const (
 	taskTimelineEndpoint   = "/%s/_apis/distributedtask/hubs/%s/plans/%s/timelines/%s/records"
 )
 
-func NewJobService(url string, hc *http.Client, msg *messages.PipelineAgentJobRequest) (*JobService, error) {
+type JobService interface {
+	LogsUploader(uid string) types.Uploader
+	AttachmentUploader(uid, kind, name string) types.Uploader
+	LiveFeedAppender() types.Appender
+}
+
+func NewJobService(url string, hc *http.Client, msg *messages.PipelineAgentJobRequest) (JobService, error) {
 	client, err := newClient(url, hc)
 	if err != nil {
 		return nil, err
 	}
 
-	svc := &JobService{
+	svc := &jobService{
 		client:      client,
 		scopeUid:    msg.Plan.ScopeIdentifier,
 		planType:    msg.Plan.PlanType,
@@ -42,7 +48,7 @@ func NewJobService(url string, hc *http.Client, msg *messages.PipelineAgentJobRe
 }
 
 // https://github.com/actions/runner/blob/v2.323.0/src/Runner.Common/JobServer.cs
-type JobService struct {
+type jobService struct {
 	client      *xhttp.Client
 	scopeUid    string // from jobRequest.plan.scopeIdentifier
 	planType    string // from jobRequest.plan.planType (a.k.a hubName in C#)
@@ -52,12 +58,12 @@ type JobService struct {
 
 ////////////// Logs //////////////
 
-func (s *JobService) LogsUploader(uid string) types.Uploader {
+func (s *jobService) LogsUploader(uid string) types.Uploader {
 	return &jobLogsUploader{svc: s, uid: uid}
 }
 
 type jobLogsUploader struct {
-	svc *JobService
+	svc *jobService
 	uid string
 }
 
@@ -66,7 +72,7 @@ func (u *jobLogsUploader) Upload(ctx context.Context, r io.Reader, _ *types.Stat
 }
 
 // https://github.com/actions/runner/blob/v2.323.0/src/Runner.Common/JobServerQueue.cs#L882-L896
-func (s *JobService) uploadLogs(ctx context.Context, uid string, r io.Reader) error {
+func (s *jobService) uploadLogs(ctx context.Context, uid string, r io.Reader) error {
 	// Create the log
 	tl := new(taskLog)
 	endpoint := fmt.Sprintf(taskLogEndpoint, s.scopeUid, s.planType, s.planUid)
@@ -93,12 +99,12 @@ func (s *JobService) uploadLogs(ctx context.Context, uid string, r io.Reader) er
 
 ////////////// Attachment //////////////
 
-func (s *JobService) AttachmentUploader(uid, kind, name string) types.Uploader {
+func (s *jobService) AttachmentUploader(uid, kind, name string) types.Uploader {
 	return &jobAttachmentUploader{svc: s, uid: uid, kind: kind, name: name}
 }
 
 type jobAttachmentUploader struct {
-	svc             *JobService
+	svc             *jobService
 	uid, kind, name string
 }
 
@@ -107,7 +113,7 @@ func (u *jobAttachmentUploader) Upload(ctx context.Context, r io.Reader, _ *type
 }
 
 // https://github.com/actions/runner/blob/v2.323.0/src/Runner.Common/JobServerQueue.cs#L900-L903
-func (s *JobService) uploadAttach(ctx context.Context, uid, kind, name string, r io.Reader) error {
+func (s *jobService) uploadAttach(ctx context.Context, uid, kind, name string, r io.Reader) error {
 	endpoint := fmt.Sprintf(taskAttachmentEndpoint, s.scopeUid, s.planType, s.planUid, s.timelineUid, uid)
 	endpoint = path.Join(endpoint, kind, name)
 
@@ -121,13 +127,13 @@ func (s *JobService) uploadAttach(ctx context.Context, uid, kind, name string, r
 
 ////////////// Live Feed //////////////
 
-func (s *JobService) LiveFeedAppender() types.Appender {
+func (s *jobService) LiveFeedAppender() types.Appender {
 	return types.FuncAppender(s.feedingLogs)
 }
 
 // https://github.com/actions/runner/blob/v2.332.0/src/Runner.Common/JobServer.cs#L285-L295
 // https://github.com/actions/runner/blob/v2.332.0/src/Sdk/DTGenerated/Generated/TaskHttpClientBase.cs#L115-L141
-func (s *JobService) feedingLogs(ctx context.Context, uid string, startAt int, lines []string) error {
+func (s *jobService) feedingLogs(ctx context.Context, uid string, startAt int, lines []string) error {
 	data := &types.LinesWrapper{
 		Value:     lines,
 		Count:     len(lines),

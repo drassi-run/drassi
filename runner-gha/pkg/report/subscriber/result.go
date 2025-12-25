@@ -19,7 +19,7 @@ import (
 
 ////////////// StepLogs Subscriber for ResultService //////////////
 
-func NewResultServiceStepLogsSubscriber(context xcontext.Provider, svc *report.ResultService) types.Subscriber {
+func NewResultServiceStepLogsSubscriber(context xcontext.Provider, svc report.ResultService) types.Subscriber {
 	return &resultServiceStepLogsSubscriber{
 		svc:  svc,
 		ctx:  context.Context(),
@@ -28,7 +28,7 @@ func NewResultServiceStepLogsSubscriber(context xcontext.Provider, svc *report.R
 }
 
 type resultServiceStepLogsSubscriber struct {
-	svc *report.ResultService
+	svc report.ResultService
 	ctx context.Context
 
 	mu sync.Mutex

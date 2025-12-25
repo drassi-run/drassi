@@ -30,7 +30,7 @@ type JobServiceTestSuite struct {
 	ctrl   *gomock.Controller
 	mux    *http.ServeMux
 	server *httptest.Server
-	svc    *JobService
+	svc    *jobService
 
 	scopeUid    string
 	planType    string
@@ -58,9 +58,9 @@ func (s *JobServiceTestSuite) SetupTest() {
 			Id: s.timelineUid,
 		},
 	}
-	var err error
-	s.svc, err = NewJobService(s.server.URL, nil, msg)
+	svc, err := NewJobService(s.server.URL, nil, msg)
 	s.Require().NoError(err)
+	s.svc = svc.(*jobService)
 }
 
 func (s *JobServiceTestSuite) TearDownTest() {

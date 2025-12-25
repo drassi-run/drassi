@@ -20,7 +20,7 @@ import (
 
 ////////////// Logs Subscriber for JobService //////////////
 
-func NewJobServiceLogsSubscriber(context xcontext.Provider, svc *report.JobService) types.Subscriber {
+func NewJobServiceLogsSubscriber(context xcontext.Provider, svc report.JobService) types.Subscriber {
 	return &jobServiceLogsSubscriber{
 		svc: svc,
 		ctx: context.Context(),
@@ -29,7 +29,7 @@ func NewJobServiceLogsSubscriber(context xcontext.Provider, svc *report.JobServi
 }
 
 type jobServiceLogsSubscriber struct {
-	svc *report.JobService
+	svc report.JobService
 	ctx context.Context
 
 	mu sync.Mutex
