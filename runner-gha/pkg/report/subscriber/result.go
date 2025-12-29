@@ -49,7 +49,7 @@ func (s *resultServiceStepLogsSubscriber) Run(ch <-chan *log.Event) {
 		case log.OnRecordStop:
 			c := s.conveyor(event.Uid)
 			if u := event.Update; u != nil {
-				c.Update(event.Update)
+				c.Update(u)
 			}
 			_ = c.Close()
 		}

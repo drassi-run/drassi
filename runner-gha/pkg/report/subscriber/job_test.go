@@ -72,16 +72,6 @@ func (s *JobServiceLogsSubscriberTestSuite) TestRun() {
 		logFile := s.tempFile("job.log", content)
 
 		uid := "test-uid"
-		event := &log.Event{
-			Uid: uid,
-			Update: &log.Update{
-				File:     logFile,
-				Line:     1,
-				Offset:   int64(len(content)),
-				Complete: true,
-			},
-		}
-
 		u := types.FuncUploader(func(ctx context.Context, r io.Reader, stat *types.Stat) error {
 			s.Equal(1, stat.Lines)
 			s.EqualValues(len(content), stat.Size)
@@ -97,11 +87,19 @@ func (s *JobServiceLogsSubscriberTestSuite) TestRun() {
 			AnyTimes()
 
 		ch := make(chan *log.Event)
-
 		go s.sub.Run(ch)
-		ch <- event
-		close(ch)
 
+		ch <- &log.Event{
+			Uid: uid,
+			Update: &log.Update{
+				File:     logFile,
+				Line:     1,
+				Offset:   int64(len(content)),
+				Complete: true,
+			},
+		}
+
+		close(ch)
 		s.sub.Wait()
 	})
 }
