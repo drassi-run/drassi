@@ -19,13 +19,13 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
+func TestMultiReaderSuite(t *testing.T) {
+	suite.Run(t, new(MultiReaderTestSuite))
+}
+
 type MultiReaderTestSuite struct {
 	suite.Suite
 	m *multiReader
-}
-
-func TestMultiTestSuite(t *testing.T) {
-	suite.Run(t, new(MultiReaderTestSuite))
 }
 
 func (s *MultiReaderTestSuite) SetupTest() {
@@ -133,14 +133,14 @@ func (s *MultiReaderTestSuite) TestSeek_Edge() {
 	assert.ErrorIs(t, io.EOF, err)
 }
 
+func TestSectionSuite(t *testing.T) {
+	suite.Run(t, new(SectionTestSuite))
+}
+
 type SectionTestSuite struct {
 	suite.Suite
 	tempFile string
 	lines    []string
-}
-
-func TestSectionTestSuite(t *testing.T) {
-	suite.Run(t, new(SectionTestSuite))
 }
 
 func (s *SectionTestSuite) SetupSuite() {
@@ -243,15 +243,15 @@ func (s *SectionTestSuite) TestScan() {
 	s.Equal(s.lines, lines)
 }
 
+func TestSectionsSuite(t *testing.T) {
+	suite.Run(t, new(SectionsTestSuite))
+}
+
 type SectionsTestSuite struct {
 	suite.Suite
 	tmpDir string
 	f1     string
 	f2     string
-}
-
-func TestSectionsTestSuite(t *testing.T) {
-	suite.Run(t, new(SectionsTestSuite))
 }
 
 func (s *SectionsTestSuite) SetupTest() {

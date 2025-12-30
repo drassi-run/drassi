@@ -93,12 +93,12 @@ func (br *batcher) Run() {
 	for {
 		select {
 		case <-br.timer.C:
-			if b := br.flush(false); !b.Empty() {
+			if b := br.flush(); !b.Empty() {
 				br.ch <- b
 			}
 		case <-br.stopCh:
 			br.timer.Stop()
-			if b := br.flush(true); !b.Empty() {
+			if b := br.flush(); !b.Empty() {
 				br.ch <- b
 			}
 			return
@@ -118,15 +118,14 @@ func (br *batcher) stageSection(new *section) {
 // flush state and return the current batch if any.
 // NOTE: batch is not send to ch here to avoid ch and mu block each other.
 // (block mu will affect Update func)
-func (br *batcher) flush(last bool) sections {
+func (br *batcher) flush() sections {
 	br.mu.Lock()
 	defer br.mu.Unlock()
-	if last {
-		// stage remaining items
-		br.stageSection(nil)
-	}
+
+	br.stageSection(nil)
 	b := br.batch
 	br.batch, br.total = nil, 0
+
 	return b
 }
 
