@@ -46,9 +46,12 @@ func (s *liveFeedSubscriber) Run(ch <-chan *log.Event) {
 			b.Update(u)
 		}
 		if e.Kind == log.OnRecordStop {
-			_ = b.Close()
+			s.stopCurrentBatcher()
 		}
 	}
+
+	// for any reason, OnRecordStop is not received before channel close
+	s.stopCurrentBatcher()
 }
 
 func (s *liveFeedSubscriber) batcher(uid string) log.Batcher {
@@ -64,6 +67,9 @@ func (s *liveFeedSubscriber) batcher(uid string) log.Batcher {
 		s.currUid, s.currBatcher = "", nil
 	}
 
+	// In GitHub Runner (C# version)
+	// + (batchSize) threshold=100 : https://github.com/actions/runner/blob/v2.332.0/src/Runner.Common/JobServerQueue.cs#L372-L389
+	// + interval=500ms : https://github.com/actions/runner/blob/v2.332.0/src/Runner.Common/JobServerQueue.cs#L33
 	b := log.NewBatcher(100, time.Second)
 	s.currUid, s.currBatcher = uid, b
 
@@ -73,6 +79,18 @@ func (s *liveFeedSubscriber) batcher(uid string) log.Batcher {
 		s.run(uid, b)
 	}()
 	return b
+}
+
+func (s *liveFeedSubscriber) stopCurrentBatcher() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.currBatcher == nil {
+		return
+	}
+
+	_ = s.currBatcher.Close()
+	s.currUid, s.currBatcher = "", nil
 }
 
 func (s *liveFeedSubscriber) run(uid string, batcher log.Batcher) {
