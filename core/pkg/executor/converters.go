@@ -17,11 +17,11 @@ import (
 	"github.com/google/uuid"
 )
 
-func ToJobRun(jobId string, job *workflows.NormalJob) *JobRun {
+func ToJobSpec(jobId string, job *workflows.NormalJob) *JobSpec {
 	stepRuns := FromSteps(job.Steps)
 
 	uid, _ := uuid.NewRandom()
-	return &JobRun{
+	return &JobSpec{
 		Id:        jobId,
 		Uid:       uid.String(),
 		Name:      job.Name,

@@ -155,40 +155,40 @@ func (c *MockJobExecutorInitializeCall) DoAndReturn(f func(context.Context, *dig
 	return c
 }
 
-// JobRun mocks base method.
-func (m *MockJobExecutor) JobRun() *executor.JobRun {
+// JobSpec mocks base method.
+func (m *MockJobExecutor) JobSpec() *executor.JobSpec {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "JobRun")
-	ret0, _ := ret[0].(*executor.JobRun)
+	ret := m.ctrl.Call(m, "JobSpec")
+	ret0, _ := ret[0].(*executor.JobSpec)
 	return ret0
 }
 
-// JobRun indicates an expected call of JobRun.
-func (mr *MockJobExecutorMockRecorder) JobRun() *MockJobExecutorJobRunCall {
+// JobSpec indicates an expected call of JobSpec.
+func (mr *MockJobExecutorMockRecorder) JobSpec() *MockJobExecutorJobSpecCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "JobRun", reflect.TypeOf((*MockJobExecutor)(nil).JobRun))
-	return &MockJobExecutorJobRunCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "JobSpec", reflect.TypeOf((*MockJobExecutor)(nil).JobSpec))
+	return &MockJobExecutorJobSpecCall{Call: call}
 }
 
-// MockJobExecutorJobRunCall wrap *gomock.Call
-type MockJobExecutorJobRunCall struct {
+// MockJobExecutorJobSpecCall wrap *gomock.Call
+type MockJobExecutorJobSpecCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockJobExecutorJobRunCall) Return(arg0 *executor.JobRun) *MockJobExecutorJobRunCall {
+func (c *MockJobExecutorJobSpecCall) Return(arg0 *executor.JobSpec) *MockJobExecutorJobSpecCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockJobExecutorJobRunCall) Do(f func() *executor.JobRun) *MockJobExecutorJobRunCall {
+func (c *MockJobExecutorJobSpecCall) Do(f func() *executor.JobSpec) *MockJobExecutorJobSpecCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockJobExecutorJobRunCall) DoAndReturn(f func() *executor.JobRun) *MockJobExecutorJobRunCall {
+func (c *MockJobExecutorJobSpecCall) DoAndReturn(f func() *executor.JobSpec) *MockJobExecutorJobSpecCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

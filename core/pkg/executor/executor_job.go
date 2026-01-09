@@ -33,7 +33,7 @@ import (
 )
 
 type JobExecutor interface {
-	JobRun() *JobRun
+	JobSpec() *JobSpec
 
 	Initialize(ctx context.Context, scope *dig.Scope) error
 	RunJob(ctx context.Context) *records.Job
@@ -48,19 +48,19 @@ type JobExecutor interface {
 }
 
 func JobId(e JobExecutor) string {
-	return e.JobRun().Id
+	return e.JobSpec().Id
 }
 
 func JobUid(e JobExecutor) string {
-	return e.JobRun().Uid
+	return e.JobSpec().Uid
 }
 
-func NewJobExecutor(run *JobRun) JobExecutor {
-	return &jobExecutor{jobRun: run}
+func NewJobExecutor(spec *JobSpec) JobExecutor {
+	return &jobExecutor{jobSpec: spec}
 }
 
 type jobExecutor struct {
-	jobRun *JobRun
+	jobSpec *JobSpec
 
 	// records
 	github  records.Github
@@ -77,8 +77,8 @@ type jobExecutor struct {
 	stepExecutors map[string]StepExecutor
 }
 
-func (e *jobExecutor) JobRun() *JobRun {
-	return e.jobRun
+func (e *jobExecutor) JobSpec() *JobSpec {
+	return e.jobSpec
 }
 
 func (e *jobExecutor) Initialize(ctx context.Context, scope *dig.Scope) (ex error) {
@@ -156,7 +156,7 @@ func (e *jobExecutor) RunJob(ctx context.Context) *records.Job {
 		e.SetStatus(records.ResultFailure)
 		//log err
 	}
-	if err := evaluator.Evaluate(e.exprEnv, e.jobRun.Outputs, &e.job.Outputs); err != nil {
+	if err := evaluator.Evaluate(e.exprEnv, e.jobSpec.Outputs, &e.job.Outputs); err != nil {
 		e.SetStatus(records.ResultFailure)
 	}
 	return e.job
@@ -220,7 +220,7 @@ func (e *jobExecutor) initializeJob(s *scribe.Scribe, scope *dig.Scope) error {
 	}
 	e.jobInfo = new(records.JobInfo)
 	e.job = new(records.Job)
-	e.steps = make(map[string]*records.Step, len(e.jobRun.Steps))
+	e.steps = make(map[string]*records.Step, len(e.jobSpec.Steps))
 
 	// setup expression.Env
 	opts := []expression.Option{
@@ -239,7 +239,7 @@ func (e *jobExecutor) initializeJob(s *scribe.Scribe, scope *dig.Scope) error {
 	// Evaluate expressions
 	s.Debugf("Evaluating job-level environment variables")
 	env := make(map[string]string)
-	if err := evaluator.Evaluate(e.exprEnv, e.jobRun.Env, &env); err != nil {
+	if err := evaluator.Evaluate(e.exprEnv, e.jobSpec.Env, &env); err != nil {
 		return err
 	} else {
 		e.SetEnv(env)
@@ -247,7 +247,7 @@ func (e *jobExecutor) initializeJob(s *scribe.Scribe, scope *dig.Scope) error {
 
 	s.Debugf("Evaluating job defaults")
 	var defaults workflows.Defaults
-	if err := evaluator.Evaluate(e.exprEnv, e.jobRun.Defaults, &defaults); err != nil {
+	if err := evaluator.Evaluate(e.exprEnv, e.jobSpec.Defaults, &defaults); err != nil {
 		return err
 	} else if err = xdig.Supply(scope, defaults); err != nil {
 		return err
@@ -269,7 +269,7 @@ func (e *jobExecutor) initializeSandbox(ctx context.Context, s *scribe.Scribe, s
 
 	s.Debugf("Evaluating job container")
 	var jobContainer *workflows.Container
-	if err := evaluator.Evaluate(e.exprEnv, e.jobRun.Container, &jobContainer); err != nil {
+	if err := evaluator.Evaluate(e.exprEnv, e.jobSpec.Container, &jobContainer); err != nil {
 		return err
 	} else {
 		req.JobContainer = jobContainer
@@ -277,7 +277,7 @@ func (e *jobExecutor) initializeSandbox(ctx context.Context, s *scribe.Scribe, s
 
 	s.Debugf("Evaluating service containers")
 	var serviceContainers = make(map[string]*workflows.Container)
-	if err := evaluator.Evaluate(e.exprEnv, e.jobRun.Services, &serviceContainers); err != nil {
+	if err := evaluator.Evaluate(e.exprEnv, e.jobSpec.Services, &serviceContainers); err != nil {
 		return err
 	} else if len(serviceContainers) > 0 {
 		req.ServiceContainers = serviceContainers
@@ -366,7 +366,7 @@ func (e *jobExecutor) provideEnv(envProv support.EnvProvider) {
 }
 
 func (e *jobExecutor) initializeSteps(ctx context.Context, scope *dig.Scope) error {
-	e.stepExecutors = make(map[string]StepExecutor, len(e.jobRun.Steps))
+	e.stepExecutors = make(map[string]StepExecutor, len(e.jobSpec.Steps))
 
 	// TODO: concurrent version of Initialize is temporary disable because of concurrent map writes in scope
 	//g, ctx := errgroup.WithContext(ctx)
@@ -379,7 +379,7 @@ func (e *jobExecutor) initializeSteps(ctx context.Context, scope *dig.Scope) err
 	//}
 	//return g.Wait()
 
-	for _, step := range e.jobRun.Steps {
+	for _, step := range e.jobSpec.Steps {
 		exec := NewStepExecutor(step)
 		e.stepExecutors[step.StepId()] = exec
 
@@ -409,8 +409,8 @@ func (e *jobExecutor) runStage(ctx context.Context, stage Stage) (ex error) {
 	}
 
 	// do stage run
-	ids := make([]string, len(e.jobRun.Steps))
-	for i, step := range e.jobRun.Steps {
+	ids := make([]string, len(e.jobSpec.Steps))
+	for i, step := range e.jobSpec.Steps {
 		ids[i] = step.StepId()
 	}
 	if stage == StagePost {

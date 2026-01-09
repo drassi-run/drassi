@@ -234,12 +234,12 @@ func (w *Worker) initExecutor(scope *dig.Scope) error {
 	if err := decodeWorkflow(w.task.WorkflowPayload, workflow); err != nil {
 		return err
 	}
-	jr, err := convertJobRun(workflow)
+	spec, err := convertJobSpec(workflow)
 	if err != nil {
 		return err
 	}
 
-	w.exec = executor.NewJobExecutor(jr)
+	w.exec = executor.NewJobExecutor(spec)
 	w.addCleanerContext(w.exec.Finalize)
 	scope = scope.Scope(fmt.Sprintf("job(%s)", executor.JobId(w.exec)))
 

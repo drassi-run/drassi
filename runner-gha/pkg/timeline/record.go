@@ -73,7 +73,7 @@ const (
 )
 
 type JobObject struct {
-	JobRun         executor.JobRun
+	JobSpec        executor.JobSpec
 	Outputs        map[string]string
 	EnvironmentUrl string
 }

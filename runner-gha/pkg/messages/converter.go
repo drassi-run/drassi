@@ -124,7 +124,7 @@ func ToStepRun(step *JobStep) (executor.StepRun, error) {
 	}
 }
 
-func ToJobRun(job *PipelineAgentJobRequest) (*executor.JobRun, error) {
+func ToJobSpec(job *PipelineAgentJobRequest) (*executor.JobSpec, error) {
 	steps := make([]executor.StepRun, len(job.Steps))
 	for i, s := range job.Steps {
 		step, err := ToStepRun(&s)
@@ -134,7 +134,7 @@ func ToJobRun(job *PipelineAgentJobRequest) (*executor.JobRun, error) {
 		steps[i] = step
 	}
 
-	jr := &executor.JobRun{
+	spec := &executor.JobSpec{
 		Uid:  job.JobId,
 		Id:   job.JobName,
 		Name: workflows.NewLiteralToken(job.JobDisplayName),
@@ -147,7 +147,7 @@ func ToJobRun(job *PipelineAgentJobRequest) (*executor.JobRun, error) {
 		Steps:    steps,
 		Outputs:  ToToken(job.JobOutputs),
 	}
-	return jr, nil
+	return spec, nil
 }
 
 func extractScriptStepInputs(ssr *executor.ScriptStepRun, inputs *TemplateToken) error {

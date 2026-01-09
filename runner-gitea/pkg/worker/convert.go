@@ -30,14 +30,14 @@ func decodeWorkflow(payload []byte, workflow *workflows.Workflow) error {
 	return model.Decode(raw, workflow)
 }
 
-func convertJobRun(wf *workflows.Workflow) (*executor.JobRun, error) {
+func convertJobSpec(wf *workflows.Workflow) (*executor.JobSpec, error) {
 	if len(wf.Jobs) > 1 {
 		return nil, errors.New("multiple jobs found")
 	}
 	for jobId, job := range wf.Jobs {
 		if nj, ok := job.(*workflows.NormalJob); ok {
-			jr := executor.ToJobRun(jobId, nj)
-			return jr, nil
+			spec := executor.ToJobSpec(jobId, nj)
+			return spec, nil
 		}
 		return nil, fmt.Errorf("unsupported job type %T", job)
 	}
