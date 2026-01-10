@@ -416,40 +416,40 @@ func (c *MockStepExecutorStatusCall) DoAndReturn(f func() records.Result) *MockS
 	return c
 }
 
-// StepRun mocks base method.
-func (m *MockStepExecutor) StepRun() executor.StepRun {
+// StepSpec mocks base method.
+func (m *MockStepExecutor) StepSpec() executor.StepSpec {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StepRun")
-	ret0, _ := ret[0].(executor.StepRun)
+	ret := m.ctrl.Call(m, "StepSpec")
+	ret0, _ := ret[0].(executor.StepSpec)
 	return ret0
 }
 
-// StepRun indicates an expected call of StepRun.
-func (mr *MockStepExecutorMockRecorder) StepRun() *MockStepExecutorStepRunCall {
+// StepSpec indicates an expected call of StepSpec.
+func (mr *MockStepExecutorMockRecorder) StepSpec() *MockStepExecutorStepSpecCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StepRun", reflect.TypeOf((*MockStepExecutor)(nil).StepRun))
-	return &MockStepExecutorStepRunCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StepSpec", reflect.TypeOf((*MockStepExecutor)(nil).StepSpec))
+	return &MockStepExecutorStepSpecCall{Call: call}
 }
 
-// MockStepExecutorStepRunCall wrap *gomock.Call
-type MockStepExecutorStepRunCall struct {
+// MockStepExecutorStepSpecCall wrap *gomock.Call
+type MockStepExecutorStepSpecCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStepExecutorStepRunCall) Return(arg0 executor.StepRun) *MockStepExecutorStepRunCall {
+func (c *MockStepExecutorStepSpecCall) Return(arg0 executor.StepSpec) *MockStepExecutorStepSpecCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStepExecutorStepRunCall) Do(f func() executor.StepRun) *MockStepExecutorStepRunCall {
+func (c *MockStepExecutorStepSpecCall) Do(f func() executor.StepSpec) *MockStepExecutorStepSpecCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStepExecutorStepRunCall) DoAndReturn(f func() executor.StepRun) *MockStepExecutorStepRunCall {
+func (c *MockStepExecutorStepSpecCall) DoAndReturn(f func() executor.StepSpec) *MockStepExecutorStepSpecCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

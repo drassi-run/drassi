@@ -17,7 +17,7 @@ import (
 	"go.uber.org/dig"
 )
 
-type StepRun interface {
+type StepSpec interface {
 	StepId() string
 	Base() *BaseStepRun
 	DisplayName(stage Stage) string
@@ -28,13 +28,13 @@ type StepRun interface {
 	PostTask() *Task
 }
 
-// ensure StepRun implementations
+// ensure StepSpec implementations
 var (
-	_ StepRun = (*ActionStepRun)(nil)
-	_ StepRun = (*ScriptStepRun)(nil)
-	_ StepRun = (*DockerStepRun)(nil)
-	_ StepRun = (*NodeStepRun)(nil)
-	_ StepRun = (*CompositeStepRun)(nil)
+	_ StepSpec = (*ActionStepRun)(nil)
+	_ StepSpec = (*ScriptStepRun)(nil)
+	_ StepSpec = (*DockerStepRun)(nil)
+	_ StepSpec = (*NodeStepRun)(nil)
+	_ StepSpec = (*CompositeStepRun)(nil)
 )
 
 type BaseStepRun struct {

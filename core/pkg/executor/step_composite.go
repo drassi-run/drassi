@@ -22,7 +22,7 @@ import (
 
 type CompositeStepRun struct {
 	BaseStepRun
-	StepRuns []StepRun
+	StepRuns []StepSpec
 
 	children map[string]StepExecutor
 	exprEnv  expression.Env

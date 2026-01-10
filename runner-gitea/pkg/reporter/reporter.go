@@ -114,7 +114,7 @@ func (r *Reporter) EndJob(spec *executor.JobSpec, state *records.Job) error {
 	return nil
 }
 
-func (r *Reporter) StartStep(sr executor.StepRun, stage executor.Stage) error {
+func (r *Reporter) StartStep(sr executor.StepSpec, stage executor.Stage) error {
 	if stage != executor.StageMain {
 		// Gitea only report main stage for now
 		return nil
@@ -128,7 +128,7 @@ func (r *Reporter) StartStep(sr executor.StepRun, stage executor.Stage) error {
 	return nil
 }
 
-func (r *Reporter) EndStep(sr executor.StepRun, stage executor.Stage, state *records.Step) error {
+func (r *Reporter) EndStep(sr executor.StepSpec, stage executor.Stage, state *records.Step) error {
 	if stage != executor.StageMain {
 		// Gitea only report main stage for now
 		return nil

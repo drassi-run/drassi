@@ -34,9 +34,9 @@ func ToJobSpec(jobId string, job *workflows.NormalJob) *JobSpec {
 	}
 }
 
-func FromSteps(steps []workflows.Step) []StepRun {
+func FromSteps(steps []workflows.Step) []StepSpec {
 	idMap := make(map[string]int)
-	stepRuns := make([]StepRun, len(steps))
+	stepRuns := make([]StepSpec, len(steps))
 
 	for i, step := range steps {
 		sr := ToStepRun(step)
@@ -68,7 +68,7 @@ func FromSteps(steps []workflows.Step) []StepRun {
 	return stepRuns
 }
 
-func ToStepRun(step workflows.Step) StepRun {
+func ToStepRun(step workflows.Step) StepSpec {
 	b := step.Base()
 	uid, _ := uuid.NewRandom()
 	bsr := &BaseStepRun{
@@ -94,7 +94,7 @@ func ToStepRun(step workflows.Step) StepRun {
 	return nil
 }
 
-func toScriptStepRun(s *workflows.RunStep, bsr *BaseStepRun) StepRun {
+func toScriptStepRun(s *workflows.RunStep, bsr *BaseStepRun) StepSpec {
 	return &ScriptStepRun{
 		BaseStepRun: *bsr,
 
@@ -104,14 +104,14 @@ func toScriptStepRun(s *workflows.RunStep, bsr *BaseStepRun) StepRun {
 	}
 }
 
-func toDockerStepRun(s *workflows.UsesStep, bsr *BaseStepRun) StepRun {
+func toDockerStepRun(s *workflows.UsesStep, bsr *BaseStepRun) StepSpec {
 	return &DockerStepRun{
 		BaseStepRun: *bsr,
 		Image:       s.Uses,
 	}
 }
 
-func toActionStepRun(s *workflows.UsesStep, bsr *BaseStepRun) StepRun {
+func toActionStepRun(s *workflows.UsesStep, bsr *BaseStepRun) StepSpec {
 	repo, _ := repository.Parse(s.Uses)
 	return &ActionStepRun{
 		BaseStepRun: *bsr,
@@ -119,8 +119,8 @@ func toActionStepRun(s *workflows.UsesStep, bsr *BaseStepRun) StepRun {
 	}
 }
 
-func FromAction(action *actions.Action, base BaseStepRun) (StepRun, error) {
-	var sr StepRun
+func FromAction(action *actions.Action, base BaseStepRun) (StepSpec, error) {
+	var sr StepSpec
 	switch r := action.Runs.(type) {
 	case *actions.NodeRuns:
 		sr = &NodeStepRun{

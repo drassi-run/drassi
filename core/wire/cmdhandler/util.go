@@ -120,11 +120,11 @@ func getPathTranslator(step executor.StepExecutor) runtime.PathTranslator {
 		return nil
 	}
 
-	for sr := step.StepRun(); ; {
+	for sr := step.StepSpec(); ; {
 		if prov, ok := sr.(interface{ PathTranslator() runtime.PathTranslator }); ok {
 			return prov.PathTranslator()
 		}
-		if uw, ok := sr.(xtypes.Unwrapper[executor.StepRun]); ok {
+		if uw, ok := sr.(xtypes.Unwrapper[executor.StepSpec]); ok {
 			sr = uw.Unwrap()
 		} else {
 			break

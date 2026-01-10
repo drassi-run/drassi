@@ -52,10 +52,10 @@ type stepRunEventHandler struct {
 }
 
 func (h *stepRunEventHandler) Begin(context.Context) error {
-	return h.reporter.StartStep(h.exec.StepRun(), h.stage)
+	return h.reporter.StartStep(h.exec.StepSpec(), h.stage)
 }
 
 func (h *stepRunEventHandler) End(error) error {
 	state := h.exec.State()
-	return h.reporter.EndStep(h.exec.StepRun(), h.stage, state)
+	return h.reporter.EndStep(h.exec.StepSpec(), h.stage, state)
 }

@@ -39,14 +39,14 @@ type ActionStepRun struct {
 	Repo *repository.Repository
 
 	rev       string
-	actionRun StepRun
+	actionRun StepSpec
 }
 
 func (sr *ActionStepRun) Repository() *repository.Repository {
 	return sr.Repo
 }
 
-func (sr *ActionStepRun) Unwrap() StepRun {
+func (sr *ActionStepRun) Unwrap() StepSpec {
 	return sr.actionRun
 }
 

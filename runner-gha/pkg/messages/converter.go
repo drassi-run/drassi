@@ -68,7 +68,7 @@ func squashTokens(tokens []TemplateToken) workflows.Token {
 	}
 }
 
-func ToStepRun(step *JobStep) (executor.StepRun, error) {
+func ToStepRun(step *JobStep) (executor.StepSpec, error) {
 	sr := executor.BaseStepRun{
 		Uid:              step.Id,
 		Id:               step.ContextName,
@@ -125,7 +125,7 @@ func ToStepRun(step *JobStep) (executor.StepRun, error) {
 }
 
 func ToJobSpec(job *PipelineAgentJobRequest) (*executor.JobSpec, error) {
-	steps := make([]executor.StepRun, len(job.Steps))
+	steps := make([]executor.StepSpec, len(job.Steps))
 	for i, s := range job.Steps {
 		step, err := ToStepRun(&s)
 		if err != nil {
