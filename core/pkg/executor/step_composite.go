@@ -20,39 +20,39 @@ import (
 	"go.uber.org/dig"
 )
 
-type CompositeStepRun struct {
-	BaseStepRun
-	StepRuns []StepSpec
+type CompositeStepDef struct {
+	Inputs  workflows.Evaluable[map[string]string]
+	Outputs workflows.Evaluable[map[string]string]
 
-	children map[string]StepExecutor
-	exprEnv  expression.Env
-	inputs   map[string]string
+	Steps []*StepSpec
 }
 
-func (sr *CompositeStepRun) Initialize(ctx context.Context, scope *dig.Scope) error {
+func (d *CompositeStepDef) PrepareExecute(ctx context.Context, scope *dig.Scope) (StepRun, error) {
+	e := &compositeStepRun{def: d}
+
 	var exec StepExecutor
 	if err := xdig.Populate(scope, &exec); err != nil {
-		return err
+		return nil, err
 	}
-	if err := xdig.Populate(scope, &sr.exprEnv); err != nil {
-		return err
+	if err := xdig.Populate(scope, &e.exprEnv); err != nil {
+		return nil, err
 	}
 
 	// create a new intermediate scope to store composite values (inputs & exprEnv)
-	sr.inputs = make(map[string]string)
+	e.inputs = make(map[string]string)
 	scope = scope.Scope("composite")
 	opts := []expression.Option{
 		// inputs from upper layers will NOT be passed to child steps
-		expression.WithVariable("inputs", sr.inputs),
+		expression.WithVariable("inputs", e.inputs),
 		expression.WithLibrary(libraries.StatusLib(exec)),
 	}
-	if exprEnv, err := sr.exprEnv.New(opts...); err != nil {
-		return err
+	if exprEnv, err := e.exprEnv.New(opts...); err != nil {
+		return nil, err
 	} else if err = xdig.Supply(scope, exprEnv); err != nil {
-		return err
+		return nil, err
 	}
-	if err := xdig.Supply(scope, sr.inputs); err != nil {
-		return err
+	if err := xdig.Supply(scope, e.inputs); err != nil {
+		return nil, err
 	}
 
 	// TODO: concurrent version of Initialize is temporary disable because of concurrent map writes in scope
@@ -67,35 +67,47 @@ func (sr *CompositeStepRun) Initialize(ctx context.Context, scope *dig.Scope) er
 	//}
 	//return g.Wait()
 
-	sr.children = make(map[string]StepExecutor, len(sr.StepRuns))
-	for _, step := range sr.StepRuns {
+	e.children = make(map[string]StepExecutor, len(d.Steps))
+	for _, step := range d.Steps {
 		cExec := NewStepExecutor(step)
-		sr.children[step.StepId()] = cExec
+		e.children[step.Id] = cExec
 
-		cScope := scope.Scope(fmt.Sprintf("step(%s)", step.StepId()))
+		cScope := scope.Scope(fmt.Sprintf("step(%s)", step.Id))
 		if err := cExec.Initialize(ctx, cScope); err != nil {
-			return err
+			return nil, err
 		}
 	}
-	return nil
+	return e, nil
 }
 
-func (sr *CompositeStepRun) PreTask() *Task {
+type compositeStepRun struct {
+	def *CompositeStepDef
+
+	children map[string]StepExecutor
+	exprEnv  expression.Env
+	inputs   map[string]string
+}
+
+func (sr *compositeStepRun) Def() StepDef {
+	return sr.def
+}
+
+func (sr *compositeStepRun) PreTask() *Task {
 	return sr.createStageTask(StagePre)
 }
 
-func (sr *CompositeStepRun) MainTask() *Task {
+func (sr *compositeStepRun) MainTask() *Task {
 	return sr.createStageTask(StageMain)
 }
 
-func (sr *CompositeStepRun) PostTask() *Task {
+func (sr *compositeStepRun) PostTask() *Task {
 	return sr.createStageTask(StagePost)
 }
 
-func (sr *CompositeStepRun) createStageTask(stage Stage) *Task {
-	taskIds := make([]string, len(sr.StepRuns))
-	for i, step := range sr.StepRuns {
-		taskIds[i] = step.StepId()
+func (sr *compositeStepRun) createStageTask(stage Stage) *Task {
+	taskIds := make([]string, len(sr.def.Steps))
+	for i, step := range sr.def.Steps {
+		taskIds[i] = step.Id
 	}
 	if stage == StagePost {
 		slices.Reverse(taskIds) // in-place reverse
@@ -129,21 +141,20 @@ func (sr *CompositeStepRun) createStageTask(stage Stage) *Task {
 	}
 
 	return &Task{
-		StepId:    sr.Id,
 		Stage:     stage,
 		Condition: condition,
 		Run:       taskRun,
 	}
 }
 
-func (sr *CompositeStepRun) computeInputs() error {
+func (sr *compositeStepRun) computeInputs() error {
 	clear(sr.inputs)
-	return evaluator.Evaluate(sr.exprEnv, sr.Inputs, &sr.inputs)
+	return evaluator.Evaluate(sr.exprEnv, sr.def.Inputs, &sr.inputs)
 }
 
-func (sr *CompositeStepRun) produceOutputs(exec StepExecutor) error {
+func (sr *compositeStepRun) produceOutputs(exec StepExecutor) error {
 	outputs := make(map[string]string)
-	if err := evaluator.Evaluate(sr.exprEnv, sr.Outputs, &outputs); err != nil {
+	if err := evaluator.Evaluate(sr.exprEnv, sr.def.Outputs, &outputs); err != nil {
 		return err
 	}
 	exec.SetOutput(outputs)

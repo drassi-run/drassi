@@ -279,12 +279,12 @@ func (l *runLease) toStepResult(r *timeline.Record) (*StepResult, error) {
 	}
 
 	// https://github.com/actions/runner/blob/v2.324.0/src/Runner.Worker/Handlers/Handler.cs#L57
-	switch sr := step.StepRun.(type) {
-	case *executor.ScriptStepRun:
+	switch sr := step.StepRun.Def.(type) {
+	case *executor.ScriptStepDef:
 		res.ActionType = "run"
-	case *executor.DockerStepRun:
+	case *executor.DockerStepDef:
 		res.ActionType = "docker"
-	case *executor.ActionStepRun:
+	case *executor.ActionStepDef:
 		res.ActionType = "repository"
 
 		repo := sr.Repository()

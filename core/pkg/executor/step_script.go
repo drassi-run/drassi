@@ -27,12 +27,36 @@ import (
 	"go.uber.org/dig"
 )
 
-type ScriptStepRun struct {
-	BaseStepRun
-
+type ScriptStepDef struct {
 	Run        workflows.Evaluable[string]
 	Shell      string
 	WorkingDir workflows.Evaluable[string]
+}
+
+func (d *ScriptStepDef) PrepareExecute(_ context.Context, scope *dig.Scope) (StepRun, error) {
+	e := &scriptStepRun{def: d}
+
+	if err := xdig.Populate(scope, &e.sandbox); err != nil {
+		return nil, err
+	}
+	if err := xdig.Populate(scope, &e.streams); err != nil {
+		return nil, err
+	}
+	if err := xdig.Populate(scope, &e.exprEnv); err != nil {
+		return nil, err
+	}
+	if err := xdig.Populate(scope, &e.defaults); err != nil {
+		return nil, err
+	}
+	if err := xdig.Populate(scope, &e.pathProv); err != nil {
+		return nil, err
+	}
+
+	return e, nil
+}
+
+type scriptStepRun struct {
+	def *ScriptStepDef
 
 	// injected values
 	pathProv support.PathProvider
@@ -42,64 +66,42 @@ type ScriptStepRun struct {
 	defaults workflows.Defaults
 }
 
-func (sr *ScriptStepRun) Initialize(ctx context.Context, scope *dig.Scope) error {
-	if err := xdig.Populate(scope, &sr.sandbox); err != nil {
-		return err
-	}
-	if err := xdig.Populate(scope, &sr.streams); err != nil {
-		return err
-	}
-	if err := xdig.Populate(scope, &sr.exprEnv); err != nil {
-		return err
-	}
-	if err := xdig.Populate(scope, &sr.defaults); err != nil {
-		return err
-	}
-	if err := xdig.Populate(scope, &sr.pathProv); err != nil {
-		return err
-	}
+func (sr *scriptStepRun) Def() StepDef {
+	return sr.def
+}
 
-	defaultName := fmt.Sprintf("%s", sr.Run)
-	if err := sr.evaluateDisplayName(ctx, sr.exprEnv, defaultName); err != nil {
-		return err
-	}
-
+func (sr *scriptStepRun) PreTask() *Task {
 	return nil
 }
 
-func (sr *ScriptStepRun) PreTask() *Task {
-	return nil
-}
-
-func (sr *ScriptStepRun) MainTask() *Task {
+func (sr *scriptStepRun) MainTask() *Task {
 	return &Task{
-		StepId:    sr.Id,
-		Stage:     StageMain,
-		Condition: sr.Condition,
-		Run:       sr.executeMain,
+		Stage: StageMain,
+		Run:   sr.executeMain,
 	}
 }
 
-func (sr *ScriptStepRun) PostTask() *Task {
+func (sr *scriptStepRun) PostTask() *Task {
 	return nil
 }
 
-func (sr *ScriptStepRun) executeMain(ctx context.Context, exec StepExecutor) error {
+func (sr *scriptStepRun) executeMain(ctx context.Context, exec StepExecutor) error {
+	def := sr.def
 	workdir := sr.defaults.Run.WorkingDir
-	if err := evaluator.Evaluate(sr.exprEnv, sr.WorkingDir, &workdir); err != nil {
+	if err := evaluator.Evaluate(sr.exprEnv, def.WorkingDir, &workdir); err != nil {
 		return err
 	}
 
 	script := ""
-	if err := evaluator.Evaluate(sr.exprEnv, sr.Run, &script); err != nil {
+	if err := evaluator.Evaluate(sr.exprEnv, def.Run, &script); err != nil {
 		return err
 	} else if script == "" {
 		return fmt.Errorf("script is required")
 	}
 
 	shell := model.Shell(sr.defaults.Run.Shell)
-	if sr.Shell != "" {
-		shell = model.Shell(sr.Shell)
+	if def.Shell != "" {
+		shell = model.Shell(def.Shell)
 	}
 	cmd, err := shell.Command()
 	if err != nil {
@@ -116,7 +118,7 @@ func (sr *ScriptStepRun) executeMain(ctx context.Context, exec StepExecutor) err
 	)
 
 	script = shell.FixupScript(script)
-	scriptPath := sr.computeScriptPath(shell.Extension())
+	scriptPath := sr.computeScriptPath(exec.StepSpec(), shell.Extension())
 	sr.expandCommand(cmd, scriptPath)
 
 	if err = sr.transferScriptIn(ctx, script, scriptPath); err != nil {
@@ -128,19 +130,19 @@ func (sr *ScriptStepRun) executeMain(ctx context.Context, exec StepExecutor) err
 	return sr.sandbox.Execute(ctx, cmd, paths, env, workdir, sr.streams)
 }
 
-func (sr *ScriptStepRun) expandCommand(cmd []string, scriptPath string) {
+func (sr *scriptStepRun) expandCommand(cmd []string, scriptPath string) {
 	scriptPath = path.Join(sr.sandbox.Layout().Temp, scriptPath)
 	for i, c := range cmd {
 		cmd[i] = strings.Replace(c, `{0}`, scriptPath, 1)
 	}
 }
 
-func (sr *ScriptStepRun) computeScriptPath(ext string) string {
-	file := sr.Uid + xstring.EnsurePrefix(ext, ".")
+func (sr *scriptStepRun) computeScriptPath(spec *StepSpec, ext string) string {
+	file := spec.Uid + xstring.EnsurePrefix(ext, ".")
 	return path.Join("scripts", file)
 }
 
-func (sr *ScriptStepRun) transferScriptIn(ctx context.Context, script, path string) error {
+func (sr *scriptStepRun) transferScriptIn(ctx context.Context, script, path string) error {
 	entries := map[string]string{path: script}
 	if reader, err := xtar.ContentReader(entries); err != nil {
 		return err

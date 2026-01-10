@@ -27,7 +27,7 @@ import (
 )
 
 type StepExecutor interface {
-	StepSpec() StepSpec
+	StepSpec() *StepSpec
 
 	Initialize(ctx context.Context, scope *dig.Scope) error
 	RunStep(ctx context.Context, stage Stage) *records.Step
@@ -44,19 +44,19 @@ type StepExecutor interface {
 }
 
 func StepId(e StepExecutor) string {
-	return e.StepSpec().StepId()
+	return e.StepSpec().Id
 }
 
 func StepUid(e StepExecutor) string {
-	return e.StepSpec().Base().Uid
+	return e.StepSpec().Uid
 }
 
-func NewStepExecutor(stepRun StepSpec) StepExecutor {
+func NewStepExecutor(stepRun *StepSpec) StepExecutor {
 	return &stepExecutor{stepRun: stepRun}
 }
 
 type stepExecutor struct {
-	stepRun StepSpec
+	stepRun *StepSpec
 
 	// records
 	github   records.Github
@@ -70,7 +70,7 @@ type stepExecutor struct {
 	exprEnv  expression.Env
 }
 
-func (e *stepExecutor) StepSpec() StepSpec {
+func (e *stepExecutor) StepSpec() *StepSpec {
 	return e.stepRun
 }
 

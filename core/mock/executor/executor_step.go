@@ -417,10 +417,10 @@ func (c *MockStepExecutorStatusCall) DoAndReturn(f func() records.Result) *MockS
 }
 
 // StepSpec mocks base method.
-func (m *MockStepExecutor) StepSpec() executor.StepSpec {
+func (m *MockStepExecutor) StepSpec() *executor.StepSpec {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StepSpec")
-	ret0, _ := ret[0].(executor.StepSpec)
+	ret0, _ := ret[0].(*executor.StepSpec)
 	return ret0
 }
 
@@ -437,19 +437,19 @@ type MockStepExecutorStepSpecCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStepExecutorStepSpecCall) Return(arg0 executor.StepSpec) *MockStepExecutorStepSpecCall {
+func (c *MockStepExecutorStepSpecCall) Return(arg0 *executor.StepSpec) *MockStepExecutorStepSpecCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStepExecutorStepSpecCall) Do(f func() executor.StepSpec) *MockStepExecutorStepSpecCall {
+func (c *MockStepExecutorStepSpecCall) Do(f func() *executor.StepSpec) *MockStepExecutorStepSpecCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStepExecutorStepSpecCall) DoAndReturn(f func() executor.StepSpec) *MockStepExecutorStepSpecCall {
+func (c *MockStepExecutorStepSpecCall) DoAndReturn(f func() *executor.StepSpec) *MockStepExecutorStepSpecCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

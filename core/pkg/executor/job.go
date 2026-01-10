@@ -22,5 +22,5 @@ type JobSpec struct {
 	Defaults workflows.Evaluable[workflows.Defaults]
 	// Environment
 
-	Steps []StepSpec
+	Steps []*StepSpec
 }

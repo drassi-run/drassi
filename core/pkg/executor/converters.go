@@ -18,7 +18,7 @@ import (
 )
 
 func ToJobSpec(jobId string, job *workflows.NormalJob) *JobSpec {
-	stepRuns := FromSteps(job.Steps)
+	steps := fromSteps(job.Steps)
 
 	uid, _ := uuid.NewRandom()
 	return &JobSpec{
@@ -28,29 +28,29 @@ func ToJobSpec(jobId string, job *workflows.NormalJob) *JobSpec {
 		Container: job.Container,
 		Services:  job.Services,
 		Env:       job.Env,
-		Steps:     stepRuns,
+		Steps:     steps,
 		Outputs:   job.Outputs,
 		Defaults:  job.Defaults,
 	}
 }
 
-func FromSteps(steps []workflows.Step) []StepSpec {
+func fromSteps(steps []workflows.Step) []*StepSpec {
 	idMap := make(map[string]int)
-	stepRuns := make([]StepSpec, len(steps))
+	specs := make([]*StepSpec, len(steps))
 
 	for i, step := range steps {
-		sr := ToStepRun(step)
+		spec := ToStepSpec(step)
 
 		// generate StepId if empty
-		if sr.StepId() == "" {
+		if spec.Id == "" {
 			var id string
-			switch s := sr.(type) {
-			case *ScriptStepRun:
+			switch def := spec.Def.(type) {
+			case *ScriptStepDef:
 				id = "run"
-			case *DockerStepRun:
-				id = normalize(s.Image)
-			case *ActionStepRun:
-				id = normalize(s.Repo.Name)
+			case *DockerStepDef:
+				id = normalize(def.Image)
+			case *ActionStepDef:
+				id = normalize(def.Repo.Name)
 			}
 
 			count := idMap[id] + 1
@@ -59,19 +59,19 @@ func FromSteps(steps []workflows.Step) []StepSpec {
 				id += "_" + strconv.Itoa(count)
 			}
 
-			sr.Base().Id = "__" + id
+			spec.Id = "__" + id
 		}
 
-		stepRuns[i] = sr
+		specs[i] = spec
 	}
 
-	return stepRuns
+	return specs
 }
 
-func ToStepRun(step workflows.Step) StepSpec {
+func ToStepSpec(step workflows.Step) *StepSpec {
 	b := step.Base()
 	uid, _ := uuid.NewRandom()
-	bsr := &BaseStepRun{
+	spec := &StepSpec{
 		Id:               b.Id,
 		Uid:              uid.String(),
 		Name:             b.Name,
@@ -82,59 +82,48 @@ func ToStepRun(step workflows.Step) StepSpec {
 	}
 	switch s := step.(type) {
 	case *workflows.RunStep:
-		return toScriptStepRun(s, bsr)
+		spec.Def = &ScriptStepDef{
+			Run:        s.Run,
+			Shell:      s.Shell,
+			WorkingDir: s.WorkingDir,
+		}
 	case *workflows.UsesStep:
-		bsr.Inputs = s.With
+		spec.Inputs = s.With
 		if strings.HasPrefix(s.Uses, "docker://") {
-			return toDockerStepRun(s, bsr)
+			spec.Def = &DockerStepDef{
+				Image: s.Uses,
+			}
 		} else {
-			return toActionStepRun(s, bsr)
+			repo, _ := repository.Parse(s.Uses)
+			spec.Def = &ActionStepDef{
+				Repo: repo,
+			}
 		}
 	}
-	return nil
+	return spec
 }
 
-func toScriptStepRun(s *workflows.RunStep, bsr *BaseStepRun) StepSpec {
-	return &ScriptStepRun{
-		BaseStepRun: *bsr,
-
-		Run:        s.Run,
-		Shell:      s.Shell,
-		WorkingDir: s.WorkingDir,
-	}
-}
-
-func toDockerStepRun(s *workflows.UsesStep, bsr *BaseStepRun) StepSpec {
-	return &DockerStepRun{
-		BaseStepRun: *bsr,
-		Image:       s.Uses,
-	}
-}
-
-func toActionStepRun(s *workflows.UsesStep, bsr *BaseStepRun) StepSpec {
-	repo, _ := repository.Parse(s.Uses)
-	return &ActionStepRun{
-		BaseStepRun: *bsr,
-		Repo:        repo,
-	}
-}
-
-func FromAction(action *actions.Action, base BaseStepRun) (StepSpec, error) {
-	var sr StepSpec
+func ToStepDef(action *actions.Action) (StepDef, error) {
+	var def StepDef
 	switch r := action.Runs.(type) {
 	case *actions.NodeRuns:
-		sr = &NodeStepRun{
-			BaseStepRun: base,
-			Runtime:     r.Using,
-			Main:        r.Main,
-			Pre:         r.Pre,
-			PreIf:       r.PreIf,
-			Post:        r.Post,
-			PostIf:      r.PostIf,
+		def = &NodeStepDef{
+			Inputs:  inputToken(action.Inputs),
+			Outputs: outputToken(action.Outputs),
+
+			Runtime: r.Using,
+			Main:    r.Main,
+			Pre:     r.Pre,
+			PreIf:   r.PreIf,
+			Post:    r.Post,
+			PostIf:  r.PostIf,
 		}
 	case *actions.DockerRuns:
-		sr = &DockerStepRun{
-			BaseStepRun:    base,
+		def = &DockerStepDef{
+			Inputs:  inputToken(action.Inputs),
+			Outputs: outputToken(action.Outputs),
+			Env:     r.Env,
+
 			Image:          r.Image,
 			Entrypoint:     r.Entrypoint,
 			Args:           r.Args,
@@ -143,69 +132,57 @@ func FromAction(action *actions.Action, base BaseStepRun) (StepSpec, error) {
 			PostEntrypoint: r.PostEntrypoint,
 			PostIf:         r.PostIf,
 		}
-		if r.Env != nil {
-			if bsr := sr.Base(); bsr.Env != nil {
-				bsr.Env = workflows.NewSquashMappingToken(bsr.Env, r.Env)
-			} else {
-				bsr.Env = r.Env
-			}
-		}
 	case *actions.CompositeRuns:
-		stepRuns := FromSteps(r.Steps)
+		stepRuns := fromSteps(r.Steps)
 
-		sr = &CompositeStepRun{
-			BaseStepRun: base,
-			StepRuns:    stepRuns,
+		def = &CompositeStepDef{
+			Inputs:  inputToken(action.Inputs),
+			Outputs: outputToken(action.Outputs),
+
+			Steps: stepRuns,
 		}
 	default:
 		return nil, fmt.Errorf("unknown action.runs %T", action.Runs)
 	}
 
-	bsr := sr.Base()
+	return def, nil
+}
 
-	inputTokens := make([][2]workflows.Token, 0)
-	for name, input := range action.Inputs {
+func inputToken(m map[string]workflows.Input) workflows.Token {
+	tokens := make([][2]workflows.Token, 0)
+	for name, input := range m {
 		if input.Default != nil {
-			inputTokens = append(inputTokens, [2]workflows.Token{
+			tokens = append(tokens, [2]workflows.Token{
 				workflows.NewLiteralToken(name),
 				input.Default,
 			})
 		} else if input.Required {
-			inputTokens = append(inputTokens, [2]workflows.Token{
+			tokens = append(tokens, [2]workflows.Token{
 				workflows.NewLiteralToken(name),
-				// nil value to be override
+				// nil value to be overridden
 			})
 		}
 	}
-
-	if len(inputTokens) > 0 {
-		actionInput := workflows.NewMappingToken(inputTokens)
-		if bsr.Inputs == nil {
-			bsr.Inputs = actionInput
-		} else {
-			bsr.Inputs = workflows.NewSquashMappingToken(actionInput, bsr.Inputs)
-		}
+	if len(tokens) > 0 {
+		return workflows.NewMappingToken(tokens)
 	}
+	return nil
+}
 
-	outputTokens := make([][2]workflows.Token, 0)
-	for name, output := range action.Outputs {
+func outputToken(m map[string]workflows.Output) workflows.Token {
+	tokens := make([][2]workflows.Token, 0)
+	for name, output := range m {
 		if output.Value != nil {
-			outputTokens = append(outputTokens, [2]workflows.Token{
+			tokens = append(tokens, [2]workflows.Token{
 				workflows.NewLiteralToken(name),
 				output.Value,
 			})
 		}
 	}
-	if len(outputTokens) > 0 {
-		actionOutput := workflows.NewMappingToken(outputTokens)
-		if bsr.Outputs == nil {
-			bsr.Outputs = actionOutput
-		} else {
-			bsr.Outputs = workflows.NewSquashMappingToken(actionOutput, bsr.Outputs)
-		}
+	if len(tokens) > 0 {
+		return workflows.NewMappingToken(tokens)
 	}
-
-	return sr, nil
+	return nil
 }
 
 // normalize string by remove all special characters

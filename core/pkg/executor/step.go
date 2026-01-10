@@ -8,36 +8,12 @@ package executor
 
 import (
 	"context"
-	"strings"
 
-	"drassi.run/core/pkg/executor/evaluator"
-	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/model/workflows"
-	"drassi.run/core/pkg/scribe"
 	"go.uber.org/dig"
 )
 
-type StepSpec interface {
-	StepId() string
-	Base() *BaseStepRun
-	DisplayName(stage Stage) string
-
-	Initialize(context.Context, *dig.Scope) error
-	PreTask() *Task
-	MainTask() *Task
-	PostTask() *Task
-}
-
-// ensure StepSpec implementations
-var (
-	_ StepSpec = (*ActionStepRun)(nil)
-	_ StepSpec = (*ScriptStepRun)(nil)
-	_ StepSpec = (*DockerStepRun)(nil)
-	_ StepSpec = (*NodeStepRun)(nil)
-	_ StepSpec = (*CompositeStepRun)(nil)
-)
-
-type BaseStepRun struct {
+type StepSpec struct {
 	Id               string
 	Uid              string
 	Name             workflows.Evaluable[string]
@@ -48,50 +24,18 @@ type BaseStepRun struct {
 	Inputs           workflows.Evaluable[map[string]string]
 	Outputs          workflows.Evaluable[map[string]string]
 
-	// compute attributes
-	displayName string
+	// specific fields for each step type
+	Def StepDef
 }
 
-func (sr *BaseStepRun) StepId() string {
-	return sr.Id
+type StepDef interface {
+	PrepareExecute(ctx context.Context, scope *dig.Scope) (StepRun, error)
 }
 
-func (sr *BaseStepRun) Base() *BaseStepRun {
-	return sr
-}
+type StepRun interface {
+	Def() StepDef
 
-func (sr *BaseStepRun) DisplayName(stage Stage) string {
-	switch stage {
-	case StagePre:
-		return "Pre " + sr.displayName
-	case StagePost:
-		return "Post " + sr.displayName
-	default:
-		return sr.displayName
-	}
-}
-
-func (sr *BaseStepRun) evaluateDisplayName(ctx context.Context, exprEnv expression.Env, defaultName string) error {
-	s := scribe.FromContext(ctx)
-	if sr.displayName != "" {
-		return nil
-	}
-
-	prefix, name := "", ""
-	if sr.Name == nil {
-		prefix, name = "Run ", defaultName
-	} else {
-		s.Debugf("Evaluating display name")
-		if err := evaluator.Evaluate(exprEnv, sr.Name, &name); err != nil {
-			return err
-		}
-	}
-
-	name = strings.TrimLeft(name, " \t\r\n")
-	name, _, _ = strings.Cut(name, "\n")
-	name = strings.TrimSpace(name)
-
-	sr.displayName = prefix + name
-	s.Debugf("Set step %q display name to: %q", sr.Id, sr.displayName)
-	return nil
+	PreTask() *Task
+	MainTask() *Task
+	PostTask() *Task
 }

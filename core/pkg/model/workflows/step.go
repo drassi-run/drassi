@@ -102,7 +102,7 @@ type UsesStep struct {
 }
 
 type RunStep struct {
-	BaseStep `yaml:",inline" actions:",squash"`
+	BaseStep `json:",inline" yaml:",inline" actions:",squash"`
 
 	// Runs command-line programs using the operating system's shell. If you do not provide a name, the step name will default to the text specified in the run command.
 	// Commands run using non-login shells by default. You can choose a different shell and customize the shell used to run commands.
