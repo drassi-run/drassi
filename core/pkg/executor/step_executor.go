@@ -51,12 +51,12 @@ func StepUid(e StepExecutor) string {
 	return e.StepSpec().Uid
 }
 
-func NewStepExecutor(stepRun *StepSpec) StepExecutor {
-	return &stepExecutor{stepRun: stepRun}
+func NewStepExecutor(spec *StepSpec) StepExecutor {
+	return &stepExecutor{spec: spec}
 }
 
 type stepExecutor struct {
-	stepRun *StepSpec
+	spec *StepSpec
 
 	// records
 	github   records.Github
@@ -71,7 +71,7 @@ type stepExecutor struct {
 }
 
 func (e *stepExecutor) StepSpec() *StepSpec {
-	return e.stepRun
+	return e.spec
 }
 
 func (e *stepExecutor) Initialize(ctx context.Context, scope *dig.Scope) (ex error) {
@@ -123,11 +123,11 @@ func (e *stepExecutor) Initialize(ctx context.Context, scope *dig.Scope) (ex err
 	if err := xdig.Supply[StepExecutor](scope, e); err != nil {
 		return err
 	}
-	if err := e.stepRun.Initialize(ctx, scope); err != nil {
+	if err := e.spec.Initialize(ctx, scope); err != nil {
 		return err
 	}
 
-	if r, ok := e.stepRun.(interface{ Repository() *repository.Repository }); ok {
+	if r, ok := e.spec.(interface{ Repository() *repository.Repository }); ok {
 		repo := r.Repository()
 
 		e.github.ActionRepository = repo.Name
@@ -189,11 +189,11 @@ func (e *stepExecutor) RunStep(ctx context.Context, stage Stage) *records.Step {
 func (e *stepExecutor) getTask(stage Stage) *Task {
 	switch stage {
 	case StagePre:
-		return e.stepRun.PreTask()
+		return e.spec.PreTask()
 	case StageMain:
-		return e.stepRun.MainTask()
+		return e.spec.MainTask()
 	case StagePost:
-		return e.stepRun.PostTask()
+		return e.spec.PostTask()
 	default:
 		return nil
 	}
@@ -201,8 +201,8 @@ func (e *stepExecutor) getTask(stage Stage) *Task {
 
 func (e *stepExecutor) runTask(ctx context.Context, task *Task) {
 	s := scribe.FromContext(ctx)
-	base := e.stepRun.Base()
-	stepId, displayName := base.StepId(), e.stepRun.DisplayName(task.Stage)
+	base := e.spec.Base()
+	stepId, displayName := e.spec.Id, e.spec.DisplayName(task.Stage)
 
 	clear(e.env)
 	maps.Copy(e.env, e.upperEnv)

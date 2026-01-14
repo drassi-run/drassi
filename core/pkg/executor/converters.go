@@ -44,13 +44,13 @@ func fromSteps(steps []workflows.Step) []*StepSpec {
 		// generate StepId if empty
 		if spec.Id == "" {
 			var id string
-			switch def := spec.Def.(type) {
-			case *ScriptStepDef:
+			switch action := spec.Action.(type) {
+			case *ScriptActionSpec:
 				id = "run"
-			case *DockerStepDef:
-				id = normalize(def.Image)
-			case *ActionStepDef:
-				id = normalize(def.Repo.Name)
+			case *DockerActionSpec:
+				id = normalize(action.Image)
+			case *ReferenceActionSpec:
+				id = normalize(action.Repo.Name)
 			}
 
 			count := idMap[id] + 1
@@ -82,7 +82,7 @@ func ToStepSpec(step workflows.Step) *StepSpec {
 	}
 	switch s := step.(type) {
 	case *workflows.RunStep:
-		spec.Def = &ScriptStepDef{
+		spec.Action = &ScriptActionSpec{
 			Run:        s.Run,
 			Shell:      s.Shell,
 			WorkingDir: s.WorkingDir,
@@ -90,12 +90,12 @@ func ToStepSpec(step workflows.Step) *StepSpec {
 	case *workflows.UsesStep:
 		spec.Inputs = s.With
 		if strings.HasPrefix(s.Uses, "docker://") {
-			spec.Def = &DockerStepDef{
+			spec.Action = &DockerActionSpec{
 				Image: s.Uses,
 			}
 		} else {
 			repo, _ := repository.Parse(s.Uses)
-			spec.Def = &ActionStepDef{
+			spec.Action = &ReferenceActionSpec{
 				Repo: repo,
 			}
 		}
@@ -103,11 +103,11 @@ func ToStepSpec(step workflows.Step) *StepSpec {
 	return spec
 }
 
-func ToStepDef(action *actions.Action) (StepDef, error) {
-	var def StepDef
+func ToActionSpec(action *actions.Action) (ActionSpec, error) {
+	var spec ActionSpec
 	switch r := action.Runs.(type) {
 	case *actions.NodeRuns:
-		def = &NodeStepDef{
+		spec = &NodeActionSpec{
 			Inputs:  inputToken(action.Inputs),
 			Outputs: outputToken(action.Outputs),
 
@@ -119,7 +119,7 @@ func ToStepDef(action *actions.Action) (StepDef, error) {
 			PostIf:  r.PostIf,
 		}
 	case *actions.DockerRuns:
-		def = &DockerStepDef{
+		spec = &DockerActionSpec{
 			Inputs:  inputToken(action.Inputs),
 			Outputs: outputToken(action.Outputs),
 			Env:     r.Env,
@@ -135,7 +135,7 @@ func ToStepDef(action *actions.Action) (StepDef, error) {
 	case *actions.CompositeRuns:
 		stepRuns := fromSteps(r.Steps)
 
-		def = &CompositeStepDef{
+		spec = &CompositeActionSpec{
 			Inputs:  inputToken(action.Inputs),
 			Outputs: outputToken(action.Outputs),
 
@@ -145,7 +145,7 @@ func ToStepDef(action *actions.Action) (StepDef, error) {
 		return nil, fmt.Errorf("unknown action.runs %T", action.Runs)
 	}
 
-	return def, nil
+	return spec, nil
 }
 
 func inputToken(m map[string]workflows.Input) workflows.Token {

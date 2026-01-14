@@ -20,22 +20,36 @@ import (
 	"go.uber.org/dig"
 )
 
-type CompositeStepDef struct {
+type CompositeActionSpec struct {
 	Inputs  workflows.Evaluable[map[string]string]
 	Outputs workflows.Evaluable[map[string]string]
 
 	Steps []*StepSpec
 }
 
-func (d *CompositeStepDef) PrepareExecute(ctx context.Context, scope *dig.Scope) (StepRun, error) {
-	e := &compositeStepRun{def: d}
-
-	var exec StepExecutor
-	if err := xdig.Populate(scope, &exec); err != nil {
+func (spec *CompositeActionSpec) CreateExecutor(ctx context.Context, scope *dig.Scope) (ActionExecutor, error) {
+	e := &compositeActionExecutor{spec: spec}
+	if err := e.init(ctx, scope); err != nil {
 		return nil, err
 	}
+	return e, nil
+}
+
+type compositeActionExecutor struct {
+	spec *CompositeActionSpec
+
+	children map[string]StepExecutor
+	exprEnv  expression.Env
+	inputs   map[string]string
+}
+
+func (e *compositeActionExecutor) init(ctx context.Context, scope *dig.Scope) error {
+	var exec StepExecutor
+	if err := xdig.Populate(scope, &exec); err != nil {
+		return err
+	}
 	if err := xdig.Populate(scope, &e.exprEnv); err != nil {
-		return nil, err
+		return err
 	}
 
 	// create a new intermediate scope to store composite values (inputs & exprEnv)
@@ -47,12 +61,12 @@ func (d *CompositeStepDef) PrepareExecute(ctx context.Context, scope *dig.Scope)
 		expression.WithLibrary(libraries.StatusLib(exec)),
 	}
 	if exprEnv, err := e.exprEnv.New(opts...); err != nil {
-		return nil, err
+		return err
 	} else if err = xdig.Supply(scope, exprEnv); err != nil {
-		return nil, err
+		return err
 	}
 	if err := xdig.Supply(scope, e.inputs); err != nil {
-		return nil, err
+		return err
 	}
 
 	// TODO: concurrent version of Initialize is temporary disable because of concurrent map writes in scope
@@ -67,46 +81,38 @@ func (d *CompositeStepDef) PrepareExecute(ctx context.Context, scope *dig.Scope)
 	//}
 	//return g.Wait()
 
-	e.children = make(map[string]StepExecutor, len(d.Steps))
-	for _, step := range d.Steps {
+	e.children = make(map[string]StepExecutor, len(e.spec.Steps))
+	for _, step := range e.spec.Steps {
 		cExec := NewStepExecutor(step)
 		e.children[step.Id] = cExec
 
 		cScope := scope.Scope(fmt.Sprintf("step(%s)", step.Id))
 		if err := cExec.Initialize(ctx, cScope); err != nil {
-			return nil, err
+			return err
 		}
 	}
-	return e, nil
+	return nil
 }
 
-type compositeStepRun struct {
-	def *CompositeStepDef
-
-	children map[string]StepExecutor
-	exprEnv  expression.Env
-	inputs   map[string]string
+func (e *compositeActionExecutor) ActionSpec() ActionSpec {
+	return e.spec
 }
 
-func (sr *compositeStepRun) Def() StepDef {
-	return sr.def
+func (e *compositeActionExecutor) PreTask() *Task {
+	return e.createStageTask(StagePre)
 }
 
-func (sr *compositeStepRun) PreTask() *Task {
-	return sr.createStageTask(StagePre)
+func (e *compositeActionExecutor) MainTask() *Task {
+	return e.createStageTask(StageMain)
 }
 
-func (sr *compositeStepRun) MainTask() *Task {
-	return sr.createStageTask(StageMain)
+func (e *compositeActionExecutor) PostTask() *Task {
+	return e.createStageTask(StagePost)
 }
 
-func (sr *compositeStepRun) PostTask() *Task {
-	return sr.createStageTask(StagePost)
-}
-
-func (sr *compositeStepRun) createStageTask(stage Stage) *Task {
-	taskIds := make([]string, len(sr.def.Steps))
-	for i, step := range sr.def.Steps {
+func (e *compositeActionExecutor) createStageTask(stage Stage) *Task {
+	taskIds := make([]string, len(e.spec.Steps))
+	for i, step := range e.spec.Steps {
 		taskIds[i] = step.Id
 	}
 	if stage == StagePost {
@@ -114,12 +120,12 @@ func (sr *compositeStepRun) createStageTask(stage Stage) *Task {
 	}
 
 	taskRun := func(ctx context.Context, exec StepExecutor) error {
-		if err := sr.computeInputs(); err != nil {
+		if err := e.computeInputs(); err != nil {
 			return err
 		}
 
 		for _, id := range taskIds {
-			cExec := sr.children[id]
+			cExec := e.children[id]
 			if cExec == nil {
 				return fmt.Errorf("task %q has no child context", id)
 			}
@@ -131,7 +137,7 @@ func (sr *compositeStepRun) createStageTask(stage Stage) *Task {
 			}
 		}
 
-		return sr.produceOutputs(exec)
+		return e.produceOutputs(exec)
 	}
 
 	// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionManifestManager.cs#L472-L490
@@ -147,14 +153,14 @@ func (sr *compositeStepRun) createStageTask(stage Stage) *Task {
 	}
 }
 
-func (sr *compositeStepRun) computeInputs() error {
-	clear(sr.inputs)
-	return evaluator.Evaluate(sr.exprEnv, sr.def.Inputs, &sr.inputs)
+func (e *compositeActionExecutor) computeInputs() error {
+	clear(e.inputs)
+	return evaluator.Evaluate(e.exprEnv, e.spec.Inputs, &e.inputs)
 }
 
-func (sr *compositeStepRun) produceOutputs(exec StepExecutor) error {
+func (e *compositeActionExecutor) produceOutputs(exec StepExecutor) error {
 	outputs := make(map[string]string)
-	if err := evaluator.Evaluate(sr.exprEnv, sr.def.Outputs, &outputs); err != nil {
+	if err := evaluator.Evaluate(e.exprEnv, e.spec.Outputs, &outputs); err != nil {
 		return err
 	}
 	exec.SetOutput(outputs)

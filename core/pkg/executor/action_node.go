@@ -26,7 +26,7 @@ import (
 	"go.uber.org/dig"
 )
 
-type NodeStepDef struct {
+type NodeActionSpec struct {
 	Inputs  workflows.Evaluable[map[string]string]
 	Outputs workflows.Evaluable[map[string]string]
 
@@ -40,30 +40,16 @@ type NodeStepDef struct {
 	PostIf workflows.Conditional
 }
 
-func (d *NodeStepDef) PrepareExecute(_ context.Context, scope *dig.Scope) (StepRun, error) {
-	e := &nodeStepRun{def: d}
-
-	if err := xdig.Populate(scope, &e.exprEnv); err != nil {
+func (spec *NodeActionSpec) CreateExecutor(ctx context.Context, scope *dig.Scope) (ActionExecutor, error) {
+	e := &nodeActionExecutor{spec: spec}
+	if err := e.init(ctx, scope); err != nil {
 		return nil, err
 	}
-	if err := xdig.Populate(scope, &e.sandbox); err != nil {
-		return nil, err
-	}
-	if err := xdig.Populate(scope, &e.streams); err != nil {
-		return nil, err
-	}
-	if err := xdig.Populate(scope, &e.repo); err != nil {
-		return nil, err
-	}
-	if err := xdig.Populate(scope, &e.pathProv); err != nil {
-		return nil, err
-	}
-
 	return e, nil
 }
 
-type nodeStepRun struct {
-	def *NodeStepDef
+type nodeActionExecutor struct {
+	spec *NodeActionSpec
 
 	// injected values
 	pathProv support.PathProvider
@@ -73,65 +59,84 @@ type nodeStepRun struct {
 	repo     *repository.Repository
 }
 
-func (sr *nodeStepRun) Def() StepDef {
-	return sr.def
+func (e *nodeActionExecutor) init(_ context.Context, scope *dig.Scope) error {
+	if err := xdig.Populate(scope, &e.exprEnv); err != nil {
+		return err
+	}
+	if err := xdig.Populate(scope, &e.sandbox); err != nil {
+		return err
+	}
+	if err := xdig.Populate(scope, &e.streams); err != nil {
+		return err
+	}
+	if err := xdig.Populate(scope, &e.repo); err != nil {
+		return err
+	}
+	if err := xdig.Populate(scope, &e.pathProv); err != nil {
+		return err
+	}
+	return nil
 }
 
-func (sr *nodeStepRun) PreTask() *Task {
-	def := sr.def
-	if def.Pre == "" {
+func (e *nodeActionExecutor) ActionSpec() ActionSpec {
+	return e.spec
+}
+
+func (e *nodeActionExecutor) PreTask() *Task {
+	spec := e.spec
+	if spec.Pre == "" {
 		return nil
 	}
 	// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionManifestManager.cs#L451-L471
-	condition := def.PreIf
+	condition := spec.PreIf
 	if condition == "" {
 		condition = "always()"
 	}
 	return &Task{
 		Stage:     StagePre,
 		Condition: condition,
-		Run:       sr.execute(StagePre),
+		Run:       e.execute(StagePre),
 	}
 }
 
-func (sr *nodeStepRun) MainTask() *Task {
+func (e *nodeActionExecutor) MainTask() *Task {
 	return &Task{
 		Stage: StageMain,
-		Run:   sr.execute(StageMain),
+		Run:   e.execute(StageMain),
 	}
 }
 
-func (sr *nodeStepRun) PostTask() *Task {
-	def := sr.def
-	if def.Post == "" {
+func (e *nodeActionExecutor) PostTask() *Task {
+	spec := e.spec
+	if spec.Post == "" {
 		return nil
 	}
 	// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionManifestManager.cs#L451-L471
-	condition := def.PostIf
+	condition := spec.PostIf
 	if condition == "" {
 		condition = "always()"
 	}
 	return &Task{
 		Stage:     StagePost,
 		Condition: condition,
-		Run:       sr.execute(StagePost),
+		Run:       e.execute(StagePost),
 	}
 }
 
-func (sr *nodeStepRun) execute(stage Stage) TaskRun {
+func (e *nodeActionExecutor) execute(stage Stage) TaskRun {
 	return func(ctx context.Context, exec StepExecutor) error {
-		sr.addSpanAttrs(ctx, stage)
+		e.addSpanAttrs(ctx, stage)
 
 		spec := exec.StepSpec()
-		scriptPath := sr.computeScriptPath(stage)
+		scriptPath := e.computeScriptPath(stage)
 		cmd := []string{"node", scriptPath}
 
 		inputs := make(map[string]string)
-		if err := evaluator.Evaluate(sr.exprEnv, spec.Inputs, &inputs); err != nil {
+		if err := evaluator.Evaluate(e.exprEnv, spec.Inputs, &inputs); err != nil {
 			return err
 		}
 
-		scribe.GroupDetails(ctx, sr.repr(),
+		scribe.GroupDetails(ctx, e.repr(),
 			scribe.WithMap("with", inputs),
 			scribe.WithMap("env", exec.ComposeEnv(false)),
 		)
@@ -142,43 +147,43 @@ func (sr *nodeStepRun) execute(stage Stage) TaskRun {
 			env["INPUT_"+k] = v
 		}
 
-		paths := sr.pathProv.SystemPaths()
-		return sr.sandbox.Execute(ctx, cmd, paths, env, "", sr.streams)
+		paths := e.pathProv.SystemPaths()
+		return e.sandbox.Execute(ctx, cmd, paths, env, "", e.streams)
 	}
 }
 
-func (sr *nodeStepRun) computeScriptPath(stage Stage) string {
+func (e *nodeActionExecutor) computeScriptPath(stage Stage) string {
 	var script string
 	switch stage {
 	case StagePre:
-		script = sr.def.Pre
+		script = e.spec.Pre
 	case StagePost:
-		script = sr.def.Post
+		script = e.spec.Post
 	case StageMain:
-		script = sr.def.Main
+		script = e.spec.Main
 	}
 
-	layout := sr.sandbox.Layout()
-	scriptPath := filepath.Join(layout.Actions, repository.Location(sr.repo), script)
+	layout := e.sandbox.Layout()
+	scriptPath := filepath.Join(layout.Actions, repository.Location(e.repo), script)
 	return scriptPath
 }
 
-func (sr *nodeStepRun) addSpanAttrs(ctx context.Context, stage Stage) {
+func (e *nodeActionExecutor) addSpanAttrs(ctx context.Context, stage Stage) {
 	span := trace.SpanFromContext(ctx)
 
 	var script string
 	switch stage {
 	case StagePre:
-		script = sr.def.Pre
+		script = e.spec.Pre
 	case StagePost:
-		script = sr.def.Post
+		script = e.spec.Post
 	case StageMain:
-		script = sr.def.Main
+		script = e.spec.Main
 	}
 
 	span.SetAttributes(xotel.ActionScript(script))
 }
 
-func (sr *nodeStepRun) repr() string {
-	return fmt.Sprintf("node action from %q", repository.Location(sr.repo))
+func (e *nodeActionExecutor) repr() string {
+	return fmt.Sprintf("node action from %q", repository.Location(e.repo))
 }

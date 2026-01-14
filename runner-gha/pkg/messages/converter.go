@@ -87,7 +87,7 @@ func ToStepRun(step *JobStep) (executor.StepSpec, error) {
 	ref := &step.Reference
 	switch ref.Type {
 	case SourceTypeScript:
-		ssr := &executor.ScriptStepDef{
+		ssr := &executor.ScriptActionSpec{
 			BaseStepRun: sr,
 		}
 		if err := extractScriptStepInputs(ssr, step.Inputs); err != nil {
@@ -98,7 +98,7 @@ func ToStepRun(step *JobStep) (executor.StepSpec, error) {
 		if ref.Image == "" {
 			return nil, fmt.Errorf("step %s image is required", step.ContextName)
 		}
-		dsr := &executor.DockerStepDef{
+		dsr := &executor.DockerActionSpec{
 			BaseStepRun: sr,
 			Image:       ref.Image,
 		}
@@ -114,7 +114,7 @@ func ToStepRun(step *JobStep) (executor.StepSpec, error) {
 			Path:     ref.Path,
 			Ref:      ref.Ref,
 		}
-		asr := &executor.ActionStepDef{
+		asr := &executor.ReferenceActionSpec{
 			BaseStepRun: sr,
 			Repo:        repo,
 		}
@@ -150,7 +150,7 @@ func ToJobSpec(job *PipelineAgentJobRequest) (*executor.JobSpec, error) {
 	return spec, nil
 }
 
-func extractScriptStepInputs(ssr *executor.ScriptStepDef, inputs *TemplateToken) error {
+func extractScriptStepInputs(ssr *executor.ScriptActionSpec, inputs *TemplateToken) error {
 	if inputs.Type != TokenTypeMapping {
 		return fmt.Errorf("exptect step inputs is a map, got %d", inputs.Type)
 	}

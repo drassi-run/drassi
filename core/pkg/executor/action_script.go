@@ -27,36 +27,22 @@ import (
 	"go.uber.org/dig"
 )
 
-type ScriptStepDef struct {
+type ScriptActionSpec struct {
 	Run        workflows.Evaluable[string]
 	Shell      string
 	WorkingDir workflows.Evaluable[string]
 }
 
-func (d *ScriptStepDef) PrepareExecute(_ context.Context, scope *dig.Scope) (StepRun, error) {
-	e := &scriptStepRun{def: d}
-
-	if err := xdig.Populate(scope, &e.sandbox); err != nil {
+func (spec *ScriptActionSpec) CreateExecutor(ctx context.Context, scope *dig.Scope) (ActionExecutor, error) {
+	e := &scriptActionExecutor{spec: spec}
+	if err := e.init(ctx, scope); err != nil {
 		return nil, err
 	}
-	if err := xdig.Populate(scope, &e.streams); err != nil {
-		return nil, err
-	}
-	if err := xdig.Populate(scope, &e.exprEnv); err != nil {
-		return nil, err
-	}
-	if err := xdig.Populate(scope, &e.defaults); err != nil {
-		return nil, err
-	}
-	if err := xdig.Populate(scope, &e.pathProv); err != nil {
-		return nil, err
-	}
-
 	return e, nil
 }
 
-type scriptStepRun struct {
-	def *ScriptStepDef
+type scriptActionExecutor struct {
+	spec *ScriptActionSpec
 
 	// injected values
 	pathProv support.PathProvider
@@ -66,42 +52,61 @@ type scriptStepRun struct {
 	defaults workflows.Defaults
 }
 
-func (sr *scriptStepRun) Def() StepDef {
-	return sr.def
-}
-
-func (sr *scriptStepRun) PreTask() *Task {
+func (e *scriptActionExecutor) init(_ context.Context, scope *dig.Scope) error {
+	if err := xdig.Populate(scope, &e.sandbox); err != nil {
+		return err
+	}
+	if err := xdig.Populate(scope, &e.streams); err != nil {
+		return err
+	}
+	if err := xdig.Populate(scope, &e.exprEnv); err != nil {
+		return err
+	}
+	if err := xdig.Populate(scope, &e.defaults); err != nil {
+		return err
+	}
+	if err := xdig.Populate(scope, &e.pathProv); err != nil {
+		return err
+	}
 	return nil
 }
 
-func (sr *scriptStepRun) MainTask() *Task {
+func (e *scriptActionExecutor) ActionSpec() ActionSpec {
+	return e.spec
+}
+
+func (e *scriptActionExecutor) PreTask() *Task {
+	return nil
+}
+
+func (e *scriptActionExecutor) MainTask() *Task {
 	return &Task{
 		Stage: StageMain,
-		Run:   sr.executeMain,
+		Run:   e.executeMain,
 	}
 }
 
-func (sr *scriptStepRun) PostTask() *Task {
+func (e *scriptActionExecutor) PostTask() *Task {
 	return nil
 }
 
-func (sr *scriptStepRun) executeMain(ctx context.Context, exec StepExecutor) error {
-	def := sr.def
-	workdir := sr.defaults.Run.WorkingDir
-	if err := evaluator.Evaluate(sr.exprEnv, def.WorkingDir, &workdir); err != nil {
+func (e *scriptActionExecutor) executeMain(ctx context.Context, exec StepExecutor) error {
+	spec := e.spec
+	workdir := e.defaults.Run.WorkingDir
+	if err := evaluator.Evaluate(e.exprEnv, spec.WorkingDir, &workdir); err != nil {
 		return err
 	}
 
 	script := ""
-	if err := evaluator.Evaluate(sr.exprEnv, def.Run, &script); err != nil {
+	if err := evaluator.Evaluate(e.exprEnv, spec.Run, &script); err != nil {
 		return err
 	} else if script == "" {
 		return fmt.Errorf("script is required")
 	}
 
-	shell := model.Shell(sr.defaults.Run.Shell)
-	if def.Shell != "" {
-		shell = model.Shell(def.Shell)
+	shell := model.Shell(e.defaults.Run.Shell)
+	if spec.Shell != "" {
+		shell = model.Shell(spec.Shell)
 	}
 	cmd, err := shell.Command()
 	if err != nil {
@@ -118,36 +123,36 @@ func (sr *scriptStepRun) executeMain(ctx context.Context, exec StepExecutor) err
 	)
 
 	script = shell.FixupScript(script)
-	scriptPath := sr.computeScriptPath(exec.StepSpec(), shell.Extension())
-	sr.expandCommand(cmd, scriptPath)
+	scriptPath := e.computeScriptPath(exec.StepSpec(), shell.Extension())
+	e.expandCommand(cmd, scriptPath)
 
-	if err = sr.transferScriptIn(ctx, script, scriptPath); err != nil {
+	if err = e.transferScriptIn(ctx, script, scriptPath); err != nil {
 		return nil
 	}
 
 	env := exec.ComposeEnv(true)
-	paths := sr.pathProv.SystemPaths()
-	return sr.sandbox.Execute(ctx, cmd, paths, env, workdir, sr.streams)
+	paths := e.pathProv.SystemPaths()
+	return e.sandbox.Execute(ctx, cmd, paths, env, workdir, e.streams)
 }
 
-func (sr *scriptStepRun) expandCommand(cmd []string, scriptPath string) {
-	scriptPath = path.Join(sr.sandbox.Layout().Temp, scriptPath)
+func (e *scriptActionExecutor) expandCommand(cmd []string, scriptPath string) {
+	scriptPath = path.Join(e.sandbox.Layout().Temp, scriptPath)
 	for i, c := range cmd {
 		cmd[i] = strings.Replace(c, `{0}`, scriptPath, 1)
 	}
 }
 
-func (sr *scriptStepRun) computeScriptPath(spec *StepSpec, ext string) string {
+func (e *scriptActionExecutor) computeScriptPath(spec *StepSpec, ext string) string {
 	file := spec.Uid + xstring.EnsurePrefix(ext, ".")
 	return path.Join("scripts", file)
 }
 
-func (sr *scriptStepRun) transferScriptIn(ctx context.Context, script, path string) error {
+func (e *scriptActionExecutor) transferScriptIn(ctx context.Context, script, path string) error {
 	entries := map[string]string{path: script}
 	if reader, err := xtar.ContentReader(entries); err != nil {
 		return err
 	} else {
-		return sr.sandbox.CopyIn(ctx, reader, sr.sandbox.Layout().Temp)
+		return e.sandbox.CopyIn(ctx, reader, e.sandbox.Layout().Temp)
 	}
 }
 

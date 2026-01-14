@@ -30,7 +30,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type ActionStepDef struct {
+type ReferenceActionSpec struct {
 	// Example:
 	// + Using a public action: `uses: actions/aws@v2.0.1`
 	// + Using a public action in a subdirectory: `uses: actions/aws/ec2@main`
@@ -41,11 +41,11 @@ type ActionStepDef struct {
 	rev string
 }
 
-func (d *ActionStepDef) Repository() *repository.Repository {
-	return d.Repo
+func (spec *ReferenceActionSpec) Repository() *repository.Repository {
+	return spec.Repo
 }
 
-func (d *ActionStepDef) PrepareExecute(ctx context.Context, scope *dig.Scope) (StepRun, error) {
+func (spec *ReferenceActionSpec) CreateExecutor(ctx context.Context, scope *dig.Scope) (ActionExecutor, error) {
 	s := scribe.FromContext(ctx)
 
 	var (
@@ -56,7 +56,7 @@ func (d *ActionStepDef) PrepareExecute(ctx context.Context, scope *dig.Scope) (S
 	)
 
 	span := trace.SpanFromContext(ctx)
-	span.SetAttributes(xotel.ActionRepo(repository.Location(d.Repo)))
+	span.SetAttributes(xotel.ActionRepo(repository.Location(spec.Repo)))
 
 	if err := xdig.Populate(scope, &github); err != nil {
 		return nil, err
@@ -70,14 +70,14 @@ func (d *ActionStepDef) PrepareExecute(ctx context.Context, scope *dig.Scope) (S
 	if err := xdig.Populate(scope, &exprEnv); err != nil {
 		return nil, err
 	}
-	if err := xdig.Supply(scope, d.Repo); err != nil {
+	if err := xdig.Supply(scope, spec.Repo); err != nil {
 		return nil, err
 	}
 
 	token := github.Token
 	// If the action is located in different server than the job repo,
 	// unset the token to prevent an unauthenticated error.
-	if repository.Endpoint(d.Repo) != d.serverDomain(github.ServerUrl) {
+	if repository.Endpoint(spec.Repo) != spec.serverDomain(github.ServerUrl) {
 		token = ""
 	}
 
@@ -86,34 +86,34 @@ func (d *ActionStepDef) PrepareExecute(ctx context.Context, scope *dig.Scope) (S
 	//	return err
 	//}
 
-	if rev, err := store.Fetch(ctx, d.Repo, token); err != nil {
+	if rev, err := store.Fetch(ctx, spec.Repo, token); err != nil {
 		return nil, err
 	} else {
-		s.Writef("Download action repository %q (SHA:%s)", repository.Location(d.Repo), rev)
-		d.rev = rev
+		s.Writef("Download action repository %q (SHA:%s)", repository.Location(spec.Repo), rev)
+		spec.rev = rev
 	}
 
-	if def, err := d.loadAction(ctx, s, store); err != nil {
+	if action, err := spec.loadAction(ctx, s, store); err != nil {
 		return nil, err
-	} else if err = d.transferAction(ctx, store, sandbox); err != nil {
+	} else if err = spec.transferAction(ctx, store, sandbox); err != nil {
 		return nil, err
 	} else {
-		return def.PrepareExecute(ctx, scope)
+		return action.CreateExecutor(ctx, scope)
 	}
 }
 
-func (d *ActionStepDef) loadAction(ctx context.Context, s *scribe.Scribe, store gitstore.Store) (StepDef, error) {
+func (spec *ReferenceActionSpec) loadAction(ctx context.Context, s *scribe.Scribe, store gitstore.Store) (ActionSpec, error) {
 	span := trace.SpanFromContext(ctx)
 
 	// 1. First, try reading "action.yml" or "action.yaml" file
 	for _, f := range []string{"action.yml", "action.yaml"} {
-		path := filepath.Join(d.Repo.Path, f)
-		if r, err := store.File(ctx, d.Repo, d.rev, path); err == nil {
+		path := filepath.Join(spec.Repo.Path, f)
+		if r, err := store.File(ctx, spec.Repo, spec.rev, path); err == nil {
 			span.AddEvent("Loaded Action",
 				trace.WithAttributes(xotel.ActionPath(path)),
 			)
 			s.Debugf("Loading %q for action", path)
-			return d.loadActionManifest(r)
+			return spec.loadActionManifest(r)
 		} else if !errors.Is(err, object.ErrFileNotFound) {
 			return nil, err
 		}
@@ -121,14 +121,14 @@ func (d *ActionStepDef) loadAction(ctx context.Context, s *scribe.Scribe, store 
 
 	// 2. Second, try reading "Dockerfile" or "dockerfile"
 	for _, f := range []string{"Dockerfile", "dockerfile"} {
-		path := filepath.Join(d.Repo.Path, f)
-		if r, err := store.File(ctx, d.Repo, d.rev, path); err == nil {
+		path := filepath.Join(spec.Repo.Path, f)
+		if r, err := store.File(ctx, spec.Repo, spec.rev, path); err == nil {
 			r.Close()
 			span.AddEvent("Loaded Action",
 				trace.WithAttributes(xotel.ActionPath(path)),
 			)
 			s.Debugf("Loading %q for action", path)
-			return d.createDockerfileAction(path)
+			return spec.createDockerfileAction(path)
 		} else if !errors.Is(err, object.ErrFileNotFound) {
 			return nil, err
 		}
@@ -137,7 +137,7 @@ func (d *ActionStepDef) loadAction(ctx context.Context, s *scribe.Scribe, store 
 	return nil, fmt.Errorf(`file "action.yml", "action.yaml" and "Dockerfile" not found in your given path`)
 }
 
-func (d *ActionStepDef) loadActionManifest(r io.ReadCloser) (StepDef, error) {
+func (spec *ReferenceActionSpec) loadActionManifest(r io.ReadCloser) (ActionSpec, error) {
 	defer r.Close()
 
 	m := make(map[string]any)
@@ -149,19 +149,19 @@ func (d *ActionStepDef) loadActionManifest(r io.ReadCloser) (StepDef, error) {
 		return nil, err
 	}
 
-	return ToStepDef(action)
+	return ToActionSpec(action)
 }
 
-func (d *ActionStepDef) createDockerfileAction(dockerfile string) (StepDef, error) {
-	def := &DockerStepDef{
+func (spec *ReferenceActionSpec) createDockerfileAction(dockerfile string) (ActionSpec, error) {
+	action := &DockerActionSpec{
 		Image: dockerfile,
 	}
-	return def, nil
+	return action, nil
 }
 
-func (d *ActionStepDef) transferAction(ctx context.Context, store gitstore.Store, sandbox sandboxer.Sandbox) error {
-	location := repository.FullName(d.Repo) + "@" + d.Repo.Ref
-	r, err := store.Read(ctx, d.Repo, d.rev, location)
+func (spec *ReferenceActionSpec) transferAction(ctx context.Context, store gitstore.Store, sandbox sandboxer.Sandbox) error {
+	location := repository.FullName(spec.Repo) + "@" + spec.Repo.Ref
+	r, err := store.Read(ctx, spec.Repo, spec.rev, location)
 	if err != nil {
 		return err
 	}
@@ -170,7 +170,7 @@ func (d *ActionStepDef) transferAction(ctx context.Context, store gitstore.Store
 	return sandbox.CopyIn(ctx, r, sandbox.Layout().Actions)
 }
 
-func (d *ActionStepDef) serverDomain(s string) string {
+func (spec *ReferenceActionSpec) serverDomain(s string) string {
 	if u, err := url.Parse(s); err == nil {
 		return u.Host
 	}

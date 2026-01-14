@@ -381,9 +381,9 @@ func (e *jobExecutor) initializeSteps(ctx context.Context, scope *dig.Scope) err
 
 	for _, step := range e.jobSpec.Steps {
 		exec := NewStepExecutor(step)
-		e.stepExecutors[step.StepId()] = exec
+		e.stepExecutors[step.Id] = exec
 
-		s := scope.Scope(fmt.Sprintf("step(%s)", step.StepId()))
+		s := scope.Scope(fmt.Sprintf("step(%s)", step.Id))
 		if err := exec.Initialize(ctx, s); err != nil {
 			return err
 		}
@@ -411,7 +411,7 @@ func (e *jobExecutor) runStage(ctx context.Context, stage Stage) (ex error) {
 	// do stage run
 	ids := make([]string, len(e.jobSpec.Steps))
 	for i, step := range e.jobSpec.Steps {
-		ids[i] = step.StepId()
+		ids[i] = step.Id
 	}
 	if stage == StagePost {
 		slices.Reverse(ids) // in place reverse

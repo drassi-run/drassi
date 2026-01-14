@@ -1,0 +1,42 @@
+/*
+ * SPDX-FileCopyrightText: (c) 2024 The Drassi Authors
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+package executor
+
+import (
+	"context"
+
+	"drassi.run/core/pkg/model/workflows"
+	"go.uber.org/dig"
+)
+
+type ActionSpec interface {
+	CreateExecutor(ctx context.Context, scope *dig.Scope) (ActionExecutor, error)
+}
+
+type ActionExecutor interface {
+	ActionSpec() ActionSpec
+
+	PreTask() *Task
+	MainTask() *Task
+	PostTask() *Task
+}
+
+type Task struct {
+	Stage     Stage
+	Condition workflows.Conditional
+	Run       TaskRun
+}
+
+type TaskRun func(context.Context, StepExecutor) error
+
+type Stage string
+
+const (
+	StagePre  Stage = "pre"
+	StageMain Stage = "main"
+	StagePost Stage = "post"
+)

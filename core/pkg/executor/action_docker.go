@@ -23,7 +23,7 @@ import (
 	"go.uber.org/dig"
 )
 
-type DockerStepDef struct {
+type DockerActionSpec struct {
 	Inputs  workflows.Evaluable[map[string]string]
 	Outputs workflows.Evaluable[map[string]string]
 	Env     workflows.Evaluable[map[string]string]
@@ -47,27 +47,16 @@ type DockerStepDef struct {
 	PostIf         workflows.Conditional
 }
 
-func (d *DockerStepDef) PrepareExecute(ctx context.Context, scope *dig.Scope) (StepRun, error) {
-	e := &dockerStepRun{def: d}
-
-	if err := xdig.Populate(scope, &e.runtime); err != nil {
+func (spec *DockerActionSpec) CreateExecutor(ctx context.Context, scope *dig.Scope) (ActionExecutor, error) {
+	e := &dockerActionExecutor{spec: spec}
+	if err := e.init(ctx, scope); err != nil {
 		return nil, err
 	}
-	if err := xdig.Populate(scope, &e.exprEnv); err != nil {
-		return nil, err
-	}
-	if err := xdig.Populate(scope, &e.repo); err != nil {
-		return nil, err
-	}
-	if err := e.Init(ctx); err != nil {
-		return nil, err
-	}
-
 	return e, nil
 }
 
-type dockerStepRun struct {
-	def *DockerStepDef
+type dockerActionExecutor struct {
+	spec *DockerActionSpec
 
 	resolvedImage string
 
@@ -77,90 +66,99 @@ type dockerStepRun struct {
 	repo    *repository.Repository
 }
 
-func (sr *dockerStepRun) Def() StepDef {
-	return sr.def
-}
-
-func (sr *dockerStepRun) PathTranslator() runtime.PathTranslator {
-	return sr.runtime
-}
-
-func (sr *dockerStepRun) Init(ctx context.Context) error {
-	defer sr.addSpanAttrs(ctx)
+func (e *dockerActionExecutor) init(ctx context.Context, scope *dig.Scope) error {
+	if err := xdig.Populate(scope, &e.runtime); err != nil {
+		return err
+	}
+	if err := xdig.Populate(scope, &e.exprEnv); err != nil {
+		return err
+	}
+	if err := xdig.Populate(scope, &e.repo); err != nil {
+		return err
+	}
+	defer e.addSpanAttrs(ctx)
 
 	//if err := d.evaluateDisplayName(ctx, d.exprEnv, d.Image); err != nil {
 	//	return nil, err
 	//}
 
-	if image, ok := strings.CutPrefix(sr.def.Image, "docker://"); ok {
-		sr.resolvedImage = image
-		return sr.runtime.Pull(ctx, image, nil)
+	if image, ok := strings.CutPrefix(e.spec.Image, "docker://"); ok {
+		e.resolvedImage = image
+		return e.runtime.Pull(ctx, image, nil)
 	}
 
-	return sr.runtime.Build(ctx)
+	return e.runtime.Build(ctx)
 }
 
-func (sr *dockerStepRun) PreTask() *Task {
-	if sr.def.PreEntrypoint == "" {
+func (e *dockerActionExecutor) ActionSpec() ActionSpec {
+	return e.spec
+}
+
+func (e *dockerActionExecutor) PathTranslator() runtime.PathTranslator {
+	return e.runtime
+}
+
+func (e *dockerActionExecutor) PreTask() *Task {
+	if e.spec.PreEntrypoint == "" {
 		return nil
 	}
 	// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionManifestManager.cs#L430-L450
-	condition := sr.def.PreIf
+	condition := e.spec.PreIf
 	if condition == "" {
 		condition = "always()"
 	}
 	return &Task{
 		Stage:     StagePre,
 		Condition: condition,
-		Run:       sr.execute(StagePre),
+		Run:       e.execute(StagePre),
 	}
 }
 
-func (sr *dockerStepRun) MainTask() *Task {
+func (e *dockerActionExecutor) MainTask() *Task {
 	return &Task{
 		Stage: StageMain,
-		Run:   sr.execute(StageMain),
+		Run:   e.execute(StageMain),
 	}
 }
 
-func (sr *dockerStepRun) PostTask() *Task {
-	if sr.def.PostEntrypoint == "" {
+func (e *dockerActionExecutor) PostTask() *Task {
+	if e.spec.PostEntrypoint == "" {
 		return nil
 	}
 	// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionManifestManager.cs#L430-L450
-	condition := sr.def.PostIf
+	condition := e.spec.PostIf
 	if condition == "" {
 		condition = "always()"
 	}
 	return &Task{
 		Stage:     StagePost,
 		Condition: condition,
-		Run:       sr.execute(StagePost),
+		Run:       e.execute(StagePost),
 	}
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/Handlers/ContainerActionHandler.cs#L22
-func (sr *dockerStepRun) execute(stage Stage) TaskRun {
+func (e *dockerActionExecutor) execute(stage Stage) TaskRun {
 	return func(ctx context.Context, exec StepExecutor) error {
-		sr.addSpanAttrs(ctx)
+		e.addSpanAttrs(ctx)
 
 		spec := exec.StepSpec()
 		inputs := make(map[string]string)
-		if err := evaluator.Evaluate(sr.exprEnv, spec.Inputs, &inputs); err != nil {
+		if err := evaluator.Evaluate(e.exprEnv, spec.Inputs, &inputs); err != nil {
 			return err
 		}
 
-		entrypoint, err := sr.computeEntrypoint(stage, inputs)
+		entrypoint, err := e.computeEntrypoint(stage, inputs)
 		if err != nil {
 			return err
 		}
 
-		args, err := sr.computeArgs(inputs)
+		args, err := e.computeArgs(inputs)
 		if err != nil {
 			return err
 		}
 
-		scribe.GroupDetails(ctx, sr.repr(),
+		scribe.GroupDetails(ctx, e.repr(),
 			scribe.WithList("entrypoint", entrypoint),
 			scribe.WithList("args", args),
 			scribe.WithMap("with", inputs),
@@ -173,19 +171,19 @@ func (sr *dockerStepRun) execute(stage Stage) TaskRun {
 			env["INPUT_"+k] = v
 		}
 
-		return sr.runtime.Run(ctx, sr.resolvedImage, entrypoint, args, env)
+		return e.runtime.Run(ctx, e.resolvedImage, entrypoint, args, env)
 	}
 }
 
-func (sr *dockerStepRun) computeEntrypoint(stage Stage, inputs map[string]string) ([]string, error) {
+func (e *dockerActionExecutor) computeEntrypoint(stage Stage, inputs map[string]string) ([]string, error) {
 	var ep string
 	switch stage {
 	case StagePre:
-		ep = sr.def.PreEntrypoint
+		ep = e.spec.PreEntrypoint
 	case StagePost:
-		ep = sr.def.PostEntrypoint
+		ep = e.spec.PostEntrypoint
 	case StageMain:
-		ep = sr.def.Entrypoint
+		ep = e.spec.Entrypoint
 	default:
 		return nil, fmt.Errorf("unknown stage: %s", stage)
 	}
@@ -202,10 +200,10 @@ func (sr *dockerStepRun) computeEntrypoint(stage Stage, inputs map[string]string
 	return nil, nil
 }
 
-func (sr *dockerStepRun) computeArgs(inputs map[string]string) ([]string, error) {
-	if sr.def.Args != nil {
+func (e *dockerActionExecutor) computeArgs(inputs map[string]string) ([]string, error) {
+	if e.spec.Args != nil {
 		args := make([]string, 0)
-		if err := evaluator.Evaluate(sr.exprEnv, sr.def.Args, &args); err != nil {
+		if err := evaluator.Evaluate(e.exprEnv, e.spec.Args, &args); err != nil {
 			return nil, err
 		}
 		return args, nil
@@ -218,23 +216,23 @@ func (sr *dockerStepRun) computeArgs(inputs map[string]string) ([]string, error)
 	}
 }
 
-func (sr *dockerStepRun) addSpanAttrs(ctx context.Context) {
+func (e *dockerActionExecutor) addSpanAttrs(ctx context.Context) {
 	span := trace.SpanFromContext(ctx)
 
-	if image := sr.resolvedImage; image != "" {
+	if image := e.resolvedImage; image != "" {
 		span.SetAttributes(semconv.ContainerImageName(image))
 	}
 }
 
-func (sr *dockerStepRun) repr() string {
+func (e *dockerActionExecutor) repr() string {
 	str := "node action"
-	if sr.resolvedImage != "" {
-		str += fmt.Sprintf(" with image=%q", sr.resolvedImage)
+	if e.resolvedImage != "" {
+		str += fmt.Sprintf(" with image=%q", e.resolvedImage)
 	} else {
-		str += fmt.Sprintf(" with Dockerfile=%q", sr.def.Image)
+		str += fmt.Sprintf(" with Dockerfile=%q", e.spec.Image)
 	}
-	if sr.repo != nil {
-		str += fmt.Sprintf(" from %q", repository.Location(sr.repo))
+	if e.repo != nil {
+		str += fmt.Sprintf(" from %q", repository.Location(e.repo))
 	}
 	return str
 }

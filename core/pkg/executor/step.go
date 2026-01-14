@@ -7,10 +7,7 @@
 package executor
 
 import (
-	"context"
-
 	"drassi.run/core/pkg/model/workflows"
-	"go.uber.org/dig"
 )
 
 type StepSpec struct {
@@ -25,17 +22,5 @@ type StepSpec struct {
 	Outputs          workflows.Evaluable[map[string]string]
 
 	// specific fields for each step type
-	Def StepDef
-}
-
-type StepDef interface {
-	PrepareExecute(ctx context.Context, scope *dig.Scope) (StepRun, error)
-}
-
-type StepRun interface {
-	Def() StepDef
-
-	PreTask() *Task
-	MainTask() *Task
-	PostTask() *Task
+	Action ActionSpec
 }
