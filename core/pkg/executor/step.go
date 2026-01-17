@@ -7,7 +7,10 @@
 package executor
 
 import (
+	"context"
+
 	"drassi.run/core/pkg/model/workflows"
+	"go.uber.org/dig"
 )
 
 type StepSpec struct {
@@ -23,4 +26,12 @@ type StepSpec struct {
 
 	// specific fields for each step type
 	Action ActionSpec
+}
+
+func (spec *StepSpec) CreateExecutor(ctx context.Context, scope *dig.Scope) (StepExecutor, error) {
+	e := &stepExecutor{spec: spec}
+	if err := e.init(ctx, scope); err != nil {
+		return nil, err
+	}
+	return e, nil
 }

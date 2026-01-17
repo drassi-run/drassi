@@ -16,7 +16,6 @@ import (
 
 	executor "drassi.run/core/pkg/executor"
 	records "drassi.run/core/pkg/model/records"
-	dig "go.uber.org/dig"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -116,44 +115,6 @@ func (c *MockStepExecutorCreateStepSummaryCall) Do(f func(io.Reader) error) *Moc
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStepExecutorCreateStepSummaryCall) DoAndReturn(f func(io.Reader) error) *MockStepExecutorCreateStepSummaryCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// Initialize mocks base method.
-func (m *MockStepExecutor) Initialize(ctx context.Context, scope *dig.Scope) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Initialize", ctx, scope)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Initialize indicates an expected call of Initialize.
-func (mr *MockStepExecutorMockRecorder) Initialize(ctx, scope any) *MockStepExecutorInitializeCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Initialize", reflect.TypeOf((*MockStepExecutor)(nil).Initialize), ctx, scope)
-	return &MockStepExecutorInitializeCall{Call: call}
-}
-
-// MockStepExecutorInitializeCall wrap *gomock.Call
-type MockStepExecutorInitializeCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStepExecutorInitializeCall) Return(arg0 error) *MockStepExecutorInitializeCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStepExecutorInitializeCall) Do(f func(context.Context, *dig.Scope) error) *MockStepExecutorInitializeCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStepExecutorInitializeCall) DoAndReturn(f func(context.Context, *dig.Scope) error) *MockStepExecutorInitializeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

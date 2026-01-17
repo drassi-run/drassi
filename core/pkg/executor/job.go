@@ -6,7 +6,12 @@
 
 package executor
 
-import "drassi.run/core/pkg/model/workflows"
+import (
+	"context"
+
+	"drassi.run/core/pkg/model/workflows"
+	"go.uber.org/dig"
+)
 
 type JobSpec struct {
 	Id   string
@@ -23,4 +28,9 @@ type JobSpec struct {
 	// Environment
 
 	Steps []*StepSpec
+}
+
+func (spec *JobSpec) CreateExecutor(ctx context.Context, scope *dig.Scope) (JobExecutor, error) {
+	e := &jobExecutor{spec: spec}
+	return e, nil
 }

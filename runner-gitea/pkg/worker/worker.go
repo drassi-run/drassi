@@ -239,11 +239,14 @@ func (w *Worker) initExecutor(scope *dig.Scope) error {
 		return err
 	}
 
-	w.exec = executor.NewJobExecutor(spec)
-	w.addCleanerContext(w.exec.Finalize)
-	scope = scope.Scope(fmt.Sprintf("job(%s)", executor.JobId(w.exec)))
-
-	return w.exec.Initialize(w.ctx, scope)
+	scope = scope.Scope(fmt.Sprintf("job(%s)", w.exec.JobSpec().Id))
+	if exec, err := spec.CreateExecutor(w.ctx, scope); err != nil {
+		return err
+	} else {
+		w.addCleanerContext(w.exec.Finalize)
+		w.exec = exec
+		return w.exec.Initialize(w.ctx, scope)
+	}
 }
 
 func (w *Worker) Run(ctx context.Context, scope *dig.Scope) (err error) {

@@ -83,12 +83,12 @@ func (e *compositeActionExecutor) init(ctx context.Context, scope *dig.Scope) er
 
 	e.children = make(map[string]StepExecutor, len(e.spec.Steps))
 	for _, step := range e.spec.Steps {
-		cExec := NewStepExecutor(step)
-		e.children[step.Id] = cExec
-
 		cScope := scope.Scope(fmt.Sprintf("step(%s)", step.Id))
-		if err := cExec.Initialize(ctx, cScope); err != nil {
+
+		if cExec, err := step.CreateExecutor(ctx, cScope); err != nil {
 			return err
+		} else {
+			e.children[step.Id] = cExec
 		}
 	}
 	return nil

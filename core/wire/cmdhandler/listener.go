@@ -129,7 +129,7 @@ func (eh *jobInitEventHandler) provideEnv(env support.EnvProvider, stack executo
 			return nil
 		}
 
-		suffix := executor.StepUid(exec)
+		suffix := exec.StepSpec().Uid
 		return cmdMgr.Env(suffix)
 	}
 	env.ProvideEnv(ep)

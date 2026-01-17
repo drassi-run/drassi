@@ -22,14 +22,12 @@ import (
 	"drassi.run/core/pkg/store/repository"
 	"drassi.run/core/util/dig"
 	"drassi.run/core/util/otel"
-	"github.com/chainguard-dev/clog"
 	"go.uber.org/dig"
 )
 
 type StepExecutor interface {
 	StepSpec() *StepSpec
 
-	Initialize(ctx context.Context, scope *dig.Scope) error
 	RunStep(ctx context.Context, stage Stage) *records.Step
 
 	State() *records.Step
@@ -43,20 +41,9 @@ type StepExecutor interface {
 	CreateStepSummary(r io.Reader) error
 }
 
-func StepId(e StepExecutor) string {
-	return e.StepSpec().Id
-}
-
-func StepUid(e StepExecutor) string {
-	return e.StepSpec().Uid
-}
-
-func NewStepExecutor(spec *StepSpec) StepExecutor {
-	return &stepExecutor{spec: spec}
-}
-
 type stepExecutor struct {
-	spec *StepSpec
+	spec  *StepSpec
+	aExec ActionExecutor
 
 	// records
 	github   records.Github
@@ -74,38 +61,24 @@ func (e *stepExecutor) StepSpec() *StepSpec {
 	return e.spec
 }
 
-func (e *stepExecutor) Initialize(ctx context.Context, scope *dig.Scope) (ex error) {
-	stepId := StepId(e)
+func (e *stepExecutor) init(ctx context.Context, scope *dig.Scope) (ex error) {
+	stepId := e.spec.Id
 	ctx, done := xotel.SetupTelemetry(ctx,
 		fmt.Sprintf("StepExecutor.Initialize(%s)", stepId),
 		xotel.DrassiStep(stepId),
 	)
 	defer done(&ex)
 
-	l := clog.FromContext(ctx)
-
-	// setup listener
-	if err := xdig.Populate(scope, &e.listener); err != nil {
-		l.Errorf("Failed to initialize step: %v", err)
-		return err
-	}
-	if eh := e.listener.OnInitializeStep(e, scope); eh != nil {
-		err := eh.Begin(ctx)
-		defer end(eh, &ex)
-		if err != nil {
-			return err
-		}
-	}
-
 	// do step initialization
 	// inject dependencies
+	if err := xdig.Populate(scope, &e.listener); err != nil {
+		return err
+	}
 	if err := xdig.Populate(scope, &e.exprEnv); err != nil {
 		return err
 	}
 	if err := xdig.Populate(scope, &e.github); err != nil {
 		return err
-	} else {
-		e.github.Action = StepId(e)
 	}
 	if err := xdig.Populate(scope, &e.envProv); err != nil {
 		return err
@@ -113,6 +86,7 @@ func (e *stepExecutor) Initialize(ctx context.Context, scope *dig.Scope) (ex err
 	if err := xdig.Populate(scope, &e.upperEnv); err != nil {
 		return err
 	}
+	e.github.Action = e.spec.Id
 	e.env = make(map[string]string)
 	maps.Copy(e.env, e.upperEnv)
 	e.step = new(records.Step)
@@ -123,11 +97,13 @@ func (e *stepExecutor) Initialize(ctx context.Context, scope *dig.Scope) (ex err
 	if err := xdig.Supply[StepExecutor](scope, e); err != nil {
 		return err
 	}
-	if err := e.spec.Initialize(ctx, scope); err != nil {
+	if exec, err := e.spec.Action.CreateExecutor(ctx, scope); err != nil {
 		return err
+	} else {
+		e.aExec = exec
 	}
 
-	if r, ok := e.spec.(interface{ Repository() *repository.Repository }); ok {
+	if r, ok := e.spec.Action.(interface{ Repository() *repository.Repository }); ok {
 		repo := r.Repository()
 
 		e.github.ActionRepository = repo.Name
@@ -165,10 +141,9 @@ func (e *stepExecutor) RunStep(ctx context.Context, stage Stage) *records.Step {
 		return nil
 	}
 
-	stepId := StepId(e)
 	ctx, done := xotel.SetupTelemetry(ctx,
-		fmt.Sprintf("StepExecutor.RunStep(%s, %s)", stepId, stage),
-		xotel.DrassiStep(stepId), xotel.DrassiStage(stage),
+		fmt.Sprintf("StepExecutor.RunStep(%s, %s)", e.spec.Id, stage),
+		xotel.DrassiStep(e.spec.Id), xotel.DrassiStage(stage),
 	)
 	defer done(nil)
 
@@ -189,11 +164,11 @@ func (e *stepExecutor) RunStep(ctx context.Context, stage Stage) *records.Step {
 func (e *stepExecutor) getTask(stage Stage) *Task {
 	switch stage {
 	case StagePre:
-		return e.spec.PreTask()
+		return e.aExec.PreTask()
 	case StageMain:
-		return e.spec.MainTask()
+		return e.aExec.MainTask()
 	case StagePost:
-		return e.spec.PostTask()
+		return e.aExec.PostTask()
 	default:
 		return nil
 	}
@@ -201,17 +176,16 @@ func (e *stepExecutor) getTask(stage Stage) *Task {
 
 func (e *stepExecutor) runTask(ctx context.Context, task *Task) {
 	s := scribe.FromContext(ctx)
-	base := e.spec.Base()
-	stepId, displayName := e.spec.Id, e.spec.DisplayName(task.Stage)
+	//stepId, displayName := e.spec.Id, e.spec.DisplayName(task.Stage)
 
 	clear(e.env)
 	maps.Copy(e.env, e.upperEnv)
-	if err := evaluator.Evaluate(e.exprEnv, base.Env, &e.env); err != nil {
+	if err := evaluator.Evaluate(e.exprEnv, e.spec.Env, &e.env); err != nil {
 		e.SetStatus(records.ResultFailure)
 		return
 	}
 
-	s.Debugf("Evaluating condition for step: %q (%s)", displayName, stepId)
+	s.Debugf("Evaluating condition for step: %q (%s)", "displayName", e.spec.Id)
 	if meet, err := evaluator.Meet(e.exprEnv, task.Condition); err != nil {
 		e.SetStatus(records.ResultFailure)
 		e.step.Conclusion = records.ResultFailure
@@ -220,13 +194,13 @@ func (e *stepExecutor) runTask(ctx context.Context, task *Task) {
 	} else if !meet {
 		e.SetStatus(records.ResultSkipped)
 		e.step.Conclusion = records.ResultSkipped
-		s.Writef("Skipped step %q (%s)", displayName, stepId)
+		s.Writef("Skipped step %q (%s)", "displayName", e.spec.Id)
 		return
 	}
 
 	timeout := int64(-1)
-	s.Debugf("Evaluating 'timeout-minutes' for step: %q (%s)", displayName, stepId)
-	if err := evaluator.Evaluate(e.exprEnv, base.TimeoutInMinutes, &timeout); err != nil {
+	s.Debugf("Evaluating 'timeout-minutes' for step: %q (%s)", "displayName", e.spec.Id)
+	if err := evaluator.Evaluate(e.exprEnv, e.spec.TimeoutInMinutes, &timeout); err != nil {
 		s.Errorf("Error while evaluate 'timeout-minutes': %v", err)
 		e.SetStatus(records.ResultFailure)
 		return
@@ -237,7 +211,7 @@ func (e *stepExecutor) runTask(ctx context.Context, task *Task) {
 	}
 
 	if err := e.doTask(ctx, task); err != nil {
-		s.Errorf("Error while running task %q (%s): %v", displayName, stepId, err)
+		s.Errorf("Error while running task %q (%s): %v", "displayName", e.spec.Id, err)
 		e.SetStatus(records.ResultFailure)
 	} else {
 		e.SetStatus(records.ResultSuccess)
@@ -245,8 +219,8 @@ func (e *stepExecutor) runTask(ctx context.Context, task *Task) {
 
 	if e.step.Outcome == records.ResultFailure {
 		continueOnError := false
-		s.Debugf("Evaluating 'continue-on-error' for step: %q (%s)", displayName, stepId)
-		if err := evaluator.Evaluate(e.exprEnv, base.ContinueOnError, &continueOnError); err != nil {
+		s.Debugf("Evaluating 'continue-on-error' for step: %q (%s)", "displayName", e.spec.Id)
+		if err := evaluator.Evaluate(e.exprEnv, e.spec.ContinueOnError, &continueOnError); err != nil {
 			e.step.Conclusion = records.ResultFailure
 			s.Errorf("Error while evaluate 'continue-on-error' %v", err)
 		} else if continueOnError {
@@ -261,7 +235,7 @@ func (e *stepExecutor) runTask(ctx context.Context, task *Task) {
 
 func (e *stepExecutor) doTask(ctx context.Context, task *Task) (ex error) {
 	ctx, done := xotel.SetupTelemetry(ctx,
-		fmt.Sprintf("StepExecutor.RunTask(%s, %s)", StepId(e), task.Stage),
+		fmt.Sprintf("StepExecutor.RunTask(%s, %s)", e.spec.Id, task.Stage),
 	)
 	defer done(&ex)
 
