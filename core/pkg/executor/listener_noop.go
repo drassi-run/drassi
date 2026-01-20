@@ -8,6 +8,7 @@ package executor
 
 import (
 	"context"
+
 	"go.uber.org/dig"
 )
 
@@ -22,7 +23,7 @@ type NoopStepListener struct{}
 
 func (l NoopStepListener) OnInitializeStep(StepExecutor, *dig.Scope) EventHandler { return nil }
 func (l NoopStepListener) OnRunStep(StepExecutor, Stage) EventHandler             { return nil }
-func (l NoopStepListener) OnRunTask(StepExecutor, *Task) EventHandler             { return nil }
+func (l NoopStepListener) OnRunTask(StepExecutor, *ActionRun) EventHandler        { return nil }
 
 type FuncEventHandler struct {
 	BeginFunc func(ctx context.Context) error

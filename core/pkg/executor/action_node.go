@@ -82,48 +82,36 @@ func (e *nodeActionExecutor) ActionSpec() ActionSpec {
 	return e.spec
 }
 
-func (e *nodeActionExecutor) PreTask() *Task {
-	spec := e.spec
-	if spec.Pre == "" {
-		return nil
+func (e *nodeActionExecutor) CreateRun(stage Stage) *ActionRun {
+	var condition workflows.Conditional
+	switch stage {
+	case StagePre:
+		if e.spec.Pre == "" {
+			return nil
+		}
+		// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionManifestManager.cs#L451-L471
+		condition = e.spec.PreIf
+		if condition == "" {
+			condition = "always()"
+		}
+	case StagePost:
+		if e.spec.Post == "" {
+			return nil
+		}
+		// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionManifestManager.cs#L451-L471
+		condition = e.spec.PostIf
+		if condition == "" {
+			condition = "always()"
+		}
 	}
-	// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionManifestManager.cs#L451-L471
-	condition := spec.PreIf
-	if condition == "" {
-		condition = "always()"
-	}
-	return &Task{
-		Stage:     StagePre,
+
+	return &ActionRun{
 		Condition: condition,
-		Run:       e.execute(StagePre),
+		Run:       e.execute(stage),
 	}
 }
 
-func (e *nodeActionExecutor) MainTask() *Task {
-	return &Task{
-		Stage: StageMain,
-		Run:   e.execute(StageMain),
-	}
-}
-
-func (e *nodeActionExecutor) PostTask() *Task {
-	spec := e.spec
-	if spec.Post == "" {
-		return nil
-	}
-	// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionManifestManager.cs#L451-L471
-	condition := spec.PostIf
-	if condition == "" {
-		condition = "always()"
-	}
-	return &Task{
-		Stage:     StagePost,
-		Condition: condition,
-		Run:       e.execute(StagePost),
-	}
-}
-
-func (e *nodeActionExecutor) execute(stage Stage) TaskRun {
+func (e *nodeActionExecutor) execute(stage Stage) Task {
 	return func(ctx context.Context, exec StepExecutor) error {
 		e.addSpanAttrs(ctx, stage)
 

@@ -19,19 +19,15 @@ type ActionSpec interface {
 
 type ActionExecutor interface {
 	ActionSpec() ActionSpec
-
-	PreTask() *Task
-	MainTask() *Task
-	PostTask() *Task
+	CreateRun(stage Stage) *ActionRun
 }
 
-type Task struct {
-	Stage     Stage
+type ActionRun struct {
 	Condition workflows.Conditional
-	Run       TaskRun
+	Run       Task
 }
 
-type TaskRun func(context.Context, StepExecutor) error
+type Task func(context.Context, StepExecutor) error
 
 type Stage string
 

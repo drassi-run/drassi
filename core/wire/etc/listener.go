@@ -41,7 +41,7 @@ func (l *stackListener) OnRunStep(exec executor.StepExecutor, _ executor.Stage) 
 	return l.stack.stepChange(exec)
 }
 
-func (l *stackListener) OnRunTask(executor.StepExecutor, *executor.Task) executor.EventHandler {
+func (l *stackListener) OnRunTask(executor.StepExecutor, *executor.ActionRun) executor.EventHandler {
 	return l.stack.contextChange()
 }
 

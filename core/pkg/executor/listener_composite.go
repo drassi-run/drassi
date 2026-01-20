@@ -65,7 +65,7 @@ func (l *compositeStepListener) OnRunStep(exec StepExecutor, stage Stage) EventH
 	})
 }
 
-func (l *compositeStepListener) OnRunTask(exec StepExecutor, task *Task) EventHandler {
+func (l *compositeStepListener) OnRunTask(exec StepExecutor, task *ActionRun) EventHandler {
 	return createCompositeEventHandler(l.listeners, func(listener StepListener) EventHandler {
 		return listener.OnRunTask(exec, task)
 	})

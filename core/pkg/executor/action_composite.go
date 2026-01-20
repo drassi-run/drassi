@@ -98,19 +98,7 @@ func (e *compositeActionExecutor) ActionSpec() ActionSpec {
 	return e.spec
 }
 
-func (e *compositeActionExecutor) PreTask() *Task {
-	return e.createStageTask(StagePre)
-}
-
-func (e *compositeActionExecutor) MainTask() *Task {
-	return e.createStageTask(StageMain)
-}
-
-func (e *compositeActionExecutor) PostTask() *Task {
-	return e.createStageTask(StagePost)
-}
-
-func (e *compositeActionExecutor) createStageTask(stage Stage) *Task {
+func (e *compositeActionExecutor) CreateRun(stage Stage) *ActionRun {
 	taskIds := make([]string, len(e.spec.Steps))
 	for i, step := range e.spec.Steps {
 		taskIds[i] = step.Id
@@ -146,8 +134,7 @@ func (e *compositeActionExecutor) createStageTask(stage Stage) *Task {
 		condition = "always()"
 	}
 
-	return &Task{
-		Stage:     stage,
+	return &ActionRun{
 		Condition: condition,
 		Run:       taskRun,
 	}

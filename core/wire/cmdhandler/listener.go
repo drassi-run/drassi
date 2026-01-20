@@ -36,7 +36,7 @@ func (l *cmdListener) OnInitializeJob(_ executor.JobExecutor, scope *dig.Scope) 
 	}
 }
 
-func (l *cmdListener) OnRunTask(_ executor.StepExecutor, task *executor.Task) executor.EventHandler {
+func (l *cmdListener) OnRunTask(_ executor.StepExecutor, task *executor.ActionRun) executor.EventHandler {
 	return &taskRunEventHandler{
 		task:   task,
 		cmdMgr: l.cmdMgr,
@@ -145,7 +145,7 @@ func (eh *jobInitEventHandler) setConsoleManagerDebug(cmdMgr command.ConsoleMana
 }
 
 type taskRunEventHandler struct {
-	task   *executor.Task
+	task   *executor.ActionRun
 	ctx    context.Context
 	cmdMgr command.FileManager
 }

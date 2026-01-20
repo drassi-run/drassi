@@ -8,6 +8,7 @@ package executor
 
 import (
 	"context"
+
 	"go.uber.org/dig"
 )
 
@@ -26,7 +27,7 @@ type JobListener interface {
 type StepListener interface {
 	OnInitializeStep(exec StepExecutor, scope *dig.Scope) EventHandler
 	OnRunStep(exec StepExecutor, stage Stage) EventHandler
-	OnRunTask(exec StepExecutor, task *Task) EventHandler
+	OnRunTask(exec StepExecutor, task *ActionRun) EventHandler
 }
 
 type EventHandler interface {

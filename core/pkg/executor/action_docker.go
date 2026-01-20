@@ -98,47 +98,37 @@ func (e *dockerActionExecutor) PathTranslator() runtime.PathTranslator {
 	return e.runtime
 }
 
-func (e *dockerActionExecutor) PreTask() *Task {
-	if e.spec.PreEntrypoint == "" {
-		return nil
+func (e *dockerActionExecutor) CreateRun(stage Stage) *ActionRun {
+	var condition workflows.Conditional
+	switch stage {
+	case StagePre:
+		if e.spec.PreEntrypoint == "" {
+			return nil
+		}
+		// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionManifestManager.cs#L430-L450
+		condition = e.spec.PreIf
+		if condition == "" {
+			condition = "always()"
+		}
+	case StagePost:
+		if e.spec.PostEntrypoint == "" {
+			return nil
+		}
+		// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionManifestManager.cs#L430-L450
+		condition = e.spec.PostIf
+		if condition == "" {
+			condition = "always()"
+		}
 	}
-	// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionManifestManager.cs#L430-L450
-	condition := e.spec.PreIf
-	if condition == "" {
-		condition = "always()"
-	}
-	return &Task{
-		Stage:     StagePre,
-		Condition: condition,
-		Run:       e.execute(StagePre),
-	}
-}
 
-func (e *dockerActionExecutor) MainTask() *Task {
-	return &Task{
-		Stage: StageMain,
-		Run:   e.execute(StageMain),
-	}
-}
-
-func (e *dockerActionExecutor) PostTask() *Task {
-	if e.spec.PostEntrypoint == "" {
-		return nil
-	}
-	// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionManifestManager.cs#L430-L450
-	condition := e.spec.PostIf
-	if condition == "" {
-		condition = "always()"
-	}
-	return &Task{
-		Stage:     StagePost,
+	return &ActionRun{
 		Condition: condition,
-		Run:       e.execute(StagePost),
+		Run:       e.execute(stage),
 	}
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/Handlers/ContainerActionHandler.cs#L22
-func (e *dockerActionExecutor) execute(stage Stage) TaskRun {
+func (e *dockerActionExecutor) execute(stage Stage) Task {
 	return func(ctx context.Context, exec StepExecutor) error {
 		e.addSpanAttrs(ctx)
 

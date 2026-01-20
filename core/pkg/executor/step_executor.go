@@ -136,8 +136,8 @@ func (e *stepExecutor) init(ctx context.Context, scope *dig.Scope) (ex error) {
 }
 
 func (e *stepExecutor) RunStep(ctx context.Context, stage Stage) *records.Step {
-	task := e.getTask(stage)
-	if task == nil {
+	run := e.aExec.CreateRun(stage)
+	if run == nil {
 		return nil
 	}
 
@@ -157,24 +157,11 @@ func (e *stepExecutor) RunStep(ctx context.Context, stage Stage) *records.Step {
 	}
 
 	// do step run
-	e.runTask(ctx, task)
+	e.runTask(ctx, stage, run)
 	return e.step
 }
 
-func (e *stepExecutor) getTask(stage Stage) *Task {
-	switch stage {
-	case StagePre:
-		return e.aExec.PreTask()
-	case StageMain:
-		return e.aExec.MainTask()
-	case StagePost:
-		return e.aExec.PostTask()
-	default:
-		return nil
-	}
-}
-
-func (e *stepExecutor) runTask(ctx context.Context, task *Task) {
+func (e *stepExecutor) runTask(ctx context.Context, stage Stage, task *ActionRun) {
 	s := scribe.FromContext(ctx)
 	//stepId, displayName := e.spec.Id, e.spec.DisplayName(task.Stage)
 
@@ -210,7 +197,7 @@ func (e *stepExecutor) runTask(ctx context.Context, task *Task) {
 		defer cancel()
 	}
 
-	if err := e.doTask(ctx, task); err != nil {
+	if err := e.doTask(ctx, stage, task); err != nil {
 		s.Errorf("Error while running task %q (%s): %v", "displayName", e.spec.Id, err)
 		e.SetStatus(records.ResultFailure)
 	} else {
@@ -233,9 +220,9 @@ func (e *stepExecutor) runTask(ctx context.Context, task *Task) {
 	}
 }
 
-func (e *stepExecutor) doTask(ctx context.Context, task *Task) (ex error) {
+func (e *stepExecutor) doTask(ctx context.Context, stage Stage, task *ActionRun) (ex error) {
 	ctx, done := xotel.SetupTelemetry(ctx,
-		fmt.Sprintf("StepExecutor.RunTask(%s, %s)", e.spec.Id, task.Stage),
+		fmt.Sprintf("StepExecutor.RunTask(%s, %s)", e.spec.Id, stage),
 	)
 	defer done(&ex)
 

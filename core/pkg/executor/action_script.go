@@ -75,19 +75,13 @@ func (e *scriptActionExecutor) ActionSpec() ActionSpec {
 	return e.spec
 }
 
-func (e *scriptActionExecutor) PreTask() *Task {
-	return nil
-}
-
-func (e *scriptActionExecutor) MainTask() *Task {
-	return &Task{
-		Stage: StageMain,
-		Run:   e.executeMain,
+func (e *scriptActionExecutor) CreateRun(stage Stage) *ActionRun {
+	if stage != StageMain {
+		return nil
 	}
-}
-
-func (e *scriptActionExecutor) PostTask() *Task {
-	return nil
+	return &ActionRun{
+		Run: e.executeMain,
+	}
 }
 
 func (e *scriptActionExecutor) executeMain(ctx context.Context, exec StepExecutor) error {
