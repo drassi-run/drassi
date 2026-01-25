@@ -315,9 +315,11 @@ type listenerParams[L any] struct {
 }
 
 func composeJobListener(p listenerParams[executor.JobListener]) executor.JobListener {
-	return executor.NewCompositeJobListener(p.Stack, p.Reporter, p.Command)
+	//TODO implement me
+	panic("implement me")
 }
 
 func composeStepListener(p listenerParams[executor.StepListener]) executor.StepListener {
-	return executor.NewCompositeStepListener(p.Stack, p.Reporter, p.Command)
+	//TODO implement me
+	panic("implement me")
 }

@@ -27,8 +27,7 @@ import (
 
 type StepExecutor interface {
 	StepSpec() *StepSpec
-
-	RunStep(ctx context.Context, stage Stage) *records.Step
+	CreateRun(stage Stage) StepRun
 
 	State() *records.Step
 	Status() records.Result
@@ -39,6 +38,12 @@ type StepExecutor interface {
 	SaveState(state map[string]string)
 	SetOutput(output map[string]string)
 	CreateStepSummary(r io.Reader) error
+}
+
+type StepRun func(ctx context.Context) *records.Step
+
+type StepRunDecorator interface {
+	DecorateStepRun(Stage, StepExecutor, StepRun) StepRun
 }
 
 type stepExecutor struct {
@@ -52,9 +57,9 @@ type stepExecutor struct {
 	upperEnv map[string]string // env variables from upper layers
 	state    map[string]string // Intra action state
 
-	envProv  support.EnvProvider
-	listener StepListener
-	exprEnv  expression.Env
+	decorator ActionRunDecorator
+	envProv   support.EnvProvider
+	exprEnv   expression.Env
 }
 
 func (e *stepExecutor) StepSpec() *StepSpec {
@@ -71,7 +76,7 @@ func (e *stepExecutor) init(ctx context.Context, scope *dig.Scope) (ex error) {
 
 	// do step initialization
 	// inject dependencies
-	if err := xdig.Populate(scope, &e.listener); err != nil {
+	if err := xdig.Populate(scope, &e.decorator); err != nil {
 		return err
 	}
 	if err := xdig.Populate(scope, &e.exprEnv); err != nil {
@@ -135,33 +140,20 @@ func (e *stepExecutor) init(ctx context.Context, scope *dig.Scope) (ex error) {
 	return nil
 }
 
-func (e *stepExecutor) RunStep(ctx context.Context, stage Stage) *records.Step {
+func (e *stepExecutor) CreateRun(stage Stage) StepRun {
 	run := e.aExec.CreateRun(stage)
 	if run == nil {
 		return nil
 	}
+	run = e.decorator.DecorateActionRun(stage, run)
 
-	ctx, done := xotel.SetupTelemetry(ctx,
-		fmt.Sprintf("StepExecutor.RunStep(%s, %s)", e.spec.Id, stage),
-		xotel.DrassiStep(e.spec.Id), xotel.DrassiStage(stage),
-	)
-	defer done(nil)
-
-	// setup listener
-	if eh := e.listener.OnRunStep(e, stage); eh != nil {
-		err := eh.Begin(ctx)
-		defer end(eh, &err)
-		if err != nil {
-			return nil
-		}
+	return func(ctx context.Context) *records.Step {
+		e.runAction(ctx, run)
+		return e.step
 	}
-
-	// do step run
-	e.runTask(ctx, stage, run)
-	return e.step
 }
 
-func (e *stepExecutor) runTask(ctx context.Context, stage Stage, task *ActionRun) {
+func (e *stepExecutor) runAction(ctx context.Context, task *ActionRun) {
 	s := scribe.FromContext(ctx)
 	//stepId, displayName := e.spec.Id, e.spec.DisplayName(task.Stage)
 
@@ -197,7 +189,7 @@ func (e *stepExecutor) runTask(ctx context.Context, stage Stage, task *ActionRun
 		defer cancel()
 	}
 
-	if err := e.doTask(ctx, stage, task); err != nil {
+	if err := task.Run(ctx, e); err != nil {
 		s.Errorf("Error while running task %q (%s): %v", "displayName", e.spec.Id, err)
 		e.SetStatus(records.ResultFailure)
 	} else {
@@ -218,24 +210,6 @@ func (e *stepExecutor) runTask(ctx context.Context, stage Stage, task *ActionRun
 	if e.step.Conclusion == "" {
 		e.step.Conclusion = e.step.Outcome
 	}
-}
-
-func (e *stepExecutor) doTask(ctx context.Context, stage Stage, task *ActionRun) (ex error) {
-	ctx, done := xotel.SetupTelemetry(ctx,
-		fmt.Sprintf("StepExecutor.RunTask(%s, %s)", e.spec.Id, stage),
-	)
-	defer done(&ex)
-
-	// setup listener
-	if eh := e.listener.OnRunTask(e, task); eh != nil {
-		err := eh.Begin(ctx)
-		defer end(eh, &ex)
-		if err != nil {
-			return err
-		}
-	}
-
-	return task.Run(ctx, e)
 }
 
 func (e *stepExecutor) ComposeEnv(systemEnv bool) map[string]string {

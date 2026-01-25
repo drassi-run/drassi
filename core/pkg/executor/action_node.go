@@ -82,6 +82,7 @@ func (e *nodeActionExecutor) ActionSpec() ActionSpec {
 	return e.spec
 }
 
+// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionManifestManager.cs#L451-L471
 func (e *nodeActionExecutor) CreateRun(stage Stage) *ActionRun {
 	var condition workflows.Conditional
 	switch stage {
@@ -89,20 +90,15 @@ func (e *nodeActionExecutor) CreateRun(stage Stage) *ActionRun {
 		if e.spec.Pre == "" {
 			return nil
 		}
-		// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionManifestManager.cs#L451-L471
 		condition = e.spec.PreIf
-		if condition == "" {
-			condition = "always()"
-		}
 	case StagePost:
 		if e.spec.Post == "" {
 			return nil
 		}
-		// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionManifestManager.cs#L451-L471
 		condition = e.spec.PostIf
-		if condition == "" {
-			condition = "always()"
-		}
+	}
+	if stage != StageMain && condition == "" {
+		condition = "always()"
 	}
 
 	return &ActionRun{

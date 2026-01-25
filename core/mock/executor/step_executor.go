@@ -10,7 +10,6 @@
 package mock_executor
 
 import (
-	context "context"
 	io "io"
 	reflect "reflect"
 
@@ -81,6 +80,44 @@ func (c *MockStepExecutorComposeEnvCall) DoAndReturn(f func(bool) map[string]str
 	return c
 }
 
+// CreateRun mocks base method.
+func (m *MockStepExecutor) CreateRun(stage executor.Stage) executor.StepRun {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateRun", stage)
+	ret0, _ := ret[0].(executor.StepRun)
+	return ret0
+}
+
+// CreateRun indicates an expected call of CreateRun.
+func (mr *MockStepExecutorMockRecorder) CreateRun(stage any) *MockStepExecutorCreateRunCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRun", reflect.TypeOf((*MockStepExecutor)(nil).CreateRun), stage)
+	return &MockStepExecutorCreateRunCall{Call: call}
+}
+
+// MockStepExecutorCreateRunCall wrap *gomock.Call
+type MockStepExecutorCreateRunCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStepExecutorCreateRunCall) Return(arg0 executor.StepRun) *MockStepExecutorCreateRunCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStepExecutorCreateRunCall) Do(f func(executor.Stage) executor.StepRun) *MockStepExecutorCreateRunCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStepExecutorCreateRunCall) DoAndReturn(f func(executor.Stage) executor.StepRun) *MockStepExecutorCreateRunCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // CreateStepSummary mocks base method.
 func (m *MockStepExecutor) CreateStepSummary(r io.Reader) error {
 	m.ctrl.T.Helper()
@@ -115,44 +152,6 @@ func (c *MockStepExecutorCreateStepSummaryCall) Do(f func(io.Reader) error) *Moc
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStepExecutorCreateStepSummaryCall) DoAndReturn(f func(io.Reader) error) *MockStepExecutorCreateStepSummaryCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// RunStep mocks base method.
-func (m *MockStepExecutor) RunStep(ctx context.Context, stage executor.Stage) *records.Step {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RunStep", ctx, stage)
-	ret0, _ := ret[0].(*records.Step)
-	return ret0
-}
-
-// RunStep indicates an expected call of RunStep.
-func (mr *MockStepExecutorMockRecorder) RunStep(ctx, stage any) *MockStepExecutorRunStepCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunStep", reflect.TypeOf((*MockStepExecutor)(nil).RunStep), ctx, stage)
-	return &MockStepExecutorRunStepCall{Call: call}
-}
-
-// MockStepExecutorRunStepCall wrap *gomock.Call
-type MockStepExecutorRunStepCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStepExecutorRunStepCall) Return(arg0 *records.Step) *MockStepExecutorRunStepCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStepExecutorRunStepCall) Do(f func(context.Context, executor.Stage) *records.Step) *MockStepExecutorRunStepCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStepExecutorRunStepCall) DoAndReturn(f func(context.Context, executor.Stage) *records.Step) *MockStepExecutorRunStepCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

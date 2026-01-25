@@ -36,3 +36,7 @@ const (
 	StageMain Stage = "main"
 	StagePost Stage = "post"
 )
+
+type ActionRunDecorator interface {
+	DecorateActionRun(Stage, *ActionRun) *ActionRun
+}

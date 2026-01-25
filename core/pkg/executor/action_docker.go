@@ -98,6 +98,7 @@ func (e *dockerActionExecutor) PathTranslator() runtime.PathTranslator {
 	return e.runtime
 }
 
+// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionManifestManager.cs#L430-L450
 func (e *dockerActionExecutor) CreateRun(stage Stage) *ActionRun {
 	var condition workflows.Conditional
 	switch stage {
@@ -105,20 +106,15 @@ func (e *dockerActionExecutor) CreateRun(stage Stage) *ActionRun {
 		if e.spec.PreEntrypoint == "" {
 			return nil
 		}
-		// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionManifestManager.cs#L430-L450
 		condition = e.spec.PreIf
-		if condition == "" {
-			condition = "always()"
-		}
 	case StagePost:
 		if e.spec.PostEntrypoint == "" {
 			return nil
 		}
-		// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionManifestManager.cs#L430-L450
 		condition = e.spec.PostIf
-		if condition == "" {
-			condition = "always()"
-		}
+	}
+	if stage != StageMain && condition == "" {
+		condition = "always()"
 	}
 
 	return &ActionRun{

@@ -38,14 +38,18 @@ func (spec *CompositeActionSpec) CreateExecutor(ctx context.Context, scope *dig.
 type compositeActionExecutor struct {
 	spec *CompositeActionSpec
 
-	children map[string]StepExecutor
-	exprEnv  expression.Env
-	inputs   map[string]string
+	decorator StepRunDecorator
+	exprEnv   expression.Env
+	inputs    map[string]string
+	children  map[string]StepExecutor
 }
 
 func (e *compositeActionExecutor) init(ctx context.Context, scope *dig.Scope) error {
 	var exec StepExecutor
 	if err := xdig.Populate(scope, &exec); err != nil {
+		return err
+	}
+	if err := xdig.Populate(scope, &e.decorator); err != nil {
 		return err
 	}
 	if err := xdig.Populate(scope, &e.exprEnv); err != nil {
@@ -99,29 +103,43 @@ func (e *compositeActionExecutor) ActionSpec() ActionSpec {
 }
 
 func (e *compositeActionExecutor) CreateRun(stage Stage) *ActionRun {
-	taskIds := make([]string, len(e.spec.Steps))
+	// 1. Plan the execution
+	ids := make([]string, len(e.spec.Steps))
 	for i, step := range e.spec.Steps {
-		taskIds[i] = step.Id
+		ids[i] = step.Id
 	}
 	if stage == StagePost {
-		slices.Reverse(taskIds) // in-place reverse
+		slices.Reverse(ids) // in-place reverse
+	}
+	runs := make([]StepRun, len(ids))
+	for i, id := range ids {
+		cExec := e.children[id]
+		run := cExec.CreateRun(stage)
+		if run != nil {
+			run = e.decorator.DecorateStepRun(stage, cExec, run)
+		}
+		runs[i] = run
 	}
 
+	// all runs are nil
+	if !slices.ContainsFunc(runs, func(r StepRun) bool { return r != nil }) {
+		return nil
+	}
+
+	// 2. Execute the plan
 	taskRun := func(ctx context.Context, exec StepExecutor) error {
 		if err := e.computeInputs(); err != nil {
 			return err
 		}
 
-		for _, id := range taskIds {
-			cExec := e.children[id]
-			if cExec == nil {
-				return fmt.Errorf("task %q has no child context", id)
+		for i, run := range runs {
+			if run == nil {
+				continue
 			}
-
-			res := cExec.RunStep(ctx, stage)
+			res := run(ctx)
 			if res != nil && res.Conclusion == records.ResultFailure {
 				exec.SetStatus(records.ResultFailure)
-				return fmt.Errorf("step %q (%s) failed", id, stage)
+				return fmt.Errorf("step %q (%s) failed", ids[i], stage)
 			}
 		}
 
@@ -130,7 +148,7 @@ func (e *compositeActionExecutor) CreateRun(stage Stage) *ActionRun {
 
 	// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionManifestManager.cs#L472-L490
 	var condition workflows.Conditional
-	if stage == StagePre || stage == StagePost {
+	if stage != StageMain {
 		condition = "always()"
 	}
 

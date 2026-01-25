@@ -47,6 +47,12 @@ type JobExecutor interface {
 	SetEnv(env map[string]string)
 }
 
+type JobRun func(ctx context.Context) (*records.Job, error)
+
+type JobRunDecorator interface {
+	DecorateJobRun(Stage, JobRun) JobRun
+}
+
 type jobExecutor struct {
 	spec *JobSpec
 
@@ -59,10 +65,11 @@ type jobExecutor struct {
 	env     map[string]string
 	paths   []string
 
-	listener      JobListener
-	exprEnv       expression.Env
-	sandbox       sandboxer.Sandbox
-	stepExecutors map[string]StepExecutor
+	decorator StepRunDecorator
+	exprEnv   expression.Env
+	sandbox   sandboxer.Sandbox
+	children  map[string]StepExecutor
+	runs      map[Stage]func(context.Context) error
 }
 
 func (e *jobExecutor) JobSpec() *JobSpec {
@@ -79,19 +86,6 @@ func (e *jobExecutor) Initialize(ctx context.Context, scope *dig.Scope) (ex erro
 
 	l := clog.FromContext(ctx)
 	s := scribe.FromContext(ctx)
-
-	// setup listener
-	if err := xdig.Populate(scope, &e.listener); err != nil {
-		l.Errorf("Failed to initialize job: %v", err)
-		return err
-	}
-	if eh := e.listener.OnInitializeJob(e, scope); eh != nil {
-		err := eh.Begin(ctx)
-		defer end(eh, &ex)
-		if err != nil {
-			return err
-		}
-	}
 
 	// do job initialization
 	if err := e.initializeJob(s, scope); err != nil {
@@ -120,29 +114,17 @@ func (e *jobExecutor) RunJob(ctx context.Context) *records.Job {
 	)
 	defer done(nil)
 
-	// setup listener
-	if eh := e.listener.OnRunJob(e); eh != nil {
-		err := eh.Begin(ctx)
-		defer end(eh, &err)
-		if err != nil {
-			return nil
-		}
-	}
-
 	// do job run
 	e.SetStatus(records.ResultSuccess)
 
-	if err := e.runStage(ctx, StagePre); err != nil {
-		e.SetStatus(records.ResultFailure)
-		//log err
-	}
-	if err := e.runStage(ctx, StageMain); err != nil {
-		e.SetStatus(records.ResultFailure)
-		//log err
-	}
-	if err := e.runStage(ctx, StagePost); err != nil {
-		e.SetStatus(records.ResultFailure)
-		//log err
+	for _, stage := range []Stage{StagePre, StageMain, StagePost} {
+		run := e.runs[stage]
+		if run == nil {
+			continue
+		}
+		if err := run(ctx); err != nil {
+			e.SetStatus(records.ResultFailure)
+		}
 	}
 	if err := evaluator.Evaluate(e.exprEnv, e.spec.Outputs, &e.job.Outputs); err != nil {
 		e.SetStatus(records.ResultFailure)
@@ -157,17 +139,6 @@ func (e *jobExecutor) Finalize(ctx context.Context) (ex error) {
 		xotel.DrassiJob(jobId),
 	)
 	defer done(&ex)
-
-	// setup listener
-	l := clog.FromContext(ctx)
-	if eh := e.listener.OnFinalizeJob(e); eh != nil {
-		err := eh.Begin(ctx)
-		defer end(eh, &ex)
-		if err != nil {
-			l.Errorf("error OnFinalizeJob.Start: %v", err)
-			// terminate sandbox even if listener failed
-		}
-	}
 
 	// do job run
 	if e.sandbox == nil {
@@ -186,6 +157,9 @@ func (e *jobExecutor) Finalize(ctx context.Context) (ex error) {
 
 func (e *jobExecutor) initializeJob(s *scribe.Scribe, scope *dig.Scope) error {
 	// inject dependencies
+	if err := xdig.Populate(scope, &e.decorator); err != nil {
+		return err
+	}
 	if err := xdig.Populate(scope, &e.exprEnv); err != nil {
 		return err
 	}
@@ -354,7 +328,7 @@ func (e *jobExecutor) provideEnv(envProv support.EnvProvider) {
 }
 
 func (e *jobExecutor) initializeSteps(ctx context.Context, scope *dig.Scope) error {
-	e.stepExecutors = make(map[string]StepExecutor, len(e.spec.Steps))
+	e.children = make(map[string]StepExecutor, len(e.spec.Steps))
 
 	// TODO: concurrent version of Initialize is temporary disable because of concurrent map writes in scope
 	//g, ctx := errgroup.WithContext(ctx)
@@ -372,55 +346,66 @@ func (e *jobExecutor) initializeSteps(ctx context.Context, scope *dig.Scope) err
 		if exec, err := step.CreateExecutor(ctx, s); err != nil {
 			return err
 		} else {
-			e.stepExecutors[step.Id] = exec
+			e.children[step.Id] = exec
 		}
 	}
+
+	e.runs = make(map[Stage]func(context.Context) error, 3)
+	e.runs[StagePre] = e.planStage(StagePre)
+	e.runs[StageMain] = e.planStage(StageMain)
+	e.runs[StagePost] = e.planStage(StagePost)
 	return nil
 }
 
-func (e *jobExecutor) runStage(ctx context.Context, stage Stage) (ex error) {
-	jobId := e.spec.Id
-	ctx, done := xotel.SetupTelemetry(ctx,
-		fmt.Sprintf("JobExecutor.RunStage(%s, %s)", jobId, stage),
-		xotel.DrassiStage(stage),
-	)
-	defer done(&ex)
-
-	// setup listener
-	if eh := e.listener.OnRunStage(e, stage); eh != nil {
-		err := eh.Begin(ctx)
-		defer end(eh, &ex)
-		if err != nil {
-			return err
-		}
-	}
-
-	// do stage run
+func (e *jobExecutor) planStage(stage Stage) func(context.Context) error {
+	// 1. Plan the execution
 	ids := make([]string, len(e.spec.Steps))
 	for i, step := range e.spec.Steps {
 		ids[i] = step.Id
 	}
 	if stage == StagePost {
-		slices.Reverse(ids) // in place reverse
+		slices.Reverse(ids) // in-place reverse
 	}
-	for _, id := range ids {
-		exec := e.stepExecutors[id]
-		res := exec.RunStep(ctx, stage)
-		if res == nil {
-			continue
+	runs := make([]StepRun, len(ids))
+	for i, id := range ids {
+		cExec := e.children[id]
+		run := cExec.CreateRun(stage)
+		if run != nil {
+			run = e.decorator.DecorateStepRun(stage, cExec, run)
 		}
-		// Only set `steps` records in `main` stage & `id` is user specified
-		if stage == StageMain && !strings.HasPrefix(id, "__") {
-			e.steps[id] = res
-		}
-		if res.Conclusion == records.ResultFailure {
-			e.job.Result = records.ResultFailure
-			clog.WarnContextf(ctx, "set job.Result='failure' because of step %s failed", id)
-			return fmt.Errorf(`step %q (%s) failed`, id, stage)
-		}
+		runs[i] = run
 	}
 
-	return nil
+	// all runs are nil
+	if !slices.ContainsFunc(runs, func(r StepRun) bool { return r != nil }) {
+		return nil
+	}
+
+	// 2. Execute the plan
+	return func(ctx context.Context) error {
+		for i, run := range runs {
+			if run == nil {
+				continue
+			}
+
+			res := run(ctx)
+			if res == nil {
+				continue
+			}
+
+			id := ids[i]
+			// Only set `steps` records in `main` stage & `id` is user specified
+			if stage == StageMain && !strings.HasPrefix(id, "__") {
+				e.steps[id] = res
+			}
+			if res.Conclusion == records.ResultFailure {
+				e.job.Result = records.ResultFailure
+				clog.WarnContextf(ctx, "set job.Result='failure' because of step %s failed", id)
+				return fmt.Errorf(`step %q (%s) failed`, id, stage)
+			}
+		}
+		return nil
+	}
 }
 
 func (e *jobExecutor) State() *records.Job {
