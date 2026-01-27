@@ -388,20 +388,18 @@ func (e *jobExecutor) planStage(stage Stage) func(context.Context) error {
 				continue
 			}
 
-			res := run(ctx)
-			if res == nil {
-				continue
-			}
-
 			id := ids[i]
+			res, err := run(ctx)
 			// Only set `steps` records in `main` stage & `id` is user specified
 			if stage == StageMain && !strings.HasPrefix(id, "__") {
 				e.steps[id] = res
 			}
-			if res.Conclusion == records.ResultFailure {
-				e.job.Result = records.ResultFailure
+			if res != nil && res.Conclusion == records.ResultFailure {
 				clog.WarnContextf(ctx, "set job.Result='failure' because of step %s failed", id)
-				return fmt.Errorf(`step %q (%s) failed`, id, stage)
+				e.SetStatus(records.ResultFailure)
+			}
+			if err != nil {
+				return fmt.Errorf("run step %q (%s): %w", id, stage, err)
 			}
 		}
 		return nil

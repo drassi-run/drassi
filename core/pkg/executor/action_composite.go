@@ -17,6 +17,7 @@ import (
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/util/dig"
+	"github.com/chainguard-dev/clog"
 	"go.uber.org/dig"
 )
 
@@ -90,7 +91,7 @@ func (e *compositeActionExecutor) init(ctx context.Context, scope *dig.Scope) er
 		cScope := scope.Scope(fmt.Sprintf("step(%s)", step.Id))
 
 		if cExec, err := step.CreateExecutor(ctx, cScope); err != nil {
-			return err
+			return fmt.Errorf("step %q create executor: %w", step.Id, err)
 		} else {
 			e.children[step.Id] = cExec
 		}
@@ -136,10 +137,15 @@ func (e *compositeActionExecutor) CreateRun(stage Stage) *ActionRun {
 			if run == nil {
 				continue
 			}
-			res := run(ctx)
+
+			id := ids[i]
+			res, err := run(ctx)
 			if res != nil && res.Conclusion == records.ResultFailure {
+				clog.WarnContextf(ctx, "set step.Outcome='failure' because of step %s failed", id)
 				exec.SetStatus(records.ResultFailure)
-				return fmt.Errorf("step %q (%s) failed", ids[i], stage)
+			}
+			if err != nil {
+				return fmt.Errorf("run step %q (%s): %w", id, stage, err)
 			}
 		}
 

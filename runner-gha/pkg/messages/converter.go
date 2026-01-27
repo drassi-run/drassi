@@ -68,8 +68,9 @@ func squashTokens(tokens []TemplateToken) workflows.Token {
 	}
 }
 
-func ToStepRun(step *JobStep) (executor.StepSpec, error) {
-	sr := executor.BaseStepRun{
+func ToStepSpec(step *JobStep) (*executor.StepSpec, error) {
+	ref := &step.Reference
+	spec := &executor.StepSpec{
 		Uid:              step.Id,
 		Id:               step.ContextName,
 		Name:             ToToken(step.DisplayNameToken),
@@ -79,31 +80,27 @@ func ToStepRun(step *JobStep) (executor.StepSpec, error) {
 		Env:              ToToken(step.Env),
 		Inputs:           ToToken(step.Inputs),
 	}
+
 	// for Script step, extract run, shell and workingDir from inputs
-	if step.Reference.Type != SourceTypeScript {
-		sr.Inputs = ToToken(step.Inputs)
+	if ref.Type != SourceScript {
+		spec.Inputs = ToToken(step.Inputs)
 	}
 
-	ref := &step.Reference
 	switch ref.Type {
-	case SourceTypeScript:
-		ssr := &executor.ScriptActionSpec{
-			BaseStepRun: sr,
-		}
-		if err := extractScriptStepInputs(ssr, step.Inputs); err != nil {
+	case SourceScript:
+		if action, err := extractScriptStepInputs(step.Inputs); err != nil {
 			return nil, err
+		} else {
+			spec.Action = action
 		}
-		return ssr, nil
-	case SourceTypeContainerRegistry:
+	case SourceContainerRegistry:
 		if ref.Image == "" {
 			return nil, fmt.Errorf("step %s image is required", step.ContextName)
 		}
-		dsr := &executor.DockerActionSpec{
-			BaseStepRun: sr,
-			Image:       ref.Image,
+		spec.Action = &executor.DockerActionSpec{
+			Image: ref.Image,
 		}
-		return dsr, nil
-	case SourceTypeRepository:
+	case SourceRepository:
 		if !strings.EqualFold(ref.RepositoryType, "github") {
 			return nil, fmt.Errorf("unsupported step %s with repo type %s", step.ContextName, ref.RepositoryType)
 		}
@@ -114,20 +111,19 @@ func ToStepRun(step *JobStep) (executor.StepSpec, error) {
 			Path:     ref.Path,
 			Ref:      ref.Ref,
 		}
-		asr := &executor.ReferenceActionSpec{
-			BaseStepRun: sr,
-			Repo:        repo,
+		spec.Action = &executor.ReferenceActionSpec{
+			Repo: repo,
 		}
-		return asr, nil
 	default:
 		return nil, fmt.Errorf("unsupported step %s reference type %s", step.ContextName, ref.Type)
 	}
+	return spec, nil
 }
 
 func ToJobSpec(job *PipelineAgentJobRequest) (*executor.JobSpec, error) {
-	steps := make([]executor.StepSpec, len(job.Steps))
+	steps := make([]*executor.StepSpec, len(job.Steps))
 	for i, s := range job.Steps {
-		step, err := ToStepRun(&s)
+		step, err := ToStepSpec(&s)
 		if err != nil {
 			return nil, err
 		}
@@ -150,31 +146,32 @@ func ToJobSpec(job *PipelineAgentJobRequest) (*executor.JobSpec, error) {
 	return spec, nil
 }
 
-func extractScriptStepInputs(ssr *executor.ScriptActionSpec, inputs *TemplateToken) error {
+func extractScriptStepInputs(inputs *TemplateToken) (*executor.ScriptActionSpec, error) {
 	if inputs.Type != TokenTypeMapping {
-		return fmt.Errorf("exptect step inputs is a map, got %d", inputs.Type)
+		return nil, fmt.Errorf("expect step inputs is a map, got %d", inputs.Type)
 	}
 
+	spec := new(executor.ScriptActionSpec)
 	for _, pair := range inputs.Map {
 		k := pair.Key
 		v := pair.Value
 		if k.Type != TokenTypeString {
-			return fmt.Errorf("exptect step inputs key is a string, got %d", k.Type)
+			return nil, fmt.Errorf("expect step inputs key is a string, got %d", k.Type)
 		}
 		switch k.String {
 		case "script":
-			ssr.Run = ToToken(v)
+			spec.Run = ToToken(v)
 		case "workingDirectory":
-			ssr.WorkingDir = ToToken(v)
+			spec.WorkingDir = ToToken(v)
 		case "shell":
 			if v.Type != TokenTypeString {
-				return fmt.Errorf("exptect step shell is a string, got %d", k.Type)
+				return nil, fmt.Errorf("expect step shell is a string, got %d", k.Type)
 			}
-			ssr.Shell = v.String
+			spec.Shell = v.String
 		default:
-			return fmt.Errorf("unexppected step inputs key %s", k.String)
+			return nil, fmt.Errorf("unexpected step inputs key %s", k.String)
 		}
 	}
 
-	return nil
+	return spec, nil
 }

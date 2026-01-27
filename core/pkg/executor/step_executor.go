@@ -40,7 +40,7 @@ type StepExecutor interface {
 	CreateStepSummary(r io.Reader) error
 }
 
-type StepRun func(ctx context.Context) *records.Step
+type StepRun func(context.Context) (*records.Step, error)
 
 type StepRunDecorator interface {
 	DecorateStepRun(Stage, StepExecutor, StepRun) StepRun
@@ -141,75 +141,79 @@ func (e *stepExecutor) init(ctx context.Context, scope *dig.Scope) (ex error) {
 }
 
 func (e *stepExecutor) CreateRun(stage Stage) StepRun {
-	run := e.aExec.CreateRun(stage)
-	if run == nil {
+	action := e.aExec.CreateRun(stage)
+	if action == nil {
 		return nil
 	}
-	run = e.decorator.DecorateActionRun(stage, run)
+	action = e.decorator.DecorateActionRun(stage, action)
 
-	return func(ctx context.Context) *records.Step {
-		e.runAction(ctx, run)
-		return e.step
+	return func(ctx context.Context) (*records.Step, error) {
+		err := e.runAction(ctx, action)
+		if e.step.Outcome == "" {
+			if err != nil {
+				e.SetStatus(records.ResultFailure)
+			} else {
+				e.SetStatus(records.ResultSuccess)
+			}
+		}
+		if e.step.Conclusion == "" {
+			e.step.Conclusion = e.step.Outcome
+		}
+		return e.step, err
 	}
 }
 
-func (e *stepExecutor) runAction(ctx context.Context, task *ActionRun) {
+func (e *stepExecutor) runAction(ctx context.Context, action *ActionRun) error {
 	s := scribe.FromContext(ctx)
-	//stepId, displayName := e.spec.Id, e.spec.DisplayName(task.Stage)
+	displayName := "displayName" // TODO evaluate displayName
 
 	clear(e.env)
 	maps.Copy(e.env, e.upperEnv)
 	if err := evaluator.Evaluate(e.exprEnv, e.spec.Env, &e.env); err != nil {
-		e.SetStatus(records.ResultFailure)
-		return
+		return fmt.Errorf("evaluate 'env': %w", err)
 	}
 
-	s.Debugf("Evaluating condition for step: %q (%s)", "displayName", e.spec.Id)
-	if meet, err := evaluator.Meet(e.exprEnv, task.Condition); err != nil {
-		e.SetStatus(records.ResultFailure)
-		e.step.Conclusion = records.ResultFailure
+	s.Debugf("Evaluating condition for step: %q (%s)", displayName, e.spec.Id)
+	if meet, err := evaluator.Meet(e.exprEnv, action.Condition); err != nil {
 		s.Errorf("Error while evaluate 'if': %v", err)
-		return
+		return fmt.Errorf("evaluate 'if': %w", err)
 	} else if !meet {
 		e.SetStatus(records.ResultSkipped)
-		e.step.Conclusion = records.ResultSkipped
-		s.Writef("Skipped step %q (%s)", "displayName", e.spec.Id)
-		return
+		s.Writef("Skipped step %q (%s)", displayName, e.spec.Id)
+		return nil
 	}
 
 	timeout := int64(-1)
-	s.Debugf("Evaluating 'timeout-minutes' for step: %q (%s)", "displayName", e.spec.Id)
+	s.Debugf("Evaluating 'timeout-minutes' for step: %q (%s)", displayName, e.spec.Id)
 	if err := evaluator.Evaluate(e.exprEnv, e.spec.TimeoutInMinutes, &timeout); err != nil {
 		s.Errorf("Error while evaluate 'timeout-minutes': %v", err)
-		e.SetStatus(records.ResultFailure)
-		return
+		return fmt.Errorf("evaluate 'timeout-minutes': %w", err)
 	} else if timeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, time.Duration(timeout)*time.Minute)
 		defer cancel()
 	}
 
-	if err := task.Run(ctx, e); err != nil {
-		s.Errorf("Error while running task %q (%s): %v", "displayName", e.spec.Id, err)
+	err := action.Run(ctx, e)
+	if err != nil {
+		s.Errorf("Error while running task %q (%s): %v", displayName, e.spec.Id, err)
 		e.SetStatus(records.ResultFailure)
-	} else {
-		e.SetStatus(records.ResultSuccess)
 	}
 
+	// NOTE: step.Outcome can be set from outside StepExecutor, e.g: CompositeAction or CommandProcessor
 	if e.step.Outcome == records.ResultFailure {
 		continueOnError := false
-		s.Debugf("Evaluating 'continue-on-error' for step: %q (%s)", "displayName", e.spec.Id)
+		s.Debugf("Evaluating 'continue-on-error' for step: %q (%s)", displayName, e.spec.Id)
 		if err := evaluator.Evaluate(e.exprEnv, e.spec.ContinueOnError, &continueOnError); err != nil {
-			e.step.Conclusion = records.ResultFailure
 			s.Errorf("Error while evaluate 'continue-on-error' %v", err)
+			return fmt.Errorf("evaluate 'continue-on-error': %w", err)
 		} else if continueOnError {
 			e.step.Conclusion = records.ResultSuccess
 			s.Warningf("Step failed but continue next step")
+			return nil
 		}
 	}
-	if e.step.Conclusion == "" {
-		e.step.Conclusion = e.step.Outcome
-	}
+	return err
 }
 
 func (e *stepExecutor) ComposeEnv(systemEnv bool) map[string]string {
