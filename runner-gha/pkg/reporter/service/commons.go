@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 
@@ -9,6 +10,7 @@ import (
 	"drassi.run/core/util/http"
 	"drassi.run/core/util/reactive"
 	"drassi.run/gha-runner/pkg/types"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/streaming"
 	"github.com/chainguard-dev/clog"
 )
 
@@ -123,4 +125,34 @@ func (lf *liveFeeder) sendE(stepUid string, lines []string, offset int64) error 
 		StartLine: offset,
 	}
 	return lf.SendFn(data)
+}
+
+type SizeReaderAt interface {
+	io.ReaderAt
+	Size() int64
+}
+
+type rsc struct {
+	io.ReadSeeker
+	io.Closer
+}
+
+func reader(r io.Reader) (io.ReadSeekCloser, error) {
+	if rs, ok := r.(io.ReadSeeker); ok {
+		if c, ok := rs.(io.ReadSeekCloser); ok {
+			return c, nil
+		}
+		return streaming.NopCloser(rs), nil
+	}
+
+	if sra, ok := r.(SizeReaderAt); ok {
+		// SectionReader is ReadSeeker, but NOT Closer
+		rs := io.NewSectionReader(sra, 0, sra.Size())
+		if c, ok := r.(io.Closer); ok {
+			return rsc{rs, c}, nil
+		}
+		return streaming.NopCloser(rs), nil
+	}
+
+	return nil, fmt.Errorf("unsupported reader type %T", r)
 }
