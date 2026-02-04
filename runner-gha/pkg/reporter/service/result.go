@@ -317,7 +317,8 @@ func (s *ResultService) createStepSummaryMetadata(ctx context.Context, stepUid s
 
 func (s *ResultService) LiveFeeder(contextual xcontext.Provider, wsUrl string) (LiveFeeder, error) {
 	opts := &websocket.DialOptions{
-		HTTPClient: s.client.HttpClient(),
+		HTTPClient:      s.client.HttpClient(),
+		CompressionMode: websocket.CompressionContextTakeover,
 	}
 
 	conn, _, err := websocket.Dial(contextual.Context(), wsUrl, opts)

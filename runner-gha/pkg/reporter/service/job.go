@@ -123,7 +123,8 @@ func (u *attachmentJobUploader) Complete(context.Context, int64) error {
 func (s *JobService) LiveFeeder(contextual xcontext.Provider, wsUrl string) (LiveFeeder, error) {
 	ctx := contextual.Context()
 	opts := &websocket.DialOptions{
-		HTTPClient: s.client.HttpClient(),
+		HTTPClient:      s.client.HttpClient(),
+		CompressionMode: websocket.CompressionContextTakeover,
 	}
 
 	var wsConn *websocket.Conn
