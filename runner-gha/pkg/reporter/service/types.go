@@ -14,6 +14,11 @@ type metadataResponse struct {
 	Ok bool `json:"ok"`
 }
 
+type SignedUrlResponse interface {
+	GetUrl() string
+	GetStorageType() string
+}
+
 ////////////// ResultService: Step Summary //////////////
 
 // GetSignedStepSummaryURLRequest in C#
@@ -29,6 +34,10 @@ type signedUrlStepSummaryResponse struct {
 	StorageType   string `json:"blob_storage_type"`
 	SoftSizeLimit int64  `json:"soft_size_limit"`
 }
+
+func (s *signedUrlStepSummaryResponse) GetUrl() string          { return s.Url }
+func (s *signedUrlStepSummaryResponse) GetStorageType() string  { return s.StorageType }
+func (s *signedUrlStepSummaryResponse) GetSoftSizeLimit() int64 { return s.SoftSizeLimit }
 
 // StepSummaryMetadataCreate in C#
 type metadataStepSummaryRequest struct {
@@ -55,6 +64,10 @@ type signedUrlStepLogsResponse struct {
 	SoftSizeLimit int64  `json:"soft_size_limit"`
 }
 
+func (s *signedUrlStepLogsResponse) GetUrl() string          { return s.Url }
+func (s *signedUrlStepLogsResponse) GetStorageType() string  { return s.StorageType }
+func (s *signedUrlStepLogsResponse) GetSoftSizeLimit() int64 { return s.SoftSizeLimit }
+
 // StepLogsMetadataCreate in C#
 type metadataStepLogsRequest struct {
 	PlanId     string    `json:"workflow_run_backend_id"`     // UUID
@@ -78,6 +91,9 @@ type signedUrlJobLogsResponse struct {
 	StorageType string `json:"blob_storage_type"`
 }
 
+func (s *signedUrlJobLogsResponse) GetUrl() string         { return s.Url }
+func (s *signedUrlJobLogsResponse) GetStorageType() string { return s.StorageType }
+
 // JobLogsMetadataCreate in C#
 type metadataJobLogsRequest struct {
 	PlanId     string    `json:"workflow_run_backend_id"`     // UUID
@@ -99,6 +115,9 @@ type signedUrlDiagnosticLogsResponse struct {
 	Url         string `json:"diag_logs_url"`
 	StorageType string `json:"blob_storage_type"`
 }
+
+func (s *signedUrlDiagnosticLogsResponse) GetUrl() string         { return s.Url }
+func (s *signedUrlDiagnosticLogsResponse) GetStorageType() string { return s.StorageType }
 
 ////////////// ResultService: Timeline Records //////////////
 

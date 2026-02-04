@@ -29,11 +29,6 @@ func newClient(url string, hc *http.Client) (*xhttp.Client, error) {
 	return client, nil
 }
 
-type Uploader interface {
-	Upload(ctx context.Context, r io.Reader) error
-	Complete(ctx context.Context, lineCount int64) error
-}
-
 type LiveFeeder interface {
 	stream.Handler
 	io.Closer

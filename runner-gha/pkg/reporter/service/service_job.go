@@ -47,18 +47,22 @@ type JobService struct {
 	timelineUid string // from jobRequest.timeline.id
 }
 
+////////////// Logs //////////////
+
 func (s *JobService) LogUploader(recordId string) Uploader {
-	return &logJobUploader{svc: s, recordId: recordId}
+	return &jobLogUploader{svc: s, recordId: recordId}
 }
 
-type logJobUploader struct {
+type jobLogUploader struct {
 	svc      *JobService
 	recordId string
 }
 
-func (u *logJobUploader) Upload(ctx context.Context, r io.Reader) error {
+func (u *jobLogUploader) Upload(ctx context.Context, r io.Reader) error {
 	return u.svc.uploadLog(ctx, u.recordId, r)
 }
+
+func (u *jobLogUploader) Complete(context.Context, int64) error { return nil }
 
 // https://github.com/actions/runner/blob/v2.323.0/src/Runner.Common/JobServerQueue.cs#L882-L896
 func (s *JobService) uploadLog(ctx context.Context, recordId string, r io.Reader) error {
@@ -86,22 +90,22 @@ func (s *JobService) uploadLog(ctx context.Context, recordId string, r io.Reader
 	// TODO: Create a new record and only set the Log field
 }
 
-func (u *logJobUploader) Complete(context.Context, int64) error {
-	return nil
-}
+////////////// Attachment //////////////
 
 func (s *JobService) AttachmentUploader(recordId, kind, name string) Uploader {
-	return &attachmentJobUploader{svc: s, recordId: recordId, kind: kind, name: name}
+	return &jobAttachmentUploader{svc: s, recordId: recordId, kind: kind, name: name}
 }
 
-type attachmentJobUploader struct {
+type jobAttachmentUploader struct {
 	svc                  *JobService
 	recordId, kind, name string
 }
 
-func (u *attachmentJobUploader) Upload(ctx context.Context, r io.Reader) error {
+func (u *jobAttachmentUploader) Upload(ctx context.Context, r io.Reader) error {
 	return u.svc.uploadAttach(ctx, u.recordId, u.kind, u.name, r)
 }
+
+func (u *jobAttachmentUploader) Complete(context.Context, int64) error { return nil }
 
 // https://github.com/actions/runner/blob/v2.323.0/src/Runner.Common/JobServerQueue.cs#L900-L903
 func (s *JobService) uploadAttach(ctx context.Context, recordId, kind, name string, r io.Reader) error {
@@ -114,10 +118,6 @@ func (s *JobService) uploadAttach(ctx context.Context, recordId, kind, name stri
 		WithBody(r)
 
 	return e.Do(ctx)
-}
-
-func (u *attachmentJobUploader) Complete(context.Context, int64) error {
-	return nil
 }
 
 func (s *JobService) LiveFeeder(contextual xcontext.Provider, wsUrl string) (LiveFeeder, error) {
