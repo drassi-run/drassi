@@ -28,8 +28,10 @@ type CompositeActionSpec struct {
 	Steps []*StepSpec
 }
 
-func (spec *CompositeActionSpec) CreateExecutor(ctx context.Context, scope *dig.Scope) (ActionExecutor, error) {
-	e := &compositeActionExecutor{spec: spec}
+func (spec *CompositeActionSpec) CreateExecutor(
+	ctx context.Context, scope *dig.Scope, exec StepExecutor,
+) (ActionExecutor, error) {
+	e := &compositeActionExecutor{spec: spec, sExec: exec}
 	if err := e.init(ctx, scope); err != nil {
 		return nil, err
 	}
@@ -37,7 +39,8 @@ func (spec *CompositeActionSpec) CreateExecutor(ctx context.Context, scope *dig.
 }
 
 type compositeActionExecutor struct {
-	spec *CompositeActionSpec
+	spec  *CompositeActionSpec
+	sExec StepExecutor
 
 	decorator StepRunDecorator
 	exprEnv   expression.Env
@@ -46,10 +49,6 @@ type compositeActionExecutor struct {
 }
 
 func (e *compositeActionExecutor) init(ctx context.Context, scope *dig.Scope) error {
-	var exec StepExecutor
-	if err := xdig.Populate(scope, &exec); err != nil {
-		return err
-	}
 	if err := xdig.Populate(scope, &e.decorator); err != nil {
 		return err
 	}
@@ -63,7 +62,7 @@ func (e *compositeActionExecutor) init(ctx context.Context, scope *dig.Scope) er
 	opts := []expression.Option{
 		// inputs from upper layers will NOT be passed to child steps
 		expression.WithVariable("inputs", e.inputs),
-		expression.WithLibrary(libraries.StatusLib(exec)),
+		expression.WithLibrary(libraries.StatusLib(e.sExec)),
 	}
 	if exprEnv, err := e.exprEnv.New(opts...); err != nil {
 		return err
@@ -88,12 +87,12 @@ func (e *compositeActionExecutor) init(ctx context.Context, scope *dig.Scope) er
 
 	e.children = make(map[string]StepExecutor, len(e.spec.Steps))
 	for _, step := range e.spec.Steps {
-		cScope := scope.Scope(fmt.Sprintf("step(%s)", step.Id))
+		s := scope.Scope(fmt.Sprintf("step(%s)", step.Id))
 
-		if cExec, err := step.CreateExecutor(ctx, cScope); err != nil {
+		if exec, err := step.CreateExecutor(ctx, s, e.sExec.JobExecutor(), e.sExec); err != nil {
 			return fmt.Errorf("step %q create executor: %w", step.Id, err)
 		} else {
-			e.children[step.Id] = cExec
+			e.children[step.Id] = exec
 		}
 	}
 	return nil
@@ -101,6 +100,10 @@ func (e *compositeActionExecutor) init(ctx context.Context, scope *dig.Scope) er
 
 func (e *compositeActionExecutor) ActionSpec() ActionSpec {
 	return e.spec
+}
+
+func (e *compositeActionExecutor) StepExecutor() StepExecutor {
+	return e.sExec
 }
 
 func (e *compositeActionExecutor) CreateRun(stage Stage) *ActionRun {
@@ -112,44 +115,44 @@ func (e *compositeActionExecutor) CreateRun(stage Stage) *ActionRun {
 	if stage == StagePost {
 		slices.Reverse(ids) // in-place reverse
 	}
-	runs := make([]StepRun, len(ids))
+	runs := make([]*StepRun, len(ids))
 	for i, id := range ids {
 		cExec := e.children[id]
-		run := cExec.CreateRun(stage)
-		if run != nil {
-			run = e.decorator.DecorateStepRun(stage, cExec, run)
+		stepRun := cExec.CreateRun(stage)
+		if stepRun != nil {
+			stepRun.Run = e.decorator.DecorateStepRun(stepRun)
 		}
-		runs[i] = run
+		runs[i] = stepRun
 	}
 
 	// all runs are nil
-	if !slices.ContainsFunc(runs, func(r StepRun) bool { return r != nil }) {
+	if !slices.ContainsFunc(runs, func(r *StepRun) bool { return r != nil }) {
 		return nil
 	}
 
 	// 2. Execute the plan
-	taskRun := func(ctx context.Context, exec StepExecutor) error {
+	taskRun := func(ctx context.Context) error {
 		if err := e.computeInputs(); err != nil {
 			return err
 		}
 
-		for i, run := range runs {
-			if run == nil {
+		for i, stepRun := range runs {
+			if stepRun == nil {
 				continue
 			}
 
 			id := ids[i]
-			res, err := run(ctx)
+			res, err := stepRun.Run(ctx)
 			if res != nil && res.Conclusion == records.ResultFailure {
 				clog.WarnContextf(ctx, "set step.Outcome='failure' because of step %s failed", id)
-				exec.SetStatus(records.ResultFailure)
+				e.sExec.SetStatus(records.ResultFailure)
 			}
 			if err != nil {
 				return fmt.Errorf("run step %q (%s): %w", id, stage, err)
 			}
 		}
 
-		return e.produceOutputs(exec)
+		return e.produceOutputs()
 	}
 
 	// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionManifestManager.cs#L472-L490
@@ -159,8 +162,10 @@ func (e *compositeActionExecutor) CreateRun(stage Stage) *ActionRun {
 	}
 
 	return &ActionRun{
-		Condition: condition,
 		Run:       taskRun,
+		Stage:     stage,
+		Executor:  e,
+		Condition: condition,
 	}
 }
 
@@ -169,11 +174,11 @@ func (e *compositeActionExecutor) computeInputs() error {
 	return evaluator.Evaluate(e.exprEnv, e.spec.Inputs, &e.inputs)
 }
 
-func (e *compositeActionExecutor) produceOutputs(exec StepExecutor) error {
+func (e *compositeActionExecutor) produceOutputs() error {
 	outputs := make(map[string]string)
 	if err := evaluator.Evaluate(e.exprEnv, e.spec.Outputs, &outputs); err != nil {
 		return err
 	}
-	exec.SetOutput(outputs)
+	e.sExec.SetOutput(outputs)
 	return nil
 }

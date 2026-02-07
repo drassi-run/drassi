@@ -45,7 +45,9 @@ func (spec *ReferenceActionSpec) Repository() *repository.Repository {
 	return spec.Repo
 }
 
-func (spec *ReferenceActionSpec) CreateExecutor(ctx context.Context, scope *dig.Scope) (ActionExecutor, error) {
+func (spec *ReferenceActionSpec) CreateExecutor(
+	ctx context.Context, scope *dig.Scope, exec StepExecutor,
+) (ActionExecutor, error) {
 	s := scribe.FromContext(ctx)
 
 	var (
@@ -98,7 +100,7 @@ func (spec *ReferenceActionSpec) CreateExecutor(ctx context.Context, scope *dig.
 	} else if err = spec.transferAction(ctx, store, sandbox); err != nil {
 		return nil, err
 	} else {
-		return action.CreateExecutor(ctx, scope)
+		return action.CreateExecutor(ctx, scope, exec)
 	}
 }
 

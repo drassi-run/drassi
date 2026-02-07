@@ -40,8 +40,10 @@ type NodeActionSpec struct {
 	PostIf workflows.Conditional
 }
 
-func (spec *NodeActionSpec) CreateExecutor(ctx context.Context, scope *dig.Scope) (ActionExecutor, error) {
-	e := &nodeActionExecutor{spec: spec}
+func (spec *NodeActionSpec) CreateExecutor(
+	ctx context.Context, scope *dig.Scope, exec StepExecutor,
+) (ActionExecutor, error) {
+	e := &nodeActionExecutor{spec: spec, sExec: exec}
 	if err := e.init(ctx, scope); err != nil {
 		return nil, err
 	}
@@ -49,7 +51,8 @@ func (spec *NodeActionSpec) CreateExecutor(ctx context.Context, scope *dig.Scope
 }
 
 type nodeActionExecutor struct {
-	spec *NodeActionSpec
+	spec  *NodeActionSpec
+	sExec StepExecutor
 
 	// injected values
 	pathProv support.PathProvider
@@ -82,6 +85,10 @@ func (e *nodeActionExecutor) ActionSpec() ActionSpec {
 	return e.spec
 }
 
+func (e *nodeActionExecutor) StepExecutor() StepExecutor {
+	return e.sExec
+}
+
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionManifestManager.cs#L451-L471
 func (e *nodeActionExecutor) CreateRun(stage Stage) *ActionRun {
 	var condition workflows.Conditional
@@ -102,16 +109,18 @@ func (e *nodeActionExecutor) CreateRun(stage Stage) *ActionRun {
 	}
 
 	return &ActionRun{
-		Condition: condition,
 		Run:       e.execute(stage),
+		Stage:     stage,
+		Executor:  e,
+		Condition: condition,
 	}
 }
 
-func (e *nodeActionExecutor) execute(stage Stage) Task {
-	return func(ctx context.Context, exec StepExecutor) error {
+func (e *nodeActionExecutor) execute(stage Stage) ActionTask {
+	return func(ctx context.Context) error {
 		e.addSpanAttrs(ctx, stage)
 
-		spec := exec.StepSpec()
+		spec := e.sExec.StepSpec()
 		scriptPath := e.computeScriptPath(stage)
 		cmd := []string{"node", scriptPath}
 
@@ -122,10 +131,10 @@ func (e *nodeActionExecutor) execute(stage Stage) Task {
 
 		scribe.GroupDetails(ctx, e.repr(),
 			scribe.WithMap("with", inputs),
-			scribe.WithMap("env", exec.ComposeEnv(false)),
+			scribe.WithMap("env", e.sExec.ComposeEnv(false)),
 		)
 
-		env := exec.ComposeEnv(true)
+		env := e.sExec.ComposeEnv(true)
 		for k, v := range inputs {
 			k = strings.ToUpper(k)
 			env["INPUT_"+k] = v

@@ -47,10 +47,24 @@ type JobExecutor interface {
 	SetEnv(env map[string]string)
 }
 
-type JobRun func(ctx context.Context) (*records.Job, error)
+type JobRun struct {
+	Run      JobTask
+	Stage    Stage
+	Executor JobExecutor
+}
+
+func (r *JobRun) JobId() string {
+	return r.JobSpec().Id
+}
+
+func (r *JobRun) JobSpec() *JobSpec {
+	return r.Executor.JobSpec()
+}
+
+type JobTask func(context.Context) (*records.Job, error)
 
 type JobRunDecorator interface {
-	DecorateJobRun(Stage, JobRun) JobRun
+	DecorateJobRun(*JobRun) JobTask
 }
 
 type jobExecutor struct {
@@ -343,7 +357,7 @@ func (e *jobExecutor) initializeSteps(ctx context.Context, scope *dig.Scope) err
 
 	for _, step := range e.spec.Steps {
 		s := scope.Scope(fmt.Sprintf("step(%s)", step.Id))
-		if exec, err := step.CreateExecutor(ctx, s); err != nil {
+		if exec, err := step.CreateExecutor(ctx, s, e, nil); err != nil {
 			return err
 		} else {
 			e.children[step.Id] = exec
@@ -366,30 +380,30 @@ func (e *jobExecutor) planStage(stage Stage) func(context.Context) error {
 	if stage == StagePost {
 		slices.Reverse(ids) // in-place reverse
 	}
-	runs := make([]StepRun, len(ids))
+	runs := make([]*StepRun, len(ids))
 	for i, id := range ids {
 		cExec := e.children[id]
-		run := cExec.CreateRun(stage)
-		if run != nil {
-			run = e.decorator.DecorateStepRun(stage, cExec, run)
+		stepRun := cExec.CreateRun(stage)
+		if stepRun != nil {
+			stepRun.Run = e.decorator.DecorateStepRun(stepRun)
 		}
-		runs[i] = run
+		runs[i] = stepRun
 	}
 
 	// all runs are nil
-	if !slices.ContainsFunc(runs, func(r StepRun) bool { return r != nil }) {
+	if !slices.ContainsFunc(runs, func(r *StepRun) bool { return r != nil }) {
 		return nil
 	}
 
 	// 2. Execute the plan
 	return func(ctx context.Context) error {
-		for i, run := range runs {
-			if run == nil {
+		for i, stepRun := range runs {
+			if stepRun == nil {
 				continue
 			}
 
 			id := ids[i]
-			res, err := run(ctx)
+			res, err := stepRun.Run(ctx)
 			// Only set `steps` records in `main` stage & `id` is user specified
 			if stage == StageMain && !strings.HasPrefix(id, "__") {
 				e.steps[id] = res

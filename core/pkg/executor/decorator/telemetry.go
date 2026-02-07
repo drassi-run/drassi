@@ -15,28 +15,29 @@ func NewTelemetry() *Telemetry {
 	return new(Telemetry)
 }
 
-func (t Telemetry) DecorateActionRun(stage executor.Stage, action *executor.ActionRun) *executor.ActionRun {
-	base := action.Run
-	dec := func(ctx context.Context, e executor.StepExecutor) (err error) {
+func (t Telemetry) DecorateActionRun(action *executor.ActionRun) executor.ActionTask {
+	stepId := action.StepId()
+	stage := action.Stage
+	run := action.Run
+	return func(ctx context.Context) (err error) {
 		ctx, done := xotel.SetupTelemetry(ctx,
-			fmt.Sprintf("ActionRun(%s, %s)", e.StepSpec().Id, stage),
+			fmt.Sprintf("ActionRun(%s, %s)", stepId, stage),
 		)
 		defer done(&err)
-		return base(ctx, e)
-	}
-	return &executor.ActionRun{
-		Condition: action.Condition,
-		Run:       dec,
+		return run(ctx)
 	}
 }
 
-func (t Telemetry) DecorateStepRun(stage executor.Stage, e executor.StepExecutor, step executor.StepRun) executor.StepRun {
-	return func(ctx context.Context) *records.Step {
+func (t Telemetry) DecorateStepRun(step *executor.StepRun) executor.StepTask {
+	stepId := step.StepId()
+	stage := step.Stage
+	run := step.Run
+	return func(ctx context.Context) (_ *records.Step, err error) {
 		ctx, done := xotel.SetupTelemetry(ctx,
-			fmt.Sprintf("StepRun(%s, %s)", e.StepSpec().Id, stage),
-			xotel.DrassiStep(e.StepSpec().Id), xotel.DrassiStage(stage),
+			fmt.Sprintf("StepRun(%s, %s)", stepId, stage),
+			xotel.DrassiStep(stepId), xotel.DrassiStage(stage),
 		)
-		defer done(nil)
-		return step(ctx)
+		defer done(&err)
+		return run(ctx)
 	}
 }

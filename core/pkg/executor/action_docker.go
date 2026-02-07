@@ -47,8 +47,10 @@ type DockerActionSpec struct {
 	PostIf         workflows.Conditional
 }
 
-func (spec *DockerActionSpec) CreateExecutor(ctx context.Context, scope *dig.Scope) (ActionExecutor, error) {
-	e := &dockerActionExecutor{spec: spec}
+func (spec *DockerActionSpec) CreateExecutor(
+	ctx context.Context, scope *dig.Scope, exec StepExecutor,
+) (ActionExecutor, error) {
+	e := &dockerActionExecutor{spec: spec, sExec: exec}
 	if err := e.init(ctx, scope); err != nil {
 		return nil, err
 	}
@@ -56,7 +58,8 @@ func (spec *DockerActionSpec) CreateExecutor(ctx context.Context, scope *dig.Sco
 }
 
 type dockerActionExecutor struct {
-	spec *DockerActionSpec
+	spec  *DockerActionSpec
+	sExec StepExecutor
 
 	resolvedImage string
 
@@ -94,6 +97,10 @@ func (e *dockerActionExecutor) ActionSpec() ActionSpec {
 	return e.spec
 }
 
+func (e *dockerActionExecutor) StepExecutor() StepExecutor {
+	return e.sExec
+}
+
 func (e *dockerActionExecutor) PathTranslator() runtime.PathTranslator {
 	return e.runtime
 }
@@ -118,17 +125,19 @@ func (e *dockerActionExecutor) CreateRun(stage Stage) *ActionRun {
 	}
 
 	return &ActionRun{
-		Condition: condition,
 		Run:       e.execute(stage),
+		Stage:     stage,
+		Executor:  e,
+		Condition: condition,
 	}
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/Handlers/ContainerActionHandler.cs#L22
-func (e *dockerActionExecutor) execute(stage Stage) Task {
-	return func(ctx context.Context, exec StepExecutor) error {
+func (e *dockerActionExecutor) execute(stage Stage) ActionTask {
+	return func(ctx context.Context) error {
 		e.addSpanAttrs(ctx)
 
-		spec := exec.StepSpec()
+		spec := e.sExec.StepSpec()
 		inputs := make(map[string]string)
 		if err := evaluator.Evaluate(e.exprEnv, spec.Inputs, &inputs); err != nil {
 			return err
@@ -148,10 +157,10 @@ func (e *dockerActionExecutor) execute(stage Stage) Task {
 			scribe.WithList("entrypoint", entrypoint),
 			scribe.WithList("args", args),
 			scribe.WithMap("with", inputs),
-			scribe.WithMap("env", exec.ComposeEnv(false)),
+			scribe.WithMap("env", e.sExec.ComposeEnv(false)),
 		)
 
-		env := exec.ComposeEnv(true)
+		env := e.sExec.ComposeEnv(true)
 		for k, v := range inputs {
 			k = strings.ToUpper(k)
 			env["INPUT_"+k] = v

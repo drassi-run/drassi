@@ -28,8 +28,11 @@ type StepSpec struct {
 	Action ActionSpec
 }
 
-func (spec *StepSpec) CreateExecutor(ctx context.Context, scope *dig.Scope) (StepExecutor, error) {
-	e := &stepExecutor{spec: spec}
+func (spec *StepSpec) CreateExecutor(
+	ctx context.Context, scope *dig.Scope,
+	exec JobExecutor, parent StepExecutor,
+) (StepExecutor, error) {
+	e := &stepExecutor{spec: spec, jExec: exec, parent: parent}
 	if err := e.init(ctx, scope); err != nil {
 		return nil, err
 	}

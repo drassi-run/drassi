@@ -33,8 +33,10 @@ type ScriptActionSpec struct {
 	WorkingDir workflows.Evaluable[string]
 }
 
-func (spec *ScriptActionSpec) CreateExecutor(ctx context.Context, scope *dig.Scope) (ActionExecutor, error) {
-	e := &scriptActionExecutor{spec: spec}
+func (spec *ScriptActionSpec) CreateExecutor(
+	ctx context.Context, scope *dig.Scope, exec StepExecutor,
+) (ActionExecutor, error) {
+	e := &scriptActionExecutor{spec: spec, sExec: exec}
 	if err := e.init(ctx, scope); err != nil {
 		return nil, err
 	}
@@ -42,7 +44,8 @@ func (spec *ScriptActionSpec) CreateExecutor(ctx context.Context, scope *dig.Sco
 }
 
 type scriptActionExecutor struct {
-	spec *ScriptActionSpec
+	spec  *ScriptActionSpec
+	sExec StepExecutor
 
 	// injected values
 	pathProv support.PathProvider
@@ -75,16 +78,22 @@ func (e *scriptActionExecutor) ActionSpec() ActionSpec {
 	return e.spec
 }
 
+func (e *scriptActionExecutor) StepExecutor() StepExecutor {
+	return e.sExec
+}
+
 func (e *scriptActionExecutor) CreateRun(stage Stage) *ActionRun {
 	if stage != StageMain {
 		return nil
 	}
 	return &ActionRun{
-		Run: e.executeMain,
+		Run:      e.executeMain,
+		Stage:    stage,
+		Executor: e,
 	}
 }
 
-func (e *scriptActionExecutor) executeMain(ctx context.Context, exec StepExecutor) error {
+func (e *scriptActionExecutor) executeMain(ctx context.Context) error {
 	spec := e.spec
 	workdir := e.defaults.Run.WorkingDir
 	if err := evaluator.Evaluate(e.exprEnv, spec.WorkingDir, &workdir); err != nil {
@@ -113,18 +122,18 @@ func (e *scriptActionExecutor) executeMain(ctx context.Context, exec StepExecuto
 		withScript(script),
 		scribe.WithPair("shell", strings.Join(cmd, " ")),
 		scribe.WithPair("workdir", workdir),
-		scribe.WithMap("env", exec.ComposeEnv(false)),
+		scribe.WithMap("env", e.sExec.ComposeEnv(false)),
 	)
 
 	script = shell.FixupScript(script)
-	scriptPath := e.computeScriptPath(exec.StepSpec(), shell.Extension())
+	scriptPath := e.computeScriptPath(e.sExec.StepSpec(), shell.Extension())
 	e.expandCommand(cmd, scriptPath)
 
 	if err = e.transferScriptIn(ctx, script, scriptPath); err != nil {
 		return nil
 	}
 
-	env := exec.ComposeEnv(true)
+	env := e.sExec.ComposeEnv(true)
 	paths := e.pathProv.SystemPaths()
 	return e.sandbox.Execute(ctx, cmd, paths, env, workdir, e.streams)
 }

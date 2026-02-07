@@ -20,32 +20,32 @@ func NewCommandDecorator(cmdMgr command.FileManager) *CommandDecorator {
 	return &CommandDecorator{cmdMgr}
 }
 
-func (c *CommandDecorator) DecorateActionRun(_ executor.Stage, action *executor.ActionRun) *executor.ActionRun {
-	o := action.Run
-	n := func(ctx context.Context, exec executor.StepExecutor) error {
-		stepId := exec.StepSpec().Id
+func (c *CommandDecorator) DecorateActionRun(action *executor.ActionRun) executor.ActionTask {
+	stepId := action.StepId()
+	run := action.Run
+	return func(ctx context.Context) error {
 		if err := c.cmdMgr.Initialize(ctx, stepId); err != nil {
 			return err
 		}
-		if err := o(ctx, exec); err != nil {
+		if err := run(ctx); err != nil {
 			return err
 		}
 		return c.cmdMgr.Process(ctx, stepId)
 	}
-	return &executor.ActionRun{
-		Condition: action.Condition,
-		Run:       n,
-	}
 }
 
-func (c *CommandDecorator) DecorateJobRun(stage executor.Stage, job executor.JobRun) executor.JobRun {
-	if stage != executor.StagePre {
-		return job
+func (c *CommandDecorator) DecorateJobRun(job *executor.JobRun) executor.JobTask {
+	if job.Stage != executor.StagePre {
+		return job.Run
 	}
-	// Initialize job
+
+	// decorator for Initialize job
+	run := job.Run
 	var scope *dig.Scope //TODO
 	return func(ctx context.Context) (res *records.Job, err error) {
-		res, err = job(ctx)
+		if res, err = run(ctx); err != nil {
+			return
+		}
 
 		if err = scope.Invoke(c.registerConsoleCommands); err != nil {
 			return

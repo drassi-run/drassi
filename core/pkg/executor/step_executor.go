@@ -27,7 +27,9 @@ import (
 
 type StepExecutor interface {
 	StepSpec() *StepSpec
-	CreateRun(stage Stage) StepRun
+	Parent() StepExecutor
+	JobExecutor() JobExecutor
+	CreateRun(stage Stage) *StepRun
 
 	State() *records.Step
 	Status() records.Result
@@ -40,15 +42,35 @@ type StepExecutor interface {
 	CreateStepSummary(r io.Reader) error
 }
 
-type StepRun func(context.Context) (*records.Step, error)
+type StepRun struct {
+	Run      StepTask
+	Stage    Stage
+	Executor StepExecutor
+}
+
+func (r *StepRun) StepId() string {
+	return r.StepSpec().Id
+}
+
+func (r *StepRun) StepSpec() *StepSpec {
+	return r.Executor.StepSpec()
+}
+
+func (r *StepRun) JobSpec() *JobSpec {
+	return r.Executor.JobExecutor().JobSpec()
+}
+
+type StepTask func(context.Context) (*records.Step, error)
 
 type StepRunDecorator interface {
-	DecorateStepRun(Stage, StepExecutor, StepRun) StepRun
+	DecorateStepRun(*StepRun) StepTask
 }
 
 type stepExecutor struct {
-	spec  *StepSpec
-	aExec ActionExecutor
+	spec   *StepSpec
+	parent StepExecutor
+	jExec  JobExecutor
+	aExec  ActionExecutor
 
 	// records
 	github   records.Github
@@ -64,6 +86,14 @@ type stepExecutor struct {
 
 func (e *stepExecutor) StepSpec() *StepSpec {
 	return e.spec
+}
+
+func (e *stepExecutor) Parent() StepExecutor {
+	return e.parent
+}
+
+func (e *stepExecutor) JobExecutor() JobExecutor {
+	return e.jExec
 }
 
 func (e *stepExecutor) init(ctx context.Context, scope *dig.Scope) (ex error) {
@@ -99,10 +129,7 @@ func (e *stepExecutor) init(ctx context.Context, scope *dig.Scope) (ex error) {
 	e.state = make(map[string]string)
 
 	// initialize StepRun
-	if err := xdig.Supply[StepExecutor](scope, e); err != nil {
-		return err
-	}
-	if exec, err := e.spec.Action.CreateExecutor(ctx, scope); err != nil {
+	if exec, err := e.spec.Action.CreateExecutor(ctx, scope, e); err != nil {
 		return err
 	} else {
 		e.aExec = exec
@@ -140,14 +167,17 @@ func (e *stepExecutor) init(ctx context.Context, scope *dig.Scope) (ex error) {
 	return nil
 }
 
-func (e *stepExecutor) CreateRun(stage Stage) StepRun {
+func (e *stepExecutor) CreateRun(stage Stage) *StepRun {
 	action := e.aExec.CreateRun(stage)
 	if action == nil {
 		return nil
 	}
-	action = e.decorator.DecorateActionRun(stage, action)
+	if stage == StageMain {
+		action.Condition = e.spec.Condition
+	}
+	action.Run = e.decorator.DecorateActionRun(action)
 
-	return func(ctx context.Context) (*records.Step, error) {
+	run := func(ctx context.Context) (*records.Step, error) {
 		err := e.runAction(ctx, action)
 		if e.step.Outcome == "" {
 			if err != nil {
@@ -160,6 +190,11 @@ func (e *stepExecutor) CreateRun(stage Stage) StepRun {
 			e.step.Conclusion = e.step.Outcome
 		}
 		return e.step, err
+	}
+	return &StepRun{
+		Run:      run,
+		Stage:    stage,
+		Executor: e,
 	}
 }
 
@@ -194,7 +229,7 @@ func (e *stepExecutor) runAction(ctx context.Context, action *ActionRun) error {
 		defer cancel()
 	}
 
-	err := action.Run(ctx, e)
+	err := action.Run(ctx)
 	if err != nil {
 		s.Errorf("Error while running task %q (%s): %v", displayName, e.spec.Id, err)
 		e.SetStatus(records.ResultFailure)
@@ -205,7 +240,7 @@ func (e *stepExecutor) runAction(ctx context.Context, action *ActionRun) error {
 		continueOnError := false
 		s.Debugf("Evaluating 'continue-on-error' for step: %q (%s)", displayName, e.spec.Id)
 		if err := evaluator.Evaluate(e.exprEnv, e.spec.ContinueOnError, &continueOnError); err != nil {
-			s.Errorf("Error while evaluate 'continue-on-error' %v", err)
+			s.Errorf("Error while evaluate 'continue-on-error': %v", err)
 			return fmt.Errorf("evaluate 'continue-on-error': %w", err)
 		} else if continueOnError {
 			e.step.Conclusion = records.ResultSuccess
