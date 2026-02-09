@@ -14,7 +14,6 @@ import (
 	"strings"
 
 	"drassi.run/core/pkg/executor/evaluator"
-	"drassi.run/core/pkg/executor/support"
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/workflows"
@@ -48,7 +47,6 @@ type scriptActionExecutor struct {
 	sExec StepExecutor
 
 	// injected values
-	pathProv support.PathProvider
 	sandbox  sandboxer.Sandbox
 	streams  stream.Streams
 	exprEnv  expression.Env
@@ -66,9 +64,6 @@ func (e *scriptActionExecutor) init(_ context.Context, scope *dig.Scope) error {
 		return err
 	}
 	if err := xdig.Populate(scope, &e.defaults); err != nil {
-		return err
-	}
-	if err := xdig.Populate(scope, &e.pathProv); err != nil {
 		return err
 	}
 	return nil
@@ -134,7 +129,7 @@ func (e *scriptActionExecutor) executeMain(ctx context.Context) error {
 	}
 
 	env := e.sExec.ComposeEnv(true)
-	paths := e.pathProv.SystemPaths()
+	paths := e.sExec.JobExecutor().SystemPaths()
 	return e.sandbox.Execute(ctx, cmd, paths, env, workdir, e.streams)
 }
 

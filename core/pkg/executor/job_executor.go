@@ -45,6 +45,8 @@ type JobExecutor interface {
 
 	AddPath(paths []string)
 	SetEnv(env map[string]string)
+
+	SystemPaths() []string
 }
 
 type JobRun struct {
@@ -316,9 +318,6 @@ func (e *jobExecutor) initializeScope(scope *dig.Scope) error {
 		return err
 	}
 	if err := xdig.Supply(scope, e.env); err != nil {
-		return err
-	}
-	if err := xdig.Supply[support.PathProvider](scope, e); err != nil {
 		return err
 	}
 

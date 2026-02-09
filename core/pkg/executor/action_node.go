@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	"drassi.run/core/pkg/executor/evaluator"
-	"drassi.run/core/pkg/executor/support"
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
@@ -55,11 +54,10 @@ type nodeActionExecutor struct {
 	sExec StepExecutor
 
 	// injected values
-	pathProv support.PathProvider
-	exprEnv  expression.Env
-	sandbox  sandboxer.Sandbox
-	streams  stream.Streams
-	repo     *repository.Repository
+	exprEnv expression.Env
+	sandbox sandboxer.Sandbox
+	streams stream.Streams
+	repo    *repository.Repository
 }
 
 func (e *nodeActionExecutor) init(_ context.Context, scope *dig.Scope) error {
@@ -73,9 +71,6 @@ func (e *nodeActionExecutor) init(_ context.Context, scope *dig.Scope) error {
 		return err
 	}
 	if err := xdig.Populate(scope, &e.repo); err != nil {
-		return err
-	}
-	if err := xdig.Populate(scope, &e.pathProv); err != nil {
 		return err
 	}
 	return nil
@@ -140,7 +135,7 @@ func (e *nodeActionExecutor) execute(stage Stage) ActionTask {
 			env["INPUT_"+k] = v
 		}
 
-		paths := e.pathProv.SystemPaths()
+		paths := e.sExec.JobExecutor().SystemPaths()
 		return e.sandbox.Execute(ctx, cmd, paths, env, "", e.streams)
 	}
 }
