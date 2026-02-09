@@ -1,6 +1,9 @@
 package log
 
 import (
+	"bufio"
+	"io"
+	"io/fs"
 	"sync"
 	"time"
 )
@@ -26,6 +29,8 @@ type Batcher struct {
 	mu     sync.Mutex
 	timer  *time.Timer
 	stopCh chan struct{}
+
+	files []fs.File
 }
 
 func (br *Batcher) Update(u *Update) {
@@ -72,7 +77,50 @@ func (br *Batcher) process(fn func(Batch)) {
 func (br *Batcher) gather() Batch {
 	br.mu.Lock()
 	defer br.mu.Unlock()
-	return nil
+
+	if len(br.files) == 0 {
+		return nil
+	}
+
+	length := len(br.files)
+	batches := make([]Batch, length)
+	for i, f := range br.files {
+		batches[i] = br.read(f)
+		if i != length-1 {
+			f.Close()
+		}
+	}
+
+	if length > 1 {
+		// only keep last files
+		br.files = br.files[length-1:]
+	}
+
+	return br.flatten(batches)
+}
+
+func (br *Batcher) read(r io.Reader) Batch {
+	var b Batch
+	scanner := bufio.NewScanner(r)
+
+	for scanner.Scan() {
+		l := scanner.Text()
+		b = append(b, l)
+	}
+
+	// TODO: handle error
+	//if err := scanner.Err(); err != nil {
+	//	return nil, err
+	//}
+	return b
+}
+
+func (br *Batcher) flatten(in []Batch) Batch {
+	var out Batch
+	for _, arr := range in {
+		out = append(out, arr...)
+	}
+	return out
 }
 
 func (br *Batcher) Close() error {
