@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"path"
 	"time"
@@ -225,8 +226,8 @@ type resultStepSummaryUploader struct {
 	stepUid string
 }
 
-func (u *resultStepSummaryUploader) Complete(ctx context.Context, size int64) error {
-	if err := u.Uploader.Complete(ctx, size); err != nil {
+func (u *resultStepSummaryUploader) Upload(ctx context.Context, r io.Reader, size int64) error {
+	if err := u.Uploader.Upload(ctx, r, size); err != nil {
 		return err
 	}
 	return u.svc.createStepSummaryMetadata(ctx, u.stepUid, size)

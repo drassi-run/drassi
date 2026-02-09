@@ -12,8 +12,7 @@ const StorageAzureBlob = "BLOB_STORAGE_TYPE_AZURE"
 
 // Uploader used to one-shot upload a file to cloud storage
 type Uploader interface {
-	Upload(ctx context.Context, r io.Reader) error
-	Complete(ctx context.Context, size int64) error
+	Upload(ctx context.Context, r io.Reader, size int64) error
 }
 
 type storageManagerUploader struct {
@@ -25,11 +24,11 @@ func NewStorageMangerUploader(f func(context.Context) (SignedUrlResponse, error)
 	return &storageManagerUploader{getUrl: f}
 }
 
-func (s *storageManagerUploader) Upload(ctx context.Context, r io.Reader) error {
+func (s *storageManagerUploader) Upload(ctx context.Context, r io.Reader, size int64) error {
 	if u, err := s.underlay(ctx); err != nil {
 		return err
 	} else {
-		return u.Upload(ctx, r)
+		return u.Upload(ctx, r, size)
 	}
 }
 
@@ -63,17 +62,13 @@ type azureBlobUploader struct {
 	getUrl func(context.Context) (string, error)
 }
 
-func (u *azureBlobUploader) Upload(ctx context.Context, r io.Reader) error {
+func (u *azureBlobUploader) Upload(ctx context.Context, r io.Reader, size int64) error {
 	if client, err := u.getClient(ctx); err != nil {
 		return err
 	} else {
 		_, err = client.UploadStream(ctx, r, nil)
 		return err
 	}
-}
-
-func (u *azureBlobUploader) Complete(context.Context, int64) error {
-	return nil
 }
 
 func (u *azureBlobUploader) getClient(ctx context.Context) (*blockblob.Client, error) {

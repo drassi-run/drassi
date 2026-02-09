@@ -58,11 +58,9 @@ type jobLogUploader struct {
 	recordId string
 }
 
-func (u *jobLogUploader) Upload(ctx context.Context, r io.Reader) error {
+func (u *jobLogUploader) Upload(ctx context.Context, r io.Reader, size int64) error {
 	return u.svc.uploadLog(ctx, u.recordId, r)
 }
-
-func (u *jobLogUploader) Complete(context.Context, int64) error { return nil }
 
 // https://github.com/actions/runner/blob/v2.323.0/src/Runner.Common/JobServerQueue.cs#L882-L896
 func (s *JobService) uploadLog(ctx context.Context, recordId string, r io.Reader) error {
@@ -101,11 +99,9 @@ type jobAttachmentUploader struct {
 	recordId, kind, name string
 }
 
-func (u *jobAttachmentUploader) Upload(ctx context.Context, r io.Reader) error {
+func (u *jobAttachmentUploader) Upload(ctx context.Context, r io.Reader, size int64) error {
 	return u.svc.uploadAttach(ctx, u.recordId, u.kind, u.name, r)
 }
-
-func (u *jobAttachmentUploader) Complete(context.Context, int64) error { return nil }
 
 // https://github.com/actions/runner/blob/v2.323.0/src/Runner.Common/JobServerQueue.cs#L900-L903
 func (s *JobService) uploadAttach(ctx context.Context, recordId, kind, name string, r io.Reader) error {
