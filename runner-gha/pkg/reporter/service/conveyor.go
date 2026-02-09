@@ -11,8 +11,8 @@ import (
 )
 
 type Result struct {
-	lines int64
-	size  int64
+	Lines int64
+	Size  int64
 }
 
 // Conveyor used to continuous upload files to cloud storage by chunks
@@ -94,8 +94,8 @@ func (c *azureBlobConveyor) Run(ctx context.Context) (*Result, error) {
 		if err := c.upload(ctx, chunk); err != nil {
 			return nil, fmt.Errorf("error while upload log chunk to azure blob: %w", err)
 		}
-		r.lines += chunk.Lines()
-		r.size += chunk.Size()
+		r.Lines += chunk.Lines()
+		r.Size += chunk.Size()
 	}
 
 	if err := c.seal(ctx); err != nil {

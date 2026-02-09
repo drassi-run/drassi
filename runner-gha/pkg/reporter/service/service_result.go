@@ -71,7 +71,7 @@ func (c *resultStepLogsConveyor) Run(ctx context.Context) (*Result, error) {
 	if r, err := c.Conveyor.Run(ctx); err != nil {
 		return r, err
 	} else {
-		err = c.svc.createStepLogsMetadata(ctx, c.stepUid, r.lines)
+		err = c.svc.createStepLogsMetadata(ctx, c.stepUid, r.Lines)
 		return r, err
 	}
 }
@@ -137,7 +137,7 @@ func (c *resultJobLogsConveyor) Run(ctx context.Context) (*Result, error) {
 	if r, err := c.Conveyor.Run(ctx); err != nil {
 		return r, err
 	} else {
-		err = c.svc.createJobLogsMetadata(ctx, r.lines)
+		err = c.svc.createJobLogsMetadata(ctx, r.Lines)
 		return r, err
 	}
 }
