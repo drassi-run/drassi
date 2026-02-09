@@ -7,12 +7,18 @@ import (
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/util/context"
 	"drassi.run/core/util/otel"
-	"drassi.run/gha-runner/pkg/reporter"
 	"drassi.run/gha-runner/pkg/reporter/log"
 	"github.com/chainguard-dev/clog"
 )
 
-func NewResultStepLogListener(svc *ResultService, context xcontext.Provider) reporter.Subscriber {
+type Subscriber interface {
+	OnNewStep(sr executor.StepRun)
+	OnLogRecord(sr executor.StepRun, update *log.Update)
+	OnCompleteStep(sr executor.StepRun)
+	Wait()
+}
+
+func NewResultStepLogListener(svc *ResultService, context xcontext.Provider) Subscriber {
 	return &resultStepLogSubscriber{
 		svc:  svc,
 		ctx:  context.Context(),
@@ -77,7 +83,7 @@ func (s *resultStepLogSubscriber) Wait() {
 	s.wg.Wait()
 }
 
-func NewResultJobLogListener(svc *ResultService, context xcontext.Provider) reporter.Subscriber {
+func NewResultJobLogListener(svc *ResultService, context xcontext.Provider) Subscriber {
 	return &resultJobLogSubscriber{
 		svc: svc,
 		ctx: context.Context(),
