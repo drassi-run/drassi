@@ -10,6 +10,5 @@
 //go:generate mockgen -source=../pkg/executor/support/tracker.go -destination=executor/support/tracker.go -typed
 //go:generate mockgen -source=../pkg/executor/job_executor.go -destination=executor/job_executor.go -typed
 //go:generate mockgen -source=../pkg/executor/step_executor.go -destination=executor/step_executor.go -typed
-//go:generate mockgen -source=../pkg/executor/stack.go -destination=executor/stack.go -typed
 //go:generate mockgen -source=../pkg/stream/handler.go -destination=stream/handler.go -typed
 package mock

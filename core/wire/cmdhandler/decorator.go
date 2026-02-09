@@ -107,9 +107,9 @@ func (c *CommandDecorator) registerFileCommands(p fileCommandParams) error {
 	return nil
 }
 
-func (c *CommandDecorator) provideEnv(env support.EnvProvider, stack executor.Stack, cmdMgr command.FileManager) {
+func (c *CommandDecorator) provideEnv(env support.EnvProvider, stack *support.Stack, cmdMgr command.FileManager) {
 	ep := func() map[string]string {
-		exec := stack.Leaf()
+		_, exec := stack.CurrentStep()
 		if exec == nil {
 			return nil
 		}

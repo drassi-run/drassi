@@ -25,9 +25,9 @@ var (
 )
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L107
-func FileAddPath(stack executor.Stack) *command.FileHandler {
+func FileAddPath(stack *support.Stack) *command.FileHandler {
 	run := func(ctx context.Context, r io.Reader) error {
-		job := stack.Job()
+		_, job := stack.Job()
 		if job == nil {
 			return ErrNoJobRunning
 		}
@@ -47,10 +47,10 @@ func FileAddPath(stack executor.Stack) *command.FileHandler {
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L132
-func FileSetEnv(stack executor.Stack, tracker support.Tracker) *command.FileHandler {
+func FileSetEnv(stack *support.Stack, tracker support.Tracker) *command.FileHandler {
 	run := func(ctx context.Context, r io.Reader) error {
-		steps := stack.Stack()
-		if len(steps) == 0 {
+		_, step := stack.CurrentStep()
+		if step == nil {
 			return ErrNoStepRunning
 		}
 
@@ -74,22 +74,22 @@ func FileSetEnv(stack executor.Stack, tracker support.Tracker) *command.FileHand
 			}
 		}
 
-		for _, step := range steps {
-			step.SetEnv(env)
+		if _, job := stack.Job(); job != nil {
+			job.SetEnv(env)
 		}
-		stack.Job().SetEnv(env)
 		return nil
 	}
 	return command.NewFileHandler("GITHUB_ENV", run)
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L260
-func FileSaveState(stack executor.Stack) *command.FileHandler {
+func FileSaveState(stack *support.Stack) *command.FileHandler {
 	run := func(ctx context.Context, r io.Reader) error {
-		step := stack.Root()
+		_, step := stack.CurrentStep()
 		if step == nil {
 			return ErrNoStepRunning
 		}
+		step = executor.Root(step)
 
 		if state, err := parseEnvVars(r); err != nil {
 			return err
@@ -106,9 +106,9 @@ func FileSaveState(stack executor.Stack) *command.FileHandler {
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L293
-func FileSetOutput(stack executor.Stack) *command.FileHandler {
+func FileSetOutput(stack *support.Stack) *command.FileHandler {
 	run := func(ctx context.Context, r io.Reader) error {
-		step := stack.Leaf()
+		_, step := stack.CurrentStep()
 		if step == nil {
 			return ErrNoStepRunning
 		}
@@ -128,9 +128,9 @@ func FileSetOutput(stack executor.Stack) *command.FileHandler {
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L186
-func CreateStepSummary(stack executor.Stack) *command.FileHandler {
+func CreateStepSummary(stack *support.Stack) *command.FileHandler {
 	run := func(ctx context.Context, r io.Reader) error {
-		step := stack.Leaf()
+		_, step := stack.CurrentStep()
 		if step == nil {
 			return ErrNoStepRunning
 		}

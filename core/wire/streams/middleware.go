@@ -13,7 +13,6 @@ import (
 	"regexp"
 	"strings"
 
-	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/executor/command"
 	"drassi.run/core/pkg/executor/problem"
 	"drassi.run/core/pkg/executor/secret"
@@ -24,7 +23,7 @@ import (
 
 type Middleware func(handler stream.Handler) stream.Handler
 
-func ProcessCommand(consoleMgr command.ConsoleManager, stack executor.Stack) Middleware {
+func ProcessCommand(consoleMgr command.ConsoleManager, stack *support.Stack) Middleware {
 	return func(handler stream.Handler) stream.Handler {
 		return &commandProcessor{
 			handler:    handler,
@@ -37,7 +36,7 @@ func ProcessCommand(consoleMgr command.ConsoleManager, stack executor.Stack) Mid
 type commandProcessor struct {
 	handler    stream.Handler
 	consoleMgr command.ConsoleManager
-	stack      executor.Stack
+	stack      *support.Stack
 }
 
 func (mw *commandProcessor) Handle(ctx context.Context, line string) error {
@@ -47,7 +46,7 @@ func (mw *commandProcessor) Handle(ctx context.Context, line string) error {
 	}
 
 	if err := mw.consoleMgr.Process(ctx, line, cmd); err != nil {
-		if step := mw.stack.Leaf(); step != nil {
+		if _, step := mw.stack.CurrentStep(); step != nil {
 			step.SetStatus(records.ResultFailure)
 		}
 		return err

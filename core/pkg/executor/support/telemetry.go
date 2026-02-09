@@ -1,4 +1,4 @@
-package decorator
+package support
 
 import (
 	"context"
@@ -36,6 +36,20 @@ func (t Telemetry) DecorateStepRun(step *executor.StepRun) executor.StepTask {
 		ctx, done := xotel.SetupTelemetry(ctx,
 			fmt.Sprintf("StepRun(%s, %s)", stepId, stage),
 			xotel.DrassiStep(stepId), xotel.DrassiStage(stage),
+		)
+		defer done(&err)
+		return run(ctx)
+	}
+}
+
+func (t Telemetry) DecorateJobRun(job *executor.JobRun) executor.JobTask {
+	jobId := job.JobId()
+	stage := job.Stage
+	run := job.Run
+	return func(ctx context.Context) (_ *records.Job, err error) {
+		ctx, done := xotel.SetupTelemetry(ctx,
+			fmt.Sprintf("JobRun(%s, %s)", jobId, stage),
+			xotel.DrassiStep(jobId), xotel.DrassiStage(stage),
 		)
 		defer done(&err)
 		return run(ctx)

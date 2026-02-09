@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"drassi.run/core/pkg/executor/evaluator"
-	"drassi.run/core/pkg/executor/support"
+	//"drassi.run/core/pkg/executor/support"
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/scribe"
@@ -29,6 +29,7 @@ type StepExecutor interface {
 	StepSpec() *StepSpec
 	Parent() StepExecutor
 	JobExecutor() JobExecutor
+	ActionExecutor() ActionExecutor
 	CreateRun(stage Stage) *StepRun
 
 	State() *records.Step
@@ -40,6 +41,13 @@ type StepExecutor interface {
 	SaveState(state map[string]string)
 	SetOutput(output map[string]string)
 	CreateStepSummary(r io.Reader) error
+}
+
+func Root(exec StepExecutor) StepExecutor {
+	for exec.Parent() != nil {
+		exec = exec.Parent()
+	}
+	return exec
 }
 
 type StepRun struct {
@@ -80,8 +88,8 @@ type stepExecutor struct {
 	state    map[string]string // Intra action state
 
 	decorator ActionRunDecorator
-	envProv   support.EnvProvider
-	exprEnv   expression.Env
+	//envProv   support.EnvProvider
+	exprEnv expression.Env
 }
 
 func (e *stepExecutor) StepSpec() *StepSpec {
@@ -94,6 +102,10 @@ func (e *stepExecutor) Parent() StepExecutor {
 
 func (e *stepExecutor) JobExecutor() JobExecutor {
 	return e.jExec
+}
+
+func (e *stepExecutor) ActionExecutor() ActionExecutor {
+	return e.aExec
 }
 
 func (e *stepExecutor) init(ctx context.Context, scope *dig.Scope) (ex error) {
@@ -115,9 +127,9 @@ func (e *stepExecutor) init(ctx context.Context, scope *dig.Scope) (ex error) {
 	if err := xdig.Populate(scope, &e.github); err != nil {
 		return err
 	}
-	if err := xdig.Populate(scope, &e.envProv); err != nil {
-		return err
-	}
+	//if err := xdig.Populate(scope, &e.envProv); err != nil {
+	//	return err
+	//}
 	if err := xdig.Populate(scope, &e.upperEnv); err != nil {
 		return err
 	}
@@ -257,7 +269,7 @@ func (e *stepExecutor) ComposeEnv(systemEnv bool) map[string]string {
 		return m
 	}
 
-	maps.Copy(m, e.envProv.Env())
+	//maps.Copy(m, e.envProv.Env())
 
 	// set GITHUB_* env
 	ghEnv := map[string]string{

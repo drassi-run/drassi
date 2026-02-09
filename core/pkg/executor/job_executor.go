@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"drassi.run/core/pkg/executor/evaluator"
-	"drassi.run/core/pkg/executor/support"
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/expression/libraries"
 	"drassi.run/core/pkg/model/records"
@@ -321,24 +320,25 @@ func (e *jobExecutor) initializeScope(scope *dig.Scope) error {
 		return err
 	}
 
-	return scope.Invoke(e.provideEnv)
+	//return scope.Invoke(e.provideEnv)
+	return nil
 }
 
-func (e *jobExecutor) provideEnv(envProv support.EnvProvider) {
-	runnerEnv := map[string]string{
-		"RUNNER_NAME":        e.runner.Name,
-		"RUNNER_ARCH":        string(e.runner.Arch),
-		"RUNNER_OS":          string(e.runner.Os),
-		"RUNNER_ENVIRONMENT": e.runner.Environment,
-		"RUNNER_TEMP":        e.runner.Temp,
-		"RUNNER_TOOL_CACHE":  e.runner.ToolCache,
-		"RUNNER_WORKSPACE":   e.runner.Workspace,
-	}
-	if e.runner.Debug == "1" {
-		runnerEnv["RUNNER_DEBUG"] = "1"
-	}
-	envProv.ProvideEnv(support.StaticEnv(runnerEnv))
-}
+//func (e *jobExecutor) provideEnv(envProv support.EnvProvider) {
+//	runnerEnv := map[string]string{
+//		"RUNNER_NAME":        e.runner.Name,
+//		"RUNNER_ARCH":        string(e.runner.Arch),
+//		"RUNNER_OS":          string(e.runner.Os),
+//		"RUNNER_ENVIRONMENT": e.runner.Environment,
+//		"RUNNER_TEMP":        e.runner.Temp,
+//		"RUNNER_TOOL_CACHE":  e.runner.ToolCache,
+//		"RUNNER_WORKSPACE":   e.runner.Workspace,
+//	}
+//	if e.runner.Debug == "1" {
+//		runnerEnv["RUNNER_DEBUG"] = "1"
+//	}
+//	envProv.ProvideEnv(support.StaticEnv(runnerEnv))
+//}
 
 func (e *jobExecutor) initializeSteps(ctx context.Context, scope *dig.Scope) error {
 	e.children = make(map[string]StepExecutor, len(e.spec.Steps))

@@ -15,7 +15,8 @@ import (
 
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/executor/runtime"
-	"drassi.run/core/util/types"
+	"drassi.run/core/pkg/executor/support"
+	xtypes "drassi.run/core/util/types"
 )
 
 const (
@@ -115,20 +116,21 @@ func parseEnvVars(reader io.Reader) (map[string]string, error) {
 	return env, nil
 }
 
-func getPathTranslator(step executor.StepExecutor) runtime.PathTranslator {
+func getPathTranslator(stack *support.Stack) runtime.PathTranslator {
+	_, step := stack.CurrentStep()
 	if step == nil {
 		return nil
 	}
 
-	for sr := step.StepSpec(); ; {
-		if prov, ok := sr.(interface{ PathTranslator() runtime.PathTranslator }); ok {
+	for action := step.ActionExecutor(); ; {
+		if prov, ok := action.(interface{ PathTranslator() runtime.PathTranslator }); ok {
 			return prov.PathTranslator()
 		}
-		if uw, ok := sr.(xtypes.Unwrapper[executor.StepSpec]); ok {
-			sr = uw.Unwrap()
-		} else {
-			break
+		if uw, ok := action.(xtypes.Unwrapper[executor.ActionExecutor]); ok {
+			action = uw.Unwrap()
+			continue
 		}
+		break
 	}
 	return nil
 }

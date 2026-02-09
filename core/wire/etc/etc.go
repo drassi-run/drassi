@@ -12,14 +12,16 @@ import (
 
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/executor/support"
-	"drassi.run/core/util/context"
-	"drassi.run/core/util/dig"
 	"github.com/chainguard-dev/clog"
 	"go.uber.org/dig"
 )
 
 func Wire(scope *dig.Scope) error {
 	if err := provideStack(scope); err != nil {
+		return err
+	}
+
+	if err := provideTelemetry(scope); err != nil {
 		return err
 	}
 
@@ -39,18 +41,16 @@ func provideEnv(envProv support.EnvProvider) {
 }
 
 func provideStack(scope *dig.Scope) error {
-	s := new(stack)
-	err := xdig.Supply(scope, s,
-		dig.As(new(executor.Stack), new(xcontext.Provider)),
-	)
-	if err != nil {
-		return err
-	}
-
-	l := &stackListener{stack: s}
-	return xdig.Supply(scope, l,
-		dig.As(new(executor.JobListener), new(executor.StepListener)),
+	return scope.Provide(support.NewStack,
+		dig.As(new(support.Stack), new(executor.JobRunDecorator), new(executor.StepRunDecorator)),
 		dig.Name("stack"),
+	)
+}
+
+func provideTelemetry(scope *dig.Scope) error {
+	return scope.Provide(support.NewTelemetry,
+		dig.As(new(executor.JobRunDecorator), new(executor.StepRunDecorator), new(executor.ActionRunDecorator)),
+		dig.Name("telemetry"),
 	)
 }
 
