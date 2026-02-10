@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"drassi.run/core/pkg/executor"
-	"drassi.run/core/pkg/executor/reporter"
+	"drassi.run/core/pkg/executor/support"
 	"drassi.run/core/util/http"
 	"drassi.run/gha-runner/pkg/messages"
 	"drassi.run/gha-runner/pkg/types"
@@ -160,7 +160,7 @@ func (l *runLease) convertOutputs(m map[string]string) map[string]messages.Varia
 	return res
 }
 
-func (l *runLease) toAnnotations(issues []reporter.Issue) []*Annotation {
+func (l *runLease) toAnnotations(issues []*support.Issue) []*Annotation {
 	annotations := make([]*Annotation, 0, len(issues))
 	for _, issue := range issues {
 		if anno := l.toAnnotation(issue); anno != nil {
@@ -171,7 +171,7 @@ func (l *runLease) toAnnotations(issues []reporter.Issue) []*Annotation {
 }
 
 // https://github.com/actions/runner/blob/v2.324.0/src/Sdk/RSWebApi/Contracts/IssueExtensions.cs#L7
-func (l *runLease) toAnnotation(issue reporter.Issue) *Annotation {
+func (l *runLease) toAnnotation(issue *support.Issue) *Annotation {
 	var msg string
 	if m := issue.Message; m != "" {
 		msg = m
