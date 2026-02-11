@@ -1,4 +1,4 @@
-package service
+package manager
 
 import (
 	"context"
@@ -7,49 +7,47 @@ import (
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/util/context"
 	"drassi.run/core/util/otel"
-	"drassi.run/gha-runner/pkg/reporter/log"
+	"drassi.run/gha-runner/pkg/reporter/service"
 	"github.com/chainguard-dev/clog"
 )
 
 type Subscriber interface {
-	OnNewStep(sr executor.StepRun)
-	OnLogRecord(sr executor.StepRun, update *log.Update)
-	OnCompleteStep(sr executor.StepRun)
+	Run(ch <-chan *Event)
 	Wait()
 }
 
-func NewResultStepLogListener(svc *ResultService, context xcontext.Provider) Subscriber {
+func NewResultStepLogListener(svc *service.ResultService, context xcontext.Provider) Subscriber {
 	return &resultStepLogSubscriber{
 		svc:  svc,
 		ctx:  context.Context(),
-		cons: make(map[string]Conveyor),
+		cons: make(map[string]service.Conveyor),
 	}
 }
 
 type resultStepLogSubscriber struct {
-	svc *ResultService
+	svc *service.ResultService
 	ctx context.Context
 
 	mu sync.Mutex
 	wg sync.WaitGroup
 
-	cons map[string]Conveyor
+	cons map[string]service.Conveyor
 }
 
-func (s *resultStepLogSubscriber) OnNewStep(sr executor.StepRun) {
+func (s *resultStepLogSubscriber) Run(ch <-chan *Event) {
+	for event := range ch {
+		switch event.Kind {
+		case OnLogRecord:
+			c := s.conveyor(event.StepRun)
+			c.Update(event.Data)
+		case OnCompleteStep:
+			c := s.conveyor(event.StepRun)
+			_ = c.Close()
+		}
+	}
 }
 
-func (s *resultStepLogSubscriber) OnLogRecord(sr executor.StepRun, update *log.Update) {
-	c := s.conveyor(sr)
-	c.Update(update)
-}
-
-func (s *resultStepLogSubscriber) OnCompleteStep(sr executor.StepRun) {
-	c := s.conveyor(sr)
-	c.Close()
-}
-
-func (s *resultStepLogSubscriber) conveyor(sr executor.StepRun) Conveyor {
+func (s *resultStepLogSubscriber) conveyor(sr executor.StepRun) service.Conveyor {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -61,13 +59,15 @@ func (s *resultStepLogSubscriber) conveyor(sr executor.StepRun) Conveyor {
 	c := s.svc.StepLogsConveyor(sr)
 	s.cons[stepId] = c
 
-	s.wg.Go(func() {
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
 		s.run(stepId, c)
-	})
+	}()
 	return c
 }
 
-func (s *resultStepLogSubscriber) run(stepId string, c Conveyor) {
+func (s *resultStepLogSubscriber) run(stepId string, c service.Conveyor) {
 	ctx, logger := xotel.ChildLogger(s.ctx,
 		xotel.ToSlogAttrs(xotel.DrassiStep(stepId)),
 	)
@@ -83,7 +83,7 @@ func (s *resultStepLogSubscriber) Wait() {
 	s.wg.Wait()
 }
 
-func NewResultJobLogListener(svc *ResultService, context xcontext.Provider) Subscriber {
+func NewResultJobLogListener(svc *service.ResultService, context xcontext.Provider) Subscriber {
 	return &resultJobLogSubscriber{
 		svc: svc,
 		ctx: context.Context(),
@@ -91,25 +91,26 @@ func NewResultJobLogListener(svc *ResultService, context xcontext.Provider) Subs
 }
 
 type resultJobLogSubscriber struct {
-	svc *ResultService
+	svc *service.ResultService
 	ctx context.Context
 
 	mu sync.Mutex
 	wg sync.WaitGroup
 
-	con Conveyor
+	con service.Conveyor
 }
 
-func (s *resultJobLogSubscriber) OnNewStep(_ executor.StepRun) {}
-
-func (s *resultJobLogSubscriber) OnLogRecord(_ executor.StepRun, update *log.Update) {
-	c := s.conveyor()
-	c.Update(update)
+func (s *resultJobLogSubscriber) Run(ch <-chan *Event) {
+	for event := range ch {
+		switch event.Kind {
+		case OnLogRecord:
+			c := s.conveyor()
+			c.Update(event.Data)
+		}
+	}
 }
 
-func (s *resultJobLogSubscriber) OnCompleteStep(_ executor.StepRun) {}
-
-func (s *resultJobLogSubscriber) conveyor() Conveyor {
+func (s *resultJobLogSubscriber) conveyor() service.Conveyor {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -120,13 +121,15 @@ func (s *resultJobLogSubscriber) conveyor() Conveyor {
 	c := s.svc.JobLogsConveyor()
 	s.con = c
 
-	s.wg.Go(func() {
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
 		s.run(c)
-	})
+	}()
 	return c
 }
 
-func (s *resultJobLogSubscriber) run(c Conveyor) {
+func (s *resultJobLogSubscriber) run(c service.Conveyor) {
 	logger := clog.FromContext(s.ctx)
 
 	if r, err := c.Run(s.ctx); err != nil {

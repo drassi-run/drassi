@@ -18,10 +18,10 @@ const (
 )
 
 type Update struct {
-	file   string
-	status FileStatus
-	line   int64 // Total lines of the file
-	size   int64 // Size of the file
+	File   string
+	Status FileStatus
+	Line   int64 // Total lines of the file
+	Size   int64 // Size of the file
 }
 
 type rsc struct {

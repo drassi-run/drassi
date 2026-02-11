@@ -35,9 +35,9 @@ func (cr *Chunker) update(u *Update) Chunk {
 	cr.mu.Lock()
 	defer cr.mu.Unlock()
 
-	switch u.status {
+	switch u.Status {
 	case FileClose:
-		if cr.offset < u.size {
+		if cr.offset < u.Size {
 			cr.appendSection(u)
 		}
 		if cr.size >= cr.softLimit {
@@ -45,7 +45,7 @@ func (cr *Chunker) update(u *Update) Chunk {
 		}
 
 	case FileOpen:
-		if cr.size+u.size-cr.offset >= cr.softLimit {
+		if cr.size+u.Size-cr.offset >= cr.softLimit {
 			cr.appendSection(u)
 
 			c := cr.chunk
@@ -59,15 +59,15 @@ func (cr *Chunker) update(u *Update) Chunk {
 
 func (cr *Chunker) appendSection(u *Update) {
 	s := &Section{
-		filePath:  u.file,
+		filePath:  u.File,
 		start:     cr.offset,
-		end:       u.size,
+		end:       u.Size,
 		startLine: cr.line,
-		endLine:   u.line,
+		endLine:   u.Line,
 	}
 	cr.chunk = append(cr.chunk, s)
-	cr.size += u.size - cr.offset
-	cr.offset, cr.line = u.size, u.line
+	cr.size += u.Size - cr.offset
+	cr.offset, cr.line = u.Size, u.Line
 }
 
 func (cr *Chunker) Close() error {
