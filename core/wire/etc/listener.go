@@ -13,35 +13,35 @@ import (
 	"go.uber.org/dig"
 )
 
-type listener struct {
+type stackListener struct {
 	stack *stack
 }
 
-func (l *listener) OnInitializeJob(exec executor.JobExecutor, _ *dig.Scope) executor.EventHandler {
+func (l *stackListener) OnInitializeJob(exec executor.JobExecutor, _ *dig.Scope) executor.EventHandler {
 	return l.stack.jobChange(exec)
 }
 
-func (l *listener) OnRunJob(exec executor.JobExecutor) executor.EventHandler {
+func (l *stackListener) OnRunJob(exec executor.JobExecutor) executor.EventHandler {
 	return l.stack.jobChange(exec)
 }
 
-func (l *listener) OnRunStage(executor.JobExecutor, executor.Stage) executor.EventHandler {
+func (l *stackListener) OnRunStage(executor.JobExecutor, executor.Stage) executor.EventHandler {
 	return l.stack.contextChange()
 }
 
-func (l *listener) OnFinalizeJob(exec executor.JobExecutor) executor.EventHandler {
+func (l *stackListener) OnFinalizeJob(exec executor.JobExecutor) executor.EventHandler {
 	return l.stack.jobChange(exec)
 }
 
-func (l *listener) OnInitializeStep(exec executor.StepExecutor, _ *dig.Scope) executor.EventHandler {
+func (l *stackListener) OnInitializeStep(exec executor.StepExecutor, _ *dig.Scope) executor.EventHandler {
 	return l.stack.stepChange(exec)
 }
 
-func (l *listener) OnRunStep(exec executor.StepExecutor, _ executor.Stage) executor.EventHandler {
+func (l *stackListener) OnRunStep(exec executor.StepExecutor, _ executor.Stage) executor.EventHandler {
 	return l.stack.stepChange(exec)
 }
 
-func (l *listener) OnRunTask(executor.StepExecutor, *executor.Task) executor.EventHandler {
+func (l *stackListener) OnRunTask(executor.StepExecutor, *executor.Task) executor.EventHandler {
 	return l.stack.contextChange()
 }
 

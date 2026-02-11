@@ -47,7 +47,7 @@ func provideStack(scope *dig.Scope) error {
 		return err
 	}
 
-	l := &listener{stack: s}
+	l := &stackListener{stack: s}
 	return xdig.Supply(scope, l,
 		dig.As(new(executor.JobListener), new(executor.StepListener)),
 		dig.Name("stack"),

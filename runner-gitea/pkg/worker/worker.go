@@ -124,6 +124,8 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 	}
 
 	// Wire scope
+	cp := xcontext.NewStaticProvider(w.ctx)
+
 	if err := scope.Provide(command.NewFileManager); err != nil {
 		return err
 	}
@@ -136,7 +138,7 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 	if err := wire_streams.ProvideTo(scope.Scope("internal(streams)")); err != nil {
 		return err
 	}
-	if err := scope.Provide(newContainerRuntime(w.ctx, &github)); err != nil {
+	if err := scope.Provide(newContainerRuntime(cp, &github)); err != nil {
 		return err
 	}
 
@@ -148,8 +150,6 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 	if err := xdig.Populate(scope, &client); err != nil {
 		return err
 	}
-
-	cp := xcontext.NewStaticProvider(w.ctx)
 
 	log := reporter.NewLogStreamer(w.task.Id, cp, client)
 	if err := xdig.Supply[stream.Handler](scope, log); err != nil {
@@ -291,7 +291,7 @@ func (w *Worker) Cancel(cause error) {
 	}
 }
 
-func newContainerRuntime(ctx context.Context, gh *records.Github) func(
+func newContainerRuntime(contextual xcontext.Provider, gh *records.Github) func(
 	container.Engine, stream.Streams, sandboxer.Sandbox, *records.JobInfo,
 ) (runtime.Container, error) {
 	return func(
@@ -300,7 +300,7 @@ func newContainerRuntime(ctx context.Context, gh *records.Github) func(
 		sandbox sandboxer.Sandbox,
 		info *records.JobInfo,
 	) (runtime.Container, error) {
-		return wire_runtime.NewContainerRuntime(ctx, engine, streams, sandbox, info, gh)
+		return wire_runtime.NewContainerRuntime(contextual, engine, streams, sandbox, info, gh)
 	}
 }
 
