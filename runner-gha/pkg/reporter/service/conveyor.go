@@ -10,16 +10,11 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/blob"
 )
 
-type Result struct {
-	Lines int64
-	Size  int64
-}
-
 // Conveyor used to continuous upload files to cloud storage by chunks
 type Conveyor interface {
 	io.Closer
 	Update(u *log.Update)
-	Run(ctx context.Context) (*Result, error)
+	Run(ctx context.Context) (*Stat, error)
 }
 
 type storageManagerConveyor struct {
@@ -31,7 +26,7 @@ func NewStorageMangerConveyor(f func(context.Context) (SignedUrlResponse, error)
 	return &storageManagerConveyor{getUrl: f}
 }
 
-func (s *storageManagerConveyor) Run(ctx context.Context) (*Result, error) {
+func (s *storageManagerConveyor) Run(ctx context.Context) (*Stat, error) {
 	if c, err := s.underlay(ctx); err != nil {
 		return nil, err
 	} else {
@@ -84,24 +79,24 @@ func (c *azureBlobConveyor) Close() error {
 	return c.chunker.Close()
 }
 
-func (c *azureBlobConveyor) Run(ctx context.Context) (*Result, error) {
+func (c *azureBlobConveyor) Run(ctx context.Context) (*Stat, error) {
 	if err := c.create(ctx); err != nil {
 		return nil, fmt.Errorf("failed to create azure blob: %w", err)
 	}
 
-	r := new(Result)
+	s := new(Stat)
 	for chunk := range c.chunker.Channel() {
 		if err := c.upload(ctx, chunk); err != nil {
 			return nil, fmt.Errorf("error while upload log chunk to azure blob: %w", err)
 		}
-		r.Lines += chunk.Lines()
-		r.Size += chunk.Size()
+		s.Lines += chunk.Lines()
+		s.Size += chunk.Size()
 	}
 
 	if err := c.seal(ctx); err != nil {
 		return nil, fmt.Errorf("error while sealing azure blob: %w", err)
 	}
-	return r, nil
+	return s, nil
 }
 
 func (c *azureBlobConveyor) create(ctx context.Context) error {

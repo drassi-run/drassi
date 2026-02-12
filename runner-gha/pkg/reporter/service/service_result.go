@@ -67,12 +67,12 @@ type resultStepLogsConveyor struct {
 	stepUid string
 }
 
-func (c *resultStepLogsConveyor) Run(ctx context.Context) (*Result, error) {
-	if r, err := c.Conveyor.Run(ctx); err != nil {
-		return r, err
+func (c *resultStepLogsConveyor) Run(ctx context.Context) (*Stat, error) {
+	if s, err := c.Conveyor.Run(ctx); err != nil {
+		return s, err
 	} else {
-		err = c.svc.createStepLogsMetadata(ctx, c.stepUid, r.Lines)
-		return r, err
+		err = c.svc.createStepLogsMetadata(ctx, c.stepUid, s.Lines)
+		return s, err
 	}
 }
 
@@ -133,12 +133,12 @@ type resultJobLogsConveyor struct {
 	svc *ResultService
 }
 
-func (c *resultJobLogsConveyor) Run(ctx context.Context) (*Result, error) {
-	if r, err := c.Conveyor.Run(ctx); err != nil {
-		return r, err
+func (c *resultJobLogsConveyor) Run(ctx context.Context) (*Stat, error) {
+	if s, err := c.Conveyor.Run(ctx); err != nil {
+		return s, err
 	} else {
-		err = c.svc.createJobLogsMetadata(ctx, r.Lines)
-		return r, err
+		err = c.svc.createJobLogsMetadata(ctx, s.Lines)
+		return s, err
 	}
 }
 
@@ -226,11 +226,11 @@ type resultStepSummaryUploader struct {
 	stepUid string
 }
 
-func (u *resultStepSummaryUploader) Upload(ctx context.Context, r io.Reader, size int64) error {
-	if err := u.Uploader.Upload(ctx, r, size); err != nil {
+func (u *resultStepSummaryUploader) Upload(ctx context.Context, r io.Reader, stat *Stat) error {
+	if err := u.Uploader.Upload(ctx, r, stat); err != nil {
 		return err
 	}
-	return u.svc.createStepSummaryMetadata(ctx, u.stepUid, size)
+	return u.svc.createStepSummaryMetadata(ctx, u.stepUid, stat.Size)
 }
 
 func (s *ResultService) getStepSummarySignedUrl(ctx context.Context, stepUid string) (SignedUrlResponse, error) {

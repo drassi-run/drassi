@@ -58,7 +58,7 @@ type jobLogUploader struct {
 	recordId string
 }
 
-func (u *jobLogUploader) Upload(ctx context.Context, r io.Reader, size int64) error {
+func (u *jobLogUploader) Upload(ctx context.Context, r io.Reader, _ *Stat) error {
 	return u.svc.uploadLog(ctx, u.recordId, r)
 }
 
@@ -99,7 +99,7 @@ type jobAttachmentUploader struct {
 	recordId, kind, name string
 }
 
-func (u *jobAttachmentUploader) Upload(ctx context.Context, r io.Reader, size int64) error {
+func (u *jobAttachmentUploader) Upload(ctx context.Context, r io.Reader, _ *Stat) error {
 	return u.svc.uploadAttach(ctx, u.recordId, u.kind, u.name, r)
 }
 

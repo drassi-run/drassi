@@ -8,6 +8,11 @@ import (
 	"drassi.run/gha-runner/pkg/types"
 )
 
+type Stat struct {
+	Lines int64
+	Size  int64
+}
+
 ////////////// ResultService: Metadata Response for Create(Job/Step)Logs //////////////
 
 type metadataResponse struct {
