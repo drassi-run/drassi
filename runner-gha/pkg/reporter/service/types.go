@@ -13,6 +13,10 @@ type Stat struct {
 	Size  int64
 }
 
+func NewStat(lines int64, size int64) *Stat {
+	return &Stat{lines, size}
+}
+
 ////////////// ResultService: Metadata Response for Create(Job/Step)Logs //////////////
 
 type metadataResponse struct {
