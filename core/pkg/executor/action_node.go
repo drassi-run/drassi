@@ -85,7 +85,7 @@ func (e *nodeActionExecutor) StepExecutor() StepExecutor {
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionManifestManager.cs#L451-L471
-func (e *nodeActionExecutor) CreateRun(stage Stage) *ActionRun {
+func (e *nodeActionExecutor) CreateTask(stage Stage) *ActionTask {
 	var condition workflows.Conditional
 	switch stage {
 	case StagePre:
@@ -103,7 +103,7 @@ func (e *nodeActionExecutor) CreateRun(stage Stage) *ActionRun {
 		condition = "always()"
 	}
 
-	return &ActionRun{
+	return &ActionTask{
 		Run:       e.execute(stage),
 		Stage:     stage,
 		Executor:  e,
@@ -111,7 +111,7 @@ func (e *nodeActionExecutor) CreateRun(stage Stage) *ActionRun {
 	}
 }
 
-func (e *nodeActionExecutor) execute(stage Stage) ActionTask {
+func (e *nodeActionExecutor) execute(stage Stage) ActionRun {
 	return func(ctx context.Context) error {
 		e.addSpanAttrs(ctx, stage)
 

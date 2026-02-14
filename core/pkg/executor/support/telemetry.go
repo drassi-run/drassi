@@ -15,10 +15,10 @@ func NewTelemetry() *Telemetry {
 	return new(Telemetry)
 }
 
-func (t Telemetry) DecorateActionRun(action *executor.ActionRun) executor.ActionTask {
-	stepId := action.StepId()
-	stage := action.Stage
-	run := action.Run
+func (t *Telemetry) DecorateActionRun(task *executor.ActionTask) executor.ActionRun {
+	stepId := task.StepId()
+	stage := task.Stage
+	run := task.Run
 	return func(ctx context.Context) (err error) {
 		ctx, done := xotel.SetupTelemetry(ctx,
 			fmt.Sprintf("ActionRun(%s, %s)", stepId, stage),
@@ -28,10 +28,10 @@ func (t Telemetry) DecorateActionRun(action *executor.ActionRun) executor.Action
 	}
 }
 
-func (t Telemetry) DecorateStepRun(step *executor.StepRun) executor.StepTask {
-	stepId := step.StepId()
-	stage := step.Stage
-	run := step.Run
+func (t *Telemetry) DecorateStepRun(task *executor.StepTask) executor.StepRun {
+	stepId := task.StepId()
+	stage := task.Stage
+	run := task.Run
 	return func(ctx context.Context) (_ *records.Step, err error) {
 		ctx, done := xotel.SetupTelemetry(ctx,
 			fmt.Sprintf("StepRun(%s, %s)", stepId, stage),
@@ -42,10 +42,10 @@ func (t Telemetry) DecorateStepRun(step *executor.StepRun) executor.StepTask {
 	}
 }
 
-func (t Telemetry) DecorateJobRun(job *executor.JobRun) executor.JobTask {
-	jobId := job.JobId()
-	stage := job.Stage
-	run := job.Run
+func (t *Telemetry) DecorateJobRun(task *executor.JobTask) executor.JobRun {
+	jobId := task.JobId()
+	stage := task.Stage
+	run := task.Run
 	return func(ctx context.Context) (_ *records.Job, err error) {
 		ctx, done := xotel.SetupTelemetry(ctx,
 			fmt.Sprintf("JobRun(%s, %s)", jobId, stage),

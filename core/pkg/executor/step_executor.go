@@ -30,7 +30,7 @@ type StepExecutor interface {
 	Parent() StepExecutor
 	JobExecutor() JobExecutor
 	ActionExecutor() ActionExecutor
-	CreateRun(stage Stage) *StepRun
+	CreateTask(stage Stage) *StepTask
 
 	State() *records.Step
 	Status() records.Result
@@ -50,28 +50,28 @@ func Root(exec StepExecutor) StepExecutor {
 	return exec
 }
 
-type StepRun struct {
-	Run      StepTask
+type StepTask struct {
+	Run      StepRun
 	Stage    Stage
 	Executor StepExecutor
 }
 
-func (r *StepRun) StepId() string {
-	return r.StepSpec().Id
+func (t *StepTask) StepId() string {
+	return t.StepSpec().Id
 }
 
-func (r *StepRun) StepSpec() *StepSpec {
-	return r.Executor.StepSpec()
+func (t *StepTask) StepSpec() *StepSpec {
+	return t.Executor.StepSpec()
 }
 
-func (r *StepRun) JobSpec() *JobSpec {
-	return r.Executor.JobExecutor().JobSpec()
+func (t *StepTask) JobSpec() *JobSpec {
+	return t.Executor.JobExecutor().JobSpec()
 }
 
-type StepTask func(context.Context) (*records.Step, error)
+type StepRun func(context.Context) (*records.Step, error)
 
 type StepRunDecorator interface {
-	DecorateStepRun(*StepRun) StepTask
+	DecorateStepRun(*StepTask) StepRun
 }
 
 type stepExecutor struct {
@@ -179,18 +179,18 @@ func (e *stepExecutor) init(ctx context.Context, scope *dig.Scope) (ex error) {
 	return nil
 }
 
-func (e *stepExecutor) CreateRun(stage Stage) *StepRun {
-	action := e.aExec.CreateRun(stage)
-	if action == nil {
+func (e *stepExecutor) CreateTask(stage Stage) *StepTask {
+	task := e.aExec.CreateTask(stage)
+	if task == nil {
 		return nil
 	}
 	if stage == StageMain {
-		action.Condition = e.spec.Condition
+		task.Condition = e.spec.Condition
 	}
-	action.Run = e.decorator.DecorateActionRun(action)
+	task.Run = e.decorator.DecorateActionRun(task)
 
 	run := func(ctx context.Context) (*records.Step, error) {
-		err := e.runAction(ctx, action)
+		err := e.runAction(ctx, task)
 		if e.step.Outcome == "" {
 			if err != nil {
 				e.SetStatus(records.ResultFailure)
@@ -203,14 +203,14 @@ func (e *stepExecutor) CreateRun(stage Stage) *StepRun {
 		}
 		return e.step, err
 	}
-	return &StepRun{
+	return &StepTask{
 		Run:      run,
 		Stage:    stage,
 		Executor: e,
 	}
 }
 
-func (e *stepExecutor) runAction(ctx context.Context, action *ActionRun) error {
+func (e *stepExecutor) runAction(ctx context.Context, action *ActionTask) error {
 	s := scribe.FromContext(ctx)
 	displayName := "displayName" // TODO evaluate displayName
 

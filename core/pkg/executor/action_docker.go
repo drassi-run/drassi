@@ -106,7 +106,7 @@ func (e *dockerActionExecutor) PathTranslator() runtime.PathTranslator {
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionManifestManager.cs#L430-L450
-func (e *dockerActionExecutor) CreateRun(stage Stage) *ActionRun {
+func (e *dockerActionExecutor) CreateTask(stage Stage) *ActionTask {
 	var condition workflows.Conditional
 	switch stage {
 	case StagePre:
@@ -124,7 +124,7 @@ func (e *dockerActionExecutor) CreateRun(stage Stage) *ActionRun {
 		condition = "always()"
 	}
 
-	return &ActionRun{
+	return &ActionTask{
 		Run:       e.execute(stage),
 		Stage:     stage,
 		Executor:  e,
@@ -133,7 +133,7 @@ func (e *dockerActionExecutor) CreateRun(stage Stage) *ActionRun {
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/Handlers/ContainerActionHandler.cs#L22
-func (e *dockerActionExecutor) execute(stage Stage) ActionTask {
+func (e *dockerActionExecutor) execute(stage Stage) ActionRun {
 	return func(ctx context.Context) error {
 		e.addSpanAttrs(ctx)
 

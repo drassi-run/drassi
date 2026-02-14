@@ -20,9 +20,9 @@ func NewCommandDecorator(cmdMgr command.FileManager) *CommandDecorator {
 	return &CommandDecorator{cmdMgr}
 }
 
-func (c *CommandDecorator) DecorateActionRun(action *executor.ActionRun) executor.ActionTask {
-	stepId := action.StepId()
-	run := action.Run
+func (c *CommandDecorator) DecorateActionRun(task *executor.ActionTask) executor.ActionRun {
+	stepId := task.StepId()
+	run := task.Run
 	return func(ctx context.Context) error {
 		if err := c.cmdMgr.Initialize(ctx, stepId); err != nil {
 			return err
@@ -34,13 +34,13 @@ func (c *CommandDecorator) DecorateActionRun(action *executor.ActionRun) executo
 	}
 }
 
-func (c *CommandDecorator) DecorateJobRun(job *executor.JobRun) executor.JobTask {
-	if job.Stage != executor.StagePre {
-		return job.Run
+func (c *CommandDecorator) DecorateJobRun(task *executor.JobTask) executor.JobRun {
+	if task.Stage != executor.StagePre {
+		return task.Run
 	}
 
 	// decorator for Initialize job
-	run := job.Run
+	run := task.Run
 	var scope *dig.Scope //TODO
 	return func(ctx context.Context) (res *records.Job, err error) {
 		if res, err = run(ctx); err != nil {

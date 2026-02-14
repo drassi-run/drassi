@@ -77,11 +77,11 @@ func (e *scriptActionExecutor) StepExecutor() StepExecutor {
 	return e.sExec
 }
 
-func (e *scriptActionExecutor) CreateRun(stage Stage) *ActionRun {
+func (e *scriptActionExecutor) CreateTask(stage Stage) *ActionTask {
 	if stage != StageMain {
 		return nil
 	}
-	return &ActionRun{
+	return &ActionTask{
 		Run:      e.executeMain,
 		Stage:    stage,
 		Executor: e,

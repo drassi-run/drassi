@@ -48,24 +48,24 @@ type JobExecutor interface {
 	SystemPaths() []string
 }
 
-type JobRun struct {
-	Run      JobTask
+type JobTask struct {
+	Run      JobRun
 	Stage    Stage
 	Executor JobExecutor
 }
 
-func (r *JobRun) JobId() string {
-	return r.JobSpec().Id
+func (t *JobTask) JobId() string {
+	return t.JobSpec().Id
 }
 
-func (r *JobRun) JobSpec() *JobSpec {
-	return r.Executor.JobSpec()
+func (t *JobTask) JobSpec() *JobSpec {
+	return t.Executor.JobSpec()
 }
 
-type JobTask func(context.Context) (*records.Job, error)
+type JobRun func(context.Context) (*records.Job, error)
 
 type JobRunDecorator interface {
-	DecorateJobRun(*JobRun) JobTask
+	DecorateJobRun(*JobTask) JobRun
 }
 
 type jobExecutor struct {
@@ -379,30 +379,30 @@ func (e *jobExecutor) planStage(stage Stage) func(context.Context) error {
 	if stage == StagePost {
 		slices.Reverse(ids) // in-place reverse
 	}
-	runs := make([]*StepRun, len(ids))
+	tasks := make([]*StepTask, len(ids))
 	for i, id := range ids {
 		cExec := e.children[id]
-		stepRun := cExec.CreateRun(stage)
-		if stepRun != nil {
-			stepRun.Run = e.decorator.DecorateStepRun(stepRun)
+		task := cExec.CreateTask(stage)
+		if task != nil {
+			task.Run = e.decorator.DecorateStepRun(task)
 		}
-		runs[i] = stepRun
+		tasks[i] = task
 	}
 
 	// all runs are nil
-	if !slices.ContainsFunc(runs, func(r *StepRun) bool { return r != nil }) {
+	if !slices.ContainsFunc(tasks, func(t *StepTask) bool { return t != nil }) {
 		return nil
 	}
 
 	// 2. Execute the plan
 	return func(ctx context.Context) error {
-		for i, stepRun := range runs {
-			if stepRun == nil {
+		for i, task := range tasks {
+			if task == nil {
 				continue
 			}
 
 			id := ids[i]
-			res, err := stepRun.Run(ctx)
+			res, err := task.Run(ctx)
 			// Only set `steps` records in `main` stage & `id` is user specified
 			if stage == StageMain && !strings.HasPrefix(id, "__") {
 				e.steps[id] = res

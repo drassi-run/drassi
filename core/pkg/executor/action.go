@@ -20,30 +20,30 @@ type ActionSpec interface {
 type ActionExecutor interface {
 	ActionSpec() ActionSpec
 	StepExecutor() StepExecutor
-	CreateRun(stage Stage) *ActionRun
+	CreateTask(stage Stage) *ActionTask
 }
 
-type ActionRun struct {
-	Run       ActionTask
+type ActionTask struct {
+	Run       ActionRun
 	Stage     Stage
 	Executor  ActionExecutor
 	Condition workflows.Conditional
 }
 
-func (r *ActionRun) StepId() string {
-	return r.StepSpec().Id
+func (t *ActionTask) StepId() string {
+	return t.StepSpec().Id
 }
 
-func (r *ActionRun) ActionSpec() ActionSpec {
-	return r.Executor.ActionSpec()
+func (t *ActionTask) ActionSpec() ActionSpec {
+	return t.Executor.ActionSpec()
 }
 
-func (r *ActionRun) StepSpec() *StepSpec {
-	return r.Executor.StepExecutor().StepSpec()
+func (t *ActionTask) StepSpec() *StepSpec {
+	return t.Executor.StepExecutor().StepSpec()
 }
 
-func (r *ActionRun) JobSpec() *JobSpec {
-	return r.Executor.StepExecutor().JobExecutor().JobSpec()
+func (t *ActionTask) JobSpec() *JobSpec {
+	return t.Executor.StepExecutor().JobExecutor().JobSpec()
 }
 
 type Stage string
@@ -54,8 +54,8 @@ const (
 	StagePost Stage = "post"
 )
 
-type ActionTask func(context.Context) error
+type ActionRun func(context.Context) error
 
 type ActionRunDecorator interface {
-	DecorateActionRun(*ActionRun) ActionTask
+	DecorateActionRun(*ActionTask) ActionRun
 }

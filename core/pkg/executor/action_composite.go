@@ -106,7 +106,7 @@ func (e *compositeActionExecutor) StepExecutor() StepExecutor {
 	return e.sExec
 }
 
-func (e *compositeActionExecutor) CreateRun(stage Stage) *ActionRun {
+func (e *compositeActionExecutor) CreateTask(stage Stage) *ActionTask {
 	// 1. Plan the execution
 	ids := make([]string, len(e.spec.Steps))
 	for i, step := range e.spec.Steps {
@@ -115,34 +115,34 @@ func (e *compositeActionExecutor) CreateRun(stage Stage) *ActionRun {
 	if stage == StagePost {
 		slices.Reverse(ids) // in-place reverse
 	}
-	runs := make([]*StepRun, len(ids))
+	tasks := make([]*StepTask, len(ids))
 	for i, id := range ids {
 		cExec := e.children[id]
-		stepRun := cExec.CreateRun(stage)
-		if stepRun != nil {
-			stepRun.Run = e.decorator.DecorateStepRun(stepRun)
+		task := cExec.CreateTask(stage)
+		if task != nil {
+			task.Run = e.decorator.DecorateStepRun(task)
 		}
-		runs[i] = stepRun
+		tasks[i] = task
 	}
 
 	// all runs are nil
-	if !slices.ContainsFunc(runs, func(r *StepRun) bool { return r != nil }) {
+	if !slices.ContainsFunc(tasks, func(t *StepTask) bool { return t != nil }) {
 		return nil
 	}
 
 	// 2. Execute the plan
-	taskRun := func(ctx context.Context) error {
+	run := func(ctx context.Context) error {
 		if err := e.computeInputs(); err != nil {
 			return err
 		}
 
-		for i, stepRun := range runs {
-			if stepRun == nil {
+		for i, task := range tasks {
+			if task == nil {
 				continue
 			}
 
 			id := ids[i]
-			res, err := stepRun.Run(ctx)
+			res, err := task.Run(ctx)
 			if res != nil && res.Conclusion == records.ResultFailure {
 				clog.WarnContextf(ctx, "set step.Outcome='failure' because of step %s failed", id)
 				e.sExec.SetStatus(records.ResultFailure)
@@ -161,8 +161,8 @@ func (e *compositeActionExecutor) CreateRun(stage Stage) *ActionRun {
 		condition = "always()"
 	}
 
-	return &ActionRun{
-		Run:       taskRun,
+	return &ActionTask{
+		Run:       run,
 		Stage:     stage,
 		Executor:  e,
 		Condition: condition,

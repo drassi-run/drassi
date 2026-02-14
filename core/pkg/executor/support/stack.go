@@ -37,22 +37,22 @@ func (s *Stack) CurrentStep() (executor.Stage, executor.StepExecutor) {
 	return "", nil
 }
 
-func (s *Stack) DecorateJobRun(job *executor.JobRun) executor.JobTask {
-	run := job.Run
+func (s *Stack) DecorateJobRun(task *executor.JobTask) executor.JobRun {
+	run := task.Run
 	return func(ctx context.Context) (*records.Job, error) {
 		prev := s.job
-		s.job = xtypes.NewPair(job.Stage, job.Executor)
+		s.job = xtypes.NewPair(task.Stage, task.Executor)
 		defer func() { s.job = prev }()
 
 		return run(ctx)
 	}
 }
 
-func (s *Stack) DecorateStepRun(step *executor.StepRun) executor.StepTask {
-	run := step.Run
+func (s *Stack) DecorateStepRun(task *executor.StepTask) executor.StepRun {
+	run := task.Run
 	return func(ctx context.Context) (*records.Step, error) {
 		prev := s.currStep
-		s.currStep = xtypes.NewPair(step.Stage, step.Executor)
+		s.currStep = xtypes.NewPair(task.Stage, task.Executor)
 		defer func() { s.currStep = prev }()
 
 		return run(ctx)
