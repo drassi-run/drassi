@@ -17,6 +17,7 @@ import (
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/scribe"
 	"drassi.run/core/pkg/store/repository"
+	"drassi.run/core/pkg/stream"
 	"drassi.run/core/util/dig"
 	semconv "go.opentelemetry.io/otel/semconv/v1.27.0"
 	"go.opentelemetry.io/otel/trace"
@@ -65,12 +66,16 @@ type dockerActionExecutor struct {
 
 	// injected values
 	runtime runtime.Container
+	streams stream.Streams
 	exprEnv expression.Env
 	repo    *repository.Repository
 }
 
 func (e *dockerActionExecutor) init(ctx context.Context, scope *dig.Scope) error {
 	if err := xdig.Populate(scope, &e.runtime); err != nil {
+		return err
+	}
+	if err := xdig.Populate(scope, &e.streams); err != nil {
 		return err
 	}
 	if err := xdig.Populate(scope, &e.exprEnv); err != nil {
@@ -166,7 +171,7 @@ func (e *dockerActionExecutor) execute(stage Stage) ActionRun {
 			env["INPUT_"+k] = v
 		}
 
-		return e.runtime.Run(ctx, e.resolvedImage, entrypoint, args, env)
+		return e.runtime.Run(ctx, e.resolvedImage, entrypoint, args, env, e.streams)
 	}
 }
 

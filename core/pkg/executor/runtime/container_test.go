@@ -8,13 +8,14 @@ package runtime
 
 import (
 	"context"
+	"testing"
+
 	mock_container "drassi.run/core/mock/container"
 	"drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/container/types"
 	. "drassi.run/core/util/types"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
-	"testing"
 )
 
 func TestNewContainerRuntime(t *testing.T) {
@@ -28,14 +29,14 @@ func testNewContainerRuntime_MountDuplicated(t *testing.T) {
 		{Key: "/abc", Value: &types.Mount{Target: "/unique1"}},
 		{Key: "/abc/", Value: &types.Mount{Target: "/unique2"}},
 	}
-	_, err := NewContainerRuntime(nil, nil, WithMounts(dupSandboxPath))
+	_, err := NewContainerRuntime(nil, WithMounts(dupSandboxPath))
 	assert.ErrorContains(t, err, "found duplicate sandbox mount at")
 
 	dupContainerPath := []Pair[string, *types.Mount]{
 		{Key: "/unique1", Value: &types.Mount{Target: "/abc"}},
 		{Key: "/unique2", Value: &types.Mount{Target: "/abc/"}},
 	}
-	_, err = NewContainerRuntime(nil, nil, WithMounts(dupContainerPath))
+	_, err = NewContainerRuntime(nil, WithMounts(dupContainerPath))
 	assert.ErrorContains(t, err, "found duplicate container mount at")
 }
 
@@ -64,7 +65,7 @@ var mounts = []Pair[string, *types.Mount]{
 
 //goland:noinspection GoSnakeCaseUsage
 func testNewContainerRuntime_MountSorted(t *testing.T) {
-	r, err := NewContainerRuntime(nil, nil, WithMounts(mounts))
+	r, err := NewContainerRuntime(nil, WithMounts(mounts))
 	assert.Nil(t, err)
 
 	rt := r.(*containerRuntime)
@@ -79,7 +80,7 @@ func testNewContainerRuntime_MountSorted(t *testing.T) {
 }
 
 func TestContainerTranslatePath(t *testing.T) {
-	rt, err := NewContainerRuntime(nil, nil, WithMounts(mounts))
+	rt, err := NewContainerRuntime(nil, WithMounts(mounts))
 	assert.Nil(t, err)
 
 	t.Run("exact-match", func(t *testing.T) {
@@ -132,7 +133,7 @@ func TestContainerRun(t *testing.T) {
 	labels := map[string]string{"label": "value"}
 	workdir := "/path/to/workdir"
 	network := "net01"
-	rt, err := NewContainerRuntime(engine, nil,
+	rt, err := NewContainerRuntime(engine,
 		WithLabels(labels),
 		WithWorkDir(workdir),
 		WithNetwork(network),
@@ -177,6 +178,6 @@ func TestContainerRun(t *testing.T) {
 			return "container_id", nil
 		})
 
-	err = rt.Run(ctx, image, entrypoint, cmd, env)
+	err = rt.Run(ctx, image, entrypoint, cmd, env, nil)
 	assert.NoError(t, err)
 }

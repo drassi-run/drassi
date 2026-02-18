@@ -41,7 +41,6 @@ type Engine interface {
 type PullOptions struct {
 	PullPolicy   string // "always", "missing" (default), "never"
 	RegistryAuth RegistryAuth
-	Streams      stream.Streams
 }
 
 type BuildOptions struct {

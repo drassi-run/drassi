@@ -295,15 +295,14 @@ func (w *Worker) Cancel(cause error) {
 }
 
 func newContainerRuntime(ctx context.Context, gh *records.Github) func(
-	container.Engine, stream.Streams, sandboxer.Sandbox, *records.JobInfo,
+	container.Engine, sandboxer.Sandbox, *records.JobInfo,
 ) (runtime.Container, error) {
 	return func(
 		engine container.Engine,
-		streams stream.Streams,
 		sandbox sandboxer.Sandbox,
 		info *records.JobInfo,
 	) (runtime.Container, error) {
-		return wire_runtime.NewContainerRuntime(ctx, engine, streams, sandbox, info, gh)
+		return wire_runtime.NewContainerRuntime(ctx, engine, sandbox, info, gh)
 	}
 }
 
