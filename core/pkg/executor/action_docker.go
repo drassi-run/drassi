@@ -25,6 +25,7 @@ import (
 )
 
 type DockerActionSpec struct {
+	Repo    *repository.Repository
 	Inputs  workflows.Evaluable[map[string]string]
 	Outputs workflows.Evaluable[map[string]string]
 	Env     workflows.Evaluable[map[string]string]
@@ -68,7 +69,6 @@ type dockerActionExecutor struct {
 	runtime runtime.Container
 	streams stream.Streams
 	exprEnv expression.Env
-	repo    *repository.Repository
 }
 
 func (e *dockerActionExecutor) init(ctx context.Context, scope *dig.Scope) error {
@@ -79,9 +79,6 @@ func (e *dockerActionExecutor) init(ctx context.Context, scope *dig.Scope) error
 		return err
 	}
 	if err := xdig.Populate(scope, &e.exprEnv); err != nil {
-		return err
-	}
-	if err := xdig.Populate(scope, &e.repo); err != nil {
 		return err
 	}
 	defer e.addSpanAttrs(ctx)
@@ -225,14 +222,14 @@ func (e *dockerActionExecutor) addSpanAttrs(ctx context.Context) {
 }
 
 func (e *dockerActionExecutor) repr() string {
-	str := "node action"
+	str := "docker action"
 	if e.resolvedImage != "" {
 		str += fmt.Sprintf(" with image=%q", e.resolvedImage)
 	} else {
 		str += fmt.Sprintf(" with Dockerfile=%q", e.spec.Image)
 	}
-	if e.repo != nil {
-		str += fmt.Sprintf(" from %q", repository.Location(e.repo))
+	if repo := e.spec.Repo; repo != nil {
+		str += fmt.Sprintf(" from %q", repository.Location(repo))
 	}
 	return str
 }

@@ -151,7 +151,7 @@ func (spec *ReferenceActionSpec) loadActionManifest(r io.ReadCloser) (ActionSpec
 		return nil, err
 	}
 
-	return ToActionSpec(action)
+	return ToActionSpec(action, spec.Repo)
 }
 
 func (spec *ReferenceActionSpec) createDockerfileAction(dockerfile string) (ActionSpec, error) {

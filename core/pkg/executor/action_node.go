@@ -26,6 +26,7 @@ import (
 )
 
 type NodeActionSpec struct {
+	Repo    *repository.Repository
 	Inputs  workflows.Evaluable[map[string]string]
 	Outputs workflows.Evaluable[map[string]string]
 
@@ -57,7 +58,6 @@ type nodeActionExecutor struct {
 	exprEnv expression.Env
 	sandbox sandboxer.Sandbox
 	streams stream.Streams
-	repo    *repository.Repository
 }
 
 func (e *nodeActionExecutor) init(_ context.Context, scope *dig.Scope) error {
@@ -68,9 +68,6 @@ func (e *nodeActionExecutor) init(_ context.Context, scope *dig.Scope) error {
 		return err
 	}
 	if err := xdig.Populate(scope, &e.streams); err != nil {
-		return err
-	}
-	if err := xdig.Populate(scope, &e.repo); err != nil {
 		return err
 	}
 	return nil
@@ -152,7 +149,7 @@ func (e *nodeActionExecutor) computeScriptPath(stage Stage) string {
 	}
 
 	layout := e.sandbox.Layout()
-	scriptPath := filepath.Join(layout.Actions, repository.Location(e.repo), script)
+	scriptPath := filepath.Join(layout.Actions, repository.Location(e.spec.Repo), script)
 	return scriptPath
 }
 
@@ -173,5 +170,5 @@ func (e *nodeActionExecutor) addSpanAttrs(ctx context.Context, stage Stage) {
 }
 
 func (e *nodeActionExecutor) repr() string {
-	return fmt.Sprintf("node action from %q", repository.Location(e.repo))
+	return fmt.Sprintf("node action from %q", repository.Location(e.spec.Repo))
 }

@@ -16,12 +16,14 @@ import (
 	"drassi.run/core/pkg/expression/libraries"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/model/workflows"
+	"drassi.run/core/pkg/store/repository"
 	"drassi.run/core/util/dig"
 	"github.com/chainguard-dev/clog"
 	"go.uber.org/dig"
 )
 
 type CompositeActionSpec struct {
+	Repo    *repository.Repository
 	Inputs  workflows.Evaluable[map[string]string]
 	Outputs workflows.Evaluable[map[string]string]
 

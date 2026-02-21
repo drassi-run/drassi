@@ -103,11 +103,12 @@ func ToStepSpec(step workflows.Step) *StepSpec {
 	return spec
 }
 
-func ToActionSpec(action *actions.Action) (ActionSpec, error) {
+func ToActionSpec(action *actions.Action, repo *repository.Repository) (ActionSpec, error) {
 	var spec ActionSpec
 	switch r := action.Runs.(type) {
 	case *actions.NodeRuns:
 		spec = &NodeActionSpec{
+			Repo:    repo,
 			Inputs:  inputToken(action.Inputs),
 			Outputs: outputToken(action.Outputs),
 
@@ -120,6 +121,7 @@ func ToActionSpec(action *actions.Action) (ActionSpec, error) {
 		}
 	case *actions.DockerRuns:
 		spec = &DockerActionSpec{
+			Repo:    repo,
 			Inputs:  inputToken(action.Inputs),
 			Outputs: outputToken(action.Outputs),
 			Env:     r.Env,
@@ -136,6 +138,7 @@ func ToActionSpec(action *actions.Action) (ActionSpec, error) {
 		stepRuns := fromSteps(r.Steps)
 
 		spec = &CompositeActionSpec{
+			Repo:    repo,
 			Inputs:  inputToken(action.Inputs),
 			Outputs: outputToken(action.Outputs),
 
