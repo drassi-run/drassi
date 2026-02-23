@@ -31,11 +31,11 @@ import (
 	"drassi.run/core/wire/etc"
 	"drassi.run/core/wire/runtime"
 	"drassi.run/core/wire/streams"
-	"drassi.run/gha-runner/pkg/chunk"
 	"drassi.run/gha-runner/pkg/lease"
 	"drassi.run/gha-runner/pkg/messages"
 	"drassi.run/gha-runner/pkg/report"
 	"drassi.run/gha-runner/pkg/reporter"
+	"drassi.run/gha-runner/pkg/types"
 	"go.uber.org/dig"
 	"golang.org/x/oauth2"
 )
@@ -52,7 +52,7 @@ type Worker struct {
 
 	exec     executor.JobExecutor
 	cleaners []func(ctx context.Context) error
-	waiters  []chunk.Waiter
+	waiters  []types.Waiter
 }
 
 func New(msg *messages.PipelineAgentJobRequest) *Worker {

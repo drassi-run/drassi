@@ -12,6 +12,10 @@ import (
 	"drassi.run/gha-runner/pkg/dotnet"
 )
 
+type Waiter interface {
+	Wait()
+}
+
 type List[T any] struct {
 	Count int `json:"count"`
 	Value []T `json:"value"`
