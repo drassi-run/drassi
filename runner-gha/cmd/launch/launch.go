@@ -21,7 +21,7 @@ import (
 	"drassi.run/core/util/dig"
 	"drassi.run/core/util/oauth2/clientcredentials"
 	ghav1a1 "drassi.run/gha-runner/pkg/apis/v1alpha1"
-	"drassi.run/gha-runner/pkg/holder"
+	"drassi.run/gha-runner/pkg/lease"
 	"drassi.run/gha-runner/pkg/listener"
 	"drassi.run/gha-runner/pkg/messages"
 	"drassi.run/gha-runner/pkg/worker"
@@ -247,7 +247,7 @@ func (l *launcher) cancelJob(ctx context.Context, msg *messages.JobCancel) error
 func (l *launcher) requestRunnerJob(ctx context.Context, msg *messages.RunnerJobRequest) error {
 	var req *messages.PipelineAgentJobRequest = nil
 	if url := msg.RunServiceUrl; url != "" {
-		if svc, err := holder.NewRunService(url, l.hc); err != nil {
+		if svc, err := lease.NewRunService(url, l.hc); err != nil {
 			return err
 		} else if req, err = svc.AcquireJob(ctx, msg.RunnerRequestId, msg.BillingOwnerId); err != nil {
 			return err
@@ -255,7 +255,7 @@ func (l *launcher) requestRunnerJob(ctx context.Context, msg *messages.RunnerJob
 	} else {
 		url = l.Runner.Spec.ServerUrl
 		groupId := l.Runner.Spec.GroupId
-		if svc, err := holder.NewRunnerService(url, l.hc, groupId); err != nil {
+		if svc, err := lease.NewRunnerService(url, l.hc, groupId); err != nil {
 			return err
 		} else if req, err = svc.AcquireJob(ctx, msg.RunnerRequestId); err != nil {
 			return err

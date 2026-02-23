@@ -1,4 +1,4 @@
-package service
+package report
 
 import (
 	"context"

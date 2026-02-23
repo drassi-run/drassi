@@ -9,25 +9,25 @@ import (
 	"drassi.run/core/util/context"
 	"drassi.run/core/util/otel"
 	"drassi.run/gha-runner/pkg/log"
-	"drassi.run/gha-runner/pkg/service"
+	"drassi.run/gha-runner/pkg/report"
 )
 
-func NewJobServiceLogSubscriber(svc *service.JobService, context xcontext.Provider) Subscriber {
+func NewJobServiceLogSubscriber(svc *report.JobService, context xcontext.Provider) Subscriber {
 	return &jobServiceLogSubscriber{
 		svc: svc,
 		ctx: context.Context(),
-		ups: make(map[string]service.Uploader),
+		ups: make(map[string]report.Uploader),
 	}
 }
 
 type jobServiceLogSubscriber struct {
-	svc *service.JobService
+	svc *report.JobService
 	ctx context.Context
 
 	mu sync.Mutex
 	wg sync.WaitGroup
 
-	ups map[string]service.Uploader
+	ups map[string]report.Uploader
 }
 
 func (s *jobServiceLogSubscriber) Run(ch <-chan *log.Event) {
@@ -48,7 +48,7 @@ func (s *jobServiceLogSubscriber) Run(ch <-chan *log.Event) {
 	}
 }
 
-func (s *jobServiceLogSubscriber) uploader(sr executor.StepRun) service.Uploader {
+func (s *jobServiceLogSubscriber) uploader(sr executor.StepRun) report.Uploader {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -79,7 +79,7 @@ func (s *jobServiceLogSubscriber) handle(e *log.Event) {
 		defer f.Close()
 	}
 
-	stat := service.NewStat(d.Line, d.Size)
+	stat := report.NewStat(d.Line, d.Size)
 	if err = u.Upload(ctx, f, stat); err != nil {
 		logger.Errorf("error uploading file %s: %s", d.File, err)
 	}

@@ -8,26 +8,26 @@ import (
 	"drassi.run/core/util/context"
 	"drassi.run/core/util/otel"
 	"drassi.run/gha-runner/pkg/log"
-	"drassi.run/gha-runner/pkg/service"
+	"drassi.run/gha-runner/pkg/report"
 	"github.com/chainguard-dev/clog"
 )
 
-func NewResultServiceStepLogSubscriber(svc *service.ResultService, context xcontext.Provider) Subscriber {
+func NewResultServiceStepLogSubscriber(svc *report.ResultService, context xcontext.Provider) Subscriber {
 	return &resultServiceStepLogSubscriber{
 		svc:  svc,
 		ctx:  context.Context(),
-		cons: make(map[string]service.Conveyor),
+		cons: make(map[string]report.Conveyor),
 	}
 }
 
 type resultServiceStepLogSubscriber struct {
-	svc *service.ResultService
+	svc *report.ResultService
 	ctx context.Context
 
 	mu sync.Mutex
 	wg sync.WaitGroup
 
-	cons map[string]service.Conveyor
+	cons map[string]report.Conveyor
 }
 
 func (s *resultServiceStepLogSubscriber) Run(ch <-chan *log.Event) {
@@ -46,7 +46,7 @@ func (s *resultServiceStepLogSubscriber) Run(ch <-chan *log.Event) {
 	}
 }
 
-func (s *resultServiceStepLogSubscriber) conveyor(sr executor.StepRun) service.Conveyor {
+func (s *resultServiceStepLogSubscriber) conveyor(sr executor.StepRun) report.Conveyor {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -66,7 +66,7 @@ func (s *resultServiceStepLogSubscriber) conveyor(sr executor.StepRun) service.C
 	return c
 }
 
-func (s *resultServiceStepLogSubscriber) run(stepId string, c service.Conveyor) {
+func (s *resultServiceStepLogSubscriber) run(stepId string, c report.Conveyor) {
 	ctx, logger := xotel.ChildLogger(s.ctx,
 		xotel.ToSlogAttrs(xotel.DrassiStep(stepId)),
 	)
@@ -82,7 +82,7 @@ func (s *resultServiceStepLogSubscriber) Wait() {
 	s.wg.Wait()
 }
 
-func NewResultServiceJobLogSubscriber(svc *service.ResultService, context xcontext.Provider) Subscriber {
+func NewResultServiceJobLogSubscriber(svc *report.ResultService, context xcontext.Provider) Subscriber {
 	return &resultServiceJobLogSubscriber{
 		svc: svc,
 		ctx: context.Context(),
@@ -90,13 +90,13 @@ func NewResultServiceJobLogSubscriber(svc *service.ResultService, context xconte
 }
 
 type resultServiceJobLogSubscriber struct {
-	svc *service.ResultService
+	svc *report.ResultService
 	ctx context.Context
 
 	mu sync.Mutex
 	wg sync.WaitGroup
 
-	con service.Conveyor
+	con report.Conveyor
 }
 
 func (s *resultServiceJobLogSubscriber) Run(ch <-chan *log.Event) {
@@ -111,7 +111,7 @@ func (s *resultServiceJobLogSubscriber) Run(ch <-chan *log.Event) {
 	}
 }
 
-func (s *resultServiceJobLogSubscriber) conveyor() service.Conveyor {
+func (s *resultServiceJobLogSubscriber) conveyor() report.Conveyor {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -130,7 +130,7 @@ func (s *resultServiceJobLogSubscriber) conveyor() service.Conveyor {
 	return c
 }
 
-func (s *resultServiceJobLogSubscriber) run(c service.Conveyor) {
+func (s *resultServiceJobLogSubscriber) run(c report.Conveyor) {
 	logger := clog.FromContext(s.ctx)
 
 	if r, err := c.Run(s.ctx); err != nil {

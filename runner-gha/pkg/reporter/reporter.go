@@ -7,12 +7,12 @@ import (
 
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/model/records"
-	"drassi.run/gha-runner/pkg/service"
+	"drassi.run/gha-runner/pkg/report"
 	"drassi.run/gha-runner/pkg/types"
 	"github.com/google/uuid"
 )
 
-func New(recorder service.TimelineRecorder) *GhaReporter {
+func New(recorder report.TimelineRecorder) *GhaReporter {
 	return &GhaReporter{
 		recorder: recorder,
 	}
@@ -23,7 +23,7 @@ type GhaReporter struct {
 	jobRecord *types.Record
 	records   []*types.Record
 
-	recorder service.TimelineRecorder
+	recorder report.TimelineRecorder
 }
 
 func (r *GhaReporter) JobRecord() *types.Record {

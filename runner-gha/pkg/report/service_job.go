@@ -1,4 +1,4 @@
-package service
+package report
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 	"drassi.run/core/pkg/executor/support"
 	"drassi.run/core/util/context"
 	"drassi.run/core/util/http"
-	"drassi.run/gha-runner/pkg/holder"
+	"drassi.run/gha-runner/pkg/lease"
 	"drassi.run/gha-runner/pkg/messages"
 	"drassi.run/gha-runner/pkg/types"
 	"github.com/coder/websocket"
@@ -238,7 +238,7 @@ func toTimelineRecord(parentId, timelineUid string, rec *types.Record) *record {
 	return r
 }
 
-func (s *JobService) WrapLease(l holder.Lease) holder.Lease {
+func (s *JobService) WrapLease(l lease.Lease) lease.Lease {
 	return &jobLeaseWrapper{
 		Lease: l,
 		svc:   s,
@@ -250,7 +250,7 @@ func (s *JobService) completeJob(ctx context.Context, record *types.Record) erro
 }
 
 type jobLeaseWrapper struct {
-	holder.Lease
+	lease.Lease
 	svc *JobService
 }
 

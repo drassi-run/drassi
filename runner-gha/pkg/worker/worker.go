@@ -26,32 +26,33 @@ import (
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/scribe"
 	"drassi.run/core/pkg/stream"
-	"drassi.run/core/util/context"
 	"drassi.run/core/util/dig"
 	"drassi.run/core/wire/cmdhandler"
 	"drassi.run/core/wire/etc"
 	"drassi.run/core/wire/runtime"
 	"drassi.run/core/wire/streams"
-	"drassi.run/gha-runner/pkg/holder"
+	"drassi.run/gha-runner/pkg/chunk"
+	"drassi.run/gha-runner/pkg/lease"
 	"drassi.run/gha-runner/pkg/messages"
+	"drassi.run/gha-runner/pkg/report"
 	"drassi.run/gha-runner/pkg/reporter"
-	"drassi.run/gha-runner/pkg/service"
 	"go.uber.org/dig"
 	"golang.org/x/oauth2"
 )
 
 type Worker struct {
 	msg       *messages.PipelineAgentJobRequest
-	runnerSvc *holder.RunnerService
+	runnerSvc *lease.RunnerService
 
 	ctx    context.Context
 	cancel context.CancelCauseFunc
 
-	lease    holder.Lease
+	lease    lease.Lease
 	reporter *reporter.GhaReporter
 
 	exec     executor.JobExecutor
 	cleaners []func(ctx context.Context) error
+	waiters  []chunk.Waiter
 }
 
 func New(msg *messages.PipelineAgentJobRequest) *Worker {
@@ -59,7 +60,7 @@ func New(msg *messages.PipelineAgentJobRequest) *Worker {
 }
 
 func (w *Worker) setup(scope *dig.Scope) error {
-	if err := w.initService(); err != nil {
+	if err := w.initService(scope); err != nil {
 		return err
 	}
 	if err := w.initScope(scope); err != nil {
@@ -75,7 +76,11 @@ func (w *Worker) setup(scope *dig.Scope) error {
 	return nil
 }
 
-func (w *Worker) initService() error {
+func (w *Worker) initService(scope *dig.Scope) error {
+	if err := xdig.Supply(scope, w.runnerSvc); err != nil {
+		return err
+	}
+
 	ep := w.msg.ServiceEndpoint("SystemVssConnection")
 	if ep == nil {
 		return fmt.Errorf("SystemVssConnection service endpoint not available")
@@ -90,26 +95,37 @@ func (w *Worker) initService() error {
 
 	switch typ := w.msg.MessageType; typ {
 	case messages.TypeRunnerJobRequest:
-		return w.initRunnerService(ep, hc)
+		return w.initRunnerService(ep, hc, scope)
 	case messages.TypePipelineAgentJobRequest:
-		return w.initPipelineAgentService(ep, hc)
+		return w.initPipelineAgentService(ep, hc, scope)
 	default:
 		return fmt.Errorf("PipelineAgentJobRequest - unknown message type: %s", typ)
 	}
 }
 
 // init services used to handle MessageType="RunnerJobRequest"
-func (w *Worker) initRunnerService(ep *messages.ServiceEndpoint, hc *http.Client) error {
-	if svc, err := holder.NewRunService(ep.Url, hc); err != nil {
+func (w *Worker) initRunnerService(ep *messages.ServiceEndpoint, hc *http.Client, scope *dig.Scope) error {
+	if svc, err := lease.NewRunService(ep.Url, hc); err != nil {
 		return err
 	} else {
+		if err = xdig.Supply(scope, svc); err != nil {
+			return err
+		}
+
 		w.lease = svc.Lease(w.msg)
 	}
 
 	if url := ep.Data["ResultsServiceUrl"]; url != "" {
-		if svc, err := service.NewResultService(url, hc, w.msg); err != nil {
+		if svc, err := report.NewResultService(url, hc, w.msg); err != nil {
 			return err
 		} else {
+			if err = xdig.Supply(scope, svc); err != nil {
+				return err
+			}
+			if err = provideResultServiceSubscribers(scope); err != nil {
+				return err
+			}
+
 			recorder := svc.TimelineRecorder()
 			w.reporter = reporter.New(recorder)
 		}
@@ -119,12 +135,19 @@ func (w *Worker) initRunnerService(ep *messages.ServiceEndpoint, hc *http.Client
 }
 
 // init services used to handle MessageType="PipelineAgentJobRequest"
-func (w *Worker) initPipelineAgentService(ep *messages.ServiceEndpoint, hc *http.Client) error {
+func (w *Worker) initPipelineAgentService(ep *messages.ServiceEndpoint, hc *http.Client, scope *dig.Scope) error {
 	w.lease = w.runnerSvc.Lease(w.msg)
 
-	if svc, err := service.NewJobService(ep.Url, hc, w.msg); err != nil {
+	if svc, err := report.NewJobService(ep.Url, hc, w.msg); err != nil {
 		return err
 	} else {
+		if err = xdig.Supply(scope, svc); err != nil {
+			return err
+		}
+		if err = provideJobServiceSubscribers(scope); err != nil {
+			return err
+		}
+
 		w.lease = svc.WrapLease(w.lease)
 
 		recorder := svc.TimelineRecorder()
@@ -233,13 +256,6 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 	if err := scope.Provide(command.NewConsoleManager); err != nil {
 		return err
 	}
-	sup := executor.NewSupervisor()
-	if err := xdig.Supply(scope, sup); err != nil {
-		return err
-	}
-	if err := xdig.Supply[xcontext.Provider](scope, sup); err != nil {
-		return err
-	}
 	if err := wire_cmdhandler.ProvideTo(scope); err != nil {
 		return err
 	}
@@ -247,9 +263,6 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 		return err
 	}
 	if err := wire_runtime.ProvideTo(scope); err != nil {
-		return err
-	}
-	if err := wire_streams.Wire(scope); err != nil {
 		return err
 	}
 	if err := etc.Wire(scope); err != nil {
@@ -289,7 +302,6 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 	} else if v, ok := req.Variables["system.github.results_endpoint"]; ok {
 		sysEnv["ACTIONS_RESULTS_URL"] = v.Value
 	}
-	sup.Register(executor.Env(sysEnv))
 
 	//hc := http.DefaultClient
 	//if source, err := sysCon.TokenSource(); err == nil && source != nil {
@@ -354,6 +366,8 @@ func (w *Worker) initExecutor(scope *dig.Scope) error {
 }
 
 func (w *Worker) Run(ctx context.Context, scope *dig.Scope) (err error) {
+	defer w.wait()
+
 	w.ctx, w.cancel = context.WithCancelCause(ctx)
 	defer w.cancel(nil)
 
@@ -379,6 +393,12 @@ func (w *Worker) Run(ctx context.Context, scope *dig.Scope) (err error) {
 		return fmt.Errorf("job failed")
 	}
 	return nil
+}
+
+func (w *Worker) wait() {
+	for _, waiter := range w.waiters {
+		waiter.Wait()
+	}
 }
 
 func (w *Worker) teardown() error {
