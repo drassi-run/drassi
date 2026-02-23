@@ -32,6 +32,7 @@ import (
 	"drassi.run/core/wire/runtime"
 	"drassi.run/core/wire/streams"
 	"drassi.run/gha-runner/pkg/lease"
+	"drassi.run/gha-runner/pkg/log"
 	"drassi.run/gha-runner/pkg/messages"
 	"drassi.run/gha-runner/pkg/report"
 	"drassi.run/gha-runner/pkg/types"
@@ -301,6 +302,17 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 		sysEnv["ACTIONS_RESULTS_URL"] = url
 	} else if v, ok := req.Variables["system.github.results_endpoint"]; ok {
 		sysEnv["ACTIONS_RESULTS_URL"] = v.Value
+	}
+
+	// TODO change basePath - log location
+	if lm, err := log.NewManager(""); err == nil {
+		return err
+	} else if err = xdig.Supply(scope, lm); err != nil {
+		return err
+	} else if err = xdig.Supply[stream.Handler](scope, lm); err != nil {
+		return err
+	} else if err = scope.Invoke(w.wireLogSubscribers); err != nil {
+		return err
 	}
 
 	//hc := http.DefaultClient

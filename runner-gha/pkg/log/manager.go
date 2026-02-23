@@ -23,6 +23,14 @@ type Event struct {
 	Data    *Update
 }
 
+func NewManager(basePath string) (*Manager, error) {
+	if err := os.MkdirAll(basePath, os.ModePerm); err != nil {
+		return nil, err
+	}
+	lm := &Manager{basePath: basePath}
+	return lm, nil
+}
+
 type Manager struct {
 	basePath string
 	stepRun  executor.StepRun

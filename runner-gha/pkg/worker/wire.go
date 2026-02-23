@@ -11,13 +11,13 @@ const LogSubscribers = "log-subscribers"
 type logSubscriberParams struct {
 	dig.In
 
-	lm   *log.Manager
-	subs []subscriber.Subscriber `group:"log-subscribers"`
+	LogManager  *log.Manager
+	Subscribers []subscriber.Subscriber `group:"log-subscriberscribers"`
 }
 
 func (w *Worker) wireLogSubscribers(p logSubscriberParams) {
-	for _, sub := range p.subs {
-		ch := p.lm.Subscribe()
+	for _, sub := range p.Subscribers {
+		ch := p.LogManager.Subscribe()
 		go sub.Run(ch)
 		w.waiters = append(w.waiters, sub)
 	}
