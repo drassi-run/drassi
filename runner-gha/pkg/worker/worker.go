@@ -34,8 +34,8 @@ import (
 	"drassi.run/gha-runner/pkg/lease"
 	"drassi.run/gha-runner/pkg/messages"
 	"drassi.run/gha-runner/pkg/report"
-	"drassi.run/gha-runner/pkg/reporter"
 	"drassi.run/gha-runner/pkg/types"
+	"drassi.run/gha-runner/pkg/x"
 	"go.uber.org/dig"
 	"golang.org/x/oauth2"
 )
@@ -48,7 +48,7 @@ type Worker struct {
 	cancel context.CancelCauseFunc
 
 	lease    lease.Lease
-	reporter *reporter.GhaReporter
+	reporter *x.GhaReporter
 
 	exec     executor.JobExecutor
 	cleaners []func(ctx context.Context) error
@@ -127,7 +127,7 @@ func (w *Worker) initRunnerService(ep *messages.ServiceEndpoint, hc *http.Client
 			}
 
 			recorder := svc.TimelineRecorder()
-			w.reporter = reporter.New(recorder)
+			w.reporter = x.New(recorder)
 		}
 	}
 
@@ -151,7 +151,7 @@ func (w *Worker) initPipelineAgentService(ep *messages.ServiceEndpoint, hc *http
 		w.lease = svc.WrapLease(w.lease)
 
 		recorder := svc.TimelineRecorder()
-		w.reporter = reporter.New(recorder)
+		w.reporter = x.New(recorder)
 	}
 
 	return nil

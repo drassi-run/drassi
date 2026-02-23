@@ -178,14 +178,11 @@ func (r *jobTimelineRecorder) Update(ctx context.Context, records ...*types.Reco
 	}
 
 	timelineRecords := make([]*record, len(records))
-	for _, rec := range records {
-		lr := toTimelineRecord("", r.svc.timelineUid, rec)
-		timelineRecords = append(timelineRecords, lr)
+	for i, rec := range records {
+		timelineRecords[i] = toTimelineRecord("", r.svc.timelineUid, rec)
 	}
 
-	err := r.svc.updateTimelineRecord(ctx, timelineRecords)
-
-	return err
+	return r.svc.updateTimelineRecord(ctx, timelineRecords)
 }
 
 func (s *JobService) updateTimelineRecord(ctx context.Context, records []*record) error {
@@ -245,10 +242,6 @@ func (s *JobService) WrapLease(l lease.Lease) lease.Lease {
 	}
 }
 
-func (s *JobService) completeJob(ctx context.Context, record *types.Record) error {
-	return nil // TODO
-}
-
 type jobLeaseWrapper struct {
 	lease.Lease
 	svc *JobService
@@ -259,4 +252,8 @@ func (l *jobLeaseWrapper) Complete(ctx context.Context, record *types.Record) er
 		return err
 	}
 	return l.Lease.Complete(ctx, record)
+}
+
+func (s *JobService) completeJob(ctx context.Context, record *types.Record) error {
+	return nil // TODO
 }

@@ -318,9 +318,8 @@ func (r *resultTimelineRecorder) Update(ctx context.Context, records ...*types.R
 	}
 
 	steps := make([]*step, len(records))
-	for _, rec := range records {
-		s := toStep(rec)
-		steps = append(steps, s)
+	for i, rec := range records {
+		steps[i] = toStep(rec)
 	}
 
 	err := r.svc.updateWorkflowSteps(ctx, r.order, steps)
