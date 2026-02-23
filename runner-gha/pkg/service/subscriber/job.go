@@ -1,4 +1,4 @@
-package manager
+package subscriber
 
 import (
 	"context"
@@ -6,12 +6,21 @@ import (
 	"sync"
 
 	"drassi.run/core/pkg/executor"
+	"drassi.run/core/util/context"
 	"drassi.run/core/util/otel"
-	"drassi.run/gha-runner/pkg/reporter/log"
-	"drassi.run/gha-runner/pkg/reporter/service"
+	"drassi.run/gha-runner/pkg/log"
+	"drassi.run/gha-runner/pkg/service"
 )
 
-type jobLogSubscriber struct {
+func NewJobServiceLogSubscriber(svc *service.JobService, context xcontext.Provider) Subscriber {
+	return &jobServiceLogSubscriber{
+		svc: svc,
+		ctx: context.Context(),
+		ups: make(map[string]service.Uploader),
+	}
+}
+
+type jobServiceLogSubscriber struct {
 	svc *service.JobService
 	ctx context.Context
 
@@ -21,7 +30,10 @@ type jobLogSubscriber struct {
 	ups map[string]service.Uploader
 }
 
-func (s *jobLogSubscriber) Run(ch <-chan *Event) {
+func (s *jobServiceLogSubscriber) Run(ch <-chan *log.Event) {
+	s.wg.Add(1)
+	defer s.wg.Done()
+
 	for e := range ch {
 		if e.Data == nil || e.Data.Status != log.FileClose || e.Data.Size == 0 {
 			continue
@@ -36,7 +48,7 @@ func (s *jobLogSubscriber) Run(ch <-chan *Event) {
 	}
 }
 
-func (s *jobLogSubscriber) uploader(sr executor.StepRun) service.Uploader {
+func (s *jobServiceLogSubscriber) uploader(sr executor.StepRun) service.Uploader {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -50,7 +62,7 @@ func (s *jobLogSubscriber) uploader(sr executor.StepRun) service.Uploader {
 	return u
 }
 
-func (s *jobLogSubscriber) handle(e *Event) {
+func (s *jobServiceLogSubscriber) handle(e *log.Event) {
 	stepId := e.StepRun.StepId()
 	ctx, logger := xotel.ChildLogger(s.ctx,
 		xotel.ToSlogAttrs(xotel.DrassiStep(stepId)),
@@ -73,6 +85,6 @@ func (s *jobLogSubscriber) handle(e *Event) {
 	}
 }
 
-func (s *jobLogSubscriber) Wait() {
+func (s *jobServiceLogSubscriber) Wait() {
 	s.wg.Wait()
 }

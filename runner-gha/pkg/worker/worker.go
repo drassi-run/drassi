@@ -35,7 +35,7 @@ import (
 	"drassi.run/gha-runner/pkg/holder"
 	"drassi.run/gha-runner/pkg/messages"
 	"drassi.run/gha-runner/pkg/reporter"
-	"drassi.run/gha-runner/pkg/reporter/service"
+	"drassi.run/gha-runner/pkg/service"
 	"go.uber.org/dig"
 	"golang.org/x/oauth2"
 )

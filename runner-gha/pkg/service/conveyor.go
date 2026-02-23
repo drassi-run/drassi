@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"drassi.run/gha-runner/pkg/reporter/log"
+	"drassi.run/gha-runner/pkg/log"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/appendblob"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/blob"
 )

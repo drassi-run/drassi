@@ -7,7 +7,7 @@ import (
 
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/model/records"
-	"drassi.run/gha-runner/pkg/reporter/service"
+	"drassi.run/gha-runner/pkg/service"
 	"drassi.run/gha-runner/pkg/types"
 	"github.com/google/uuid"
 )

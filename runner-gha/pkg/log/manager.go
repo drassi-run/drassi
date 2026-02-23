@@ -1,4 +1,4 @@
-package manager
+package log
 
 import (
 	"context"
@@ -7,7 +7,6 @@ import (
 	"sync"
 
 	"drassi.run/core/pkg/executor"
-	"drassi.run/gha-runner/pkg/reporter/log"
 )
 
 type EventKind uint16
@@ -21,10 +20,10 @@ const (
 type Event struct {
 	Kind    EventKind
 	StepRun executor.StepRun
-	Data    *log.Update
+	Data    *Update
 }
 
-type LogManager struct {
+type Manager struct {
 	basePath string
 	stepRun  executor.StepRun
 	idx      int
@@ -38,7 +37,7 @@ type LogManager struct {
 	subs []chan *Event
 }
 
-func (lm *LogManager) Subscribe() <-chan *Event {
+func (lm *Manager) Subscribe() <-chan *Event {
 	ch := make(chan *Event, 5)
 
 	lm.mu.Lock()
@@ -47,7 +46,7 @@ func (lm *LogManager) Subscribe() <-chan *Event {
 	return ch
 }
 
-func (lm *LogManager) Handle(_ context.Context, line string) error {
+func (lm *Manager) Handle(_ context.Context, line string) error {
 	lm.mu.Lock()
 	defer lm.mu.Unlock()
 
@@ -62,16 +61,16 @@ func (lm *LogManager) Handle(_ context.Context, line string) error {
 	if err := lm.write(line); err != nil {
 		return err
 	}
-	u := &log.Update{
+	u := &Update{
 		File:   lm.currFile(),
-		Status: log.FileOpen,
+		Status: FileOpen,
 		Line:   lm.currLine,
 		Size:   lm.currSize,
 	}
 
 	// rotate
 	if lm.currSize >= lm.maxSize {
-		u.Status = log.FileClose
+		u.Status = FileClose
 		if err := lm.rotate(); err != nil {
 			return err
 		}
@@ -82,7 +81,7 @@ func (lm *LogManager) Handle(_ context.Context, line string) error {
 	return nil
 }
 
-func (lm *LogManager) write(line string) error {
+func (lm *Manager) write(line string) error {
 	if l := len(line); l == 0 || line[l-1] != '\n' {
 		line += "\n"
 	}
@@ -96,11 +95,11 @@ func (lm *LogManager) write(line string) error {
 	}
 }
 
-func (lm *LogManager) currFile() string {
+func (lm *Manager) currFile() string {
 	return fmt.Sprintf("%s/%s.%d.log", lm.basePath, lm.stepRun.StepId(), lm.idx)
 }
 
-func (lm *LogManager) newFile(path string) error {
+func (lm *Manager) newFile(path string) error {
 	if f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600); err != nil {
 		return err
 	} else {
@@ -110,7 +109,7 @@ func (lm *LogManager) newFile(path string) error {
 	}
 }
 
-func (lm *LogManager) notify(u *log.Update) {
+func (lm *Manager) notify(u *Update) {
 	e := &Event{
 		Kind:    OnLogRecord,
 		StepRun: lm.stepRun,
@@ -122,7 +121,7 @@ func (lm *LogManager) notify(u *log.Update) {
 	}
 }
 
-func (lm *LogManager) rotate() error {
+func (lm *Manager) rotate() error {
 	// Chmod to RO
 	if err := lm.file.Chmod(0400); err != nil {
 		return err
@@ -136,14 +135,14 @@ func (lm *LogManager) rotate() error {
 	return nil
 }
 
-func (lm *LogManager) Close() error {
+func (lm *Manager) Close() error {
 	lm.mu.Lock()
 	defer lm.mu.Unlock()
 
 	if lm.file != nil {
-		u := &log.Update{
+		u := &Update{
 			File:   lm.currFile(),
-			Status: log.FileClose,
+			Status: FileClose,
 			Line:   lm.currLine,
 			Size:   lm.currSize,
 		}
