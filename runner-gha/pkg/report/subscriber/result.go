@@ -55,7 +55,7 @@ func (s *resultServiceStepLogSubscriber) conveyor(sr executor.StepRun) report.Co
 		return c
 	}
 
-	c := s.svc.StepLogsConveyor(sr)
+	c := s.svc.StepLogsConveyor(sr.Base().Uid)
 	s.cons[stepId] = c
 
 	s.wg.Add(1)

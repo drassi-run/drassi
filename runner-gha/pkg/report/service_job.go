@@ -49,27 +49,27 @@ type JobService struct {
 
 ////////////// Logs //////////////
 
-func (s *JobService) LogUploader(recordId string) Uploader {
-	return &jobLogUploader{svc: s, recordId: recordId}
+func (s *JobService) LogUploader(uid string) Uploader {
+	return &jobLogUploader{svc: s, uid: uid}
 }
 
 type jobLogUploader struct {
-	svc      *JobService
-	recordId string
+	svc *JobService
+	uid string
 }
 
 func (u *jobLogUploader) Upload(ctx context.Context, r io.Reader, _ *Stat) error {
-	return u.svc.uploadLog(ctx, u.recordId, r)
+	return u.svc.uploadLog(ctx, u.uid, r)
 }
 
 // https://github.com/actions/runner/blob/v2.323.0/src/Runner.Common/JobServerQueue.cs#L882-L896
-func (s *JobService) uploadLog(ctx context.Context, recordId string, r io.Reader) error {
+func (s *JobService) uploadLog(ctx context.Context, uid string, r io.Reader) error {
 	// Create the log
 	tl := new(taskLog)
 	endpoint := fmt.Sprintf(taskLogEndpoint, s.scopeUid, s.planType, s.planUid)
 	e := s.client.Post(endpoint).
 		SetQuery("api-version", "5.1-preview").
-		WithBodyProvider(xhttp.JsonEncode(&taskLog{Path: `log\` + recordId})).
+		WithBodyProvider(xhttp.JsonEncode(&taskLog{Path: `log\` + uid})).
 		OnSuccess(xhttp.JsonDecode(tl))
 
 	if err := e.Do(ctx); err != nil {
@@ -90,22 +90,22 @@ func (s *JobService) uploadLog(ctx context.Context, recordId string, r io.Reader
 
 ////////////// Attachment //////////////
 
-func (s *JobService) AttachmentUploader(recordId, kind, name string) Uploader {
-	return &jobAttachmentUploader{svc: s, recordId: recordId, kind: kind, name: name}
+func (s *JobService) AttachmentUploader(uid, kind, name string) Uploader {
+	return &jobAttachmentUploader{svc: s, uid: uid, kind: kind, name: name}
 }
 
 type jobAttachmentUploader struct {
-	svc                  *JobService
-	recordId, kind, name string
+	svc             *JobService
+	uid, kind, name string
 }
 
 func (u *jobAttachmentUploader) Upload(ctx context.Context, r io.Reader, _ *Stat) error {
-	return u.svc.uploadAttach(ctx, u.recordId, u.kind, u.name, r)
+	return u.svc.uploadAttach(ctx, u.uid, u.kind, u.name, r)
 }
 
 // https://github.com/actions/runner/blob/v2.323.0/src/Runner.Common/JobServerQueue.cs#L900-L903
-func (s *JobService) uploadAttach(ctx context.Context, recordId, kind, name string, r io.Reader) error {
-	endpoint := fmt.Sprintf(taskAttachmentEndpoint, s.scopeUid, s.planType, s.planUid, s.timelineUid, recordId)
+func (s *JobService) uploadAttach(ctx context.Context, uid, kind, name string, r io.Reader) error {
+	endpoint := fmt.Sprintf(taskAttachmentEndpoint, s.scopeUid, s.planType, s.planUid, s.timelineUid, uid)
 	endpoint = path.Join(endpoint, kind, name)
 
 	e := s.client.Post(endpoint).

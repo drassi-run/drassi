@@ -9,9 +9,13 @@ import (
 )
 
 type Record struct {
-	Uid   string
-	Order int
+	Id string
 
+	// UUID from step/job.
+	// For preStep, postStep, Setup job & Complete job a new UUID is generated.
+	Uid string
+
+	Order    int
 	Object   any
 	Children []*Record
 

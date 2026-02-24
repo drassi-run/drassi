@@ -9,7 +9,6 @@ import (
 	"path"
 	"time"
 
-	"drassi.run/core/pkg/executor"
 	"drassi.run/core/util/context"
 	"drassi.run/core/util/http"
 	"drassi.run/core/util/reactive"
@@ -48,8 +47,7 @@ type ResultService struct {
 
 // StepLogsConveyor return Conveyor used to handle step logs upload
 // https://github.com/actions/runner/blob/v2.323.0/src/Sdk/WebApi/WebApi/ResultsHttpClient.cs#L454
-func (s *ResultService) StepLogsConveyor(sr executor.StepRun) Conveyor {
-	stepUid := sr.Base().Uid
+func (s *ResultService) StepLogsConveyor(stepUid string) Conveyor {
 	c := NewStorageAwareConveyor(func(ctx context.Context) (SignedUrlResponse, error) {
 		return s.getStepLogsSignedUrl(ctx, stepUid)
 	})
@@ -207,8 +205,7 @@ func (s *ResultService) getDiagnosticLogsSignedUrl(ctx context.Context) (SignedU
 
 // StepSummaryUploader return Uploader used to handle step summary upload
 // https://github.com/actions/runner/blob/v2.324.0/src/Sdk/WebApi/WebApi/ResultsHttpClient.cs#L398
-func (s *ResultService) StepSummaryUploader(sr executor.StepRun) Uploader {
-	stepUid := sr.Base().Uid
+func (s *ResultService) StepSummaryUploader(stepUid string) Uploader {
 	u := NewStorageAwareUploader(func(ctx context.Context) (SignedUrlResponse, error) {
 		return s.getStepSummarySignedUrl(ctx, stepUid)
 	})
