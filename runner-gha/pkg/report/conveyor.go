@@ -17,16 +17,16 @@ type Conveyor interface {
 	Run(ctx context.Context) (*Stat, error)
 }
 
-type storageManagerConveyor struct {
+type storageAwareConveyor struct {
 	Conveyor
 	getUrl func(context.Context) (SignedUrlResponse, error)
 }
 
-func NewStorageMangerConveyor(f func(context.Context) (SignedUrlResponse, error)) Conveyor {
-	return &storageManagerConveyor{getUrl: f}
+func NewStorageAwareConveyor(f func(context.Context) (SignedUrlResponse, error)) Conveyor {
+	return &storageAwareConveyor{getUrl: f}
 }
 
-func (s *storageManagerConveyor) Run(ctx context.Context) (*Stat, error) {
+func (s *storageAwareConveyor) Run(ctx context.Context) (*Stat, error) {
 	if c, err := s.underlay(ctx); err != nil {
 		return nil, err
 	} else {
@@ -34,7 +34,7 @@ func (s *storageManagerConveyor) Run(ctx context.Context) (*Stat, error) {
 	}
 }
 
-func (s *storageManagerConveyor) underlay(ctx context.Context) (Conveyor, error) {
+func (s *storageAwareConveyor) underlay(ctx context.Context) (Conveyor, error) {
 	if s.Conveyor == nil {
 		r, err := s.getUrl(ctx)
 		if err != nil {
@@ -58,7 +58,7 @@ func (s *storageManagerConveyor) underlay(ctx context.Context) (Conveyor, error)
 	return s.Conveyor, nil
 }
 
-func (s *storageManagerConveyor) getUrlString(ctx context.Context) (string, error) {
+func (s *storageAwareConveyor) getUrlString(ctx context.Context) (string, error) {
 	if r, err := s.getUrl(ctx); err != nil {
 		return "", err
 	} else {

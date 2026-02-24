@@ -15,16 +15,16 @@ type Uploader interface {
 	Upload(ctx context.Context, r io.Reader, stat *Stat) error
 }
 
-type storageManagerUploader struct {
+type storageAwareUploader struct {
 	Uploader
 	getUrl func(context.Context) (SignedUrlResponse, error)
 }
 
-func NewStorageMangerUploader(f func(context.Context) (SignedUrlResponse, error)) Uploader {
-	return &storageManagerUploader{getUrl: f}
+func NewStorageAwareUploader(f func(context.Context) (SignedUrlResponse, error)) Uploader {
+	return &storageAwareUploader{getUrl: f}
 }
 
-func (s *storageManagerUploader) Upload(ctx context.Context, r io.Reader, stat *Stat) error {
+func (s *storageAwareUploader) Upload(ctx context.Context, r io.Reader, stat *Stat) error {
 	if u, err := s.underlay(ctx); err != nil {
 		return err
 	} else {
@@ -32,7 +32,7 @@ func (s *storageManagerUploader) Upload(ctx context.Context, r io.Reader, stat *
 	}
 }
 
-func (s *storageManagerUploader) underlay(ctx context.Context) (Uploader, error) {
+func (s *storageAwareUploader) underlay(ctx context.Context) (Uploader, error) {
 	if s.Uploader == nil {
 		r, err := s.getUrl(ctx)
 		if err != nil {
@@ -50,7 +50,7 @@ func (s *storageManagerUploader) underlay(ctx context.Context) (Uploader, error)
 	return s.Uploader, nil
 }
 
-func (s *storageManagerUploader) getUrlString(ctx context.Context) (string, error) {
+func (s *storageAwareUploader) getUrlString(ctx context.Context) (string, error) {
 	if r, err := s.getUrl(ctx); err != nil {
 		return "", err
 	} else {

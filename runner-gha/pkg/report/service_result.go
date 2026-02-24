@@ -50,7 +50,7 @@ type ResultService struct {
 // https://github.com/actions/runner/blob/v2.323.0/src/Sdk/WebApi/WebApi/ResultsHttpClient.cs#L454
 func (s *ResultService) StepLogsConveyor(sr executor.StepRun) Conveyor {
 	stepUid := sr.Base().Uid
-	c := NewStorageMangerConveyor(func(ctx context.Context) (SignedUrlResponse, error) {
+	c := NewStorageAwareConveyor(func(ctx context.Context) (SignedUrlResponse, error) {
 		return s.getStepLogsSignedUrl(ctx, stepUid)
 	})
 	c = &resultStepLogsConveyor{
@@ -120,7 +120,7 @@ func (s *ResultService) createStepLogsMetadata(ctx context.Context, stepUid stri
 // JobLogsConveyor return Conveyor used to handle job logs upload
 // https://github.com/actions/runner/blob/v2.323.0/src/Sdk/WebApi/WebApi/ResultsHttpClient.cs#L479
 func (s *ResultService) JobLogsConveyor() Conveyor {
-	c := NewStorageMangerConveyor(s.getJobLogsSignedUrl)
+	c := NewStorageAwareConveyor(s.getJobLogsSignedUrl)
 	c = &resultJobLogsConveyor{
 		Conveyor: c,
 		svc:      s,
@@ -184,7 +184,7 @@ func (s *ResultService) createJobLogsMetadata(ctx context.Context, lineCount int
 // DiagnosticLogsUploader return Uploader used to handle diagnostic logs upload
 // https://github.com/actions/runner/blob/v2.323.0/src/Sdk/WebApi/WebApi/ResultsHttpClient.cs#L503
 func (s *ResultService) DiagnosticLogsUploader() Uploader {
-	return NewStorageMangerUploader(s.getDiagnosticLogsSignedUrl)
+	return NewStorageAwareUploader(s.getDiagnosticLogsSignedUrl)
 }
 
 func (s *ResultService) getDiagnosticLogsSignedUrl(ctx context.Context) (SignedUrlResponse, error) {
@@ -209,7 +209,7 @@ func (s *ResultService) getDiagnosticLogsSignedUrl(ctx context.Context) (SignedU
 // https://github.com/actions/runner/blob/v2.324.0/src/Sdk/WebApi/WebApi/ResultsHttpClient.cs#L398
 func (s *ResultService) StepSummaryUploader(sr executor.StepRun) Uploader {
 	stepUid := sr.Base().Uid
-	u := NewStorageMangerUploader(func(ctx context.Context) (SignedUrlResponse, error) {
+	u := NewStorageAwareUploader(func(ctx context.Context) (SignedUrlResponse, error) {
 		return s.getStepSummarySignedUrl(ctx, stepUid)
 	})
 	u = &resultStepSummaryUploader{
