@@ -99,8 +99,9 @@ func (s *RunService) completeJob(ctx context.Context, req *completeJobRequest) e
 }
 
 type runLease struct {
-	svc *RunService
-	msg *messages.PipelineAgentJobRequest
+	svc  *RunService
+	msg  *messages.PipelineAgentJobRequest
+	done context.CancelFunc
 }
 
 func (l *runLease) GetMessage() *messages.PipelineAgentJobRequest {
@@ -108,6 +109,8 @@ func (l *runLease) GetMessage() *messages.PipelineAgentJobRequest {
 }
 
 func (l *runLease) Renew(ctx context.Context) {
+	ctx, l.done = context.WithCancel(ctx)
+
 	req := l.renewRequest()
 	l.svc.renewJob(ctx, req)
 }
@@ -120,6 +123,10 @@ func (l *runLease) renewRequest() *renewJobRequest {
 }
 
 func (l *runLease) Complete(ctx context.Context, record *types.Record) error {
+	if l.done != nil {
+		l.done() // cancel Renew
+	}
+
 	if req, err := l.completeRequest(record); err != nil {
 		return err
 	} else {

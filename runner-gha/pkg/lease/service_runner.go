@@ -124,8 +124,9 @@ func (s *RunnerService) completeJob(ctx context.Context, msg *messages.PipelineA
 }
 
 type runnerLease struct {
-	svc *RunnerService
-	msg *messages.PipelineAgentJobRequest
+	svc  *RunnerService
+	msg  *messages.PipelineAgentJobRequest
+	done context.CancelFunc
 }
 
 func (l *runnerLease) GetMessage() *messages.PipelineAgentJobRequest {
@@ -133,6 +134,8 @@ func (l *runnerLease) GetMessage() *messages.PipelineAgentJobRequest {
 }
 
 func (l *runnerLease) Renew(ctx context.Context) {
+	ctx, l.done = context.WithCancel(ctx)
+
 	orchId := ""
 	// orchId also can be extracted from `orch_id` claim
 	// in JWT token from msg.Resources.Endpoints.Authorization.Parameters["AccessToken"]
@@ -143,5 +146,9 @@ func (l *runnerLease) Renew(ctx context.Context) {
 }
 
 func (l *runnerLease) Complete(ctx context.Context, record *types.Record) error {
+	if l.done != nil {
+		l.done() // cancel Renew
+	}
+
 	return l.svc.completeJob(ctx, l.msg, record.Result)
 }
