@@ -117,7 +117,9 @@ func (l *runLease) renewRequest() *renewJobRequest {
 }
 
 func (l *runLease) Complete(ctx context.Context, record *types.Record) error {
-	l.done() // cancel Renew
+	if l.done != nil {
+		l.done() // cancel Renew
+	}
 
 	if req, err := l.completeRequest(record); err != nil {
 		return err
