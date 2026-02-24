@@ -35,18 +35,22 @@ func ParseActionsError(code int, header http.Header, body io.Reader) error {
 	}
 
 	data = bytes.TrimPrefix(data, Utf8BOM)
-	contentType, ok := header["Content-Type"]
-	if ok && len(contentType) > 0 && strings.Contains(contentType[0], "text/plain") {
-		actionsError.Err = errors.New(string(data))
+	contentType := header.Get("Content-Type")
+	if contentType == "" {
 		return &actionsError
 	}
 
-	var exception ActionsException
-	if err = json.Unmarshal(data, &exception); err != nil {
-		actionsError.Err = fmt.Errorf("error unmarshalling actions exception: %w", err)
-	} else {
-		actionsError.Err = &exception
+	if strings.HasPrefix(contentType, "text/plain") {
+		actionsError.Err = errors.New(string(data))
+	} else if strings.HasPrefix(contentType, "application/json") {
+		var exception ActionsException
+		if err = json.Unmarshal(data, &exception); err != nil {
+			actionsError.Err = fmt.Errorf("error unmarshalling actions exception: %w", err)
+		} else {
+			actionsError.Err = &exception
+		}
 	}
+
 	return &actionsError
 }
 
