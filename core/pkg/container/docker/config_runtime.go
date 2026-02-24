@@ -22,8 +22,7 @@ func (cc *containerConfig) setRuntime(conf *types.ContainerRuntime) {
 	c.StopSignal = conf.StopSignal
 
 	if d := conf.StopTimeout; d != nil {
-		s := int(d.Seconds())
-		c.StopTimeout = &s
+		c.StopTimeout = new(int(d.Seconds()))
 	}
 
 	if restart := conf.RestartPolicy; restart != nil {
@@ -62,8 +61,7 @@ func (cs *containerSpec) setRuntime(c *dockercontainer.Config, hc *dockercontain
 	r := &cs.Spec.ContainerRuntime
 
 	if s := c.StopTimeout; s != nil {
-		d := time.Duration(*s) * time.Second
-		r.StopTimeout = &d
+		r.StopTimeout = new(time.Duration(*s) * time.Second)
 	}
 
 	if restart := hc.RestartPolicy; !restart.IsNone() {

@@ -100,10 +100,9 @@ func (c *azureBlobConveyor) Run(ctx context.Context) (*Stat, error) {
 }
 
 func (c *azureBlobConveyor) create(ctx context.Context) error {
-	var textPlain = "text/plain"
 	o := &appendblob.CreateOptions{
 		HTTPHeaders: &blob.HTTPHeaders{
-			BlobContentType: &textPlain,
+			BlobContentType: new("text/plain"),
 		},
 	}
 
