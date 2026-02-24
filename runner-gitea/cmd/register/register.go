@@ -170,7 +170,6 @@ func (c *register) doRegister(ctx context.Context) (*giteav1a1.GiteaRunner, erro
 		return nil, err
 	}
 
-	apiGroup := sandboxerv1a1.SchemeGroupVersion.String()
 	runner := giteav1a1.GiteaRunner{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: giteav1a1.SchemeGroupVersion.String(),
@@ -186,7 +185,7 @@ func (c *register) doRegister(ctx context.Context) (*giteav1a1.GiteaRunner, erro
 			InsecureSkipTLSVerify: c.insecureSkipTLSVerify,
 			RunnerLabels:          resp.Msg.Runner.Labels,
 			SandboxerRef: corev1.TypedLocalObjectReference{
-				APIGroup: &apiGroup,
+				APIGroup: new(sandboxerv1a1.SchemeGroupVersion.String()),
 				Kind:     c.sandboxerKind,
 				Name:     c.sandboxerName,
 			},

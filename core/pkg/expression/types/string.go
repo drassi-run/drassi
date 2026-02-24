@@ -91,14 +91,12 @@ func (s String) parseInf(str string) *float64 {
 
 	// case-sensitive comparing
 	if str == "Infinity" {
-		f := math.Inf(sign)
-		return &f
+		return new(math.Inf(sign))
 	}
 
 	// Maybe valid inf string in go, e.g "Inf", "-Inf" but not valid in JS
 	// => returns NaN
-	f := math.NaN()
-	return &f
+	return new(math.NaN())
 }
 
 func (s String) ToString() string {

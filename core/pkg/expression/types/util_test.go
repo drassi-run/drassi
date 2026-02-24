@@ -7,11 +7,12 @@
 package types
 
 import (
-	"drassi.run/core/pkg/expression/types/ref"
-	"github.com/stretchr/testify/assert"
 	"reflect"
 	"runtime"
 	"testing"
+
+	"drassi.run/core/pkg/expression/types/ref"
+	"github.com/stretchr/testify/assert"
 )
 
 type I interface{ foobar() }
@@ -86,8 +87,7 @@ func testNativeToValCollection(t *testing.T) {
 	l1 := make([]string, 1)
 	l2 := make(L, 1)
 	l3 := make(LV, 1)
-	x := make([]string, 2)
-	l4 := LP(&x)
+	l4 := LP(new(make([]string, 2)))
 
 	for _, v := range []any{
 		l1, &l1, reflect.ValueOf(l1), reflect.ValueOf(&l1),
@@ -108,8 +108,7 @@ func testNativeToValDynamic(t *testing.T) {
 	m1 := make(map[int]int) // map[int]int is not in predefined NativeToVal types
 	m2 := make(M)
 	m3 := make(MV)
-	x := make(map[int]int, 2)
-	m4 := MP(&x)
+	m4 := MP(new(make(map[int]int, 2)))
 
 	for _, v := range []any{
 		m1, &m1, reflect.ValueOf(m1), reflect.ValueOf(&m1),

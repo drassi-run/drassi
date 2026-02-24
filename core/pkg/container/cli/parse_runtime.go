@@ -21,8 +21,7 @@ func (fm *flagMapper) mapRuntime(flags *pflag.FlagSet, copts *containerOptions) 
 	fm.Spec.Isolation = copts.isolation
 	fm.Spec.StopSignal = copts.stopSignal
 	if flags.Changed("stop-timeout") {
-		d := time.Duration(copts.stopTimeout) * time.Second
-		fm.Spec.StopTimeout = &d
+		fm.Spec.StopTimeout = new(time.Duration(copts.stopTimeout) * time.Second)
 	}
 
 	if err := fm.mapLogging(copts); err != nil {

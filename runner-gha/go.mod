@@ -4,7 +4,7 @@
 
 module drassi.run/gha-runner
 
-go 1.24.0
+go 1.26
 
 require (
 	drassi.run/core v0.0.0-00010101000000-000000000000

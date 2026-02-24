@@ -85,8 +85,7 @@ func Format(fmt ref.LazyVal, args ...ref.LazyVal) ref.Val {
 				if ref.IsError(v) {
 					return v
 				}
-				s := stringify(v)
-				rep = &s
+				rep = new(stringify(v))
 				argsCache[index] = rep
 			}
 			output.WriteString(*rep)
