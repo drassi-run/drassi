@@ -41,16 +41,14 @@ func (r *GhaReporter) StartJob(ctx context.Context, je executor.JobExecutor) err
 		},
 	}
 
-	now := time.Now()
-	r.jobRecord.StartedAt = &now
+	r.jobRecord.StartedAt = new(time.Now())
 	r.records = append(r.records, r.jobRecord)
 
 	return r.recorder.Update(ctx, r.jobRecord)
 }
 
 func (r *GhaReporter) EndJob(ctx context.Context, je executor.JobExecutor, result *records.Job) error {
-	now := time.Now()
-	r.jobRecord.CompletedAt = &now
+	r.jobRecord.CompletedAt = new(time.Now())
 	r.jobRecord.State = types.StateCompleted
 	r.jobRecord.Result = types.ToResult(result.Result)
 
@@ -71,8 +69,7 @@ func (r *GhaReporter) StartStep(ctx context.Context, stage executor.Stage, se ex
 			Stage:   stage,
 		},
 	}
-	now := time.Now()
-	record.StartedAt = &now
+	record.StartedAt = new(time.Now())
 
 	if stage == executor.StageMain {
 		record.Uid = executor.StepUid(se)
@@ -98,8 +95,7 @@ func (r *GhaReporter) EndStep(ctx context.Context, stage executor.Stage, se exec
 	record := r.records[len(r.records)-1]
 	r.records = r.records[:len(r.records)-1]
 
-	now := time.Now()
-	record.CompletedAt = &now
+	record.CompletedAt = new(time.Now())
 	record.State = types.StateCompleted
 	record.Result = types.ToResult(result.Conclusion)
 
