@@ -4,18 +4,36 @@
 
 # https://golangci-lint.run/usage/linters/
 # https://golangci-lint.run/usage/configuration/
+version: "2"
+
 linters:
+  settings:
+    errcheck:
+      exclude-functions:
+        - (*github.com/spf13/pflag.FlagSet).SetAnnotation
+        - (*github.com/spf13/pflag.FlagSet).MarkHidden
+        - (*github.com/go-git/go-git/v5.Repository).DeleteBranch
+
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - std-error-handling
+      - common-false-positives
+      - legacy
+    paths:
+      - _test\.go
+      - third_party$
+      - builtin$
+      - examples$
+
+formatters:
   enable:
     - gofmt
-    - govet
-
-linters-settings:
-  errcheck:
-    exclude-functions:
-      - (*github.com/spf13/pflag.FlagSet).SetAnnotation
-      - (*github.com/spf13/pflag.FlagSet).MarkHidden
-      - (*github.com/go-git/go-git/v5.Repository).DeleteBranch
-
-issues:
-  exclude-files:
-    - _test\.go
+  exclusions:
+    generated: lax
+    paths:
+      - _test\.go
+      - third_party$
+      - builtin$
+      - examples$
