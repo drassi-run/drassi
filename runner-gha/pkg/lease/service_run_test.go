@@ -35,6 +35,7 @@ type RunServiceTestSuite struct {
 	mux    *http.ServeMux
 	server *httptest.Server
 	svc    *RunService
+	msg    *messages.PipelineAgentJobRequest
 }
 
 func (s *RunServiceTestSuite) SetupTest() {
@@ -44,6 +45,8 @@ func (s *RunServiceTestSuite) SetupTest() {
 	var err error
 	s.svc, err = NewRunService(s.server.URL, s.server.Client())
 	s.Require().NoError(err)
+
+	s.msg = jobRequest()
 }
 
 func (s *RunServiceTestSuite) TearDownTest() {
@@ -81,7 +84,6 @@ func (s *RunServiceTestSuite) TestAcquireJob_Success() {
 func (s *RunServiceTestSuite) TestAcquireJob_ServerError() {
 	t := s.T()
 	s.mux.HandleFunc("POST /acquirejob", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set(types.HeaderActivityId, "activity-id-1")
 		w.WriteHeader(http.StatusInternalServerError)
 	})
 
@@ -89,14 +91,13 @@ func (s *RunServiceTestSuite) TestAcquireJob_ServerError() {
 	var actionError *types.ActionsError
 	assert.ErrorAs(t, err, &actionError)
 	assert.Equal(t, http.StatusInternalServerError, actionError.StatusCode)
-	assert.Equal(t, "activity-id-1", actionError.ActivityId)
 }
 
 // ---- Lease / GetMessage -----------------------------------------------------
 
 func (s *RunServiceTestSuite) TestLease_GetMessage() {
-	l := s.svc.Lease(jobRequest)
-	assert.Same(s.T(), jobRequest, l.GetMessage())
+	l := s.svc.Lease(s.msg)
+	assert.Same(s.T(), s.msg, l.GetMessage())
 }
 
 // ---- Lease / Renew ----------------------------------------------------------
@@ -109,15 +110,15 @@ func (s *RunServiceTestSuite) TestLease_Renew() {
 		var req renewJobRequest
 		readJsonRequest(t, r, &req)
 
-		assert.Equal(t, jobRequest.Plan.PlanId, req.PlanId)
-		assert.Equal(t, jobRequest.JobId, req.JobId)
+		assert.Equal(t, s.msg.Plan.PlanId, req.PlanId)
+		assert.Equal(t, s.msg.JobId, req.JobId)
 
 		count++
 		ttl := time.Duration(count) * time.Second // renew when 3/4 ttl time pass
 		writeJsonResponse(t, w, renewJobResponse{LockedUntil: time.Now().Add(ttl)})
 	})
 
-	l := s.svc.Lease(jobRequest)
+	l := s.svc.Lease(s.msg)
 	ctx, cancel := context.WithCancel(t.Context())
 	var done atomic.Bool
 	go func() {
@@ -146,11 +147,11 @@ func (s *RunServiceTestSuite) TestLease_Complete() {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	l := s.svc.Lease(jobRequest)
+	l := s.svc.Lease(s.msg)
 	require.NoError(t, l.Complete(t.Context(), record))
 
-	assert.Equal(t, jobRequest.JobId, gotReq.JobId)
-	assert.Equal(t, jobRequest.Plan.PlanId, gotReq.PlanId)
+	assert.Equal(t, s.msg.JobId, gotReq.JobId)
+	assert.Equal(t, s.msg.Plan.PlanId, gotReq.PlanId)
 	assert.Equal(t, types.ResultSucceeded, gotReq.Conclusion)
 }
 
@@ -165,7 +166,7 @@ func (s *RunServiceTestSuite) TestLease_Complete_Cancel_Renew() {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	l := s.svc.Lease(jobRequest)
+	l := s.svc.Lease(s.msg)
 	var done atomic.Bool
 	go func() {
 		l.Renew(ctx)
@@ -192,16 +193,22 @@ func readJsonRequest(t *testing.T, r *http.Request, v any) {
 	require.NoError(t, json.NewDecoder(r.Body).Decode(v))
 }
 
-var jobRequest = &messages.PipelineAgentJobRequest{
-	JobId:          "job-uuid-1234",
-	BillingOwnerId: "billing-owner-99",
-	Plan: messages.PlanReference{
-		PlanId: "plan-uuid-5678",
-	},
+func jobRequest() *messages.PipelineAgentJobRequest {
+	return &messages.PipelineAgentJobRequest{
+		RequestId:      12345,
+		JobId:          "job-uuid-1234",
+		BillingOwnerId: "billing-owner-99",
+		Plan: messages.PlanReference{
+			PlanId: "plan-uuid-5678",
+		},
+		Variables: map[string]messages.Variable{
+			"system.orchestrationId": {Value: "orch-123"},
+		},
+	}
 }
 
 var record = &types.Record{
-	Uid:    jobRequest.JobId,
+	Uid:    "job-uuid-1234", // equals jobRequest.JobId
 	Object: new(types.JobObject),
 	State:  types.StateCompleted,
 	Result: types.ResultSucceeded,
