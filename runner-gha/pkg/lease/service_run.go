@@ -111,7 +111,7 @@ func (l *runLease) Renew(ctx context.Context) {
 
 func (l *runLease) renewRequest() *renewJobRequest {
 	return &renewJobRequest{
-		PlanID: l.msg.Plan.PlanId,
+		PlanId: l.msg.Plan.PlanId,
 		JobId:  l.msg.JobId,
 	}
 }
@@ -138,8 +138,8 @@ func (l *runLease) completeRequest(r *types.Record) (*completeJobRequest, error)
 	}
 
 	req := &completeJobRequest{
-		PlanID:         l.msg.Plan.PlanId,
-		JobID:          l.msg.JobId,
+		PlanId:         l.msg.Plan.PlanId,
+		JobId:          l.msg.JobId,
 		BillingOwnerId: l.msg.BillingOwnerId,
 
 		Conclusion:     r.Result,

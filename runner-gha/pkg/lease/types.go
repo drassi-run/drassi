@@ -26,7 +26,7 @@ type acquireJobRequest struct {
 
 // RenewJobRequest in C#
 type renewJobRequest struct {
-	PlanID string `json:"planId,omitempty"`
+	PlanId string `json:"planId,omitempty"`
 	JobId  string `json:"jobId,omitempty"`
 }
 
@@ -37,8 +37,8 @@ type renewJobResponse struct {
 
 // CompleteJobRequest in C#
 type completeJobRequest struct {
-	PlanID         string                       `json:"planId,omitempty"`
-	JobID          string                       `json:"jobId,omitempty"`
+	PlanId         string                       `json:"planId,omitempty"`
+	JobId          string                       `json:"jobId,omitempty"`
 	Conclusion     types.Result                 `json:"conclusion,omitempty"`
 	Outputs        map[string]messages.Variable `json:"outputs,omitempty"`
 	StepResults    []*StepResult                `json:"stepResults,omitempty"`

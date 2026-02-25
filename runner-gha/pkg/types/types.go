@@ -34,7 +34,7 @@ const GroupTypeAutomation GroupType = "Automation"
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTWebApi/WebApi/TaskAgentPoolReference.cs#L23
 type GroupReference struct {
-	ID         int       `json:"id,omitempty"`
+	Id         int       `json:"id,omitempty"`
 	Name       string    `json:"name,omitempty"`
 	Scope      string    `json:"scope,omitempty"` // UUID
 	GroupType  GroupType `json:"poolType,omitempty"`
