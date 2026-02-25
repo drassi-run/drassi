@@ -275,7 +275,7 @@ func (r *register) selectRunnerGroup(ctx context.Context) error {
 func (r *register) checkRunnerExist(ctx context.Context, name string) error {
 	runners := new(types.Response[types.RunnerReference])
 
-	hr := r.client.Get(fmt.Sprintf(runnerEndpoint, r.group.ID)).
+	hr := r.client.Get(fmt.Sprintf(runnerEndpoint, r.group.Id)).
 		SetQuery("agentName", name).
 		OnSuccess(xhttp.JsonDecode(runners))
 
@@ -358,7 +358,7 @@ func (r *register) registerRunner(ctx context.Context) error {
 	}
 
 	runner := new(types.Runner)
-	hr := r.client.Post(fmt.Sprintf(runnerEndpoint, r.group.ID)).
+	hr := r.client.Post(fmt.Sprintf(runnerEndpoint, r.group.Id)).
 		SetQuery("api-version", "6.0-preview").
 		WithBodyProvider(xhttp.JsonEncode(req)).
 		OnSuccess(xhttp.JsonDecode(runner))
@@ -397,7 +397,7 @@ func (r *register) saveRunner(_ context.Context) error {
 		},
 		Spec: ghav1a1.GitHubRunnerSpec{
 			RunnerId:        r.runner.Id,
-			GroupId:         r.group.ID,
+			GroupId:         r.group.Id,
 			ServerUrl:       r.auth.TenantUrl,
 			RegistrationUrl: r.Url,
 			Authorization: ghav1a1.GitHubRunnerAuthorization{
