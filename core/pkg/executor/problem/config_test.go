@@ -7,13 +7,10 @@
 package problem
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
-)
 
-func pointer[T any](v T) *T {
-	return &v
-}
+	"github.com/stretchr/testify/assert"
+)
 
 func TestConfig_Validate(t *testing.T) {
 	t.Run("owner/distinct", func(tt *testing.T) {
@@ -22,12 +19,12 @@ func TestConfig_Validate(t *testing.T) {
 				{
 					Owner: "myMatcher",
 					Patterns: []Pattern{
-						{Regexp: `^error: (.+)$`, Message: pointer(1)},
+						{Regexp: `^error: (.+)$`, Message: new(1)},
 					},
 				}, {
 					Owner: "MYmatcher",
 					Patterns: []Pattern{
-						{Regexp: `^ERR: (.+)$`, Message: pointer(1)},
+						{Regexp: `^ERR: (.+)$`, Message: new(1)},
 					},
 				}},
 		}
@@ -44,7 +41,7 @@ func TestConfig_Validate(t *testing.T) {
 		conf := MatcherConfigs{
 			Configs: []Config{{
 				Patterns: []Pattern{
-					{Regexp: `^error: (.+)$`, Message: pointer(1)},
+					{Regexp: `^error: (.+)$`, Message: new(1)},
 				},
 			}}}
 
@@ -60,7 +57,7 @@ func TestConfig_Validate(t *testing.T) {
 		config := &Config{
 			Owner: "myMatcher",
 			Patterns: []Pattern{
-				{Regexp: `^(.+)$`, Message: pointer(1)},
+				{Regexp: `^(.+)$`, Message: new(1)},
 			},
 		}
 		err := config.Validate()
@@ -78,7 +75,7 @@ func TestConfig_Validate(t *testing.T) {
 	t.Run("loop/single", func(tt *testing.T) {
 		p1 := Pattern{
 			Regexp:  "^error: (.+)$",
-			Message: pointer(1),
+			Message: new(1),
 			Loop:    true,
 		}
 		config := &Config{
@@ -90,7 +87,7 @@ func TestConfig_Validate(t *testing.T) {
 
 		p2 := Pattern{
 			Regexp: "^file: (.+)$",
-			File:   pointer(1),
+			File:   new(1),
 		}
 		config.Patterns = []Pattern{p2, p1}
 		err = config.Validate()
@@ -101,9 +98,9 @@ func TestConfig_Validate(t *testing.T) {
 		config := &Config{
 			Owner: "myMatcher",
 			Patterns: []Pattern{
-				{Regexp: `^(error)$`, Severity: pointer(1)},
-				{Regexp: `^file: (.+)$`, File: pointer(1), Loop: true},
-				{Regexp: `^error: (.+)$`, Message: pointer(1), Loop: false},
+				{Regexp: `^(error)$`, Severity: new(1)},
+				{Regexp: `^file: (.+)$`, File: new(1), Loop: true},
+				{Regexp: `^error: (.+)$`, Message: new(1), Loop: false},
 			},
 		}
 		err := config.Validate()
@@ -119,8 +116,8 @@ func TestConfig_Validate(t *testing.T) {
 		config := &Config{
 			Owner: "myMatcher",
 			Patterns: []Pattern{
-				{Regexp: `^file: (.+)$`, Message: pointer(1)},
-				{Regexp: `^file: (.+)$`, File: pointer(1), Loop: true},
+				{Regexp: `^file: (.+)$`, Message: new(1)},
+				{Regexp: `^file: (.+)$`, File: new(1), Loop: true},
 			},
 		}
 		err := config.Validate()
@@ -135,8 +132,8 @@ func TestConfig_Validate(t *testing.T) {
 		config := &Config{
 			Owner: "myMatcher",
 			Patterns: []Pattern{
-				{Regexp: `^file: (.+)$`, Message: pointer(1)},
-				{Regexp: `^error: (.+)$`, File: pointer(1)},
+				{Regexp: `^file: (.+)$`, Message: new(1)},
+				{Regexp: `^error: (.+)$`, File: new(1)},
 			},
 		}
 		err := config.Validate()
@@ -147,14 +144,14 @@ func TestConfig_Validate(t *testing.T) {
 		config := &Config{
 			Owner: "myMatcher",
 			Patterns: []Pattern{
-				{Regexp: `^error: (.+)$`, File: pointer(1)},
+				{Regexp: `^error: (.+)$`, File: new(1)},
 			},
 		}
 		err := config.Validate()
 		assert.Error(tt, err, "at least one pattern must set 'message'")
 
 		config.Patterns[0].File = nil
-		config.Patterns[0].Message = pointer(1)
+		config.Patterns[0].Message = new(1)
 		err = config.Validate()
 		assert.NoError(tt, err)
 	})
@@ -163,7 +160,7 @@ func TestConfig_Validate(t *testing.T) {
 		config := &Config{
 			Owner: "myMatcher",
 			Patterns: []Pattern{
-				{Message: pointer(1)},
+				{Message: new(1)},
 			},
 		}
 		err := config.Validate()
@@ -178,16 +175,16 @@ func TestConfig_Validate(t *testing.T) {
 		config := &Config{
 			Owner: "myMatcher",
 			Patterns: []Pattern{
-				{Regexp: `^severity: (.+)$`, File: pointer(1)},
-				{Regexp: `^file: (.+)$`, File: pointer(1)},
-				{Regexp: `^(.+)$`, Message: pointer(1)},
+				{Regexp: `^severity: (.+)$`, File: new(1)},
+				{Regexp: `^file: (.+)$`, File: new(1)},
+				{Regexp: `^(.+)$`, Message: new(1)},
 			},
 		}
 		err := config.Validate()
 		assert.Error(tt, err, `the property "file" is set twice`)
 
 		config.Patterns[0].File = nil
-		config.Patterns[0].Severity = pointer(1)
+		config.Patterns[0].Severity = new(1)
 		err = config.Validate()
 		assert.NoError(tt, err)
 	})
@@ -196,13 +193,13 @@ func TestConfig_Validate(t *testing.T) {
 		config := &Config{
 			Owner: "myMatcher",
 			Patterns: []Pattern{
-				{Regexp: `^(.+)$`, Message: pointer(2)},
+				{Regexp: `^(.+)$`, Message: new(2)},
 			},
 		}
 		err := config.Validate()
 		assert.Error(tt, err, `the value 2 of property "message" is out of range`)
 
-		config.Patterns[0].Message = pointer(1)
+		config.Patterns[0].Message = new(1)
 		err = config.Validate()
 		assert.NoError(tt, err)
 	})
@@ -211,13 +208,13 @@ func TestConfig_Validate(t *testing.T) {
 		config := &Config{
 			Owner: "myMatcher",
 			Patterns: []Pattern{
-				{Regexp: `^(.+)$`, Message: pointer(-10)},
+				{Regexp: `^(.+)$`, Message: new(-10)},
 			},
 		}
 		err := config.Validate()
 		assert.Error(tt, err, "at least one pattern must set 'message'")
 
-		config.Patterns[0].Message = pointer(1)
+		config.Patterns[0].Message = new(1)
 		err = config.Validate()
 		assert.NoError(tt, err)
 	})

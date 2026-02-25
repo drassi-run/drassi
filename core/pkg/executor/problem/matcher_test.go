@@ -7,14 +7,15 @@
 package problem
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestSingleLineMatcher(t *testing.T) {
 	t.Run("default-severity", func(tt *testing.T) {
 		matcher, err := newSingleLineMatcher("notice", Pattern{
-			Regexp: `^(.+)$`, Message: pointer(1),
+			Regexp: `^(.+)$`, Message: new(1),
 		})
 		assert.NoError(tt, err)
 
@@ -25,8 +26,8 @@ func TestSingleLineMatcher(t *testing.T) {
 func TestMultiLineMatcher(t *testing.T) {
 	t.Run("default-severity", func(tt *testing.T) {
 		patterns := []Pattern{
-			{Regexp: `^(ERROR)?(?: )?(.+):$`, Severity: pointer(1), Code: pointer(2)},
-			{Regexp: `^(.+)$`, Message: pointer(1)},
+			{Regexp: `^(ERROR)?(?: )?(.+):$`, Severity: new(1), Code: new(2)},
+			{Regexp: `^(.+)$`, Message: new(1)},
 		}
 		matcher, err := newMultiLineMatcher("warning", patterns)
 		assert.NoError(tt, err)
@@ -49,9 +50,9 @@ func TestMultiLineMatcher(t *testing.T) {
 func testMultiLineMatcher(t *testing.T, loop bool) {
 	t.Run("accumulate", func(tt *testing.T) {
 		patterns := []Pattern{
-			{Regexp: `^(.+)$`, File: pointer(1)},
-			{Regexp: `^(.+)$`, Code: pointer(1)},
-			{Regexp: `^message:(.+)$`, Message: pointer(1), Loop: loop},
+			{Regexp: `^(.+)$`, File: new(1)},
+			{Regexp: `^(.+)$`, Code: new(1)},
+			{Regexp: `^message:(.+)$`, Message: new(1), Loop: loop},
 		}
 		matcher, err := newMultiLineMatcher("", patterns)
 		assert.NoError(tt, err)
@@ -80,9 +81,9 @@ func testMultiLineMatcher(t *testing.T, loop bool) {
 
 	t.Run("broken_match", func(tt *testing.T) {
 		patterns := []Pattern{
-			{Regexp: `^(.+)$`, File: pointer(1)},
-			{Regexp: `^(.+)$`, Severity: pointer(1)},
-			{Regexp: `^message:(.+)$`, Message: pointer(1), Loop: loop},
+			{Regexp: `^(.+)$`, File: new(1)},
+			{Regexp: `^(.+)$`, Severity: new(1)},
+			{Regexp: `^message:(.+)$`, Message: new(1), Loop: loop},
 		}
 		matcher, err := newMultiLineMatcher("", patterns)
 		assert.NoError(tt, err)
@@ -101,10 +102,10 @@ func testMultiLineMatcher(t *testing.T, loop bool) {
 
 	t.Run("extracts_props", func(tt *testing.T) {
 		patterns := []Pattern{
-			{Regexp: `^file:(.+) fromPath:(.+)$`, File: pointer(1), FromPath: pointer(2)},
-			{Regexp: `^severity:(.+)$`, Severity: pointer(1)},
+			{Regexp: `^file:(.+) fromPath:(.+)$`, File: new(1), FromPath: new(2)},
+			{Regexp: `^severity:(.+)$`, Severity: new(1)},
 			{Regexp: `^line:(.+) column:(.+) code:(.+) message:(.+)$`,
-				Line: pointer(1), Column: pointer(2), Code: pointer(3), Message: pointer(4), Loop: loop},
+				Line: new(1), Column: new(2), Code: new(3), Message: new(4), Loop: loop},
 		}
 		matcher, err := newMultiLineMatcher("", patterns)
 		assert.NoError(tt, err)
