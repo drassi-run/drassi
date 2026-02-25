@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-FROM golang:1.24 as builder
+FROM golang:1.26 as builder
 ENV CGO_ENABLED=0
 COPY core/go.mod core/go.sum ./core/
 COPY runner-gha/go.mod runner-gha/go.sum ./runner-gha/

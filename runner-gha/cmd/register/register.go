@@ -386,7 +386,6 @@ func (r *register) saveRunner(_ context.Context) error {
 		labels[i] = l.Name
 	}
 
-	apiGroup := sandboxerv1a1.SchemeGroupVersion.String()
 	runner := &ghav1a1.GitHubRunner{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: ghav1a1.SchemeGroupVersion.String(),
@@ -409,7 +408,7 @@ func (r *register) saveRunner(_ context.Context) error {
 				},
 			},
 			SandboxerRef: corev1.TypedLocalObjectReference{
-				APIGroup: &apiGroup,
+				APIGroup: new(sandboxerv1a1.SchemeGroupVersion.String()),
 				Kind:     r.SandboxerKind,
 				Name:     r.SandboxerName,
 			},

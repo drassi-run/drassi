@@ -1,5 +1,3 @@
-//go:build goexperiment.synctest
-
 /*
  * SPDX-FileCopyrightText: (c) 2024 The Drassi Authors
  *
@@ -9,10 +7,11 @@
 package reactive
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
 	"testing/synctest"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 var (
@@ -22,7 +21,7 @@ var (
 )
 
 func TestThrottleBatcher_LimitReached(t *testing.T) {
-	synctest.Run(func() {
+	synctest.Test(t, func(t *testing.T) {
 		var b = NewThrottleBatcher[int](3, batchWait)
 		var count int
 
@@ -64,7 +63,7 @@ func TestThrottleBatcher_LimitReached(t *testing.T) {
 }
 
 func TestThrottleBatcher_TimeElapsed(t *testing.T) {
-	synctest.Run(func() {
+	synctest.Test(t, func(t *testing.T) {
 		var b = NewThrottleBatcher[int](5, batchWait)
 		var count int
 
@@ -118,7 +117,7 @@ func TestThrottleBatcher_TimeElapsed(t *testing.T) {
 }
 
 func TestThrottleBatcher_SlowProcess(t *testing.T) {
-	synctest.Run(func() {
+	synctest.Test(t, func(t *testing.T) {
 		var b = NewThrottleBatcher[int](3, batchWait)
 		var count int
 
@@ -168,7 +167,7 @@ func TestThrottleBatcher_SlowProcess(t *testing.T) {
 }
 
 func TestThrottleBatcher_StopEmpty(t *testing.T) {
-	synctest.Run(func() {
+	synctest.Test(t, func(t *testing.T) {
 		var b = NewThrottleBatcher[int](5, batchWait)
 
 		b.Start(func(items []int) {

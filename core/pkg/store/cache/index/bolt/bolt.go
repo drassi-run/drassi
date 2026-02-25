@@ -94,8 +94,7 @@ func (i *idxBolt) Get(_ context.Context, id uint64) (*types.Cache, error) {
 	if err := i.db.Get(id, c); err != nil {
 		return nil, err
 	} else {
-		m := types.Cache(*c)
-		return &m, nil
+		return new(types.Cache(*c)), nil
 	}
 }
 
@@ -108,8 +107,7 @@ func (i *idxBolt) Search(_ context.Context, keys []string, version string) (*typ
 				return nil, err
 			}
 		} else {
-			m := types.Cache(*c)
-			return &m, nil
+			return new(types.Cache(*c)), nil
 		}
 	}
 
