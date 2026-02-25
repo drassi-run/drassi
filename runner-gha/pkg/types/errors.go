@@ -18,13 +18,13 @@ import (
 
 // Header names for request IDs
 const (
-	HeaderActivityID      = "ActivityId"
-	HeaderGitHubRequestID = "X-GitHub-Request-Id"
+	HeaderActivityId      = "ActivityId"
+	HeaderGitHubRequestId = "X-GitHub-Request-Id"
 )
 
 func ParseActionsError(code int, header http.Header, body io.Reader) error {
 	actionsError := ActionsError{
-		ActivityId: header.Get(HeaderActivityID),
+		ActivityId: header.Get(HeaderActivityId),
 		StatusCode: code,
 	}
 
