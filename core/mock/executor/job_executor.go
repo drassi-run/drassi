@@ -14,7 +14,9 @@ import (
 	reflect "reflect"
 
 	executor "drassi.run/core/pkg/executor"
+	expression "drassi.run/core/pkg/expression"
 	records "drassi.run/core/pkg/model/records"
+	sandboxer "drassi.run/core/pkg/sandboxer"
 	dig "go.uber.org/dig"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -75,6 +77,44 @@ func (c *MockJobExecutorAddPathCall) Do(f func([]string)) *MockJobExecutorAddPat
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockJobExecutorAddPathCall) DoAndReturn(f func([]string)) *MockJobExecutorAddPathCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// ExprEnv mocks base method.
+func (m *MockJobExecutor) ExprEnv() expression.Env {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExprEnv")
+	ret0, _ := ret[0].(expression.Env)
+	return ret0
+}
+
+// ExprEnv indicates an expected call of ExprEnv.
+func (mr *MockJobExecutorMockRecorder) ExprEnv() *MockJobExecutorExprEnvCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExprEnv", reflect.TypeOf((*MockJobExecutor)(nil).ExprEnv))
+	return &MockJobExecutorExprEnvCall{Call: call}
+}
+
+// MockJobExecutorExprEnvCall wrap *gomock.Call
+type MockJobExecutorExprEnvCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockJobExecutorExprEnvCall) Return(arg0 expression.Env) *MockJobExecutorExprEnvCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockJobExecutorExprEnvCall) Do(f func() expression.Env) *MockJobExecutorExprEnvCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockJobExecutorExprEnvCall) DoAndReturn(f func() expression.Env) *MockJobExecutorExprEnvCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -231,6 +271,44 @@ func (c *MockJobExecutorRunJobCall) DoAndReturn(f func(context.Context) *records
 	return c
 }
 
+// Sandbox mocks base method.
+func (m *MockJobExecutor) Sandbox() sandboxer.Sandbox {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Sandbox")
+	ret0, _ := ret[0].(sandboxer.Sandbox)
+	return ret0
+}
+
+// Sandbox indicates an expected call of Sandbox.
+func (mr *MockJobExecutorMockRecorder) Sandbox() *MockJobExecutorSandboxCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Sandbox", reflect.TypeOf((*MockJobExecutor)(nil).Sandbox))
+	return &MockJobExecutorSandboxCall{Call: call}
+}
+
+// MockJobExecutorSandboxCall wrap *gomock.Call
+type MockJobExecutorSandboxCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockJobExecutorSandboxCall) Return(arg0 sandboxer.Sandbox) *MockJobExecutorSandboxCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockJobExecutorSandboxCall) Do(f func() sandboxer.Sandbox) *MockJobExecutorSandboxCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockJobExecutorSandboxCall) DoAndReturn(f func() sandboxer.Sandbox) *MockJobExecutorSandboxCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SetEnv mocks base method.
 func (m *MockJobExecutor) SetEnv(env map[string]string) {
 	m.ctrl.T.Helper()
@@ -299,44 +377,6 @@ func (c *MockJobExecutorSetStatusCall) Do(f func(records.Result)) *MockJobExecut
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockJobExecutorSetStatusCall) DoAndReturn(f func(records.Result)) *MockJobExecutorSetStatusCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// State mocks base method.
-func (m *MockJobExecutor) State() *records.Job {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "State")
-	ret0, _ := ret[0].(*records.Job)
-	return ret0
-}
-
-// State indicates an expected call of State.
-func (mr *MockJobExecutorMockRecorder) State() *MockJobExecutorStateCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockJobExecutor)(nil).State))
-	return &MockJobExecutorStateCall{Call: call}
-}
-
-// MockJobExecutorStateCall wrap *gomock.Call
-type MockJobExecutorStateCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockJobExecutorStateCall) Return(arg0 *records.Job) *MockJobExecutorStateCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockJobExecutorStateCall) Do(f func() *records.Job) *MockJobExecutorStateCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockJobExecutorStateCall) DoAndReturn(f func() *records.Job) *MockJobExecutorStateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

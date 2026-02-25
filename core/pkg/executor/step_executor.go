@@ -15,15 +15,25 @@ import (
 	"time"
 
 	"drassi.run/core/pkg/executor/evaluator"
+	"drassi.run/core/pkg/expression/libraries"
+	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/pkg/store/repository"
+	"drassi.run/core/pkg/stream"
+
 	//"drassi.run/core/pkg/executor/support"
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/scribe"
-	"drassi.run/core/pkg/store/repository"
 	"drassi.run/core/util/dig"
 	"drassi.run/core/util/otel"
 	"go.uber.org/dig"
 )
+
+type StepContext interface {
+	ExprEnv() expression.Env
+	Sandbox() sandboxer.Sandbox
+	Streams(ctx context.Context) stream.Streams
+}
 
 type StepExecutor interface {
 	StepSpec() *StepSpec
@@ -32,8 +42,9 @@ type StepExecutor interface {
 	ActionExecutor() ActionExecutor
 	CreateTask(stage Stage) *StepTask
 
-	State() *records.Step
-	Status() records.Result
+	StepContext
+
+	Status() records.Result // inherit expression/libraries/StatusProvider
 	SetStatus(status records.Result)
 
 	ComposeEnv(systemEnv bool) map[string]string
@@ -89,6 +100,7 @@ type stepExecutor struct {
 
 	decorator ActionRunDecorator
 	//envProv   support.EnvProvider
+	streams stream.Streams
 	exprEnv expression.Env
 }
 
@@ -121,7 +133,7 @@ func (e *stepExecutor) init(ctx context.Context, scope *dig.Scope) (ex error) {
 	if err := xdig.Populate(scope, &e.decorator); err != nil {
 		return err
 	}
-	if err := xdig.Populate(scope, &e.exprEnv); err != nil {
+	if err := xdig.Populate(scope, &e.streams); err != nil {
 		return err
 	}
 	if err := xdig.Populate(scope, &e.github); err != nil {
@@ -140,6 +152,27 @@ func (e *stepExecutor) init(ctx context.Context, scope *dig.Scope) (ex error) {
 	e.step.Outputs = make(map[string]string)
 	e.state = make(map[string]string)
 
+	// setup expression.Env
+	opts := []expression.Option{
+		expression.WithVariable("github", &e.github),
+		expression.WithVariable("env", e.env),
+	}
+	if e.parent == nil {
+		e.exprEnv = e.jExec.ExprEnv()
+	} else {
+		e.exprEnv = e.parent.ExprEnv()
+		opts = append(opts,
+			// inputs from upper layers will NOT be passed to child steps
+			//expression.WithVariable("inputs", e.inputs), // TODO - move from compositeActionExecutor
+			expression.WithLibrary(libraries.StatusLib(e.parent)),
+		)
+	}
+	if exprEnv, err := e.exprEnv.New(opts...); err != nil {
+		return err
+	} else {
+		e.exprEnv = exprEnv
+	}
+
 	// initialize StepRun
 	if exec, err := e.spec.Action.CreateExecutor(ctx, scope, e); err != nil {
 		return err
@@ -152,17 +185,6 @@ func (e *stepExecutor) init(ctx context.Context, scope *dig.Scope) (ex error) {
 
 		e.github.ActionRepository = repo.Name
 		e.github.ActionRef = repo.Ref
-	}
-
-	// setup expression.Env
-	opts := []expression.Option{
-		expression.WithVariable("github", &e.github),
-		expression.WithVariable("env", e.env),
-	}
-	if exprEnv, err := e.exprEnv.New(opts...); err != nil {
-		return err
-	} else {
-		e.exprEnv = exprEnv
 	}
 
 	// Provide scope values
@@ -263,6 +285,18 @@ func (e *stepExecutor) runAction(ctx context.Context, action *ActionTask) error 
 	return err
 }
 
+func (e *stepExecutor) ExprEnv() expression.Env {
+	return e.exprEnv
+}
+
+func (e *stepExecutor) Sandbox() sandboxer.Sandbox {
+	return e.jExec.Sandbox()
+}
+
+func (e *stepExecutor) Streams(_ context.Context) stream.Streams {
+	return e.streams
+}
+
 func (e *stepExecutor) ComposeEnv(systemEnv bool) map[string]string {
 	m := maps.Clone(e.env)
 	if !systemEnv {
@@ -314,10 +348,6 @@ func (e *stepExecutor) ComposeEnv(systemEnv bool) map[string]string {
 		m[k] = v
 	}
 	return m
-}
-
-func (e *stepExecutor) State() *records.Step {
-	return e.step
 }
 
 func (e *stepExecutor) Status() records.Result {

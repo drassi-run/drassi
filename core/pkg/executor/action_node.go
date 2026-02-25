@@ -13,13 +13,10 @@ import (
 	"strings"
 
 	"drassi.run/core/pkg/executor/evaluator"
-	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/scribe"
 	"drassi.run/core/pkg/store/repository"
-	"drassi.run/core/pkg/stream"
-	"drassi.run/core/util/dig"
 	"drassi.run/core/util/otel"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
@@ -44,33 +41,12 @@ func (spec *NodeActionSpec) CreateExecutor(
 	ctx context.Context, scope *dig.Scope, exec StepExecutor,
 ) (ActionExecutor, error) {
 	e := &nodeActionExecutor{spec: spec, sExec: exec}
-	if err := e.init(ctx, scope); err != nil {
-		return nil, err
-	}
 	return e, nil
 }
 
 type nodeActionExecutor struct {
 	spec  *NodeActionSpec
 	sExec StepExecutor
-
-	// injected values
-	exprEnv expression.Env
-	sandbox sandboxer.Sandbox
-	streams stream.Streams
-}
-
-func (e *nodeActionExecutor) init(_ context.Context, scope *dig.Scope) error {
-	if err := xdig.Populate(scope, &e.exprEnv); err != nil {
-		return err
-	}
-	if err := xdig.Populate(scope, &e.sandbox); err != nil {
-		return err
-	}
-	if err := xdig.Populate(scope, &e.streams); err != nil {
-		return err
-	}
-	return nil
 }
 
 func (e *nodeActionExecutor) ActionSpec() ActionSpec {
@@ -112,12 +88,14 @@ func (e *nodeActionExecutor) execute(stage Stage) ActionRun {
 	return func(ctx context.Context) error {
 		e.addSpanAttrs(ctx, stage)
 
+		sandbox := e.sExec.Sandbox()
 		spec := e.sExec.StepSpec()
-		scriptPath := e.computeScriptPath(stage)
+		scriptPath := e.computeScriptPath(sandbox.Layout(), stage)
 		cmd := []string{"node", scriptPath}
 
+		exprEnv := e.sExec.ExprEnv()
 		inputs := make(map[string]string)
-		if err := evaluator.Evaluate(e.exprEnv, spec.Inputs, &inputs); err != nil {
+		if err := evaluator.Evaluate(exprEnv, spec.Inputs, &inputs); err != nil {
 			return err
 		}
 
@@ -132,12 +110,13 @@ func (e *nodeActionExecutor) execute(stage Stage) ActionRun {
 			env["INPUT_"+k] = v
 		}
 
+		streams := e.sExec.Streams(ctx)
 		paths := e.sExec.JobExecutor().SystemPaths()
-		return e.sandbox.Execute(ctx, cmd, paths, env, "", e.streams)
+		return sandbox.Execute(ctx, cmd, paths, env, "", streams)
 	}
 }
 
-func (e *nodeActionExecutor) computeScriptPath(stage Stage) string {
+func (e *nodeActionExecutor) computeScriptPath(layout *sandboxer.Layout, stage Stage) string {
 	var script string
 	switch stage {
 	case StagePre:
@@ -148,7 +127,6 @@ func (e *nodeActionExecutor) computeScriptPath(stage Stage) string {
 		script = e.spec.Main
 	}
 
-	layout := e.sandbox.Layout()
 	scriptPath := filepath.Join(layout.Actions, repository.Location(e.spec.Repo), script)
 	return scriptPath
 }

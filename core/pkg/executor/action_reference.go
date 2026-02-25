@@ -14,7 +14,6 @@ import (
 	"net/url"
 	"path/filepath"
 
-	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/actions"
 	"drassi.run/core/pkg/model/records"
@@ -51,10 +50,8 @@ func (spec *ReferenceActionSpec) CreateExecutor(
 	s := scribe.FromContext(ctx)
 
 	var (
-		github  records.Github
-		store   gitstore.Store
-		sandbox sandboxer.Sandbox
-		exprEnv expression.Env
+		github records.Github
+		store  gitstore.Store
 	)
 
 	span := trace.SpanFromContext(ctx)
@@ -64,12 +61,6 @@ func (spec *ReferenceActionSpec) CreateExecutor(
 		return nil, err
 	}
 	if err := xdig.Populate(scope, &store); err != nil {
-		return nil, err
-	}
-	if err := xdig.Populate(scope, &sandbox); err != nil {
-		return nil, err
-	}
-	if err := xdig.Populate(scope, &exprEnv); err != nil {
 		return nil, err
 	}
 	if err := xdig.Supply(scope, spec.Repo); err != nil {
@@ -97,7 +88,7 @@ func (spec *ReferenceActionSpec) CreateExecutor(
 
 	if action, err := spec.loadAction(ctx, s, store); err != nil {
 		return nil, err
-	} else if err = spec.transferAction(ctx, store, sandbox); err != nil {
+	} else if err = spec.transferAction(ctx, store, exec.Sandbox()); err != nil {
 		return nil, err
 	} else {
 		return action.CreateExecutor(ctx, scope, exec)

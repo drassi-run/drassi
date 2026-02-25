@@ -31,6 +31,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
+type JobContext interface {
+	Sandbox() sandboxer.Sandbox
+	ExprEnv() expression.Env
+}
+
 type JobExecutor interface {
 	JobSpec() *JobSpec
 
@@ -38,8 +43,9 @@ type JobExecutor interface {
 	RunJob(ctx context.Context) *records.Job
 	Finalize(ctx context.Context) error
 
-	State() *records.Job
-	Status() records.Result
+	JobContext
+
+	Status() records.Result // inherit expression/libraries/StatusProvider
 	SetStatus(status records.Result)
 
 	AddPath(paths []string)
@@ -419,8 +425,12 @@ func (e *jobExecutor) planStage(stage Stage) func(context.Context) error {
 	}
 }
 
-func (e *jobExecutor) State() *records.Job {
-	return e.job
+func (e *jobExecutor) Sandbox() sandboxer.Sandbox {
+	return e.sandbox
+}
+
+func (e *jobExecutor) ExprEnv() expression.Env {
+	return e.exprEnv
 }
 
 func (e *jobExecutor) Status() records.Result {

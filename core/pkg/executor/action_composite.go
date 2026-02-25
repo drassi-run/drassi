@@ -13,7 +13,6 @@ import (
 
 	"drassi.run/core/pkg/executor/evaluator"
 	"drassi.run/core/pkg/expression"
-	"drassi.run/core/pkg/expression/libraries"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/store/repository"
@@ -45,7 +44,6 @@ type compositeActionExecutor struct {
 	sExec StepExecutor
 
 	decorator StepRunDecorator
-	exprEnv   expression.Env
 	inputs    map[string]string
 	children  map[string]StepExecutor
 }
@@ -54,23 +52,10 @@ func (e *compositeActionExecutor) init(ctx context.Context, scope *dig.Scope) er
 	if err := xdig.Populate(scope, &e.decorator); err != nil {
 		return err
 	}
-	if err := xdig.Populate(scope, &e.exprEnv); err != nil {
-		return err
-	}
 
 	// create a new intermediate scope to store composite values (inputs & exprEnv)
 	e.inputs = make(map[string]string)
 	scope = scope.Scope("composite")
-	opts := []expression.Option{
-		// inputs from upper layers will NOT be passed to child steps
-		expression.WithVariable("inputs", e.inputs),
-		expression.WithLibrary(libraries.StatusLib(e.sExec)),
-	}
-	if exprEnv, err := e.exprEnv.New(opts...); err != nil {
-		return err
-	} else if err = xdig.Supply(scope, exprEnv); err != nil {
-		return err
-	}
 	if err := xdig.Supply(scope, e.inputs); err != nil {
 		return err
 	}
@@ -133,8 +118,9 @@ func (e *compositeActionExecutor) CreateTask(stage Stage) *ActionTask {
 	}
 
 	// 2. Execute the plan
+	exprEnv := e.sExec.ExprEnv()
 	run := func(ctx context.Context) error {
-		if err := e.computeInputs(); err != nil {
+		if err := e.computeInputs(exprEnv); err != nil {
 			return err
 		}
 
@@ -154,7 +140,7 @@ func (e *compositeActionExecutor) CreateTask(stage Stage) *ActionTask {
 			}
 		}
 
-		return e.produceOutputs()
+		return e.produceOutputs(exprEnv)
 	}
 
 	// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionManifestManager.cs#L472-L490
@@ -171,14 +157,14 @@ func (e *compositeActionExecutor) CreateTask(stage Stage) *ActionTask {
 	}
 }
 
-func (e *compositeActionExecutor) computeInputs() error {
+func (e *compositeActionExecutor) computeInputs(exprEnv expression.Env) error {
 	clear(e.inputs)
-	return evaluator.Evaluate(e.exprEnv, e.spec.Inputs, &e.inputs)
+	return evaluator.Evaluate(exprEnv, e.spec.Inputs, &e.inputs)
 }
 
-func (e *compositeActionExecutor) produceOutputs() error {
+func (e *compositeActionExecutor) produceOutputs(exprEnv expression.Env) error {
 	outputs := make(map[string]string)
-	if err := evaluator.Evaluate(e.exprEnv, e.spec.Outputs, &outputs); err != nil {
+	if err := evaluator.Evaluate(exprEnv, e.spec.Outputs, &outputs); err != nil {
 		return err
 	}
 	e.sExec.SetOutput(outputs)

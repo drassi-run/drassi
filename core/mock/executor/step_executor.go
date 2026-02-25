@@ -10,13 +10,155 @@
 package mock_executor
 
 import (
+	context "context"
 	io "io"
 	reflect "reflect"
 
 	executor "drassi.run/core/pkg/executor"
+	expression "drassi.run/core/pkg/expression"
 	records "drassi.run/core/pkg/model/records"
+	sandboxer "drassi.run/core/pkg/sandboxer"
+	stream "drassi.run/core/pkg/stream"
 	gomock "go.uber.org/mock/gomock"
 )
+
+// MockStepContext is a mock of StepContext interface.
+type MockStepContext struct {
+	ctrl     *gomock.Controller
+	recorder *MockStepContextMockRecorder
+	isgomock struct{}
+}
+
+// MockStepContextMockRecorder is the mock recorder for MockStepContext.
+type MockStepContextMockRecorder struct {
+	mock *MockStepContext
+}
+
+// NewMockStepContext creates a new mock instance.
+func NewMockStepContext(ctrl *gomock.Controller) *MockStepContext {
+	mock := &MockStepContext{ctrl: ctrl}
+	mock.recorder = &MockStepContextMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockStepContext) EXPECT() *MockStepContextMockRecorder {
+	return m.recorder
+}
+
+// ExprEnv mocks base method.
+func (m *MockStepContext) ExprEnv() expression.Env {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExprEnv")
+	ret0, _ := ret[0].(expression.Env)
+	return ret0
+}
+
+// ExprEnv indicates an expected call of ExprEnv.
+func (mr *MockStepContextMockRecorder) ExprEnv() *MockStepContextExprEnvCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExprEnv", reflect.TypeOf((*MockStepContext)(nil).ExprEnv))
+	return &MockStepContextExprEnvCall{Call: call}
+}
+
+// MockStepContextExprEnvCall wrap *gomock.Call
+type MockStepContextExprEnvCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStepContextExprEnvCall) Return(arg0 expression.Env) *MockStepContextExprEnvCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStepContextExprEnvCall) Do(f func() expression.Env) *MockStepContextExprEnvCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStepContextExprEnvCall) DoAndReturn(f func() expression.Env) *MockStepContextExprEnvCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// Sandbox mocks base method.
+func (m *MockStepContext) Sandbox() sandboxer.Sandbox {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Sandbox")
+	ret0, _ := ret[0].(sandboxer.Sandbox)
+	return ret0
+}
+
+// Sandbox indicates an expected call of Sandbox.
+func (mr *MockStepContextMockRecorder) Sandbox() *MockStepContextSandboxCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Sandbox", reflect.TypeOf((*MockStepContext)(nil).Sandbox))
+	return &MockStepContextSandboxCall{Call: call}
+}
+
+// MockStepContextSandboxCall wrap *gomock.Call
+type MockStepContextSandboxCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStepContextSandboxCall) Return(arg0 sandboxer.Sandbox) *MockStepContextSandboxCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStepContextSandboxCall) Do(f func() sandboxer.Sandbox) *MockStepContextSandboxCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStepContextSandboxCall) DoAndReturn(f func() sandboxer.Sandbox) *MockStepContextSandboxCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// Streams mocks base method.
+func (m *MockStepContext) Streams(ctx context.Context) stream.Streams {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Streams", ctx)
+	ret0, _ := ret[0].(stream.Streams)
+	return ret0
+}
+
+// Streams indicates an expected call of Streams.
+func (mr *MockStepContextMockRecorder) Streams(ctx any) *MockStepContextStreamsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Streams", reflect.TypeOf((*MockStepContext)(nil).Streams), ctx)
+	return &MockStepContextStreamsCall{Call: call}
+}
+
+// MockStepContextStreamsCall wrap *gomock.Call
+type MockStepContextStreamsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStepContextStreamsCall) Return(arg0 stream.Streams) *MockStepContextStreamsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStepContextStreamsCall) Do(f func(context.Context) stream.Streams) *MockStepContextStreamsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStepContextStreamsCall) DoAndReturn(f func(context.Context) stream.Streams) *MockStepContextStreamsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
 
 // MockStepExecutor is a mock of StepExecutor interface.
 type MockStepExecutor struct {
@@ -194,6 +336,44 @@ func (c *MockStepExecutorCreateTaskCall) DoAndReturn(f func(executor.Stage) *exe
 	return c
 }
 
+// ExprEnv mocks base method.
+func (m *MockStepExecutor) ExprEnv() expression.Env {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExprEnv")
+	ret0, _ := ret[0].(expression.Env)
+	return ret0
+}
+
+// ExprEnv indicates an expected call of ExprEnv.
+func (mr *MockStepExecutorMockRecorder) ExprEnv() *MockStepExecutorExprEnvCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExprEnv", reflect.TypeOf((*MockStepExecutor)(nil).ExprEnv))
+	return &MockStepExecutorExprEnvCall{Call: call}
+}
+
+// MockStepExecutorExprEnvCall wrap *gomock.Call
+type MockStepExecutorExprEnvCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStepExecutorExprEnvCall) Return(arg0 expression.Env) *MockStepExecutorExprEnvCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStepExecutorExprEnvCall) Do(f func() expression.Env) *MockStepExecutorExprEnvCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStepExecutorExprEnvCall) DoAndReturn(f func() expression.Env) *MockStepExecutorExprEnvCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // JobExecutor mocks base method.
 func (m *MockStepExecutor) JobExecutor() executor.JobExecutor {
 	m.ctrl.T.Helper()
@@ -266,6 +446,44 @@ func (c *MockStepExecutorParentCall) Do(f func() executor.StepExecutor) *MockSte
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStepExecutorParentCall) DoAndReturn(f func() executor.StepExecutor) *MockStepExecutorParentCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// Sandbox mocks base method.
+func (m *MockStepExecutor) Sandbox() sandboxer.Sandbox {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Sandbox")
+	ret0, _ := ret[0].(sandboxer.Sandbox)
+	return ret0
+}
+
+// Sandbox indicates an expected call of Sandbox.
+func (mr *MockStepExecutorMockRecorder) Sandbox() *MockStepExecutorSandboxCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Sandbox", reflect.TypeOf((*MockStepExecutor)(nil).Sandbox))
+	return &MockStepExecutorSandboxCall{Call: call}
+}
+
+// MockStepExecutorSandboxCall wrap *gomock.Call
+type MockStepExecutorSandboxCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStepExecutorSandboxCall) Return(arg0 sandboxer.Sandbox) *MockStepExecutorSandboxCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStepExecutorSandboxCall) Do(f func() sandboxer.Sandbox) *MockStepExecutorSandboxCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStepExecutorSandboxCall) DoAndReturn(f func() sandboxer.Sandbox) *MockStepExecutorSandboxCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -414,44 +632,6 @@ func (c *MockStepExecutorSetStatusCall) DoAndReturn(f func(records.Result)) *Moc
 	return c
 }
 
-// State mocks base method.
-func (m *MockStepExecutor) State() *records.Step {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "State")
-	ret0, _ := ret[0].(*records.Step)
-	return ret0
-}
-
-// State indicates an expected call of State.
-func (mr *MockStepExecutorMockRecorder) State() *MockStepExecutorStateCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockStepExecutor)(nil).State))
-	return &MockStepExecutorStateCall{Call: call}
-}
-
-// MockStepExecutorStateCall wrap *gomock.Call
-type MockStepExecutorStateCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStepExecutorStateCall) Return(arg0 *records.Step) *MockStepExecutorStateCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStepExecutorStateCall) Do(f func() *records.Step) *MockStepExecutorStateCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStepExecutorStateCall) DoAndReturn(f func() *records.Step) *MockStepExecutorStateCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // Status mocks base method.
 func (m *MockStepExecutor) Status() records.Result {
 	m.ctrl.T.Helper()
@@ -524,6 +704,44 @@ func (c *MockStepExecutorStepSpecCall) Do(f func() *executor.StepSpec) *MockStep
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStepExecutorStepSpecCall) DoAndReturn(f func() *executor.StepSpec) *MockStepExecutorStepSpecCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// Streams mocks base method.
+func (m *MockStepExecutor) Streams(ctx context.Context) stream.Streams {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Streams", ctx)
+	ret0, _ := ret[0].(stream.Streams)
+	return ret0
+}
+
+// Streams indicates an expected call of Streams.
+func (mr *MockStepExecutorMockRecorder) Streams(ctx any) *MockStepExecutorStreamsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Streams", reflect.TypeOf((*MockStepExecutor)(nil).Streams), ctx)
+	return &MockStepExecutorStreamsCall{Call: call}
+}
+
+// MockStepExecutorStreamsCall wrap *gomock.Call
+type MockStepExecutorStreamsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStepExecutorStreamsCall) Return(arg0 stream.Streams) *MockStepExecutorStreamsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStepExecutorStreamsCall) Do(f func(context.Context) stream.Streams) *MockStepExecutorStreamsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStepExecutorStreamsCall) DoAndReturn(f func(context.Context) stream.Streams) *MockStepExecutorStreamsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

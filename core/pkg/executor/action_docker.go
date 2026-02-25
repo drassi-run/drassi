@@ -17,7 +17,6 @@ import (
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/scribe"
 	"drassi.run/core/pkg/store/repository"
-	"drassi.run/core/pkg/stream"
 	"drassi.run/core/util/dig"
 	semconv "go.opentelemetry.io/otel/semconv/v1.27.0"
 	"go.opentelemetry.io/otel/trace"
@@ -67,18 +66,10 @@ type dockerActionExecutor struct {
 
 	// injected values
 	runtime runtime.Container
-	streams stream.Streams
-	exprEnv expression.Env
 }
 
 func (e *dockerActionExecutor) init(ctx context.Context, scope *dig.Scope) error {
 	if err := xdig.Populate(scope, &e.runtime); err != nil {
-		return err
-	}
-	if err := xdig.Populate(scope, &e.streams); err != nil {
-		return err
-	}
-	if err := xdig.Populate(scope, &e.exprEnv); err != nil {
 		return err
 	}
 	defer e.addSpanAttrs(ctx)
@@ -140,8 +131,9 @@ func (e *dockerActionExecutor) execute(stage Stage) ActionRun {
 		e.addSpanAttrs(ctx)
 
 		spec := e.sExec.StepSpec()
+		exprEnv := e.sExec.ExprEnv()
 		inputs := make(map[string]string)
-		if err := evaluator.Evaluate(e.exprEnv, spec.Inputs, &inputs); err != nil {
+		if err := evaluator.Evaluate(exprEnv, spec.Inputs, &inputs); err != nil {
 			return err
 		}
 
@@ -150,7 +142,7 @@ func (e *dockerActionExecutor) execute(stage Stage) ActionRun {
 			return err
 		}
 
-		args, err := e.computeArgs(inputs)
+		args, err := e.computeArgs(exprEnv, inputs)
 		if err != nil {
 			return err
 		}
@@ -168,7 +160,8 @@ func (e *dockerActionExecutor) execute(stage Stage) ActionRun {
 			env["INPUT_"+k] = v
 		}
 
-		return e.runtime.Run(ctx, e.resolvedImage, entrypoint, args, env, e.streams)
+		streams := e.sExec.Streams(ctx)
+		return e.runtime.Run(ctx, e.resolvedImage, entrypoint, args, env, streams)
 	}
 }
 
@@ -197,10 +190,10 @@ func (e *dockerActionExecutor) computeEntrypoint(stage Stage, inputs map[string]
 	return nil, nil
 }
 
-func (e *dockerActionExecutor) computeArgs(inputs map[string]string) ([]string, error) {
+func (e *dockerActionExecutor) computeArgs(exprEnv expression.Env, inputs map[string]string) ([]string, error) {
 	if e.spec.Args != nil {
 		args := make([]string, 0)
-		if err := evaluator.Evaluate(e.exprEnv, e.spec.Args, &args); err != nil {
+		if err := evaluator.Evaluate(exprEnv, e.spec.Args, &args); err != nil {
 			return nil, err
 		}
 		return args, nil
@@ -208,9 +201,9 @@ func (e *dockerActionExecutor) computeArgs(inputs map[string]string) ([]string, 
 
 	if args, ok := inputs["args"]; ok {
 		return []string{args}, nil
-	} else {
-		return nil, nil
 	}
+
+	return nil, nil
 }
 
 func (e *dockerActionExecutor) addSpanAttrs(ctx context.Context) {

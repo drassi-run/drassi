@@ -14,12 +14,10 @@ import (
 	"strings"
 
 	"drassi.run/core/pkg/executor/evaluator"
-	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/scribe"
-	"drassi.run/core/pkg/stream"
 	"drassi.run/core/util/dig"
 	"drassi.run/core/util/string"
 	"drassi.run/core/util/tar"
@@ -47,22 +45,10 @@ type scriptActionExecutor struct {
 	sExec StepExecutor
 
 	// injected values
-	sandbox  sandboxer.Sandbox
-	streams  stream.Streams
-	exprEnv  expression.Env
 	defaults workflows.Defaults
 }
 
 func (e *scriptActionExecutor) init(_ context.Context, scope *dig.Scope) error {
-	if err := xdig.Populate(scope, &e.sandbox); err != nil {
-		return err
-	}
-	if err := xdig.Populate(scope, &e.streams); err != nil {
-		return err
-	}
-	if err := xdig.Populate(scope, &e.exprEnv); err != nil {
-		return err
-	}
 	if err := xdig.Populate(scope, &e.defaults); err != nil {
 		return err
 	}
@@ -91,12 +77,13 @@ func (e *scriptActionExecutor) CreateTask(stage Stage) *ActionTask {
 func (e *scriptActionExecutor) executeMain(ctx context.Context) error {
 	spec := e.spec
 	workdir := e.defaults.Run.WorkingDir
-	if err := evaluator.Evaluate(e.exprEnv, spec.WorkingDir, &workdir); err != nil {
+	exprEnv := e.sExec.ExprEnv()
+	if err := evaluator.Evaluate(exprEnv, spec.WorkingDir, &workdir); err != nil {
 		return err
 	}
 
 	script := ""
-	if err := evaluator.Evaluate(e.exprEnv, spec.Run, &script); err != nil {
+	if err := evaluator.Evaluate(exprEnv, spec.Run, &script); err != nil {
 		return err
 	} else if script == "" {
 		return fmt.Errorf("script is required")
@@ -120,21 +107,23 @@ func (e *scriptActionExecutor) executeMain(ctx context.Context) error {
 		scribe.WithMap("env", e.sExec.ComposeEnv(false)),
 	)
 
+	sandbox := e.sExec.Sandbox()
 	script = shell.FixupScript(script)
 	scriptPath := e.computeScriptPath(e.sExec.StepSpec(), shell.Extension())
-	e.expandCommand(cmd, scriptPath)
+	e.expandCommand(sandbox.Layout(), cmd, scriptPath)
 
-	if err = e.transferScriptIn(ctx, script, scriptPath); err != nil {
+	if err = e.transferScriptIn(ctx, sandbox, script, scriptPath); err != nil {
 		return nil
 	}
 
 	env := e.sExec.ComposeEnv(true)
 	paths := e.sExec.JobExecutor().SystemPaths()
-	return e.sandbox.Execute(ctx, cmd, paths, env, workdir, e.streams)
+	streams := e.sExec.Streams(ctx)
+	return sandbox.Execute(ctx, cmd, paths, env, workdir, streams)
 }
 
-func (e *scriptActionExecutor) expandCommand(cmd []string, scriptPath string) {
-	scriptPath = path.Join(e.sandbox.Layout().Temp, scriptPath)
+func (e *scriptActionExecutor) expandCommand(layout *sandboxer.Layout, cmd []string, scriptPath string) {
+	scriptPath = path.Join(layout.Temp, scriptPath)
 	for i, c := range cmd {
 		cmd[i] = strings.Replace(c, `{0}`, scriptPath, 1)
 	}
@@ -145,12 +134,13 @@ func (e *scriptActionExecutor) computeScriptPath(spec *StepSpec, ext string) str
 	return path.Join("scripts", file)
 }
 
-func (e *scriptActionExecutor) transferScriptIn(ctx context.Context, script, path string) error {
+func (e *scriptActionExecutor) transferScriptIn(ctx context.Context, sandbox sandboxer.Sandbox, script, path string) error {
 	entries := map[string]string{path: script}
 	if reader, err := xtar.ContentReader(entries); err != nil {
 		return err
 	} else {
-		return e.sandbox.CopyIn(ctx, reader, e.sandbox.Layout().Temp)
+		dst := sandbox.Layout().Temp
+		return sandbox.CopyIn(ctx, reader, dst)
 	}
 }
 
