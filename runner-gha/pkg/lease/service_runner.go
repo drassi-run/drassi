@@ -68,40 +68,47 @@ func (s *RunnerService) Lease(msg *messages.PipelineAgentJobRequest) Lease {
 // https://github.com/actions/runner/blob/v2.323.0/src/Sdk/DTWebApi/WebApi/TaskAgentHttpClient.cs#L93
 func (s *RunnerService) renewJob(ctx context.Context, msg *messages.PipelineAgentJobRequest, orchId string) {
 	l := clog.FromContext(ctx)
-	req := &runnerJobRequest{
-		RequestId:   msg.RequestId,
-		LockedUntil: msg.LockedUntil.Time,
-	}
-	resp := new(runnerJobRequest)
-	hr := s.client.Patch(fmt.Sprintf("_apis/distributedtask/pools/%d/jobrequests/%d", s.groupId, msg.RequestId)).
-		SetQuery("api-version", "5.1-preview").
-		SetQuery("lockToken", lockToken).
-		WithBodyProvider(xhttp.JsonEncode(req)).
-		OnSuccess(xhttp.JsonDecode(resp))
-
-	if orchId != "" {
-		hr.SetHeader("X-VSS-OrchestrationId", orchId)
-	}
-
 	timer := time.NewTimer(0)
 	defer timer.Stop()
 
-	doRenew := func() {
-		if err := hr.Do(ctx); err != nil {
-			l.ErrorContextf(ctx, "renewjob failed: %v", err)
-			return
+	lockedUntil := msg.LockedUntil.Time
+	doRenew := func() error {
+		req := &runnerJobRequest{
+			RequestId:   msg.RequestId,
+			LockedUntil: lockedUntil,
 		}
-		l.DebugContextf(ctx, "successfully renew job %s, job is valid till %s", msg.JobId, resp.LockedUntil)
+		resp := new(runnerJobRequest)
+		hr := s.client.Patch(fmt.Sprintf("_apis/distributedtask/pools/%d/jobrequests/%d", s.groupId, msg.RequestId)).
+			SetQuery("api-version", "5.1-preview").
+			SetQuery("lockToken", lockToken).
+			WithBodyProvider(xhttp.JsonEncode(req)).
+			OnSuccess(xhttp.JsonDecode(resp))
+
+		if orchId != "" {
+			hr.SetHeader("X-VSS-OrchestrationId", orchId)
+		}
+
+		if err := hr.Do(ctx); err != nil {
+			return err
+		}
+
+		l.Debugf("successfully renew job %s, job is valid till %s", msg.JobId, resp.LockedUntil)
+		lockedUntil = resp.LockedUntil
 		if d := renewAt(resp.LockedUntil); d >= 0 {
 			timer.Reset(d)
 		}
+		return nil
 	}
 
 	for {
 		select {
 		case <-timer.C:
-			doRenew()
+			if err := doRenew(); err != nil {
+				l.Errorf("renew job failed: %v", err)
+				return
+			}
 		case <-ctx.Done():
+			l.Debugf("renew job completed")
 			return
 		}
 	}

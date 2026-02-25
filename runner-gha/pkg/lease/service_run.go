@@ -63,29 +63,34 @@ func (s *RunService) Lease(msg *messages.PipelineAgentJobRequest) Lease {
 
 func (s *RunService) renewJob(ctx context.Context, req *renewJobRequest) {
 	l := clog.FromContext(ctx)
-	resp := new(renewJobResponse)
-	hr := s.client.Post("renewjob").
-		WithBodyProvider(xhttp.JsonEncode(req)).
-		OnSuccess(xhttp.JsonDecode(resp))
 	timer := time.NewTimer(0)
 	defer timer.Stop()
 
-	doRenew := func() {
+	doRenew := func() error {
+		resp := new(renewJobResponse)
+		hr := s.client.Post("renewjob").
+			WithBodyProvider(xhttp.JsonEncode(req)).
+			OnSuccess(xhttp.JsonDecode(resp))
+
 		if err := hr.Do(ctx); err != nil {
-			l.ErrorContextf(ctx, "renewjob failed: %v", err)
-			return
+			return err
 		}
-		l.DebugContextf(ctx, "successfully renew job %s, job is valid till %s", req.JobId, resp.LockedUntil)
+		l.Debugf("successfully renew job %s, job is valid till %s", req.JobId, resp.LockedUntil)
 		if d := renewAt(resp.LockedUntil); d >= 0 {
 			timer.Reset(d)
 		}
+		return nil
 	}
 
 	for {
 		select {
 		case <-timer.C:
-			doRenew()
+			if err := doRenew(); err != nil {
+				l.Errorf("renew job failed: %v", err)
+				return
+			}
 		case <-ctx.Done():
+			l.Debugf("renew job completed")
 			return
 		}
 	}

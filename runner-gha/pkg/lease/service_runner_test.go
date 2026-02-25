@@ -129,6 +129,23 @@ func (s *RunnerServiceTestSuite) TestLease_Renew() {
 	assert.EqualValues(t, true, done.Load())
 }
 
+func (s *RunnerServiceTestSuite) TestLease_Renew_Error() {
+	t := s.T()
+	s.mux.HandleFunc("PATCH /_apis/distributedtask/pools/{groupId}/jobrequests/{requestId}", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	})
+
+	l := s.svc.Lease(s.msg)
+	var done atomic.Bool
+	go func() {
+		l.Renew(t.Context())
+		done.Store(true)
+	}()
+
+	// goroutine should stop when renew error
+	assert.Eventually(t, done.Load, time.Second, 10*time.Millisecond)
+}
+
 func (s *RunnerServiceTestSuite) TestLease_Complete() {
 	t := s.T()
 
