@@ -8,25 +8,26 @@ package reporter
 
 import (
 	"context"
+
 	"drassi.run/core/pkg/executor"
 )
 
 func NewListener(reporter *Reporter) executor.Listener {
-	return &listener{reporter: reporter}
+	return &giteaListener{reporter: reporter}
 }
 
-type listener struct {
+type giteaListener struct {
 	executor.NoopJobListener
 	executor.NoopStepListener
 
 	reporter *Reporter
 }
 
-func (l *listener) OnRunJob(exec executor.JobExecutor) executor.EventHandler {
+func (l *giteaListener) OnRunJob(exec executor.JobExecutor) executor.EventHandler {
 	return &jobRunEventHandler{exec: exec, reporter: l.reporter}
 }
 
-func (l *listener) OnRunStep(exec executor.StepExecutor, stage executor.Stage) executor.EventHandler {
+func (l *giteaListener) OnRunStep(exec executor.StepExecutor, stage executor.Stage) executor.EventHandler {
 	return &stepRunEventHandler{exec: exec, stage: stage, reporter: l.reporter}
 }
 

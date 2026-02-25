@@ -19,24 +19,24 @@ import (
 )
 
 func NewListener() executor.Listener {
-	return new(listener)
+	return new(cmdListener)
 }
 
-type listener struct {
+type cmdListener struct {
 	executor.NoopJobListener
 	executor.NoopStepListener
 
 	cmdMgr command.FileManager
 }
 
-func (l *listener) OnInitializeJob(_ executor.JobExecutor, scope *dig.Scope) executor.EventHandler {
+func (l *cmdListener) OnInitializeJob(_ executor.JobExecutor, scope *dig.Scope) executor.EventHandler {
 	return &jobInitEventHandler{
 		scope:    scope,
 		listener: l,
 	}
 }
 
-func (l *listener) OnRunTask(_ executor.StepExecutor, task *executor.Task) executor.EventHandler {
+func (l *cmdListener) OnRunTask(_ executor.StepExecutor, task *executor.Task) executor.EventHandler {
 	return &taskRunEventHandler{
 		task:   task,
 		cmdMgr: l.cmdMgr,
@@ -46,7 +46,7 @@ func (l *listener) OnRunTask(_ executor.StepExecutor, task *executor.Task) execu
 type jobInitEventHandler struct {
 	scope    *dig.Scope
 	ctx      context.Context
-	listener *listener
+	listener *cmdListener
 }
 
 func (eh *jobInitEventHandler) Begin(ctx context.Context) error {
