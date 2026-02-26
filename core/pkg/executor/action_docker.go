@@ -94,6 +94,22 @@ func (e *dockerActionExecutor) StepExecutor() StepExecutor {
 	return e.sExec
 }
 
+func (e *dockerActionExecutor) Name() workflows.Evaluable[string] {
+	return workflows.NewLiteralToken(e.spec.Image)
+}
+
+func (e *dockerActionExecutor) Env() workflows.Evaluable[map[string]string] {
+	return e.spec.Env
+}
+
+func (e *dockerActionExecutor) Inputs() workflows.Evaluable[map[string]string] {
+	return e.spec.Inputs
+}
+
+func (e *dockerActionExecutor) Outputs() workflows.Evaluable[map[string]string] {
+	return e.spec.Outputs
+}
+
 func (e *dockerActionExecutor) PathTranslator() runtime.PathTranslator {
 	return e.runtime
 }
@@ -130,19 +146,12 @@ func (e *dockerActionExecutor) execute(stage Stage) ActionRun {
 	return func(ctx context.Context) error {
 		e.addSpanAttrs(ctx)
 
-		spec := e.sExec.StepSpec()
-		exprEnv := e.sExec.ExprEnv()
-		inputs := make(map[string]string)
-		if err := evaluator.Evaluate(exprEnv, spec.Inputs, &inputs); err != nil {
-			return err
-		}
-
+		inputs := e.sExec.Inputs()
 		entrypoint, err := e.computeEntrypoint(stage, inputs)
 		if err != nil {
 			return err
 		}
-
-		args, err := e.computeArgs(exprEnv, inputs)
+		args, err := e.computeArgs(e.sExec.ExprEnv(), inputs)
 		if err != nil {
 			return err
 		}
@@ -151,10 +160,10 @@ func (e *dockerActionExecutor) execute(stage Stage) ActionRun {
 			scribe.WithList("entrypoint", entrypoint),
 			scribe.WithList("args", args),
 			scribe.WithMap("with", inputs),
-			scribe.WithMap("env", e.sExec.ComposeEnv(false)),
+			scribe.WithMap("env", e.sExec.Env()),
 		)
 
-		env := e.sExec.ComposeEnv(true)
+		env := composeEnv(e.sExec)
 		for k, v := range inputs {
 			k = strings.ToUpper(k)
 			env["INPUT_"+k] = v
@@ -194,7 +203,7 @@ func (e *dockerActionExecutor) computeArgs(exprEnv expression.Env, inputs map[st
 	if e.spec.Args != nil {
 		args := make([]string, 0)
 		if err := evaluator.Evaluate(exprEnv, e.spec.Args, &args); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("evaluate 'args': %w", err)
 		}
 		return args, nil
 	}

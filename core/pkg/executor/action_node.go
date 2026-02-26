@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"drassi.run/core/pkg/executor/evaluator"
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/scribe"
@@ -57,6 +56,23 @@ func (e *nodeActionExecutor) StepExecutor() StepExecutor {
 	return e.sExec
 }
 
+func (e *nodeActionExecutor) Name() workflows.Evaluable[string] {
+	name := repository.Location(e.spec.Repo)
+	return workflows.NewLiteralToken(name)
+}
+
+func (e *nodeActionExecutor) Env() workflows.Evaluable[map[string]string] {
+	return nil
+}
+
+func (e *nodeActionExecutor) Inputs() workflows.Evaluable[map[string]string] {
+	return e.spec.Inputs
+}
+
+func (e *nodeActionExecutor) Outputs() workflows.Evaluable[map[string]string] {
+	return e.spec.Outputs
+}
+
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionManifestManager.cs#L451-L471
 func (e *nodeActionExecutor) CreateTask(stage Stage) *ActionTask {
 	var condition workflows.Conditional
@@ -89,22 +105,16 @@ func (e *nodeActionExecutor) execute(stage Stage) ActionRun {
 		e.addSpanAttrs(ctx, stage)
 
 		sandbox := e.sExec.Sandbox()
-		spec := e.sExec.StepSpec()
 		scriptPath := e.computeScriptPath(sandbox.Layout(), stage)
 		cmd := []string{"node", scriptPath}
-
-		exprEnv := e.sExec.ExprEnv()
-		inputs := make(map[string]string)
-		if err := evaluator.Evaluate(exprEnv, spec.Inputs, &inputs); err != nil {
-			return err
-		}
+		inputs := e.sExec.Inputs()
 
 		scribe.GroupDetails(ctx, e.repr(),
 			scribe.WithMap("with", inputs),
-			scribe.WithMap("env", e.sExec.ComposeEnv(false)),
+			scribe.WithMap("env", e.sExec.Env()),
 		)
 
-		env := e.sExec.ComposeEnv(true)
+		env := composeEnv(e.sExec)
 		for k, v := range inputs {
 			k = strings.ToUpper(k)
 			env["INPUT_"+k] = v

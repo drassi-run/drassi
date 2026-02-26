@@ -21,6 +21,11 @@ type ActionExecutor interface {
 	ActionSpec() ActionSpec
 	StepExecutor() StepExecutor
 	CreateTask(stage Stage) *ActionTask
+
+	Name() workflows.Evaluable[string]
+	Env() workflows.Evaluable[map[string]string]
+	Inputs() workflows.Evaluable[map[string]string]
+	Outputs() workflows.Evaluable[map[string]string]
 }
 
 type ActionTask struct {

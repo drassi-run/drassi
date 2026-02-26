@@ -63,6 +63,22 @@ func (e *scriptActionExecutor) StepExecutor() StepExecutor {
 	return e.sExec
 }
 
+func (e *scriptActionExecutor) Name() workflows.Evaluable[string] {
+	return e.spec.Run
+}
+
+func (e *scriptActionExecutor) Env() workflows.Evaluable[map[string]string] {
+	return nil
+}
+
+func (e *scriptActionExecutor) Inputs() workflows.Evaluable[map[string]string] {
+	return nil
+}
+
+func (e *scriptActionExecutor) Outputs() workflows.Evaluable[map[string]string] {
+	return nil
+}
+
 func (e *scriptActionExecutor) CreateTask(stage Stage) *ActionTask {
 	if stage != StageMain {
 		return nil
@@ -76,15 +92,15 @@ func (e *scriptActionExecutor) CreateTask(stage Stage) *ActionTask {
 
 func (e *scriptActionExecutor) executeMain(ctx context.Context) error {
 	spec := e.spec
-	workdir := e.defaults.Run.WorkingDir
 	exprEnv := e.sExec.ExprEnv()
+	workdir := e.defaults.Run.WorkingDir
 	if err := evaluator.Evaluate(exprEnv, spec.WorkingDir, &workdir); err != nil {
-		return err
+		return fmt.Errorf("evaluate 'workingDir': %w", err)
 	}
 
 	script := ""
 	if err := evaluator.Evaluate(exprEnv, spec.Run, &script); err != nil {
-		return err
+		return fmt.Errorf("evaluate 'run': %w", err)
 	} else if script == "" {
 		return fmt.Errorf("script is required")
 	}
@@ -104,7 +120,7 @@ func (e *scriptActionExecutor) executeMain(ctx context.Context) error {
 		withScript(script),
 		scribe.WithPair("shell", strings.Join(cmd, " ")),
 		scribe.WithPair("workdir", workdir),
-		scribe.WithMap("env", e.sExec.ComposeEnv(false)),
+		scribe.WithMap("env", e.sExec.Env()),
 	)
 
 	sandbox := e.sExec.Sandbox()
@@ -116,7 +132,7 @@ func (e *scriptActionExecutor) executeMain(ctx context.Context) error {
 		return nil
 	}
 
-	env := e.sExec.ComposeEnv(true)
+	env := composeEnv(e.sExec)
 	paths := e.sExec.JobExecutor().SystemPaths()
 	streams := e.sExec.Streams(ctx)
 	return sandbox.Execute(ctx, cmd, paths, env, workdir, streams)

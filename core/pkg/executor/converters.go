@@ -8,6 +8,7 @@ package executor
 
 import (
 	"fmt"
+	"maps"
 	"strconv"
 	"strings"
 
@@ -188,6 +189,16 @@ func outputToken(m map[string]workflows.Output) workflows.Token {
 	return nil
 }
 
+func mergeMapExpr(a, b workflows.Evaluable[map[string]string]) workflows.Evaluable[map[string]string] {
+	if a == nil {
+		return b
+	}
+	if b == nil {
+		return a
+	}
+	return workflows.NewSquashMappingToken(a, b)
+}
+
 // normalize string by remove all special characters
 func normalize(s string) string {
 	return strings.Map(normalizeReplacer, s)
@@ -198,4 +209,10 @@ func normalizeReplacer(r rune) rune {
 		return r
 	}
 	return '_'
+}
+
+func composeEnv(exec StepExecutor) map[string]string {
+	env := exec.SystemEnv()
+	maps.Copy(env, exec.Env())
+	return env
 }

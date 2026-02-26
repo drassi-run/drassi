@@ -31,11 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-type JobContext interface {
-	Sandbox() sandboxer.Sandbox
-	ExprEnv() expression.Env
-}
-
 type JobExecutor interface {
 	JobSpec() *JobSpec
 
@@ -43,15 +38,16 @@ type JobExecutor interface {
 	RunJob(ctx context.Context) *records.Job
 	Finalize(ctx context.Context) error
 
-	JobContext
+	Sandbox() sandboxer.Sandbox
+	ExprEnv() expression.Env
 
-	Status() records.Result // inherit expression/libraries/StatusProvider
+	Status() records.Result // inherit libraries.StatusProvider
 	SetStatus(status records.Result)
-
 	AddPath(paths []string)
-	SetEnv(env map[string]string)
-
 	SystemPaths() []string
+	Env() map[string]string
+	SystemEnv() map[string]string
+	SetEnv(env map[string]string)
 }
 
 type JobTask struct {
@@ -330,22 +326,6 @@ func (e *jobExecutor) initializeScope(scope *dig.Scope) error {
 	return nil
 }
 
-//func (e *jobExecutor) provideEnv(envProv support.EnvProvider) {
-//	runnerEnv := map[string]string{
-//		"RUNNER_NAME":        e.runner.Name,
-//		"RUNNER_ARCH":        string(e.runner.Arch),
-//		"RUNNER_OS":          string(e.runner.Os),
-//		"RUNNER_ENVIRONMENT": e.runner.Environment,
-//		"RUNNER_TEMP":        e.runner.Temp,
-//		"RUNNER_TOOL_CACHE":  e.runner.ToolCache,
-//		"RUNNER_WORKSPACE":   e.runner.Workspace,
-//	}
-//	if e.runner.Debug == "1" {
-//		runnerEnv["RUNNER_DEBUG"] = "1"
-//	}
-//	envProv.ProvideEnv(support.StaticEnv(runnerEnv))
-//}
-
 func (e *jobExecutor) initializeSteps(ctx context.Context, scope *dig.Scope) error {
 	e.children = make(map[string]StepExecutor, len(e.spec.Steps))
 
@@ -433,6 +413,8 @@ func (e *jobExecutor) ExprEnv() expression.Env {
 	return e.exprEnv
 }
 
+// Status return current job's Result
+// its implement [libraries.StatusProvider]
 func (e *jobExecutor) Status() records.Result {
 	if e.job != nil {
 		return e.job.Result
@@ -443,10 +425,6 @@ func (e *jobExecutor) Status() records.Result {
 func (e *jobExecutor) SetStatus(status records.Result) {
 	e.job.Result = status
 	e.jobInfo.Status = status
-}
-
-func (e *jobExecutor) SystemPaths() []string {
-	return slices.Clone(e.paths)
 }
 
 // AddPath prepending a directory to the system PATH variable (and remove duplicates).
@@ -476,6 +454,35 @@ func (e *jobExecutor) AddPath(paths []string) {
 	}
 
 	e.paths = newPaths
+}
+
+func (e *jobExecutor) SystemPaths() []string {
+	return e.paths
+}
+
+func (e *jobExecutor) Env() map[string]string {
+	return e.env
+}
+
+func (e *jobExecutor) SystemEnv() map[string]string {
+	m := make(map[string]string)
+	// TODO provided env
+
+	runnerEnv := map[string]string{
+		"RUNNER_NAME":        e.runner.Name,
+		"RUNNER_ARCH":        string(e.runner.Arch),
+		"RUNNER_OS":          string(e.runner.Os),
+		"RUNNER_ENVIRONMENT": e.runner.Environment,
+		"RUNNER_TEMP":        e.runner.Temp,
+		"RUNNER_TOOL_CACHE":  e.runner.ToolCache,
+		"RUNNER_WORKSPACE":   e.runner.Workspace,
+	}
+	if e.runner.Debug == "1" {
+		runnerEnv["RUNNER_DEBUG"] = "1"
+	}
+	maps.Copy(m, runnerEnv)
+
+	return m
 }
 
 // SetEnv make an environment variable available to any subsequent steps in a workflow job.

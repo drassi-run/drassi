@@ -9,31 +9,23 @@ package executor
 import (
 	"context"
 	"fmt"
-	"io"
 	"maps"
 	"strconv"
+	"strings"
 	"time"
 
 	"drassi.run/core/pkg/executor/evaluator"
+	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/expression/libraries"
+	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/pkg/scribe"
 	"drassi.run/core/pkg/store/repository"
 	"drassi.run/core/pkg/stream"
-
-	//"drassi.run/core/pkg/executor/support"
-	"drassi.run/core/pkg/expression"
-	"drassi.run/core/pkg/model/records"
-	"drassi.run/core/pkg/scribe"
 	"drassi.run/core/util/dig"
 	"drassi.run/core/util/otel"
 	"go.uber.org/dig"
 )
-
-type StepContext interface {
-	ExprEnv() expression.Env
-	Sandbox() sandboxer.Sandbox
-	Streams(ctx context.Context) stream.Streams
-}
 
 type StepExecutor interface {
 	StepSpec() *StepSpec
@@ -42,16 +34,18 @@ type StepExecutor interface {
 	ActionExecutor() ActionExecutor
 	CreateTask(stage Stage) *StepTask
 
-	StepContext
+	ExprEnv() expression.Env
+	Sandbox() sandboxer.Sandbox
+	Streams(ctx context.Context) stream.Streams
 
-	Status() records.Result // inherit expression/libraries/StatusProvider
+	Status() records.Result // inherit libraries.StatusProvider
 	SetStatus(status records.Result)
-
-	ComposeEnv(systemEnv bool) map[string]string
+	Inputs() map[string]string
+	SetOutput(output map[string]string)
+	Env() map[string]string
+	SystemEnv() map[string]string
 	SetEnv(env map[string]string)
 	SaveState(state map[string]string)
-	SetOutput(output map[string]string)
-	CreateStepSummary(r io.Reader) error
 }
 
 func Root(exec StepExecutor) StepExecutor {
@@ -59,6 +53,13 @@ func Root(exec StepExecutor) StepExecutor {
 		exec = exec.Parent()
 	}
 	return exec
+}
+
+func Depth(exec StepExecutor) (d int) {
+	for d = 1; exec.Parent() != nil; d++ {
+		exec = exec.Parent()
+	}
+	return
 }
 
 type StepTask struct {
@@ -92,16 +93,15 @@ type stepExecutor struct {
 	aExec  ActionExecutor
 
 	// records
-	github   records.Github
-	step     *records.Step
-	env      map[string]string
-	upperEnv map[string]string // env variables from upper layers
-	state    map[string]string // Intra action state
+	github records.Github
+	step   *records.Step
+	inputs map[string]string
+	env    map[string]string
+	state  map[string]string // Intra action state
 
 	decorator ActionRunDecorator
-	//envProv   support.EnvProvider
-	streams stream.Streams
-	exprEnv expression.Env
+	streams   stream.Streams
+	exprEnv   expression.Env
 }
 
 func (e *stepExecutor) StepSpec() *StepSpec {
@@ -139,15 +139,8 @@ func (e *stepExecutor) init(ctx context.Context, scope *dig.Scope) (ex error) {
 	if err := xdig.Populate(scope, &e.github); err != nil {
 		return err
 	}
-	//if err := xdig.Populate(scope, &e.envProv); err != nil {
-	//	return err
-	//}
-	if err := xdig.Populate(scope, &e.upperEnv); err != nil {
-		return err
-	}
 	e.github.Action = e.spec.Id
-	e.env = make(map[string]string)
-	maps.Copy(e.env, e.upperEnv)
+	e.env = maps.Clone(e.upperEnv())
 	e.step = new(records.Step)
 	e.step.Outputs = make(map[string]string)
 	e.state = make(map[string]string)
@@ -163,7 +156,7 @@ func (e *stepExecutor) init(ctx context.Context, scope *dig.Scope) (ex error) {
 		e.exprEnv = e.parent.ExprEnv()
 		opts = append(opts,
 			// inputs from upper layers will NOT be passed to child steps
-			//expression.WithVariable("inputs", e.inputs), // TODO - move from compositeActionExecutor
+			expression.WithVariable("inputs", e.inputs),
 			expression.WithLibrary(libraries.StatusLib(e.parent)),
 		)
 	}
@@ -234,15 +227,22 @@ func (e *stepExecutor) CreateTask(stage Stage) *StepTask {
 
 func (e *stepExecutor) runAction(ctx context.Context, action *ActionTask) error {
 	s := scribe.FromContext(ctx)
-	displayName := "displayName" // TODO evaluate displayName
 
-	clear(e.env)
-	maps.Copy(e.env, e.upperEnv)
-	if err := evaluator.Evaluate(e.exprEnv, e.spec.Env, &e.env); err != nil {
+	maps.Copy(e.env, e.upperEnv())
+	s.Debugf("Evaluating 'env' for step: (%s)", e.spec.Id)
+	if err := evaluator.Evaluate(e.exprEnv, mergeMapExpr(e.aExec.Env(), e.spec.Env), &e.env); err != nil {
 		return fmt.Errorf("evaluate 'env': %w", err)
 	}
 
-	s.Debugf("Evaluating condition for step: %q (%s)", displayName, e.spec.Id)
+	var displayName string
+	s.Debugf("Evaluating 'displayName' for step: (%s)", e.spec.Id)
+	if name, err := e.evaluateDisplayName(s, action.Stage); err != nil {
+		return err
+	} else {
+		displayName = name
+	}
+
+	s.Debugf("Evaluating 'condition' for step: %q (%s)", displayName, e.spec.Id)
 	if meet, err := evaluator.Meet(e.exprEnv, action.Condition); err != nil {
 		s.Errorf("Error while evaluate 'if': %v", err)
 		return fmt.Errorf("evaluate 'if': %w", err)
@@ -261,6 +261,12 @@ func (e *stepExecutor) runAction(ctx context.Context, action *ActionTask) error 
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, time.Duration(timeout)*time.Minute)
 		defer cancel()
+	}
+
+	clear(e.inputs)
+	s.Debugf("Evaluating 'inputs' for step: %q (%s)", displayName, e.spec.Id)
+	if err := evaluator.Evaluate(e.exprEnv, mergeMapExpr(e.aExec.Inputs(), e.spec.Inputs), &e.inputs); err != nil {
+		return fmt.Errorf("evaluate 'inputs': %w", err)
 	}
 
 	err := action.Run(ctx)
@@ -282,7 +288,51 @@ func (e *stepExecutor) runAction(ctx context.Context, action *ActionTask) error 
 			return nil
 		}
 	}
+
+	outputs := make(map[string]string)
+	s.Debugf("Evaluating 'outputs' for step: %q (%s)", displayName, e.spec.Id)
+	if err := evaluator.Evaluate(e.exprEnv, mergeMapExpr(e.aExec.Outputs(), e.spec.Outputs), &outputs); err != nil {
+		return fmt.Errorf("evaluate 'outputs': %w", err)
+	}
+	e.SetOutput(outputs)
+
 	return err
+}
+
+func (e *stepExecutor) evaluateDisplayName(s *scribe.Scribe, stage Stage) (string, error) {
+	name, prefix := "", ""
+	expr := e.spec.Name
+	if expr == nil {
+		expr = e.aExec.Name()
+		prefix = "Run "
+	}
+
+	s.Debugf("Evaluating display name")
+	if err := evaluator.Evaluate(e.exprEnv, expr, &name); err != nil {
+		return "", fmt.Errorf("evaluate 'name': %w", err)
+	}
+
+	name = strings.TrimLeft(name, " \t\r\n")
+	name, _, _ = strings.Cut(name, "\n")
+	name = strings.TrimSpace(name)
+
+	name = prefix + name
+	switch stage {
+	case StagePre:
+		name = "Pre " + name
+	case StagePost:
+		name = "Post " + name
+	}
+
+	s.Debugf("Set step %q display name to: %q", e.spec.Id, name)
+	return name, nil
+}
+
+func (e *stepExecutor) upperEnv() map[string]string {
+	if e.parent != nil {
+		return e.parent.Env()
+	}
+	return e.JobExecutor().Env()
 }
 
 func (e *stepExecutor) ExprEnv() expression.Env {
@@ -297,13 +347,40 @@ func (e *stepExecutor) Streams(_ context.Context) stream.Streams {
 	return e.streams
 }
 
-func (e *stepExecutor) ComposeEnv(systemEnv bool) map[string]string {
-	m := maps.Clone(e.env)
-	if !systemEnv {
-		return m
+// Status return current step's Outcome
+// its implement [libraries.StatusProvider]
+func (e *stepExecutor) Status() records.Result {
+	if e.step != nil {
+		return e.step.Outcome
 	}
+	return records.ResultSuccess
+}
 
-	//maps.Copy(m, e.envProv.Env())
+func (e *stepExecutor) SetStatus(status records.Result) {
+	e.github.ActionStatus = status
+	e.step.Outcome = status
+}
+
+// Inputs return evaluated inputs
+func (e *stepExecutor) Inputs() map[string]string {
+	return e.inputs
+}
+
+// SetOutput sets a step's output parameter.
+//
+// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L293
+// https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#setting-an-output-parameter
+func (e *stepExecutor) SetOutput(output map[string]string) {
+	maps.Copy(e.step.Outputs, output)
+}
+
+// Env return environment variable
+func (e *stepExecutor) Env() map[string]string {
+	return e.env
+}
+
+func (e *stepExecutor) SystemEnv() map[string]string {
+	m := e.jExec.SystemEnv()
 
 	// set GITHUB_* env
 	ghEnv := map[string]string{
@@ -342,24 +419,12 @@ func (e *stepExecutor) ComposeEnv(systemEnv bool) map[string]string {
 	maps.Copy(m, ghEnv)
 
 	// set STATE_* env
-	// https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#sending-values-to-the-pre-and-post-actions
+	// https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#sending-values-to-the-pre-and-post-actions
 	for k, v := range e.state {
 		k = "STATE_" + k
 		m[k] = v
 	}
 	return m
-}
-
-func (e *stepExecutor) Status() records.Result {
-	if e.step != nil {
-		return e.step.Outcome
-	}
-	return records.ResultSuccess
-}
-
-func (e *stepExecutor) SetStatus(status records.Result) {
-	e.github.ActionStatus = status
-	e.step.Outcome = status
 }
 
 // SetEnv make an environment variable available to any subsequent steps in a workflow job.
@@ -371,28 +436,11 @@ func (e *stepExecutor) SetEnv(env map[string]string) {
 	maps.Copy(e.env, env)
 }
 
-// CreateStepSummary create custom Markdown that it will be displayed on the summary page of a workflow run.
-//
-// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L186
-// https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#adding-a-job-summary
-func (e *stepExecutor) CreateStepSummary(io.Reader) error {
-	//TODO implement me
-	return nil
-}
-
 // SaveState used to create environment variables for sharing pre: or post: action state.
-// You should identify the root step by using [Stack.Root] to store the state.
+// You should identify the root step by using [Root] to store the state.
 //
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L260
 // https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#sending-values-to-the-pre-and-post-actions
 func (e *stepExecutor) SaveState(state map[string]string) {
 	maps.Copy(e.state, state)
-}
-
-// SetOutput sets a step's output parameter.
-//
-// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L293
-// https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#setting-an-output-parameter
-func (e *stepExecutor) SetOutput(output map[string]string) {
-	maps.Copy(e.step.Outputs, output)
 }

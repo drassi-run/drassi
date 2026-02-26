@@ -11,8 +11,6 @@ import (
 	"fmt"
 	"slices"
 
-	"drassi.run/core/pkg/executor/evaluator"
-	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/store/repository"
@@ -44,19 +42,11 @@ type compositeActionExecutor struct {
 	sExec StepExecutor
 
 	decorator StepRunDecorator
-	inputs    map[string]string
 	children  map[string]StepExecutor
 }
 
 func (e *compositeActionExecutor) init(ctx context.Context, scope *dig.Scope) error {
 	if err := xdig.Populate(scope, &e.decorator); err != nil {
-		return err
-	}
-
-	// create a new intermediate scope to store composite values (inputs & exprEnv)
-	e.inputs = make(map[string]string)
-	scope = scope.Scope("composite")
-	if err := xdig.Supply(scope, e.inputs); err != nil {
 		return err
 	}
 
@@ -93,6 +83,23 @@ func (e *compositeActionExecutor) StepExecutor() StepExecutor {
 	return e.sExec
 }
 
+func (e *compositeActionExecutor) Name() workflows.Evaluable[string] {
+	name := repository.Location(e.spec.Repo)
+	return workflows.NewLiteralToken(name)
+}
+
+func (e *compositeActionExecutor) Env() workflows.Evaluable[map[string]string] {
+	return nil
+}
+
+func (e *compositeActionExecutor) Inputs() workflows.Evaluable[map[string]string] {
+	return e.spec.Inputs
+}
+
+func (e *compositeActionExecutor) Outputs() workflows.Evaluable[map[string]string] {
+	return e.spec.Outputs
+}
+
 func (e *compositeActionExecutor) CreateTask(stage Stage) *ActionTask {
 	// 1. Plan the execution
 	ids := make([]string, len(e.spec.Steps))
@@ -118,12 +125,7 @@ func (e *compositeActionExecutor) CreateTask(stage Stage) *ActionTask {
 	}
 
 	// 2. Execute the plan
-	exprEnv := e.sExec.ExprEnv()
 	run := func(ctx context.Context) error {
-		if err := e.computeInputs(exprEnv); err != nil {
-			return err
-		}
-
 		for i, task := range tasks {
 			if task == nil {
 				continue
@@ -140,7 +142,7 @@ func (e *compositeActionExecutor) CreateTask(stage Stage) *ActionTask {
 			}
 		}
 
-		return e.produceOutputs(exprEnv)
+		return nil
 	}
 
 	// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionManifestManager.cs#L472-L490
@@ -155,18 +157,4 @@ func (e *compositeActionExecutor) CreateTask(stage Stage) *ActionTask {
 		Executor:  e,
 		Condition: condition,
 	}
-}
-
-func (e *compositeActionExecutor) computeInputs(exprEnv expression.Env) error {
-	clear(e.inputs)
-	return evaluator.Evaluate(exprEnv, e.spec.Inputs, &e.inputs)
-}
-
-func (e *compositeActionExecutor) produceOutputs(exprEnv expression.Env) error {
-	outputs := make(map[string]string)
-	if err := evaluator.Evaluate(exprEnv, e.spec.Outputs, &outputs); err != nil {
-		return err
-	}
-	e.sExec.SetOutput(outputs)
-	return nil
 }

@@ -81,6 +81,44 @@ func (c *MockJobExecutorAddPathCall) DoAndReturn(f func([]string)) *MockJobExecu
 	return c
 }
 
+// Env mocks base method.
+func (m *MockJobExecutor) Env() map[string]string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Env")
+	ret0, _ := ret[0].(map[string]string)
+	return ret0
+}
+
+// Env indicates an expected call of Env.
+func (mr *MockJobExecutorMockRecorder) Env() *MockJobExecutorEnvCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Env", reflect.TypeOf((*MockJobExecutor)(nil).Env))
+	return &MockJobExecutorEnvCall{Call: call}
+}
+
+// MockJobExecutorEnvCall wrap *gomock.Call
+type MockJobExecutorEnvCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockJobExecutorEnvCall) Return(arg0 map[string]string) *MockJobExecutorEnvCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockJobExecutorEnvCall) Do(f func() map[string]string) *MockJobExecutorEnvCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockJobExecutorEnvCall) DoAndReturn(f func() map[string]string) *MockJobExecutorEnvCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // ExprEnv mocks base method.
 func (m *MockJobExecutor) ExprEnv() expression.Env {
 	m.ctrl.T.Helper()
@@ -415,6 +453,44 @@ func (c *MockJobExecutorStatusCall) Do(f func() records.Result) *MockJobExecutor
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockJobExecutorStatusCall) DoAndReturn(f func() records.Result) *MockJobExecutorStatusCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SystemEnv mocks base method.
+func (m *MockJobExecutor) SystemEnv() map[string]string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SystemEnv")
+	ret0, _ := ret[0].(map[string]string)
+	return ret0
+}
+
+// SystemEnv indicates an expected call of SystemEnv.
+func (mr *MockJobExecutorMockRecorder) SystemEnv() *MockJobExecutorSystemEnvCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SystemEnv", reflect.TypeOf((*MockJobExecutor)(nil).SystemEnv))
+	return &MockJobExecutorSystemEnvCall{Call: call}
+}
+
+// MockJobExecutorSystemEnvCall wrap *gomock.Call
+type MockJobExecutorSystemEnvCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockJobExecutorSystemEnvCall) Return(arg0 map[string]string) *MockJobExecutorSystemEnvCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockJobExecutorSystemEnvCall) Do(f func() map[string]string) *MockJobExecutorSystemEnvCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockJobExecutorSystemEnvCall) DoAndReturn(f func() map[string]string) *MockJobExecutorSystemEnvCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
