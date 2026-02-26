@@ -245,7 +245,7 @@ func (w *Worker) initExecutor(scope *dig.Scope) error {
 	} else {
 		w.addCleanerContext(w.exec.Finalize)
 		w.exec = exec
-		return w.exec.Initialize(w.ctx, scope)
+		return w.exec.Initialize(w.ctx)
 	}
 }
 
@@ -263,7 +263,7 @@ func (w *Worker) Run(ctx context.Context, scope *dig.Scope) (err error) {
 	}
 
 	// run main execution
-	r := w.exec.RunJob(w.ctx)
+	r, _ := w.exec.RunJob(w.ctx)
 	if r.Result != records.ResultSuccess {
 		return fmt.Errorf("job failed")
 	}

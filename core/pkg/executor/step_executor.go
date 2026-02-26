@@ -100,6 +100,7 @@ type stepExecutor struct {
 	state  map[string]string // Intra action state
 
 	decorator ActionRunDecorator
+	envProv   EnvProvider
 	streams   stream.Streams
 	exprEnv   expression.Env
 }
@@ -131,6 +132,9 @@ func (e *stepExecutor) init(ctx context.Context, scope *dig.Scope) (ex error) {
 	// do step initialization
 	// inject dependencies
 	if err := xdig.Populate(scope, &e.decorator); err != nil {
+		return err
+	}
+	if err := xdig.Populate(scope, &e.envProv); err != nil {
 		return err
 	}
 	if err := xdig.Populate(scope, &e.streams); err != nil {
@@ -380,7 +384,10 @@ func (e *stepExecutor) Env() map[string]string {
 }
 
 func (e *stepExecutor) SystemEnv() map[string]string {
-	m := e.jExec.SystemEnv()
+	m := e.envProv.Env(e)
+
+	jEnv := e.jExec.SystemEnv()
+	maps.Copy(m, jEnv)
 
 	// set GITHUB_* env
 	ghEnv := map[string]string{

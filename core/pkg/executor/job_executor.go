@@ -8,6 +8,7 @@ package executor
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"path"
@@ -34,9 +35,9 @@ import (
 type JobExecutor interface {
 	JobSpec() *JobSpec
 
-	Initialize(ctx context.Context, scope *dig.Scope) error
-	RunJob(ctx context.Context) *records.Job
-	Finalize(ctx context.Context) error
+	Initialize(ctx context.Context) (*records.Job, error)
+	RunJob(ctx context.Context) (*records.Job, error)
+	Finalize(ctx context.Context) (*records.Job, error)
 
 	Sandbox() sandboxer.Sandbox
 	ExprEnv() expression.Env
@@ -71,7 +72,8 @@ type JobRunDecorator interface {
 }
 
 type jobExecutor struct {
-	spec *JobSpec
+	spec  *JobSpec
+	scope *dig.Scope
 
 	// records
 	github  records.Github
@@ -85,118 +87,121 @@ type jobExecutor struct {
 	decorator StepRunDecorator
 	exprEnv   expression.Env
 	sandbox   sandboxer.Sandbox
+
 	children  map[string]StepExecutor
-	runs      map[Stage]func(context.Context) error
+	stageRuns map[Stage]func(context.Context) error
 }
 
 func (e *jobExecutor) JobSpec() *JobSpec {
 	return e.spec
 }
 
-func (e *jobExecutor) Initialize(ctx context.Context, scope *dig.Scope) (ex error) {
-	jobId := e.spec.Id
+func (e *jobExecutor) Initialize(ctx context.Context) (job *records.Job, err error) {
+	job = e.job
 	ctx, done := xotel.SetupTelemetry(ctx,
-		fmt.Sprintf("JobExecutor.Initialize(%s)", jobId),
-		xotel.DrassiJob(jobId),
+		fmt.Sprintf("JobExecutor.Initialize(%s)", e.spec.Id),
+		xotel.DrassiJob(e.spec.Id),
 	)
-	defer done(&ex)
+	defer done(&err)
 
-	l := clog.FromContext(ctx)
 	s := scribe.FromContext(ctx)
 
 	// do job initialization
-	if err := e.initializeJob(s, scope); err != nil {
-		l.Errorf("Failed to initialize job: %v", err)
-		return err
+	if err = e.initializeJob(s); err != nil {
+		err = fmt.Errorf("initialize job: %w", err)
+		return
 	}
 
-	if err := e.initializeSandbox(ctx, s, scope); err != nil {
-		l.Errorf("Failed to initialize sandbox: %v", err)
-		return err
+	if err = e.initializeSandbox(ctx, s); err != nil {
+		err = fmt.Errorf("initialize sandbox: %w", err)
+		return
 	}
 
-	if err := e.initializeScope(scope); err != nil {
-		l.Errorf("Failed to initialize scope: %v", err)
-		return err
+	if err = e.initializeScope(); err != nil {
+		err = fmt.Errorf("initialize scope: %w", err)
+		return
 	}
 
-	return e.initializeSteps(ctx, scope)
+	if err = e.initializeSteps(ctx); err != nil {
+		err = fmt.Errorf("initialize steps: %w", err)
+	}
+	return
 }
 
-func (e *jobExecutor) RunJob(ctx context.Context) *records.Job {
-	jobId := e.spec.Id
+func (e *jobExecutor) RunJob(ctx context.Context) (job *records.Job, err error) {
+	job = e.job
 	ctx, done := xotel.SetupTelemetry(ctx,
-		fmt.Sprintf("JobExecutor.RunJob(%s)", jobId),
-		xotel.DrassiJob(jobId),
+		fmt.Sprintf("JobExecutor.RunJob(%s)", e.spec.Id),
+		xotel.DrassiJob(e.spec.Id),
 	)
-	defer done(nil)
+	defer done(&err)
 
 	// do job run
 	e.SetStatus(records.ResultSuccess)
 
+	errs := make([]error, 0, 3)
 	for _, stage := range []Stage{StagePre, StageMain, StagePost} {
-		run := e.runs[stage]
-		if run == nil {
-			continue
-		}
-		if err := run(ctx); err != nil {
-			e.SetStatus(records.ResultFailure)
+		if run := e.stageRuns[stage]; run != nil {
+			if err := run(ctx); err != nil {
+				errs = append(errs, err)
+			}
 		}
 	}
-	if err := evaluator.Evaluate(e.exprEnv, e.spec.Outputs, &e.job.Outputs); err != nil {
+	if err = evaluator.Evaluate(e.exprEnv, e.spec.Outputs, &e.job.Outputs); err != nil {
 		e.SetStatus(records.ResultFailure)
+		err = fmt.Errorf("evaluate 'output': %w", err)
+		errs = append(errs, err)
 	}
-	return e.job
+	err = errors.Join(errs...)
+	return
 }
 
-func (e *jobExecutor) Finalize(ctx context.Context) (ex error) {
-	jobId := e.spec.Id
+func (e *jobExecutor) Finalize(ctx context.Context) (job *records.Job, err error) {
+	job = e.job
 	ctx, done := xotel.SetupTelemetry(ctx,
-		fmt.Sprintf("JobExecutor.Finalize(%s)", jobId),
-		xotel.DrassiJob(jobId),
+		fmt.Sprintf("JobExecutor.Finalize(%s)", e.spec.Id),
+		xotel.DrassiJob(e.spec.Id),
 	)
-	defer done(&ex)
+	defer done(&err)
 
-	// do job run
 	if e.sandbox == nil {
 		return
 	}
 
-	// if ctx is done, a new one is created w/ timeout 5s to clean up resources
-	if ctx.Err() != nil {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-	}
+	// create new ctx w/ timeout 5s to clean up resources
+	ctx = context.WithoutCancel(ctx)
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
 
-	return e.sandbox.Terminate(ctx)
+	err = e.sandbox.Terminate(ctx)
+	return
 }
 
-func (e *jobExecutor) initializeJob(s *scribe.Scribe, scope *dig.Scope) error {
+func (e *jobExecutor) initializeJob(s *scribe.Scribe) error {
 	// inject dependencies
-	if err := xdig.Populate(scope, &e.decorator); err != nil {
+	if err := xdig.Populate(e.scope, &e.decorator); err != nil {
 		return err
 	}
-	if err := xdig.Populate(scope, &e.exprEnv); err != nil {
+	if err := xdig.Populate(e.scope, &e.exprEnv); err != nil {
 		return err
 	}
-	if err := xdig.Populate(scope, &e.env); err != nil {
+	if err := xdig.Populate(e.scope, &e.env); err != nil {
 		return err
 	}
-	if err := xdig.Populate(scope, &e.runner); err != nil {
+	if err := xdig.Populate(e.scope, &e.runner); err != nil {
 		return err
 	}
-	if err := xdig.Populate(scope, &e.github); err != nil {
+	if err := xdig.Populate(e.scope, &e.github); err != nil {
 		return err
-	} else {
-		// sanitize GitHub
-		e.github.Job = e.spec.Id
-		e.github.Action = ""
-		e.github.ActionPath = ""
-		e.github.ActionRef = ""
-		e.github.ActionRepository = ""
-		e.github.ActionStatus = ""
 	}
+
+	// sanitize GitHub
+	e.github.Job = e.spec.Id
+	e.github.Action = ""
+	e.github.ActionPath = ""
+	e.github.ActionRef = ""
+	e.github.ActionRepository = ""
+	e.github.ActionStatus = ""
 	e.jobInfo = new(records.JobInfo)
 	e.job = new(records.Job)
 	e.steps = make(map[string]*records.Step, len(e.spec.Steps))
@@ -228,16 +233,16 @@ func (e *jobExecutor) initializeJob(s *scribe.Scribe, scope *dig.Scope) error {
 	var defaults workflows.Defaults
 	if err := evaluator.Evaluate(e.exprEnv, e.spec.Defaults, &defaults); err != nil {
 		return err
-	} else if err = xdig.Supply(scope, defaults); err != nil {
+	} else if err = xdig.Supply(e.scope, defaults); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (e *jobExecutor) initializeSandbox(ctx context.Context, s *scribe.Scribe, scope *dig.Scope) error {
+func (e *jobExecutor) initializeSandbox(ctx context.Context, s *scribe.Scribe) error {
 	var runtime sandboxer.Engine
-	if err := xdig.Populate(scope, &runtime); err != nil {
+	if err := xdig.Populate(e.scope, &runtime); err != nil {
 		return err
 	}
 
@@ -247,23 +252,17 @@ func (e *jobExecutor) initializeSandbox(ctx context.Context, s *scribe.Scribe, s
 	}
 
 	s.Debugf("Evaluating job container")
-	var jobContainer *workflows.Container
-	if err := evaluator.Evaluate(e.exprEnv, e.spec.Container, &jobContainer); err != nil {
+	if err := evaluator.Evaluate(e.exprEnv, e.spec.Container, &req.JobContainer); err != nil {
 		return err
-	} else {
-		req.JobContainer = jobContainer
 	}
 
 	s.Debugf("Evaluating service containers")
-	var serviceContainers = make(map[string]*workflows.Container)
-	if err := evaluator.Evaluate(e.exprEnv, e.spec.Services, &serviceContainers); err != nil {
+	if err := evaluator.Evaluate(e.exprEnv, e.spec.Services, &req.ServiceContainers); err != nil {
 		return err
-	} else if len(serviceContainers) > 0 {
-		req.ServiceContainers = serviceContainers
 	}
 
 	if resp, err := runtime.Launch(ctx, req); err != nil {
-		return err
+		return fmt.Errorf("sandbox launch: %w", err)
 	} else {
 		e.sandbox = resp.Sandbox
 
@@ -278,10 +277,10 @@ func (e *jobExecutor) initializeSandbox(ctx context.Context, s *scribe.Scribe, s
 		e.runner.ToolCache = layout.Tools
 		e.runner.Temp = layout.Temp
 
-		if err = xdig.Supply(scope, resp.ContainerEngine, dig.Export(true)); err != nil {
+		if err = xdig.Supply(e.scope, resp.ContainerEngine, dig.Export(true)); err != nil {
 			return err
 		}
-		if err = xdig.Supply(scope, resp.Sandbox, dig.Export(true)); err != nil {
+		if err = xdig.Supply(e.scope, resp.Sandbox, dig.Export(true)); err != nil {
 			return err
 		}
 	}
@@ -294,7 +293,7 @@ func (e *jobExecutor) initializeSandbox(ctx context.Context, s *scribe.Scribe, s
 
 	// register SandboxLib (e.g. hashFiles func) to expression.Env
 	var cp xcontext.Provider
-	if err := xdig.Populate(scope, &cp); err != nil {
+	if err := xdig.Populate(e.scope, &cp); err != nil {
 		return err
 	}
 	opt := expression.WithLibrary(libraries.SandboxLib(cp, e.sandbox))
@@ -307,26 +306,25 @@ func (e *jobExecutor) initializeSandbox(ctx context.Context, s *scribe.Scribe, s
 	return nil
 }
 
-func (e *jobExecutor) initializeScope(scope *dig.Scope) error {
+func (e *jobExecutor) initializeScope() error {
 	// Provide scope values
-	if err := xdig.Supply(scope, e.exprEnv); err != nil {
+	if err := xdig.Supply(e.scope, e.exprEnv); err != nil {
 		return err
 	}
-	if err := xdig.Supply(scope, e.github); err != nil {
+	if err := xdig.Supply(e.scope, e.github); err != nil {
 		return err
 	}
-	if err := xdig.Supply(scope, e.jobInfo, dig.Export(true)); err != nil {
+	if err := xdig.Supply(e.scope, e.jobInfo, dig.Export(true)); err != nil {
 		return err
 	}
-	if err := xdig.Supply(scope, e.env); err != nil {
+	if err := xdig.Supply(e.scope, e.env); err != nil {
 		return err
 	}
 
-	//return scope.Invoke(e.provideEnv)
 	return nil
 }
 
-func (e *jobExecutor) initializeSteps(ctx context.Context, scope *dig.Scope) error {
+func (e *jobExecutor) initializeSteps(ctx context.Context) error {
 	e.children = make(map[string]StepExecutor, len(e.spec.Steps))
 
 	// TODO: concurrent version of Initialize is temporary disable because of concurrent map writes in scope
@@ -341,7 +339,7 @@ func (e *jobExecutor) initializeSteps(ctx context.Context, scope *dig.Scope) err
 	//return g.Wait()
 
 	for _, step := range e.spec.Steps {
-		s := scope.Scope(fmt.Sprintf("step(%s)", step.Id))
+		s := e.scope.Scope(fmt.Sprintf("step(%s)", step.Id))
 		if exec, err := step.CreateExecutor(ctx, s, e, nil); err != nil {
 			return err
 		} else {
@@ -349,10 +347,10 @@ func (e *jobExecutor) initializeSteps(ctx context.Context, scope *dig.Scope) err
 		}
 	}
 
-	e.runs = make(map[Stage]func(context.Context) error, 3)
-	e.runs[StagePre] = e.planStage(StagePre)
-	e.runs[StageMain] = e.planStage(StageMain)
-	e.runs[StagePost] = e.planStage(StagePost)
+	e.stageRuns = make(map[Stage]func(context.Context) error, 3)
+	e.stageRuns[StagePre] = e.planStage(StagePre)
+	e.stageRuns[StageMain] = e.planStage(StageMain)
+	e.stageRuns[StagePost] = e.planStage(StagePost)
 	return nil
 }
 
@@ -382,6 +380,7 @@ func (e *jobExecutor) planStage(stage Stage) func(context.Context) error {
 
 	// 2. Execute the plan
 	return func(ctx context.Context) error {
+		errs := make([]error, 0)
 		for i, task := range tasks {
 			if task == nil {
 				continue
@@ -398,10 +397,10 @@ func (e *jobExecutor) planStage(stage Stage) func(context.Context) error {
 				e.SetStatus(records.ResultFailure)
 			}
 			if err != nil {
-				return fmt.Errorf("run step %q (%s): %w", id, stage, err)
+				errs = append(errs, fmt.Errorf("run step %q (%s): %w", id, stage, err))
 			}
 		}
-		return nil
+		return errors.Join(errs...)
 	}
 }
 
