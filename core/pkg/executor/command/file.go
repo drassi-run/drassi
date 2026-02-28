@@ -17,7 +17,6 @@ import (
 
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/util/otel"
-	"drassi.run/core/util/string"
 	"drassi.run/core/util/tar"
 	"github.com/docker/docker/pkg/archive"
 	"golang.org/x/sync/errgroup"
@@ -28,38 +27,42 @@ var (
 	ErrorMultipleFile = errors.New("un-expected multiple files")
 )
 
-type FileHandler struct {
+type FileHandler[R any] struct {
 	env string
-	run func(ctx context.Context, r io.Reader) error
+	run func(ctx context.Context, res R, r io.Reader) error
 }
 
-func NewFileHandler(env string, run func(context.Context, io.Reader) error) *FileHandler {
-	return &FileHandler{
+func NewFileHandler[R any](env string, run func(context.Context, R, io.Reader) error) *FileHandler[R] {
+	return &FileHandler[R]{
 		env: env,
 		run: run,
 	}
 }
 
-type FileManager interface {
-	Register(handler *FileHandler) error
-	Initialize(ctx context.Context, suffix string) error
-	Process(ctx context.Context, suffix string) error
-	Env(suffix string) map[string]string
+type Filer interface {
+	CommandFile(cmd string) string
 }
 
-func NewFileManager(sandbox sandboxer.Sandbox) FileManager {
-	return &fileManager{
-		registeredCommands: make(map[string]*FileHandler),
+type FileManager[R any] interface {
+	Register(handler *FileHandler[R]) error
+	Initialize(ctx context.Context, res R) error
+	Process(ctx context.Context, res R) error
+	Env(res R) map[string]string
+}
+
+func NewFileManager[R any](sandbox sandboxer.Sandbox) FileManager[R] {
+	return &fileManager[R]{
+		registeredCommands: make(map[string]*FileHandler[R]),
 		sandbox:            sandbox,
 	}
 }
 
-type fileManager struct {
+type fileManager[R any] struct {
 	sandbox            sandboxer.Sandbox
-	registeredCommands map[string]*FileHandler
+	registeredCommands map[string]*FileHandler[R]
 }
 
-func (mgr *fileManager) Register(handler *FileHandler) error {
+func (mgr *fileManager[R]) Register(handler *FileHandler[R]) error {
 	env := handler.env
 	if handler.run == nil {
 		delete(mgr.registeredCommands, env)
@@ -69,18 +72,17 @@ func (mgr *fileManager) Register(handler *FileHandler) error {
 	return nil
 }
 
-func (mgr *fileManager) Initialize(ctx context.Context, suffix string) (err error) {
+func (mgr *fileManager[R]) Initialize(ctx context.Context, res R) (err error) {
 	if len(mgr.registeredCommands) == 0 {
 		return nil
 	}
-	suffix = xstring.EnsurePrefix(suffix, "_")
 
 	ctx, span := xotel.StartSpan(ctx, "FileCommand.Initialize")
 	defer xotel.EndSpan(span, &err)
 
 	fileEntries := make(map[string]string, len(mgr.registeredCommands))
 	for cmd := range mgr.registeredCommands {
-		name := path.Join("file_commands", cmd+suffix)
+		name := path.Join("file_commands", mgr.pathOf(res, cmd))
 		fileEntries[name] = ""
 	}
 
@@ -91,11 +93,10 @@ func (mgr *fileManager) Initialize(ctx context.Context, suffix string) (err erro
 	}
 }
 
-func (mgr *fileManager) Process(ctx context.Context, suffix string) (err error) {
+func (mgr *fileManager[R]) Process(ctx context.Context, res R) (err error) {
 	if len(mgr.registeredCommands) == 0 {
 		return nil
 	}
-	suffix = xstring.EnsurePrefix(suffix, "_")
 	dir := mgr.dir()
 
 	ctx, span := xotel.StartSpan(ctx, "FileCommand.Process")
@@ -104,16 +105,16 @@ func (mgr *fileManager) Process(ctx context.Context, suffix string) (err error) 
 	g, ctx := errgroup.WithContext(ctx)
 	for cmd, h := range mgr.registeredCommands {
 		handler := h
-		filePath := path.Join(dir, cmd+suffix)
+		filePath := path.Join(dir, mgr.pathOf(res, cmd))
 
 		g.Go(func() error {
-			return mgr.handle(ctx, handler, filePath)
+			return mgr.handle(ctx, res, handler, filePath)
 		})
 	}
 	return g.Wait()
 }
 
-func (mgr *fileManager) handle(ctx context.Context, handler *FileHandler, file string) error {
+func (mgr *fileManager[R]) handle(ctx context.Context, res R, handler *FileHandler[R], file string) error {
 	r, err := mgr.sandbox.CopyOut(ctx, file)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -138,7 +139,7 @@ func (mgr *fileManager) handle(ctx context.Context, handler *FileHandler, file s
 	} else if !xtar.IsRegular(hdr) {
 		return fmt.Errorf("%w: un-expected %s file", ErrInvalidFile, xtar.FileType(hdr.Typeflag))
 	} else if hdr.Size > 0 {
-		if err = handler.run(ctx, tr); err != nil {
+		if err = handler.run(ctx, res, tr); err != nil {
 			return err
 		}
 	}
@@ -149,25 +150,31 @@ func (mgr *fileManager) handle(ctx context.Context, handler *FileHandler, file s
 	return nil
 }
 
-func (mgr *fileManager) Env(suffix string) map[string]string {
+func (mgr *fileManager[R]) Env(res R) map[string]string {
 	if len(mgr.registeredCommands) == 0 {
 		return nil
 	}
-	suffix = xstring.EnsurePrefix(suffix, "_")
 	dir := mgr.dir()
 
 	env := make(map[string]string, len(mgr.registeredCommands))
 	for cmd := range mgr.registeredCommands {
-		env[cmd] = path.Join(dir, cmd+suffix)
+		env[cmd] = path.Join(dir, mgr.pathOf(res, cmd))
 	}
 	return env
 }
 
-func (mgr *fileManager) dir() string {
+func (mgr *fileManager[R]) dir() string {
 	layout := mgr.sandbox.Layout()
 	return path.Join(layout.Temp, "file_commands")
 }
 
-func FileRun(ctx context.Context, h *FileHandler, r io.Reader) error {
-	return h.run(ctx, r)
+func (mgr *fileManager[R]) pathOf(res any, cmd string) string {
+	if f, ok := res.(Filer); ok {
+		return f.CommandFile(cmd)
+	}
+	return cmd
+}
+
+func FileRun[R any](h *FileHandler[R], ctx context.Context, res R, r io.Reader) error {
+	return h.run(ctx, res, r)
 }

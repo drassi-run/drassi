@@ -17,146 +17,208 @@ import (
 	gomock "go.uber.org/mock/gomock"
 )
 
-// MockFileManager is a mock of FileManager interface.
-type MockFileManager struct {
+// MockFiler is a mock of Filer interface.
+type MockFiler struct {
 	ctrl     *gomock.Controller
-	recorder *MockFileManagerMockRecorder
+	recorder *MockFilerMockRecorder
 	isgomock struct{}
 }
 
-// MockFileManagerMockRecorder is the mock recorder for MockFileManager.
-type MockFileManagerMockRecorder struct {
-	mock *MockFileManager
+// MockFilerMockRecorder is the mock recorder for MockFiler.
+type MockFilerMockRecorder struct {
+	mock *MockFiler
 }
 
-// NewMockFileManager creates a new mock instance.
-func NewMockFileManager(ctrl *gomock.Controller) *MockFileManager {
-	mock := &MockFileManager{ctrl: ctrl}
-	mock.recorder = &MockFileManagerMockRecorder{mock}
+// NewMockFiler creates a new mock instance.
+func NewMockFiler(ctrl *gomock.Controller) *MockFiler {
+	mock := &MockFiler{ctrl: ctrl}
+	mock.recorder = &MockFilerMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockFileManager) EXPECT() *MockFileManagerMockRecorder {
+func (m *MockFiler) EXPECT() *MockFilerMockRecorder {
+	return m.recorder
+}
+
+// CommandFile mocks base method.
+func (m *MockFiler) CommandFile(cmd string) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CommandFile", cmd)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// CommandFile indicates an expected call of CommandFile.
+func (mr *MockFilerMockRecorder) CommandFile(cmd any) *MockFilerCommandFileCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommandFile", reflect.TypeOf((*MockFiler)(nil).CommandFile), cmd)
+	return &MockFilerCommandFileCall{Call: call}
+}
+
+// MockFilerCommandFileCall wrap *gomock.Call
+type MockFilerCommandFileCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockFilerCommandFileCall) Return(arg0 string) *MockFilerCommandFileCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockFilerCommandFileCall) Do(f func(string) string) *MockFilerCommandFileCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockFilerCommandFileCall) DoAndReturn(f func(string) string) *MockFilerCommandFileCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// MockFileManager is a mock of FileManager interface.
+type MockFileManager[R any] struct {
+	ctrl     *gomock.Controller
+	recorder *MockFileManagerMockRecorder[R]
+	isgomock struct{}
+}
+
+// MockFileManagerMockRecorder is the mock recorder for MockFileManager.
+type MockFileManagerMockRecorder[R any] struct {
+	mock *MockFileManager[R]
+}
+
+// NewMockFileManager creates a new mock instance.
+func NewMockFileManager[R any](ctrl *gomock.Controller) *MockFileManager[R] {
+	mock := &MockFileManager[R]{ctrl: ctrl}
+	mock.recorder = &MockFileManagerMockRecorder[R]{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockFileManager[R]) EXPECT() *MockFileManagerMockRecorder[R] {
 	return m.recorder
 }
 
 // Env mocks base method.
-func (m *MockFileManager) Env(suffix string) map[string]string {
+func (m *MockFileManager[R]) Env(res R) map[string]string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Env", suffix)
+	ret := m.ctrl.Call(m, "Env", res)
 	ret0, _ := ret[0].(map[string]string)
 	return ret0
 }
 
 // Env indicates an expected call of Env.
-func (mr *MockFileManagerMockRecorder) Env(suffix any) *MockFileManagerEnvCall {
+func (mr *MockFileManagerMockRecorder[R]) Env(res any) *MockFileManagerEnvCall[R] {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Env", reflect.TypeOf((*MockFileManager)(nil).Env), suffix)
-	return &MockFileManagerEnvCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Env", reflect.TypeOf((*MockFileManager[R])(nil).Env), res)
+	return &MockFileManagerEnvCall[R]{Call: call}
 }
 
 // MockFileManagerEnvCall wrap *gomock.Call
-type MockFileManagerEnvCall struct {
+type MockFileManagerEnvCall[R any] struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockFileManagerEnvCall) Return(arg0 map[string]string) *MockFileManagerEnvCall {
+func (c *MockFileManagerEnvCall[R]) Return(arg0 map[string]string) *MockFileManagerEnvCall[R] {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockFileManagerEnvCall) Do(f func(string) map[string]string) *MockFileManagerEnvCall {
+func (c *MockFileManagerEnvCall[R]) Do(f func(R) map[string]string) *MockFileManagerEnvCall[R] {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFileManagerEnvCall) DoAndReturn(f func(string) map[string]string) *MockFileManagerEnvCall {
+func (c *MockFileManagerEnvCall[R]) DoAndReturn(f func(R) map[string]string) *MockFileManagerEnvCall[R] {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // Initialize mocks base method.
-func (m *MockFileManager) Initialize(ctx context.Context, suffix string) error {
+func (m *MockFileManager[R]) Initialize(ctx context.Context, res R) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Initialize", ctx, suffix)
+	ret := m.ctrl.Call(m, "Initialize", ctx, res)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Initialize indicates an expected call of Initialize.
-func (mr *MockFileManagerMockRecorder) Initialize(ctx, suffix any) *MockFileManagerInitializeCall {
+func (mr *MockFileManagerMockRecorder[R]) Initialize(ctx, res any) *MockFileManagerInitializeCall[R] {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Initialize", reflect.TypeOf((*MockFileManager)(nil).Initialize), ctx, suffix)
-	return &MockFileManagerInitializeCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Initialize", reflect.TypeOf((*MockFileManager[R])(nil).Initialize), ctx, res)
+	return &MockFileManagerInitializeCall[R]{Call: call}
 }
 
 // MockFileManagerInitializeCall wrap *gomock.Call
-type MockFileManagerInitializeCall struct {
+type MockFileManagerInitializeCall[R any] struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockFileManagerInitializeCall) Return(arg0 error) *MockFileManagerInitializeCall {
+func (c *MockFileManagerInitializeCall[R]) Return(arg0 error) *MockFileManagerInitializeCall[R] {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockFileManagerInitializeCall) Do(f func(context.Context, string) error) *MockFileManagerInitializeCall {
+func (c *MockFileManagerInitializeCall[R]) Do(f func(context.Context, R) error) *MockFileManagerInitializeCall[R] {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFileManagerInitializeCall) DoAndReturn(f func(context.Context, string) error) *MockFileManagerInitializeCall {
+func (c *MockFileManagerInitializeCall[R]) DoAndReturn(f func(context.Context, R) error) *MockFileManagerInitializeCall[R] {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // Process mocks base method.
-func (m *MockFileManager) Process(ctx context.Context, suffix string) error {
+func (m *MockFileManager[R]) Process(ctx context.Context, res R) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Process", ctx, suffix)
+	ret := m.ctrl.Call(m, "Process", ctx, res)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Process indicates an expected call of Process.
-func (mr *MockFileManagerMockRecorder) Process(ctx, suffix any) *MockFileManagerProcessCall {
+func (mr *MockFileManagerMockRecorder[R]) Process(ctx, res any) *MockFileManagerProcessCall[R] {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Process", reflect.TypeOf((*MockFileManager)(nil).Process), ctx, suffix)
-	return &MockFileManagerProcessCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Process", reflect.TypeOf((*MockFileManager[R])(nil).Process), ctx, res)
+	return &MockFileManagerProcessCall[R]{Call: call}
 }
 
 // MockFileManagerProcessCall wrap *gomock.Call
-type MockFileManagerProcessCall struct {
+type MockFileManagerProcessCall[R any] struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockFileManagerProcessCall) Return(arg0 error) *MockFileManagerProcessCall {
+func (c *MockFileManagerProcessCall[R]) Return(arg0 error) *MockFileManagerProcessCall[R] {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockFileManagerProcessCall) Do(f func(context.Context, string) error) *MockFileManagerProcessCall {
+func (c *MockFileManagerProcessCall[R]) Do(f func(context.Context, R) error) *MockFileManagerProcessCall[R] {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFileManagerProcessCall) DoAndReturn(f func(context.Context, string) error) *MockFileManagerProcessCall {
+func (c *MockFileManagerProcessCall[R]) DoAndReturn(f func(context.Context, R) error) *MockFileManagerProcessCall[R] {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // Register mocks base method.
-func (m *MockFileManager) Register(handler *command.FileHandler) error {
+func (m *MockFileManager[R]) Register(handler *command.FileHandler[R]) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Register", handler)
 	ret0, _ := ret[0].(error)
@@ -164,31 +226,31 @@ func (m *MockFileManager) Register(handler *command.FileHandler) error {
 }
 
 // Register indicates an expected call of Register.
-func (mr *MockFileManagerMockRecorder) Register(handler any) *MockFileManagerRegisterCall {
+func (mr *MockFileManagerMockRecorder[R]) Register(handler any) *MockFileManagerRegisterCall[R] {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Register", reflect.TypeOf((*MockFileManager)(nil).Register), handler)
-	return &MockFileManagerRegisterCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Register", reflect.TypeOf((*MockFileManager[R])(nil).Register), handler)
+	return &MockFileManagerRegisterCall[R]{Call: call}
 }
 
 // MockFileManagerRegisterCall wrap *gomock.Call
-type MockFileManagerRegisterCall struct {
+type MockFileManagerRegisterCall[R any] struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockFileManagerRegisterCall) Return(arg0 error) *MockFileManagerRegisterCall {
+func (c *MockFileManagerRegisterCall[R]) Return(arg0 error) *MockFileManagerRegisterCall[R] {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockFileManagerRegisterCall) Do(f func(*command.FileHandler) error) *MockFileManagerRegisterCall {
+func (c *MockFileManagerRegisterCall[R]) Do(f func(*command.FileHandler[R]) error) *MockFileManagerRegisterCall[R] {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFileManagerRegisterCall) DoAndReturn(f func(*command.FileHandler) error) *MockFileManagerRegisterCall {
+func (c *MockFileManagerRegisterCall[R]) DoAndReturn(f func(*command.FileHandler[R]) error) *MockFileManagerRegisterCall[R] {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

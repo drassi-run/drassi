@@ -53,29 +53,29 @@ type Command struct {
 	Value  string
 }
 
-type ConsoleHandler struct {
+type ConsoleHandler[R any] struct {
 	name string
 	echo bool
-	run  func(ctx context.Context, cmd *Command) error
+	run  func(ctx context.Context, res R, cmd *Command) error
 }
 
-func NewConsoleHandler(name string, echo bool, run func(context.Context, *Command) error) *ConsoleHandler {
-	return &ConsoleHandler{
+func NewConsoleHandler[R any](name string, echo bool, run func(context.Context, R, *Command) error) *ConsoleHandler[R] {
+	return &ConsoleHandler[R]{
 		name: name,
 		echo: echo,
 		run:  run,
 	}
 }
 
-type ConsoleManager interface {
-	Register(handler *ConsoleHandler) error
+type ConsoleManager[R any] interface {
+	Register(handler *ConsoleHandler[R]) error
 	ParseCommand(line string) *Command
-	Process(ctx context.Context, line string, cmd *Command) error
+	Process(ctx context.Context, res R, line string, cmd *Command) error
 }
 
-func NewConsoleManager() ConsoleManager {
-	mgr := &consoleManager{
-		registeredCommands: make(map[string]*ConsoleHandler),
+func NewConsoleManager[R any]() ConsoleManager[R] {
+	mgr := &consoleManager[R]{
+		registeredCommands: make(map[string]*ConsoleHandler[R]),
 		echo:               false, // default to false, unless runner.Debug is set
 		resumeCmdToken:     "",
 	}
@@ -85,14 +85,14 @@ func NewConsoleManager() ConsoleManager {
 	return mgr
 }
 
-type consoleManager struct {
-	registeredCommands map[string]*ConsoleHandler
+type consoleManager[R any] struct {
+	registeredCommands map[string]*ConsoleHandler[R]
 
 	echo           bool
 	resumeCmdToken string
 }
 
-func (mgr *consoleManager) Register(handler *ConsoleHandler) error {
+func (mgr *consoleManager[R]) Register(handler *ConsoleHandler[R]) error {
 	name := handler.name
 	if slices.Contains(builtinCommands, name) {
 		if _, ok := mgr.registeredCommands[name]; ok {
@@ -109,7 +109,7 @@ func (mgr *consoleManager) Register(handler *ConsoleHandler) error {
 	return nil
 }
 
-func (mgr *consoleManager) ParseCommand(line string) *Command {
+func (mgr *consoleManager[R]) ParseCommand(line string) *Command {
 	if cmd := mgr.parseCommandV2(line); cmd != nil {
 		return cmd
 	}
@@ -119,7 +119,7 @@ func (mgr *consoleManager) ParseCommand(line string) *Command {
 var cmdV2Regex = regexp.MustCompile(`^::([^\s:]+)( .*)?::(.*)$`)
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Common/ActionCommand.cs#L51
-func (mgr *consoleManager) parseCommandV2(line string) *Command {
+func (mgr *consoleManager[R]) parseCommandV2(line string) *Command {
 	line = strings.TrimSpace(line)
 	if !strings.HasPrefix(line, "::") {
 		return nil
@@ -149,7 +149,7 @@ func (mgr *consoleManager) parseCommandV2(line string) *Command {
 var cmdV1Regex = regexp.MustCompile(`##\[([^\s\]]+)( .*)?\](.*)$`)
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Common/ActionCommand.cs#L121
-func (mgr *consoleManager) parseCommandV1(line string) *Command {
+func (mgr *consoleManager[R]) parseCommandV1(line string) *Command {
 	matches := cmdV1Regex.FindStringSubmatch(line)
 	if matches == nil {
 		return nil
@@ -171,7 +171,7 @@ func (mgr *consoleManager) parseCommandV1(line string) *Command {
 	return cmd
 }
 
-func (mgr *consoleManager) isProcessingCommand(cmd string) bool {
+func (mgr *consoleManager[R]) isProcessingCommand(cmd string) bool {
 	if mgr.resumeCmdToken != "" {
 		return cmd == mgr.resumeCmdToken
 	}
@@ -179,7 +179,7 @@ func (mgr *consoleManager) isProcessingCommand(cmd string) bool {
 	return ok
 }
 
-func (mgr *consoleManager) parseCommandParams(params, sep string, replacer *strings.Replacer) map[string]string {
+func (mgr *consoleManager[R]) parseCommandParams(params, sep string, replacer *strings.Replacer) map[string]string {
 	params = strings.TrimSpace(params)
 	if params == "" {
 		return nil
@@ -211,7 +211,7 @@ func (mgr *consoleManager) parseCommandParams(params, sep string, replacer *stri
 	return m
 }
 
-func (mgr *consoleManager) Process(ctx context.Context, line string, cmd *Command) (err error) {
+func (mgr *consoleManager[R]) Process(ctx context.Context, res R, line string, cmd *Command) (err error) {
 	ctx, span := xotel.StartSpan(ctx, "ConsoleCommand.Process",
 		trace.WithAttributes(xotel.DrassiCommand(cmd.Name)),
 	)
@@ -226,11 +226,11 @@ func (mgr *consoleManager) Process(ctx context.Context, line string, cmd *Comman
 		scribe.Writef(ctx, "%s", line)
 	}
 
-	return handler.run(ctx, cmd)
+	return handler.run(ctx, res, cmd)
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L765
-func (mgr *consoleManager) setEcho(_ context.Context, cmd *Command) error {
+func (mgr *consoleManager[R]) setEcho(_ context.Context, _ R, cmd *Command) error {
 	mod := strings.TrimSpace(cmd.Value)
 	mod = strings.ToUpper(mod)
 	switch mod {
@@ -244,7 +244,7 @@ func (mgr *consoleManager) setEcho(_ context.Context, cmd *Command) error {
 	return nil
 }
 
-func (mgr *consoleManager) stopCommands(_ context.Context, cmd *Command) error {
+func (mgr *consoleManager[R]) stopCommands(_ context.Context, _ R, cmd *Command) error {
 	token := cmd.Value
 	if !mgr.validStopCommandToken(token) {
 		return fmt.Errorf("%w %q: invalid token %q", ErrInvalidCommand, "stop", token)
@@ -254,13 +254,13 @@ func (mgr *consoleManager) stopCommands(_ context.Context, cmd *Command) error {
 	return mgr.Register(NewConsoleHandler(token, true, mgr.resumeCommands))
 }
 
-func (mgr *consoleManager) resumeCommands(_ context.Context, cmd *Command) error {
+func (mgr *consoleManager[R]) resumeCommands(_ context.Context, _ R, cmd *Command) error {
 	mgr.resumeCmdToken = ""
-	return mgr.Register(NewConsoleHandler(cmd.Name, true, nil))
+	return mgr.Register(NewConsoleHandler[R](cmd.Name, true, nil))
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L156
-func (mgr *consoleManager) validStopCommandToken(token string) bool {
+func (mgr *consoleManager[R]) validStopCommandToken(token string) bool {
 	if token == "" || strings.EqualFold(token, "pause-logging") {
 		return false
 	}
@@ -268,6 +268,6 @@ func (mgr *consoleManager) validStopCommandToken(token string) bool {
 	return !exists
 }
 
-func ConsoleRun(ctx context.Context, h *ConsoleHandler, cmd *Command) error {
-	return h.run(ctx, cmd)
+func ConsoleRun[R any](h *ConsoleHandler[R], ctx context.Context, res R, cmd *Command) error {
+	return h.run(ctx, res, cmd)
 }

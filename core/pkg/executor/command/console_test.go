@@ -8,15 +8,16 @@ package command
 
 import (
 	"context"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
-func setupConsoleCmdMgr() *consoleManager {
-	return NewConsoleManager().(*consoleManager)
+func setupConsoleCmdMgr() *consoleManager[string] {
+	return NewConsoleManager[string]().(*consoleManager[string])
 }
 
-func noop(context.Context, *Command) error { return nil }
+func noop(context.Context, string, *Command) error { return nil }
 
 func TestConsoleManager_ParseCommandV1(t *testing.T) {
 	tests := map[string]*Command{
