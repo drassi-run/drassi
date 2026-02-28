@@ -20,7 +20,7 @@ const (
 	TypeAgentRefresh            = "AgentRefresh"
 	TypeRunnerRefresh           = "RunnerRefresh"
 	TypeRunnerShutdown          = "RunnerShutdown"
-	TypeJobCancelMessage        = "JobCancellation"
+	TypeJobCancellation         = "JobCancellation"
 	TypeRunnerJobRequest        = "RunnerJobRequest"
 	TypePipelineAgentJobRequest = "PipelineAgentJobRequest"
 	TypeForceTokenRefresh       = "ForceTokenRefresh"

@@ -175,7 +175,7 @@ func (l *launcher) handleMessage(ctx context.Context, msg *listener.Message) err
 		} else {
 			return l.shutdownRunner(ctx, msg)
 		}
-	case messages.TypeJobCancelMessage:
+	case messages.TypeJobCancellation:
 		if msg, err := messages.Decode[messages.JobCancel](msg.Body); err != nil {
 			return err
 		} else {
