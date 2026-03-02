@@ -9,12 +9,14 @@ go 1.26
 require (
 	drassi.run/core v0.0.0-00010101000000-000000000000
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.21.0
+	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.6.4
 	github.com/chainguard-dev/clog v1.7.0
 	github.com/charmbracelet/huh v0.6.0
 	github.com/charmbracelet/huh/spinner v0.0.0-20250331173942-310cd4a379ac
 	github.com/google/go-cmp v0.7.0
 	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.11.1
+	go.uber.org/mock v0.5.0
 	golang.org/x/oauth2 v0.23.0
 	golang.org/x/time v0.7.0
 	gotest.tools/v3 v3.5.1
@@ -142,5 +144,7 @@ require (
 	sigs.k8s.io/json v0.0.0-20241010143419-9aa6b5e7a4b3 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.2 // indirect
 )
+
+tool go.uber.org/mock/mockgen
 
 replace drassi.run/core => ../core

@@ -164,7 +164,7 @@ func (s *SectionTestSuite) TearDownSuite() {
 }
 
 func (s *SectionTestSuite) TestMetadata() {
-	sec := &Section{
+	sec := &section{
 		startOffset: 10,
 		endOffset:   25,
 		startLine:   2,
@@ -179,7 +179,7 @@ func (s *SectionTestSuite) TestReader_Full() {
 	content := strings.Join(s.lines, "\n")
 
 	// Full file section
-	sec := &Section{
+	sec := &section{
 		filePath:    s.tempFile,
 		startOffset: 0,
 		endOffset:   int64(len(content)),
@@ -199,7 +199,7 @@ func (s *SectionTestSuite) TestReader_Full() {
 
 func (s *SectionTestSuite) TestReader_Partial() {
 	// Partial section
-	sec := &Section{
+	sec := &section{
 		filePath:    s.tempFile,
 		startOffset: 6,  // after "line1\n"
 		endOffset:   24, // includes "line4\n"
@@ -219,7 +219,7 @@ func (s *SectionTestSuite) TestReader_Partial() {
 }
 
 func (s *SectionTestSuite) TestReader_NonExistentFile() {
-	sec := &Section{
+	sec := &section{
 		filePath: "non-existent-file.log",
 	}
 
@@ -258,12 +258,12 @@ func (s *ChunkTestSuite) TearDownTest() {
 }
 
 func (s *ChunkTestSuite) TestEmpty() {
-	assert.True(s.T(), Chunk{}.Empty())
-	assert.False(s.T(), Chunk{&Section{startOffset: 0, endOffset: 2}}.Empty())
+	assert.True(s.T(), chunk{}.Empty())
+	assert.False(s.T(), chunk{&section{startOffset: 0, endOffset: 2}}.Empty())
 }
 
 func (s *ChunkTestSuite) TestSize() {
-	c := Chunk{
+	c := chunk{
 		{startOffset: 0, endOffset: 12},
 		{startOffset: 0, endOffset: 18},
 	}
@@ -271,7 +271,7 @@ func (s *ChunkTestSuite) TestSize() {
 }
 
 func (s *ChunkTestSuite) TestLines() {
-	c := Chunk{
+	c := chunk{
 		{startLine: 0, endLine: 2},
 		{startLine: 0, endLine: 3},
 	}
@@ -279,7 +279,7 @@ func (s *ChunkTestSuite) TestLines() {
 }
 
 func (s *ChunkTestSuite) TestReader_Empty() {
-	r, err := Chunk{}.Reader()
+	r, err := chunk{}.Reader()
 	require.NoError(s.T(), err)
 	defer r.Close()
 
@@ -289,8 +289,8 @@ func (s *ChunkTestSuite) TestReader_Empty() {
 }
 
 func (s *ChunkTestSuite) TestReader_Single() {
-	s1 := &Section{filePath: s.f1, startOffset: 0, endOffset: 12, startLine: 0, endLine: 2}
-	r, err := Chunk{s1}.Reader()
+	s1 := &section{filePath: s.f1, startOffset: 0, endOffset: 12, startLine: 0, endLine: 2}
+	r, err := chunk{s1}.Reader()
 	s.Require().NoError(err)
 	defer r.Close()
 
@@ -300,9 +300,9 @@ func (s *ChunkTestSuite) TestReader_Single() {
 }
 
 func (s *ChunkTestSuite) TestReader_Multiple() {
-	s1 := &Section{filePath: s.f1, startOffset: 0, endOffset: 12, startLine: 0, endLine: 2}
-	s2 := &Section{filePath: s.f2, startOffset: 0, endOffset: 18, startLine: 0, endLine: 3}
-	r, err := Chunk{s1, s2}.Reader()
+	s1 := &section{filePath: s.f1, startOffset: 0, endOffset: 12, startLine: 0, endLine: 2}
+	s2 := &section{filePath: s.f2, startOffset: 0, endOffset: 18, startLine: 0, endLine: 3}
+	r, err := chunk{s1, s2}.Reader()
 	s.Require().NoError(err)
 	defer r.Close()
 

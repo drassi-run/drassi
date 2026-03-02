@@ -8,37 +8,43 @@ package log
 
 import "sync"
 
-func NewChunker(softLimit int64) *Chunker {
-	return &Chunker{
+type Chunker interface {
+	Channel() <-chan Chunk
+	Update(u *Update)
+	Close() error
+}
+
+func NewChunker(softLimit int64) Chunker {
+	return &chunker{
 		softLimit: softLimit,
 		ch:        make(chan Chunk, 100),
 	}
 }
 
-// Chunker divide files into chunks when its size reach softLimit.
+// chunker divide files into chunks when its size reach softLimit.
 // A chunk can also consist of multiple sections from multiple files.
-type Chunker struct {
+type chunker struct {
 	softLimit int64
 
 	mu sync.Mutex
 	ch chan Chunk
 
-	chunk   Chunk    // stating Chunk
-	size    int64    // pre-computed Chunk size
-	section *Section // stating Section
+	chunk   chunk    // stating chunk
+	size    int64    // pre-computed chunk size
+	section *section // stating section
 }
 
-func (cr *Chunker) Channel() <-chan Chunk {
+func (cr *chunker) Channel() <-chan Chunk {
 	return cr.ch
 }
 
-func (cr *Chunker) Update(u *Update) {
+func (cr *chunker) Update(u *Update) {
 	if c := cr.update(u); !c.Empty() {
 		cr.ch <- c
 	}
 }
 
-func (cr *Chunker) update(u *Update) Chunk {
+func (cr *chunker) update(u *Update) chunk {
 	cr.mu.Lock()
 	defer cr.mu.Unlock()
 
@@ -64,8 +70,8 @@ func (cr *Chunker) update(u *Update) Chunk {
 	return nil
 }
 
-// append current Section to the Chunk (if any) and assign it to new one
-func (cr *Chunker) stageSection(new *Section) {
+// append current section to the chunk (if any) and assign it to new one
+func (cr *chunker) stageSection(new *section) {
 	if !cr.section.Empty() {
 		cr.chunk = append(cr.chunk, cr.section)
 		cr.size += cr.section.Size()
@@ -73,7 +79,7 @@ func (cr *Chunker) stageSection(new *Section) {
 	cr.section = new
 }
 
-func (cr *Chunker) Close() error {
+func (cr *chunker) Close() error {
 	cr.mu.Lock()
 	cr.stageSection(nil)
 	c := cr.flush()
@@ -86,9 +92,9 @@ func (cr *Chunker) Close() error {
 	return nil
 }
 
-// flush state and return the current Chunk if any.
+// flush state and return the current chunk if any.
 // NOTE: The caller MUST be inside mu.Lock
-func (cr *Chunker) flush() Chunk {
+func (cr *chunker) flush() chunk {
 	c := cr.chunk
 	cr.chunk, cr.size = nil, 0
 	return c

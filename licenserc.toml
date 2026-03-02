@@ -13,7 +13,7 @@ SPDX-License-Identifier: {{props["license"]}}
 
 excludes = [
   "**/default.yaml",
-  "core/mock/**/*.go",
+  "*/mock/**/*.go",
   "zz_generated.*.go"
 ]
 
