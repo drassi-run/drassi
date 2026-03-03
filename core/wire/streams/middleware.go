@@ -45,7 +45,7 @@ func (mw *commandProcessor) Handle(ctx context.Context, line string) error {
 		return mw.handler.Handle(ctx, line)
 	}
 
-	if err := mw.consoleMgr.Process(ctx, line, cmd); err != nil {
+	if err := mw.consoleMgr.Process(ctx, nil, line, cmd); err != nil {
 		if _, step := mw.stack.CurrentStep(); step != nil {
 			step.SetStatus(records.ResultFailure)
 		}

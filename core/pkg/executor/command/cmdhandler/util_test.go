@@ -4,13 +4,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package wire_cmdhandler
+package cmdhandler
 
 import (
-	"github.com/stretchr/testify/assert"
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestSplitLine(t *testing.T) {

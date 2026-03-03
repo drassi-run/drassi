@@ -4,25 +4,20 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package wire_cmdhandler
+package cmdhandler
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"iter"
 	"strings"
 
-	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/executor/runtime"
-	"drassi.run/core/pkg/executor/support"
-	xtypes "drassi.run/core/util/types"
 )
 
-const (
-	ConsoleCommandHandlers = "console-handlers"
-	FileCommandHandlers    = "file-handlers"
-)
+var ErrInvalidFile = errors.New("invalid file")
 
 func splitLine(line string) iter.Seq[string] {
 	splitter := func(c rune) bool { return c == '\n' || c == '\r' }
@@ -116,21 +111,12 @@ func parseEnvVars(reader io.Reader) (map[string]string, error) {
 	return env, nil
 }
 
-func getPathTranslator(stack *support.Stack) runtime.PathTranslator {
-	_, step := stack.CurrentStep()
-	if step == nil {
+func getPathTranslator(res any) runtime.PathTranslator {
+	if res == nil {
 		return nil
 	}
-
-	for action := step.ActionExecutor(); ; {
-		if prov, ok := action.(interface{ PathTranslator() runtime.PathTranslator }); ok {
-			return prov.PathTranslator()
-		}
-		if uw, ok := action.(xtypes.Unwrapper[executor.ActionExecutor]); ok {
-			action = uw.Unwrap()
-			continue
-		}
-		break
+	if prov, ok := res.(SupportPathTranslator); ok {
+		return prov.PathTranslator()
 	}
 	return nil
 }
