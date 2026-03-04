@@ -7,46 +7,14 @@
 package cmdhandler
 
 import (
-	"archive/tar"
-	"context"
-	"io"
 	"strings"
 	"testing"
 
-	mock_executor "drassi.run/core/mock/executor"
-	"drassi.run/core/pkg/executor"
+	mock_cmdhandler "drassi.run/core/mock/executor/command/cmdhandler"
 	"drassi.run/core/pkg/executor/command"
-	"drassi.run/core/pkg/executor/support"
-	"drassi.run/core/util/tar"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 )
-
-type fileHdlCreator func(stack *support.Stack) *command.FileHandler
-
-func testFileNoJob(ctrl *gomock.Controller, creator fileHdlCreator) func(t *testing.T) {
-	return func(t *testing.T) {
-		stack := mock_executor.NewMockStack(ctrl)
-		stack.EXPECT().Job().Return(nil)
-
-		h := creator(stack)
-		err := command.FileRun(t.Context(), h, nil)
-		assert.ErrorIs(t, err, ErrNoJobRunning)
-	}
-}
-
-func testFileNoStep(ctrl *gomock.Controller, creator fileHdlCreator) func(t *testing.T) {
-	return func(t *testing.T) {
-		stack := mock_executor.NewMockStack(ctrl)
-		stack.EXPECT().Leaf().Return(nil).AnyTimes()
-		stack.EXPECT().Root().Return(nil).AnyTimes()
-		stack.EXPECT().Stack().Return(nil).AnyTimes()
-
-		h := creator(stack)
-		err := command.FileRun(t.Context(), h, nil)
-		assert.ErrorIs(t, err, ErrNoStepRunning)
-	}
-}
 
 var (
 	mapContent = `
@@ -63,46 +31,36 @@ func TestFileAddPath(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	t.Run("no-job", testFileNoJob(ctrl, FileAddPath))
+	r := strings.NewReader("/fir/path\n/second/path")
 
-	t.Run("success", func(t *testing.T) {
-		r := strings.NewReader("/fir/path\n/second/path")
+	res := mock_cmdhandler.NewMockSupportAddPath(ctrl)
+	res.EXPECT().AddPath([]string{"/fir/path", "/second/path"})
 
-		job := mock_executor.NewMockJobExecutor(ctrl)
-		stack := mock_executor.NewMockStack(ctrl)
-		stack.EXPECT().Job().Return(job)
-		job.EXPECT().AddPath([]string{"/fir/path", "/second/path"})
-
-		h := FileAddPath(stack)
-		err := command.FileRun(t.Context(), h, r)
-		assert.NoError(t, err)
-	})
+	h := FileAddPath[SupportAddPath]()
+	err := command.FileRun[SupportAddPath](h, t.Context(), res, r)
+	assert.NoError(t, err)
 }
 
 func TestFileSetEnv(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	t.Run("no-step", testFileNoStep(ctrl, func(stack *support.Stack) *command.FileHandler {
-		return FileSetEnv(stack, nil)
-	}))
-
 	t.Run("success", func(t *testing.T) {
 		r := strings.NewReader(mapContent)
 
-		step := mock_executor.NewMockStepExecutor(ctrl)
-		step.EXPECT().SetEnv(mapContentMap)
+		res := mock_cmdhandler.NewMockSupportSetEnv(ctrl)
+		res.EXPECT().SetEnv(mapContentMap)
 
-		job := mock_executor.NewMockJobExecutor(ctrl)
-		job.EXPECT().SetEnv(mapContentMap)
-
-		stack := mock_executor.NewMockStack(ctrl)
-		stack.EXPECT().Stack().Return([]executor.StepExecutor{step})
-		stack.EXPECT().Job().Return(job)
-
-		h := FileSetEnv(stack, nil)
-		err := command.FileRun(t.Context(), h, r)
+		h := FileSetEnv[SupportSetEnv](nil)
+		err := command.FileRun[SupportSetEnv](h, t.Context(), res, r)
 		assert.NoError(t, err)
+	})
+
+	t.Run("failure", func(t *testing.T) {
+		r := strings.NewReader("foobar")
+		h := FileSetEnv[SupportSetEnv](nil)
+		err := command.FileRun(h, t.Context(), nil, r)
+		assert.ErrorIs(t, err, ErrInvalidFile)
 	})
 }
 
@@ -110,20 +68,22 @@ func TestFileSaveState(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	t.Run("no-step", testFileNoStep(ctrl, FileSaveState))
-
 	t.Run("success", func(t *testing.T) {
 		r := strings.NewReader(mapContent)
 
-		step := mock_executor.NewMockStepExecutor(ctrl)
-		step.EXPECT().SaveState(mapContentMap)
+		res := mock_cmdhandler.NewMockSupportSaveState(ctrl)
+		res.EXPECT().SaveState(mapContentMap)
 
-		stack := mock_executor.NewMockStack(ctrl)
-		stack.EXPECT().Root().Return(step)
-
-		h := FileSaveState(stack)
-		err := command.FileRun(t.Context(), h, r)
+		h := FileSaveState[SupportSaveState]()
+		err := command.FileRun[SupportSaveState](h, t.Context(), res, r)
 		assert.NoError(t, err)
+	})
+
+	t.Run("failure", func(t *testing.T) {
+		r := strings.NewReader("foobar")
+		h := FileSaveState[SupportSaveState]()
+		err := command.FileRun[SupportSaveState](h, t.Context(), nil, r)
+		assert.ErrorIs(t, err, ErrInvalidFile)
 	})
 }
 
@@ -131,20 +91,22 @@ func TestFileSetOutput(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	t.Run("no-step", testFileNoStep(ctrl, FileSetOutput))
-
 	t.Run("success", func(t *testing.T) {
 		r := strings.NewReader(mapContent)
 
-		step := mock_executor.NewMockStepExecutor(ctrl)
-		step.EXPECT().SetOutput(mapContentMap)
+		res := mock_cmdhandler.NewMockSupportSetOutput(ctrl)
+		res.EXPECT().SetOutput(mapContentMap)
 
-		stack := mock_executor.NewMockStack(ctrl)
-		stack.EXPECT().Leaf().Return(step)
-
-		h := FileSetOutput(stack)
-		err := command.FileRun(t.Context(), h, r)
+		h := FileSetOutput[SupportSetOutput]()
+		err := command.FileRun[SupportSetOutput](h, t.Context(), res, r)
 		assert.NoError(t, err)
+	})
+
+	t.Run("failure", func(t *testing.T) {
+		r := strings.NewReader("foobar")
+		h := FileSetOutput[SupportSetOutput]()
+		err := command.FileRun(h, t.Context(), nil, r)
+		assert.ErrorIs(t, err, ErrInvalidFile)
 	})
 }
 
@@ -152,27 +114,12 @@ func TestCreateStepSummary(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	t.Run("no-step", testFileNoStep(ctrl, CreateStepSummary))
-
 	t.Run("success", func(t *testing.T) {
 		content := "THIS IS A CreateStepSummary"
 		r := strings.NewReader(content)
 
-		step := mock_executor.NewMockStepExecutor(ctrl)
-		step.EXPECT().CreateStepSummary(gomock.Any()).Do(func(reader io.Reader) error {
-			return xtar.Untar(context.Background(), reader, func(header *tar.Header, r io.Reader) error {
-				b, err := io.ReadAll(r)
-				assert.NoError(t, err)
-				assert.Equal(t, content, string(b))
-				return nil
-			})
-		})
-
-		stack := mock_executor.NewMockStack(ctrl)
-		stack.EXPECT().Leaf().Return(step)
-
-		h := CreateStepSummary(stack)
-		err := command.FileRun(t.Context(), h, r)
+		h := CreateStepSummary[any]()
+		err := command.FileRun(h, t.Context(), nil, r)
 		assert.NoError(t, err)
 	})
 }
