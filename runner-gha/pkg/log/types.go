@@ -7,10 +7,12 @@
 package log
 
 import (
+	"bufio"
 	"errors"
 	"io"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/streaming"
 )
@@ -22,18 +24,11 @@ type Update struct {
 	Line     int    // Line number of log record
 }
 
-type Chunk interface {
-	Empty() bool
-	Size() int64
-	Lines() int
-	Reader() (io.ReadSeekCloser, error)
-}
+// sections aggregates multiple section from different files and treat as a single logical block.
+type sections []*section
 
-// chunk aggregates multiple section from different files and treat as a single logical block.
-type chunk []*section
-
-func (c chunk) Empty() bool {
-	for _, s := range c {
+func (b sections) Empty() bool {
+	for _, s := range b {
 		if !s.Empty() {
 			return false
 		}
@@ -41,31 +36,31 @@ func (c chunk) Empty() bool {
 	return true
 }
 
-func (c chunk) Size() int64 {
+func (b sections) Size() int64 {
 	t := int64(0)
-	for _, s := range c {
+	for _, s := range b {
 		t += s.Size()
 	}
 	return t
 }
 
-func (c chunk) Lines() int {
+func (b sections) Lines() int {
 	t := 0
-	for _, s := range c {
+	for _, s := range b {
 		t += s.Lines()
 	}
 	return t
 }
 
-func (c chunk) Reader() (io.ReadSeekCloser, error) {
-	switch len(c) {
+func (b sections) Reader() (io.ReadSeekCloser, error) {
+	switch len(b) {
 	case 0:
 		return empty, nil
 	case 1:
-		return c[0].Reader()
+		return b[0].Reader()
 	default:
 		var m = new(multiReader)
-		for _, r := range c {
+		for _, r := range b {
 			reader, err := r.Reader()
 			if err != nil {
 				_ = m.Close()
@@ -76,6 +71,38 @@ func (c chunk) Reader() (io.ReadSeekCloser, error) {
 		}
 		return m, nil
 	}
+}
+
+func (b sections) Scan() ([]string, error) {
+	l := len(b)
+	if l == 0 {
+		return nil, nil
+	}
+	if l == 1 {
+		return b[0].Scan()
+	}
+
+	pages := make([][]string, l)
+	errs := make([]error, l)
+	var wg sync.WaitGroup
+	wg.Add(l)
+	for i, s := range b {
+		go func(sec *section) {
+			pages[i], errs[i] = sec.Scan()
+			wg.Done()
+		}(s)
+	}
+
+	wg.Wait()
+	return b.flatten(pages), errors.Join(errs...)
+}
+
+func (b sections) flatten(in [][]string) []string {
+	var out []string
+	for _, arr := range in {
+		out = append(out, arr...)
+	}
+	return out
 }
 
 func newSection(u *Update) *section {
@@ -154,6 +181,25 @@ func (s *section) Reader() (io.ReadSeekCloser, error) {
 	}
 	sr := io.NewSectionReader(f, s.startOffset, s.Size())
 	return rsc{sr, f}, nil
+}
+
+func (s *section) Scan() ([]string, error) {
+	r, err := s.Reader()
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+
+	scanner := bufio.NewScanner(r)
+	lines := make([]string, 0, s.Lines())
+
+	for scanner.Scan() {
+		lines = append(lines, scanner.Text())
+	}
+	if err = scanner.Err(); err != nil {
+		return nil, err
+	}
+	return lines, nil
 }
 
 var empty = streaming.NopCloser(strings.NewReader(""))

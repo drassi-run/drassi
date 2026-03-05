@@ -159,7 +159,7 @@ func (s *ChunkerTestSuite) TestMultipleFiles() {
 
 	select {
 	case c := <-s.cr.Channel():
-		ck := c.(chunk)
+		ck := c.(sections)
 		s.Len(c, 2)
 		s.EqualValues(120, c.Size())
 		s.Equal("file1.log", ck[0].filePath)
