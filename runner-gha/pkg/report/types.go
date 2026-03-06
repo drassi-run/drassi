@@ -6,30 +6,12 @@
 
 package report
 
-import (
-	"time"
-)
-
-const StorageAzureBlob = "BLOB_STORAGE_TYPE_AZURE"
-
-type Stat struct {
-	Lines int
-	Size  int64
-}
-
-func NewStat(lines int, size int64) *Stat {
-	return &Stat{lines, size}
-}
+import "time"
 
 ////////////// ResultService: Metadata Response for Create(Job/Step)Logs //////////////
 
 type metadataResponse struct {
 	Ok bool `json:"ok"`
-}
-
-type signedUrlResponse interface {
-	GetUrl() string
-	GetStorageType() string
 }
 
 ////////////// ResultService: Step Summary //////////////
@@ -86,7 +68,7 @@ type metadataStepLogsRequest struct {
 	PlanId     string    `json:"workflow_run_backend_id"`     // UUID
 	JobId      string    `json:"workflow_job_run_backend_id"` // UUID
 	StepId     string    `json:"step_backend_id"`             // UUID
-	LineCount  int64     `json:"line_count"`
+	LineCount  int       `json:"line_count"`
 	UploadedAt time.Time `json:"uploaded_at"`
 }
 
@@ -111,7 +93,7 @@ func (s *signedUrlJobLogsResponse) GetStorageType() string { return s.StorageTyp
 type metadataJobLogsRequest struct {
 	PlanId     string    `json:"workflow_run_backend_id"`     // UUID
 	JobId      string    `json:"workflow_job_run_backend_id"` // UUID
-	LineCount  int64     `json:"line_count"`
+	LineCount  int       `json:"line_count"`
 	UploadedAt time.Time `json:"uploaded_at"`
 }
 
@@ -170,3 +152,16 @@ const (
 	stepConclusionCancelled stepConclusion = 4
 	stepConclusionSkipped   stepConclusion = 7
 )
+
+////////////// JobService: Diagnostic Logs //////////////
+
+// TaskLog in C#
+type taskLog struct {
+	Id            string    `json:"id"` // UUID
+	Location      string    `json:"location"`
+	IndexLocation string    `json:"index_location"`
+	Path          string    `json:"path"`
+	LineCount     int64     `json:"line_count"`
+	CreatedOn     time.Time `json:"created_on"`
+	LastChangedOn time.Time `json:"last_changed_on"`
+}

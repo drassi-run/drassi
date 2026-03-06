@@ -12,13 +12,13 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
+func TestChunkerSuite(t *testing.T) {
+	suite.Run(t, new(ChunkerTestSuite))
+}
+
 type ChunkerTestSuite struct {
 	suite.Suite
 	cr *chunker
-}
-
-func TestChunkerTestSuite(t *testing.T) {
-	suite.Run(t, new(ChunkerTestSuite))
 }
 
 func (s *ChunkerTestSuite) SetupTest() {

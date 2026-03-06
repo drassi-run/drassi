@@ -4,12 +4,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package report
+package types
 
 import (
 	"context"
 	"fmt"
-	"io"
 
 	"drassi.run/gha-runner/pkg/log"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/appendblob"
@@ -18,12 +17,12 @@ import (
 
 // Conveyor used to continuous upload files to cloud storage by chunks
 type Conveyor interface {
-	io.Closer
 	Update(u *log.Update)
 	Run(ctx context.Context) (*Stat, error)
+	Close() error
 }
 
-func NewStorageAwareConveyor(f func(context.Context) (signedUrlResponse, error)) Conveyor {
+func NewStorageAwareConveyor(f func(context.Context) (SignedUrlResponse, error)) Conveyor {
 	return &storageAwareConveyor{getUrl: f}
 }
 
@@ -31,7 +30,7 @@ func NewStorageAwareConveyor(f func(context.Context) (signedUrlResponse, error))
 // (e.g., S3, Azure Blob, or GCS) based on response of getUrl.
 type storageAwareConveyor struct {
 	Conveyor
-	getUrl func(context.Context) (signedUrlResponse, error)
+	getUrl func(context.Context) (SignedUrlResponse, error)
 }
 
 func (s *storageAwareConveyor) Run(ctx context.Context) (*Stat, error) {

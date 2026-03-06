@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package report
+package types
 
 import (
 	"context"
@@ -209,8 +209,8 @@ func (c *mockConveyor) Run(ctx context.Context) (*Stat, error) {
 
 func TestStorageAwareConveyor(t *testing.T) {
 	t.Run("azure_blob", func(t *testing.T) {
-		s := NewStorageAwareConveyor(func(context.Context) (signedUrlResponse, error) {
-			r := &signedUrlJobLogsResponse{StorageType: StorageAzureBlob}
+		s := NewStorageAwareConveyor(func(context.Context) (SignedUrlResponse, error) {
+			r := &mockSignedUrl{StorageType: StorageAzureBlob}
 			return r, nil
 		}).(*storageAwareConveyor)
 
@@ -220,8 +220,8 @@ func TestStorageAwareConveyor(t *testing.T) {
 	})
 
 	t.Run("invalid", func(t *testing.T) {
-		s := NewStorageAwareConveyor(func(context.Context) (signedUrlResponse, error) {
-			r := &signedUrlJobLogsResponse{StorageType: "UNSUPPORTED"}
+		s := NewStorageAwareConveyor(func(context.Context) (SignedUrlResponse, error) {
+			r := &mockSignedUrl{StorageType: "UNSUPPORTED"}
 			return r, nil
 		}).(*storageAwareConveyor)
 
@@ -230,7 +230,7 @@ func TestStorageAwareConveyor(t *testing.T) {
 	})
 
 	t.Run("getUrl-error", func(t *testing.T) {
-		s := NewStorageAwareConveyor(func(context.Context) (signedUrlResponse, error) {
+		s := NewStorageAwareConveyor(func(context.Context) (SignedUrlResponse, error) {
 			return nil, errors.New("getUrl error")
 		}).(*storageAwareConveyor)
 
@@ -263,3 +263,11 @@ func TestStorageAwareConveyor(t *testing.T) {
 		assert.Nil(t, stat)
 	})
 }
+
+type mockSignedUrl struct {
+	Url         string
+	StorageType string
+}
+
+func (s *mockSignedUrl) GetUrl() string         { return s.Url }
+func (s *mockSignedUrl) GetStorageType() string { return s.StorageType }

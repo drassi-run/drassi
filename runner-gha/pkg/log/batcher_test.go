@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-func TestBatcherTestSuite(t *testing.T) {
+func TestBatcherSuite(t *testing.T) {
 	suite.Run(t, new(BatcherTestSuite))
 }
 
