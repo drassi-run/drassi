@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"drassi.run/gha-runner/pkg/messages"
+	"drassi.run/gha-runner/pkg/timeline"
 	"drassi.run/gha-runner/pkg/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -159,10 +160,10 @@ func (s *RunnerServiceTestSuite) TestLease_Complete() {
 	})
 
 	l := s.svc.Lease(s.msg)
-	require.NoError(t, l.Complete(t.Context(), record))
+	require.NoError(t, l.Complete(t.Context(), mockRecord))
 
 	assert.Equal(t, s.msg.RequestId, gotReq.RequestId)
-	assert.Equal(t, types.ResultSucceeded, gotReq.Result)
+	assert.Equal(t, timeline.ResultSucceeded, gotReq.Result)
 	assert.False(t, gotReq.FinishTime.IsZero())
 }
 
@@ -182,7 +183,7 @@ func (s *RunnerServiceTestSuite) TestLease_Complete_Cancel_Renew() {
 	}()
 
 	time.Sleep(time.Second) // waiting for renew goroutine start
-	require.NoError(t, l.Complete(ctx, record))
+	require.NoError(t, l.Complete(ctx, mockRecord))
 
 	time.Sleep(time.Second)
 	assert.True(t, done.Load())

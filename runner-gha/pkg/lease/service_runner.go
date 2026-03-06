@@ -14,7 +14,7 @@ import (
 
 	"drassi.run/core/util/http"
 	"drassi.run/gha-runner/pkg/messages"
-	"drassi.run/gha-runner/pkg/types"
+	"drassi.run/gha-runner/pkg/timeline"
 	"github.com/chainguard-dev/clog"
 )
 
@@ -115,7 +115,7 @@ func (s *RunnerService) renewJob(ctx context.Context, msg *messages.PipelineAgen
 }
 
 // https://github.com/actions/runner/blob/v2.323.0/src/Sdk/DTWebApi/WebApi/TaskAgentHttpClient.cs#L61
-func (s *RunnerService) completeJob(ctx context.Context, msg *messages.PipelineAgentJobRequest, result types.Result) error {
+func (s *RunnerService) completeJob(ctx context.Context, msg *messages.PipelineAgentJobRequest, result timeline.Result) error {
 	req := &runnerJobRequest{
 		RequestId:  msg.RequestId,
 		FinishTime: time.Now(),
@@ -152,7 +152,7 @@ func (l *runnerLease) Renew(ctx context.Context) {
 	l.svc.renewJob(ctx, l.msg, orchId)
 }
 
-func (l *runnerLease) Complete(ctx context.Context, record *types.Record) error {
+func (l *runnerLease) Complete(ctx context.Context, record *timeline.Record) error {
 	if l.done != nil {
 		l.done() // cancel Renew
 	}

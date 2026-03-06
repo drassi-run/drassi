@@ -19,7 +19,7 @@ import (
 	"drassi.run/core/pkg/executor/support"
 	"drassi.run/core/util/http"
 	"drassi.run/gha-runner/pkg/messages"
-	"drassi.run/gha-runner/pkg/types"
+	"drassi.run/gha-runner/pkg/timeline"
 	"github.com/chainguard-dev/clog"
 )
 
@@ -127,7 +127,7 @@ func (l *runLease) renewRequest() *renewJobRequest {
 	}
 }
 
-func (l *runLease) Complete(ctx context.Context, record *types.Record) error {
+func (l *runLease) Complete(ctx context.Context, record *timeline.Record) error {
 	if l.done != nil {
 		l.done() // cancel Renew
 	}
@@ -139,8 +139,8 @@ func (l *runLease) Complete(ctx context.Context, record *types.Record) error {
 	}
 }
 
-func (l *runLease) completeRequest(r *types.Record) (*completeJobRequest, error) {
-	job, ok := r.Object.(*types.JobObject)
+func (l *runLease) completeRequest(r *timeline.Record) (*completeJobRequest, error) {
+	job, ok := r.Object.(*timeline.JobObject)
 	if !ok {
 		return nil, fmt.Errorf("%T is not *JobObject", r.Object)
 	}
@@ -247,7 +247,7 @@ func (l *runLease) toAnnotation(issue *support.Issue) *Annotation {
 	return a
 }
 
-func (l *runLease) toStepResults(records []*types.Record) ([]*StepResult, error) {
+func (l *runLease) toStepResults(records []*timeline.Record) ([]*StepResult, error) {
 	results := make([]*StepResult, 0, len(records))
 
 	for _, r := range records {
@@ -261,8 +261,8 @@ func (l *runLease) toStepResults(records []*types.Record) ([]*StepResult, error)
 	return results, nil
 }
 
-func (l *runLease) toStepResult(r *types.Record) (*StepResult, error) {
-	step, ok := r.Object.(*types.StepObject)
+func (l *runLease) toStepResult(r *timeline.Record) (*StepResult, error) {
+	step, ok := r.Object.(*timeline.StepObject)
 	if !ok {
 		return nil, fmt.Errorf("%T is not a *StepObject", r.Object)
 	}

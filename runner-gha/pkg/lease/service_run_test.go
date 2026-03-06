@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"drassi.run/gha-runner/pkg/messages"
+	"drassi.run/gha-runner/pkg/timeline"
 	"drassi.run/gha-runner/pkg/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -165,11 +166,11 @@ func (s *RunServiceTestSuite) TestLease_Complete() {
 	})
 
 	l := s.svc.Lease(s.msg)
-	require.NoError(t, l.Complete(t.Context(), record))
+	require.NoError(t, l.Complete(t.Context(), mockRecord))
 
 	assert.Equal(t, s.msg.JobId, gotReq.JobId)
 	assert.Equal(t, s.msg.Plan.PlanId, gotReq.PlanId)
-	assert.Equal(t, types.ResultSucceeded, gotReq.Conclusion)
+	assert.Equal(t, timeline.ResultSucceeded, gotReq.Conclusion)
 }
 
 func (s *RunServiceTestSuite) TestLease_Complete_Cancel_Renew() {
@@ -191,7 +192,7 @@ func (s *RunServiceTestSuite) TestLease_Complete_Cancel_Renew() {
 	}()
 
 	time.Sleep(time.Second) // waiting for renew goroutine start
-	require.NoError(t, l.Complete(ctx, record))
+	require.NoError(t, l.Complete(ctx, mockRecord))
 
 	time.Sleep(time.Second)
 	assert.True(t, done.Load())
@@ -224,9 +225,9 @@ func jobRequest() *messages.PipelineAgentJobRequest {
 	}
 }
 
-var record = &types.Record{
+var mockRecord = &timeline.Record{
 	Uid:    "job-uuid-1234", // equals jobRequest.JobId
-	Object: new(types.JobObject),
-	State:  types.StateCompleted,
-	Result: types.ResultSucceeded,
+	Object: new(timeline.JobObject),
+	State:  timeline.StateCompleted,
+	Result: timeline.ResultSucceeded,
 }

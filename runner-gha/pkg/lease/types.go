@@ -12,13 +12,13 @@ import (
 
 	"drassi.run/core/pkg/executor/support"
 	"drassi.run/gha-runner/pkg/messages"
-	"drassi.run/gha-runner/pkg/types"
+	"drassi.run/gha-runner/pkg/timeline"
 )
 
 type Lease interface {
 	GetMessage() *messages.PipelineAgentJobRequest
 	Renew(ctx context.Context)
-	Complete(ctx context.Context, record *types.Record) error
+	Complete(ctx context.Context, record *timeline.Record) error
 }
 
 ////////////// RunService: request & response //////////////
@@ -45,7 +45,7 @@ type renewJobResponse struct {
 type completeJobRequest struct {
 	PlanId         string                       `json:"planId,omitempty"`
 	JobId          string                       `json:"jobId,omitempty"`
-	Conclusion     types.Result                 `json:"conclusion,omitempty"`
+	Conclusion     timeline.Result              `json:"conclusion,omitempty"`
 	Outputs        map[string]messages.Variable `json:"outputs,omitempty"`
 	StepResults    []*StepResult                `json:"stepResults,omitempty"`
 	Annotations    []*Annotation                `json:"annotations,omitempty"`
@@ -58,44 +58,44 @@ type completeJobRequest struct {
 
 // https://github.com/actions/runner/blob/v2.323.0/src/Sdk/DTWebApi/WebApi/TaskAgentJobRequest.cs
 type runnerJobRequest struct {
-	RequestId              int64         `json:"request_id,omitempty"`
-	QueueTime              time.Time     `json:"queue_time,omitempty"`
-	AssignTime             time.Time     `json:"assign_time,omitempty"`
-	ReceiveTime            time.Time     `json:"receive_time,omitempty"`
-	FinishTime             time.Time     `json:"finish_time,omitempty"`
-	Result                 types.Result  `json:"result,omitempty"`
-	LockedUntil            time.Time     `json:"locked_until,omitempty"`
-	LockToken              string        `json:"lock_token,omitempty"`    // UUID
-	ServiceOwner           string        `json:"service_owner,omitempty"` // UUID
-	HostId                 string        `json:"host_id,omitempty"`       // UUID
-	ScopeId                string        `json:"scope_id,omitempty"`      // UUID
-	PlanType               string        `json:"plan_type,omitempty"`
-	PlanId                 string        `json:"plan_id,omitempty"` // UUID
-	PlanGroup              string        `json:"plan_group,omitempty"`
-	QueueId                int           `json:"queue_id,omitempty"`
-	PoolId                 int           `json:"pool_id,omitempty"`
-	JobId                  string        `json:"job_id,omitempty"` // UUID
-	JobName                string        `json:"job_name,omitempty"`
-	ExpectedDuration       time.Duration `json:"expected_duration,omitempty"`
-	OrchestrationId        string        `json:"orchestration_id,omitempty"`
-	MatchesAllAgentsInPool bool          `json:"matches_all_agents_in_pool,omitempty"`
+	RequestId              int64           `json:"request_id,omitempty"`
+	QueueTime              time.Time       `json:"queue_time,omitempty"`
+	AssignTime             time.Time       `json:"assign_time,omitempty"`
+	ReceiveTime            time.Time       `json:"receive_time,omitempty"`
+	FinishTime             time.Time       `json:"finish_time,omitempty"`
+	Result                 timeline.Result `json:"result,omitempty"`
+	LockedUntil            time.Time       `json:"locked_until,omitempty"`
+	LockToken              string          `json:"lock_token,omitempty"`    // UUID
+	ServiceOwner           string          `json:"service_owner,omitempty"` // UUID
+	HostId                 string          `json:"host_id,omitempty"`       // UUID
+	ScopeId                string          `json:"scope_id,omitempty"`      // UUID
+	PlanType               string          `json:"plan_type,omitempty"`
+	PlanId                 string          `json:"plan_id,omitempty"` // UUID
+	PlanGroup              string          `json:"plan_group,omitempty"`
+	QueueId                int             `json:"queue_id,omitempty"`
+	PoolId                 int             `json:"pool_id,omitempty"`
+	JobId                  string          `json:"job_id,omitempty"` // UUID
+	JobName                string          `json:"job_name,omitempty"`
+	ExpectedDuration       time.Duration   `json:"expected_duration,omitempty"`
+	OrchestrationId        string          `json:"orchestration_id,omitempty"`
+	MatchesAllAgentsInPool bool            `json:"matches_all_agents_in_pool,omitempty"`
 }
 
 // https://github.com/actions/runner/blob/v2.323.0/src/Sdk/RSWebApi/Contracts/StepResult.cs
 type StepResult struct {
-	Id                string        `json:"external_id,omitempty"`
-	Number            int           `json:"number,omitempty"`
-	Name              string        `json:"name,omitempty"`        // e.g "Run actions/checkout@v3"
-	ActionName        string        `json:"action_name,omitempty"` // e.g "actions/checkout"
-	ActionRef         string        `json:"ref,omitempty"`
-	ActionType        string        `json:"type,omitempty"`
-	Status            types.State   `json:"status,omitempty"`
-	Conclusion        types.Result  `json:"conclusion,omitempty"`
-	StartedAt         *time.Time    `json:"started_at,omitempty"`
-	CompletedAt       *time.Time    `json:"completed_at,omitempty"`
-	CompletedLogURL   string        `json:"completed_log_url,omitempty"`
-	CompletedLogLines int64         `json:"completed_log_lines,omitempty"`
-	Annotations       []*Annotation `json:"annotations,omitempty"`
+	Id                string          `json:"external_id,omitempty"`
+	Number            int             `json:"number,omitempty"`
+	Name              string          `json:"name,omitempty"`        // e.g "Run actions/checkout@v3"
+	ActionName        string          `json:"action_name,omitempty"` // e.g "actions/checkout"
+	ActionRef         string          `json:"ref,omitempty"`
+	ActionType        string          `json:"type,omitempty"`
+	Status            timeline.State  `json:"status,omitempty"`
+	Conclusion        timeline.Result `json:"conclusion,omitempty"`
+	StartedAt         *time.Time      `json:"started_at,omitempty"`
+	CompletedAt       *time.Time      `json:"completed_at,omitempty"`
+	CompletedLogURL   string          `json:"completed_log_url,omitempty"`
+	CompletedLogLines int64           `json:"completed_log_lines,omitempty"`
+	Annotations       []*Annotation   `json:"annotations,omitempty"`
 }
 
 // https://github.com/actions/runner/blob/v2.323.0/src/Sdk/RSWebApi/Contracts/Annotation.cs
