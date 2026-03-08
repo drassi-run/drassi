@@ -34,9 +34,14 @@ func ProvideTo(scope *dig.Scope) error {
 		return err
 	}
 
-	return scope.Provide(NewCommandDecorator,
-		dig.As(new(exec.ActionRunDecorator), new(exec.JobRunDecorator)),
-		dig.Name("command"),
+	if err := scope.Provide(NewCommandDecorator,
+		dig.As(new(exec.ActionRunDecorator)), dig.Name("command"),
+	); err != nil {
+		return err
+	}
+
+	return scope.Provide(NewCommandInitDecorator,
+		dig.As(new(exec.JobRunDecorator)), dig.Name("command-init"),
 	)
 }
 
