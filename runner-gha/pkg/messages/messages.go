@@ -93,111 +93,111 @@ func unpad(data []byte) []byte {
 // https://github.com/actions/runner/pull/3103
 type BrokerMigration struct {
 	// The base url for the broker listener
-	BaseUrl string `actions:"brokerBaseUrl,omitempty"`
+	BaseUrl string `json:"brokerBaseUrl,omitempty"`
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTWebApi/WebApi/AgentRefreshMessage.cs
 type AgentRefresh struct {
-	AgentId       int32    `actions:"agentId,omitempty"`
-	Timeout       Duration `actions:"timeout,omitempty"`
-	TargetVersion string   `actions:"targetVersion,omitempty"`
+	AgentId       int32         `json:"agentId,omitempty"`
+	Timeout       time.Duration `json:"timeout,omitempty"`
+	TargetVersion string        `json:"targetVersion,omitempty"`
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTWebApi/WebApi/RunnerRefreshMessage.cs
 type RunnerRefresh struct {
-	TargetVersion  string `actions:"target_version,omitempty"`
-	DownloadUrl    string `actions:"download_url,omitempty"`
-	SHA256Checksum string `actions:"sha256_checksum,omitempty"`
-	OS             string `actions:"os,omitempty"`
+	TargetVersion  string `json:"target_version,omitempty"`
+	DownloadUrl    string `json:"download_url,omitempty"`
+	SHA256Checksum string `json:"sha256_checksum,omitempty"`
+	OS             string `json:"os,omitempty"`
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTPipelines/Pipelines/RunnerShutdownMessage.cs
 type RunnerShutdown struct {
-	Reason string `actions:"reason,omitempty"`
+	Reason string `json:"reason,omitempty"`
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTWebApi/WebApi/JobCancelMessage.cs
 type JobCancel struct {
-	JobId   string   `actions:"jobId,omitempty"`
-	Timeout Duration `actions:"timeout,omitempty"`
+	JobId   string        `json:"jobId,omitempty"`
+	Timeout time.Duration `json:"timeout,omitempty"`
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Listener/RunnerJobRequestRef.cs
 type RunnerJobRequest struct {
-	Id              string `actions:"id,omitempty"`
-	RunnerRequestId string `actions:"runner_request_id,omitempty"`
-	RunServiceUrl   string `actions:"run_service_url,omitempty"`
+	Id              string `json:"id,omitempty"`
+	RunnerRequestId string `json:"runner_request_id,omitempty"`
+	RunServiceUrl   string `json:"run_service_url,omitempty"`
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTPipelines/Pipelines/AgentJobRequestMessage.cs
 type PipelineAgentJobRequest struct {
-	MessageType          string                `actions:"messageType,omitempty"`
-	RequestId            int64                 `actions:"requestId,omitempty"`
-	Plan                 PlanReference         `actions:"plan,omitempty"`
-	Timeline             TimelineReference     `actions:"timeline,omitempty"`
-	JobId                string                `actions:"jobId,omitempty"`
-	JobName              string                `actions:"jobName,omitempty"`
-	JobDisplayName       string                `actions:"jobDisplayName,omitempty"`
-	JobContainer         *TemplateToken        `actions:"jobContainer,omitempty"`
-	JobServiceContainers *TemplateToken        `actions:"jobServiceContainers,omitempty"`
-	JobOutputs           *TemplateToken        `actions:"jobOutputs,omitempty"`
-	LockedUntil          Time                  `actions:"lockedUntil,omitempty"`
-	Resources            *JobResources         `actions:"resources,omitempty"`
-	ContextData          ContextData           `actions:"contextData,omitempty"`
-	Workspace            *WorkspaceOptions     `actions:"workspace,omitempty"`
-	MaskHints            []MaskHint            `actions:"mask,omitempty"`
-	Env                  []TemplateToken       `actions:"environmentVariables,omitempty"`
-	Defaults             []TemplateToken       `actions:"defaults,omitempty"`
-	Environment          *EnvironmentReference `actions:"actionsEnvironment,omitempty"`
-	Snapshot             *TemplateToken        `actions:"snapshot,omitempty"`
-	Variables            map[string]Variable   `actions:"variables,omitempty"`
-	Steps                []JobStep             `actions:"steps,omitempty"`
-	FileTable            []string              `actions:"fileTable,omitempty"`
-	BillingOwnerId       string                `actions:"billing_owner_id,omitempty"`
+	MessageType          string                `json:"messageType,omitempty"`
+	RequestId            int64                 `json:"requestId,omitempty"`
+	Plan                 PlanReference         `json:"plan,omitempty"`
+	Timeline             TimelineReference     `json:"timeline,omitempty"`
+	JobId                string                `json:"jobId,omitempty"`
+	JobName              string                `json:"jobName,omitempty"`
+	JobDisplayName       string                `json:"jobDisplayName,omitempty"`
+	JobContainer         *TemplateToken        `json:"jobContainer,omitempty"`
+	JobServiceContainers *TemplateToken        `json:"jobServiceContainers,omitempty"`
+	JobOutputs           *TemplateToken        `json:"jobOutputs,omitempty"`
+	LockedUntil          time.Time             `json:"lockedUntil,omitempty"`
+	Resources            *JobResources         `json:"resources,omitempty"`
+	ContextData          map[string]Value      `json:"contextData,omitempty"`
+	Workspace            *WorkspaceOptions     `json:"workspace,omitempty"`
+	MaskHints            []MaskHint            `json:"mask,omitempty"`
+	Env                  []TemplateToken       `json:"environmentVariables,omitempty"`
+	Defaults             []TemplateToken       `json:"defaults,omitempty"`
+	Environment          *EnvironmentReference `json:"actionsEnvironment,omitempty"`
+	Snapshot             *TemplateToken        `json:"snapshot,omitempty"`
+	Variables            map[string]Variable   `json:"variables,omitempty"`
+	Steps                []JobStep             `json:"steps,omitempty"`
+	FileTable            []string              `json:"fileTable,omitempty"`
+	BillingOwnerId       string                `json:"billing_owner_id,omitempty"`
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTWebApi/WebApi/TaskOrchestrationPlanReference.cs
 type PlanReference struct {
-	ScopeIdentifier  string `actions:"scopeIdentifier,omitempty"` // UUID
-	PlanType         string `actions:"planType,omitempty"`
-	Version          int32  `actions:"version,omitempty"`
-	PlanId           string `actions:"planId,omitempty"` // UUID
-	PlanGroup        string `actions:"planGroup,omitempty"`
-	ArtifactUri      string `actions:"artifactUri,omitempty"`      // URI
-	ArtifactLocation string `actions:"artifactLocation,omitempty"` // URI
-	ContainerId      int64  `actions:"containerId,omitempty"`
-	Definition       Owner  `actions:"definition,omitempty"`
-	Owner            Owner  `actions:"owner,omitempty"`
+	ScopeIdentifier  string `json:"scopeIdentifier,omitempty"` // UUID
+	PlanType         string `json:"planType,omitempty"`
+	Version          int32  `json:"version,omitempty"`
+	PlanId           string `json:"planId,omitempty"` // UUID
+	PlanGroup        string `json:"planGroup,omitempty"`
+	ArtifactUri      string `json:"artifactUri,omitempty"`      // URI
+	ArtifactLocation string `json:"artifactLocation,omitempty"` // URI
+	ContainerId      int64  `json:"containerId,omitempty"`
+	Definition       Owner  `json:"definition,omitempty"`
+	Owner            Owner  `json:"owner,omitempty"`
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTWebApi/WebApi/TaskOrchestrationOwner.cs
 type Owner struct {
-	Id    int32          `actions:"id,omitempty"`
-	Name  string         `actions:"name,omitempty"`
-	Links map[string]any `actions:"_links,omitempty"`
+	Id    int32          `json:"id,omitempty"`
+	Name  string         `json:"name,omitempty"`
+	Links map[string]any `json:"_links,omitempty"`
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTWebApi/WebApi/TimelineReference.cs
 type TimelineReference struct {
-	Id       string `actions:"id,omitempty"` // UUID
-	ChangeId int32  `actions:"changeId,omitempty"`
-	Location string `actions:"location,omitempty"` // URI
+	Id       string `json:"id,omitempty"` // UUID
+	ChangeId int32  `json:"changeId,omitempty"`
+	Location string `json:"location,omitempty"` // URI
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTObjectTemplating/ObjectTemplating/Tokens/TemplateToken.cs
 type TemplateToken struct {
-	Type   TokenType `actions:"type,omitempty"`
-	File   int32     `actions:"file,omitempty"`
-	Line   int32     `actions:"line,omitempty"`
-	Column int32     `actions:"column,omitempty"`
+	Type   TokenType `json:"type,omitempty"`
+	File   int32     `json:"file,omitempty"`
+	Line   int32     `json:"line,omitempty"`
+	Column int32     `json:"column,omitempty"`
 
-	String    string                                   `actions:"lit,omitempty"`       // StringToken (type=0)
-	Number    float64                                  `actions:"num,omitempty"`       // NumberToken (type=6)
-	Boolean   bool                                     `actions:"bool,omitempty"`      // BooleanToken (type=5)
-	Directive string                                   `actions:"directive,omitempty"` // InsertExpressionToken (type=4)
-	Expr      string                                   `actions:"expr,omitempty"`      // BasicExpressionToken (type=3)
-	Seq       []*TemplateToken                         `actions:"seq,omitempty"`       // SequenceToken (type=1)
-	Map       []KVPair[*TemplateToken, *TemplateToken] `actions:"map,omitempty"`       // MappingToken (type=2)
+	String    string                                   `json:"lit,omitempty"`       // StringToken (type=0)
+	Number    float64                                  `json:"num,omitempty"`       // NumberToken (type=6)
+	Boolean   bool                                     `json:"bool,omitempty"`      // BooleanToken (type=5)
+	Directive string                                   `json:"directive,omitempty"` // InsertExpressionToken (type=4)
+	Expr      string                                   `json:"expr,omitempty"`      // BasicExpressionToken (type=3)
+	Seq       []*TemplateToken                         `json:"seq,omitempty"`       // SequenceToken (type=1)
+	Map       []KVPair[*TemplateToken, *TemplateToken] `json:"map,omitempty"`       // MappingToken (type=2)
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTObjectTemplating/ObjectTemplating/Tokens/TokenType.cs
@@ -215,88 +215,88 @@ const (
 )
 
 type KVPair[K, V any] struct {
-	Key   K `actions:"key,omitempty"`
-	Value V `actions:"value,omitempty"`
+	Key   K `json:"key,omitempty"`
+	Value V `json:"value,omitempty"`
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTPipelines/Pipelines/JobResources.cs
 type JobResources struct {
-	Endpoints    []ServiceEndpoint    `actions:"endpoints,omitempty"`
-	Containers   []ContainerResource  `actions:"containers,omitempty"`
-	Repositories []RepositoryResource `actions:"repositories,omitempty"`
+	Endpoints    []ServiceEndpoint    `json:"endpoints,omitempty"`
+	Containers   []ContainerResource  `json:"containers,omitempty"`
+	Repositories []RepositoryResource `json:"repositories,omitempty"`
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTWebApi/WebApi/ServiceEndpointLegacy/ServiceEndpoint.cs
 type ServiceEndpoint struct {
-	Id              string                `actions:"id,omitempty"` // UUID
-	Name            string                `actions:"name,omitempty"`
-	Type            string                `actions:"type,omitempty"`
-	Owner           string                `actions:"owner,omitempty"`
-	Url             string                `actions:"url,omitempty"` // URI
-	Description     string                `actions:"description,omitempty"`
-	Authorization   EndpointAuthorization `actions:"authorization,omitempty"`
-	GroupScopeId    string                `actions:"groupScopeId,omitempty"` // UUID
-	Data            map[string]string     `actions:"data,omitempty"`
-	IsShared        bool                  `actions:"isShared,omitempty"`
-	IsReady         bool                  `actions:"isReady,omitempty"`
-	OperationStatus any                   `actions:"operationStatus,omitempty"`
+	Id              string                `json:"id,omitempty"` // UUID
+	Name            string                `json:"name,omitempty"`
+	Type            string                `json:"type,omitempty"`
+	Owner           string                `json:"owner,omitempty"`
+	Url             string                `json:"url,omitempty"` // URI
+	Description     string                `json:"description,omitempty"`
+	Authorization   EndpointAuthorization `json:"authorization,omitempty"`
+	GroupScopeId    string                `json:"groupScopeId,omitempty"` // UUID
+	Data            map[string]string     `json:"data,omitempty"`
+	IsShared        bool                  `json:"isShared,omitempty"`
+	IsReady         bool                  `json:"isReady,omitempty"`
+	OperationStatus any                   `json:"operationStatus,omitempty"`
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTWebApi/WebApi/ServiceEndpointLegacy/EndpointAuthorization.cs
 type EndpointAuthorization struct {
-	Scheme     string            `actions:"scheme,omitempty"`
-	Parameters map[string]string `actions:"parameters,omitempty"`
+	Scheme     string            `json:"scheme,omitempty"`
+	Parameters map[string]string `json:"parameters,omitempty"`
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTPipelines/Pipelines/Resource.cs
 type Resource struct {
-	Alias      string                   `actions:"alias,omitempty"`
-	Endpoint   ServiceEndpointReference `actions:"endpoint,omitempty"`
-	Properties ResourceProperties       `actions:"properties,omitempty"`
+	Alias      string                   `json:"alias,omitempty"`
+	Endpoint   ServiceEndpointReference `json:"endpoint,omitempty"`
+	Properties ResourceProperties       `json:"properties,omitempty"`
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTPipelines/Pipelines/ServiceEndpointReference.cs
 type ServiceEndpointReference struct {
-	Id   string `actions:"id,omitempty"`   // UUID
-	Name string `actions:"name,omitempty"` // ExpressionValue<String>
+	Id   string `json:"id,omitempty"`   // UUID
+	Name string `json:"name,omitempty"` // ExpressionValue<String>
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTPipelines/Pipelines/ResourceProperties.cs
 type ResourceProperties struct {
-	Count int32          `actions:"count,omitempty"`
-	Items map[string]any `actions:"items,omitempty"` // IDictionary<String, JToken>
+	Count int32          `json:"count,omitempty"`
+	Items map[string]any `json:"items,omitempty"` // IDictionary<String, JToken>
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTPipelines/Pipelines/ContainerResource.cs
 type ContainerResource struct {
-	Resource `actions:",inline"`
+	Resource `json:",inline"`
 
-	Image   string            `actions:"image,omitempty"`
-	Env     map[string]string `actions:"env,omitempty"`
-	Ports   []string          `actions:"ports,omitempty"`
-	Volumes []string          `actions:"volumes,omitempty"`
-	Options string            `actions:"options,omitempty"`
+	Image   string            `json:"image,omitempty"`
+	Env     map[string]string `json:"env,omitempty"`
+	Ports   []string          `json:"ports,omitempty"`
+	Volumes []string          `json:"volumes,omitempty"`
+	Options string            `json:"options,omitempty"`
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTPipelines/Pipelines/RepositoryResource.cs
 type RepositoryResource struct {
-	Resource `actions:",inline"`
+	Resource `json:",inline"`
 
-	Id      string `actions:"id,omitempty"`
-	Type    string `actions:"type,omitempty"`
-	Url     string `actions:"url,omitempty"` // URI
-	Version string `actions:"version,omitempty"`
+	Id      string `json:"id,omitempty"`
+	Type    string `json:"type,omitempty"`
+	Url     string `json:"url,omitempty"` // URI
+	Version string `json:"version,omitempty"`
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTPipelines/Pipelines/WorkspaceOptions.cs
 type WorkspaceOptions struct {
-	Clean string `actions:"clean,omitempty"`
+	Clean string `json:"clean,omitempty"`
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTWebApi/WebApi/MaskHint.cs
 type MaskHint struct {
-	Type  MaskType `actions:"type,omitempty"`
-	Value string   `actions:"value,omitempty"`
+	Type  MaskType `json:"type,omitempty"`
+	Value string   `json:"value,omitempty"`
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTWebApi/WebApi/MaskType.cs
@@ -309,52 +309,53 @@ const (
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTWebApi/WebApi/ActionsEnvironmentReference.cs
 type EnvironmentReference struct {
-	Name string        `actions:"name,omitempty"`
-	Url  TemplateToken `actions:"url,omitempty"`
+	Name string        `json:"name,omitempty"`
+	Url  TemplateToken `json:"url,omitempty"`
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTWebApi/WebApi/VariableValue.cs
 type Variable struct {
-	Value    string `actions:"value,omitempty"`
-	IsSecret bool   `actions:"isSecret,omitempty"`
+	Value    string `json:"value,omitempty"`
+	IsSecret bool   `json:"isSecret,omitempty"`
 }
 
 type ContextData map[string]any
+type Value any
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTPipelines/Pipelines/JobStep.cs
 type JobStep struct {
 	// Step
-	Id          string `actions:"id,omitempty"`
-	Type        string `actions:"type,omitempty"`
-	Name        string `actions:"name,omitempty"`
-	DisplayName string `actions:"displayName,omitempty"`
-	Enabled     bool   `actions:"enabled,omitempty"`
+	Id          string `json:"id,omitempty"`
+	Type        string `json:"type,omitempty"`
+	Name        string `json:"name,omitempty"`
+	DisplayName string `json:"displayName,omitempty"`
+	Enabled     bool   `json:"enabled,omitempty"`
 
 	// JobStep
-	Condition        string         `actions:"condition,omitempty"`
-	ContinueOnError  *TemplateToken `actions:"continueOnError,omitempty"`
-	TimeoutInMinutes *TemplateToken `actions:"timeoutInMinutes,omitempty"`
+	Condition        string         `json:"condition,omitempty"`
+	ContinueOnError  *TemplateToken `json:"continueOnError,omitempty"`
+	TimeoutInMinutes *TemplateToken `json:"timeoutInMinutes,omitempty"`
 
 	// ActionStep
-	Reference        StepReference  `actions:"reference,omitempty"`
-	ContextName      string         `actions:"contextName,omitempty"`
-	DisplayNameToken *TemplateToken `actions:"displayNameToken,omitempty"`
-	Env              *TemplateToken `actions:"environment,omitempty"`
-	Inputs           *TemplateToken `actions:"inputs,omitempty"`
+	Reference        *StepReference `json:"reference,omitempty"`
+	ContextName      string         `json:"contextName,omitempty"`
+	DisplayNameToken *TemplateToken `json:"displayNameToken,omitempty"`
+	Env              *TemplateToken `json:"environment,omitempty"`
+	Inputs           *TemplateToken `json:"inputs,omitempty"`
 }
 
 // https://github.com/actions/runner/blob/main/src/Sdk/DTPipelines/Pipelines/ActionStepDefinitionReference.cs
 type StepReference struct {
-	Type Source `actions:"type,omitempty"`
+	Type Source `json:"type,omitempty"`
 
 	//ContainerRegistryReference
-	Image string `actions:"image,omitempty"`
+	Image string `json:"image,omitempty"`
 
 	// RepositoryPathReference
-	Name           string `actions:"name,omitempty"`
-	Ref            string `actions:"ref,omitempty"`
-	Path           string `actions:"path,omitempty"`
-	RepositoryType string `actions:"repositoryType,omitempty"`
+	Name           string `json:"name,omitempty"`
+	Ref            string `json:"ref,omitempty"`
+	Path           string `json:"path,omitempty"`
+	RepositoryType string `json:"repositoryType,omitempty"`
 }
 
 type Source string
