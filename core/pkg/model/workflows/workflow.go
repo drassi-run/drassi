@@ -71,21 +71,7 @@ type Workflow struct {
 // You can modify the default permissions granted to the GITHUB_TOKEN, adding or removing access as required,
 // so that you only allow the minimum required access.
 // https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#permissions
-type Permissions struct {
-	Actions            PermissionsLevel `json:"actions,omitempty" yaml:"actions,omitempty" actions:"actions,omitempty"`
-	Checks             PermissionsLevel `json:"checks,omitempty" yaml:"checks,omitempty" actions:"checks,omitempty"`
-	Contents           PermissionsLevel `json:"contents,omitempty" yaml:"contents,omitempty" actions:"contents,omitempty"`
-	Deployments        PermissionsLevel `json:"deployments,omitempty" yaml:"deployments,omitempty" actions:"deployments,omitempty"`
-	Discussions        PermissionsLevel `json:"discussions,omitempty" yaml:"discussions,omitempty" actions:"discussions,omitempty"`
-	IdToken            PermissionsLevel `json:"id-token,omitempty" yaml:"id-token,omitempty" actions:"id-token,omitempty"`
-	Issues             PermissionsLevel `json:"issues,omitempty" yaml:"issues,omitempty" actions:"issues,omitempty"`
-	Packages           PermissionsLevel `json:"packages,omitempty" yaml:"packages,omitempty" actions:"packages,omitempty"`
-	Pages              PermissionsLevel `json:"pages,omitempty" yaml:"pages,omitempty" actions:"pages,omitempty"`
-	PullRequests       PermissionsLevel `json:"pull-requests,omitempty" yaml:"pull-requests,omitempty" actions:"pull-requests,omitempty"`
-	RepositoryProjects PermissionsLevel `json:"repository-projects,omitempty" yaml:"repository-projects,omitempty" actions:"repository-projects,omitempty"`
-	SecurityEvents     PermissionsLevel `json:"security-events,omitempty" yaml:"security-events,omitempty" actions:"security-events,omitempty"`
-	Statuses           PermissionsLevel `json:"statuses,omitempty" yaml:"statuses,omitempty" actions:"statuses,omitempty"`
-}
+type Permissions map[string]PermissionsLevel
 
 type PermissionsLevel string
 

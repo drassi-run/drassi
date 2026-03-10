@@ -7,6 +7,8 @@
 package model
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"slices"
 
 	"github.com/go-viper/mapstructure/v2"
@@ -52,4 +54,30 @@ func DecodeWithOptions(source any, target any, opts ...DecodeOption) error {
 		return err
 	}
 	return d.Decode(source)
+}
+
+var unmarshalers []*json.Unmarshalers
+
+func RegisterUnmarshalInterface[T any](dis func(raw jsontext.Value) (T, error)) {
+	u := unmarshalInterface(dis)
+	unmarshalers = append(unmarshalers, u)
+}
+
+func unmarshalInterface[T any](dis func(raw jsontext.Value) (T, error)) *json.Unmarshalers {
+	fn := func(d *jsontext.Decoder, val *T) error {
+		var raw jsontext.Value
+		if err := json.UnmarshalDecode(d, &raw); err != nil {
+			return err
+		}
+
+		if t, err := dis(raw); err != nil {
+			return err
+		} else if err = json.Unmarshal(raw, t, d.Options()); err != nil {
+			return err
+		} else {
+			*val = t
+			return nil
+		}
+	}
+	return json.UnmarshalFromFunc(fn)
 }

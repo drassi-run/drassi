@@ -173,7 +173,10 @@ type ReusableWorkflowCallJob struct {
 	Secrets Evaluable[JobSecrets] `json:"secrets,omitempty" yaml:"secrets,omitempty" actions:"secrets,omitempty"`
 }
 
-type JobNeeds []string
+// array support decode from string shorthand
+type array []string
+
+type JobNeeds = array
 
 type JobSecrets struct {
 	// A pair consisting of a string identifier for the secret and the value of the secret.
@@ -216,7 +219,7 @@ type RunsOn struct {
 	//
 	// Context available: `github`, `needs`, `strategy`, `matrix`, `vars`, `inputs`
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
-	Labels []string `json:"labels,omitempty" yaml:"labels,omitempty" actions:"labels,omitempty"`
+	Labels array `json:"labels,omitempty" yaml:"labels,omitempty" actions:"labels,omitempty"`
 }
 
 // A strategy creates a build matrix for your jobs. You can define different variations of an environment to run each job in.
