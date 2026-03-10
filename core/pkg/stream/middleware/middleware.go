@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package wire_streams
+package middleware
 
 import (
 	"context"
@@ -17,46 +17,40 @@ import (
 	"drassi.run/core/pkg/executor/problem"
 	"drassi.run/core/pkg/executor/secret"
 	"drassi.run/core/pkg/executor/support"
-	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/stream"
 )
 
-type Middleware func(handler stream.Handler) stream.Handler
+type Middleware[R any] func(handler stream.Handler[R]) stream.Handler[R]
 
-func ProcessCommand(consoleMgr command.ConsoleManager, stack *support.Stack) Middleware {
-	return func(handler stream.Handler) stream.Handler {
-		return &commandProcessor{
-			handler:    handler,
-			consoleMgr: consoleMgr,
-			stack:      stack,
+func ProcessCommand[R any](consMgr command.ConsoleManager[R]) Middleware[R] {
+	return func(handler stream.Handler[R]) stream.Handler[R] {
+		return &commandProcessor[R]{
+			handler: handler,
+			consMgr: consMgr,
 		}
 	}
 }
 
-type commandProcessor struct {
-	handler    stream.Handler
-	consoleMgr command.ConsoleManager
-	stack      *support.Stack
+type commandProcessor[R any] struct {
+	handler stream.Handler[R]
+	consMgr command.ConsoleManager[R]
 }
 
-func (mw *commandProcessor) Handle(ctx context.Context, line string) error {
-	cmd := mw.consoleMgr.ParseCommand(line)
+func (mw *commandProcessor[R]) Handle(ctx context.Context, res R, line string) error {
+	cmd := mw.consMgr.ParseCommand(line)
 	if cmd == nil {
-		return mw.handler.Handle(ctx, line)
+		return mw.handler.Handle(ctx, res, line)
 	}
 
-	if err := mw.consoleMgr.Process(ctx, nil, line, cmd); err != nil {
-		if _, step := mw.stack.CurrentStep(); step != nil {
-			step.SetStatus(records.ResultFailure)
-		}
-		return err
+	if err := mw.consMgr.Process(ctx, res, line, cmd); err != nil {
+		return fmt.Errorf("process command %q: %w", cmd.Name, err)
 	}
 	return nil
 }
 
-func ScanProblem(pm map[string]problem.Matcher, tracker support.Tracker) Middleware {
-	return func(handler stream.Handler) stream.Handler {
-		return &problemScanner{
+func ScanProblem[R any](pm map[string]problem.Matcher, tracker support.Tracker) Middleware[R] {
+	return func(handler stream.Handler[R]) stream.Handler[R] {
+		return &problemScanner[R]{
 			handler: handler,
 			matcher: pm,
 			tracker: tracker,
@@ -64,22 +58,22 @@ func ScanProblem(pm map[string]problem.Matcher, tracker support.Tracker) Middlew
 	}
 }
 
-type problemScanner struct {
-	handler stream.Handler
+type problemScanner[R any] struct {
+	handler stream.Handler[R]
 	matcher map[string]problem.Matcher
 	tracker support.Tracker
 }
 
-func (mw *problemScanner) Handle(ctx context.Context, line string) error {
+func (mw *problemScanner[R]) Handle(ctx context.Context, res R, line string) error {
 	err1 := mw.scan(ctx, line)
-	err2 := mw.handler.Handle(ctx, line)
+	err2 := mw.handler.Handle(ctx, res, line)
 	return errors.Join(err1, err2)
 }
 
 // https://en.wikipedia.org/wiki/ANSI_escape_code
 var colorCodeRegex = regexp.MustCompile(`\033\[[\d;]*m`)
 
-func (mw *problemScanner) scan(ctx context.Context, line string) error {
+func (mw *problemScanner[R]) scan(ctx context.Context, line string) error {
 	var owner string
 	var pbl *problem.Problem
 
@@ -119,7 +113,7 @@ const skippedIssueMsg = "skipped logging an issue for the matched line because o
 var numberRegex = regexp.MustCompile(`^[+\-]?\d+$`)
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/Handlers/OutputManager.cs#L200
-func (mw *problemScanner) toIssuer(pbl *problem.Problem) (*support.Issue, error) {
+func (mw *problemScanner[R]) toIssuer(pbl *problem.Problem) (*support.Issue, error) {
 	if pbl.Message == "" {
 		return nil, fmt.Errorf("%s empty message", skippedIssueMsg)
 	}
@@ -141,14 +135,14 @@ func (mw *problemScanner) toIssuer(pbl *problem.Problem) (*support.Issue, error)
 
 	if !numberRegex.MatchString(pbl.Line) {
 		return nil, fmt.Errorf("%s invalid line %q", skippedIssueMsg, pbl.Line)
-	} else {
-		iss.Data["line"] = pbl.Line
 	}
+	iss.Data["line"] = pbl.Line
+
 	if !numberRegex.MatchString(pbl.Column) {
 		return nil, fmt.Errorf("%s invalid column %q", skippedIssueMsg, pbl.Column)
-	} else {
-		iss.Data["column"] = pbl.Column
 	}
+	iss.Data["column"] = pbl.Column
+
 	if code := strings.TrimSpace(pbl.Code); code != "" {
 		iss.Data["code"] = code
 	}
@@ -158,21 +152,21 @@ func (mw *problemScanner) toIssuer(pbl *problem.Problem) (*support.Issue, error)
 	return iss, nil
 }
 
-func MaskSecret(masker secret.Masker) Middleware {
-	return func(handler stream.Handler) stream.Handler {
-		return &secretMasker{
+func MaskSecret[R any](masker secret.Masker) Middleware[R] {
+	return func(handler stream.Handler[R]) stream.Handler[R] {
+		return &secretMasker[R]{
 			handler: handler,
 			masker:  masker,
 		}
 	}
 }
 
-type secretMasker struct {
-	handler stream.Handler
+type secretMasker[R any] struct {
+	handler stream.Handler[R]
 	masker  secret.Masker
 }
 
-func (mw *secretMasker) Handle(ctx context.Context, line string) error {
+func (mw *secretMasker[R]) Handle(ctx context.Context, res R, line string) error {
 	line = mw.masker.Mask(line)
-	return mw.handler.Handle(ctx, line)
+	return mw.handler.Handle(ctx, res, line)
 }
