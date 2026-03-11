@@ -26,14 +26,6 @@ const (
 	TypeForceTokenRefresh       = "ForceTokenRefresh"
 )
 
-type Duration struct {
-	time.Duration
-}
-
-type Time struct {
-	time.Time
-}
-
 // Message provides a contract for receiving messages from the task orchestrator.
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTWebApi/WebApi/TaskAgentMessage.cs
 type Message struct {
@@ -319,7 +311,6 @@ type Variable struct {
 	IsSecret bool   `json:"isSecret,omitempty"`
 }
 
-type ContextData map[string]any
 type Value any
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTPipelines/Pipelines/JobStep.cs

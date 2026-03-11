@@ -14,13 +14,11 @@ require (
 	github.com/charmbracelet/huh v0.6.0
 	github.com/charmbracelet/huh/spinner v0.0.0-20250331173942-310cd4a379ac
 	github.com/coder/websocket v1.8.14
-	github.com/google/go-cmp v0.7.0
 	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/mock v0.5.0
 	golang.org/x/oauth2 v0.23.0
 	golang.org/x/time v0.7.0
-	gotest.tools/v3 v3.5.1
 	k8s.io/api v0.32.1
 	k8s.io/apimachinery v0.32.1
 	k8s.io/client-go v0.32.1
