@@ -12,24 +12,31 @@ import (
 	"errors"
 	"fmt"
 	"time"
-
-	"drassi.run/core/pkg/model"
 )
 
 var zeroTime time.Time
+var unmarshalers []*json.Unmarshalers
 
 func init() {
 	zeroTime, _ = time.Parse(time.TimeOnly, "00:00:00")
+
+	unmarshalers = append(unmarshalers,
+		json.UnmarshalFromFunc(unmarshalDuration),
+		json.UnmarshalFromFunc(unmarshalTime),
+		json.UnmarshalFromFunc(unmarshalValue),
+	)
+}
+
+func JsonOptions() []json.Options {
+	um := json.JoinUnmarshalers(unmarshalers...)
+	return []json.Options{
+		json.WithUnmarshalers(um),
+	}
 }
 
 func Decode[M any](content []byte) (*M, error) {
-	var a any
-	if err := json.Unmarshal(content, &a); err != nil {
-		return nil, err
-	}
-
 	m := new(M)
-	if err := model.Decode(a, m); err != nil {
+	if err := json.Unmarshal(content, &m, JsonOptions()...); err != nil {
 		return nil, err
 	}
 	return m, nil
