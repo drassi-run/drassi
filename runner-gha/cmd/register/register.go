@@ -226,7 +226,7 @@ func (r *register) authenticate(ctx context.Context) error {
 }
 
 func (r *register) selectRunnerGroup(ctx context.Context) error {
-	groups := new(types.Response[types.Group])
+	groups := new(types.List[types.Group])
 	hr := r.client.Get(groupEndpoint).
 		OnSuccess(xhttp.JsonDecode(groups))
 
@@ -273,7 +273,7 @@ func (r *register) selectRunnerGroup(ctx context.Context) error {
 }
 
 func (r *register) checkRunnerExist(ctx context.Context, name string) error {
-	runners := new(types.Response[types.RunnerReference])
+	runners := new(types.List[types.RunnerReference])
 
 	hr := r.client.Get(fmt.Sprintf(runnerEndpoint, r.group.Id)).
 		SetQuery("agentName", name).
