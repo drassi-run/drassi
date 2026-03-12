@@ -6,5 +6,8 @@
 
 package timeline
 
+import "context"
+
 type Recorder interface {
+	Update(ctx context.Context, records ...*Record) error
 }

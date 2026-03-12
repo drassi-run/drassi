@@ -17,6 +17,7 @@ import (
 	"drassi.run/core/util/http"
 	"drassi.run/gha-runner/pkg/messages"
 	"drassi.run/gha-runner/pkg/report/types"
+	"drassi.run/gha-runner/pkg/timeline"
 	util "drassi.run/gha-runner/pkg/types"
 )
 
@@ -45,6 +46,7 @@ type ResultService interface {
 	JobLogsConveyor() types.Conveyor
 	DiagnosticLogsUploader() types.Uploader
 	StepSummaryUploader(stepUid string) types.Uploader
+	TimelineRecorder() timeline.Recorder
 }
 
 func NewResultService(url string, hc *http.Client, msg *messages.PipelineAgentJobRequest) (ResultService, error) {
@@ -292,4 +294,96 @@ func (s *resultService) createStepSummaryMetadata(ctx context.Context, stepUid s
 		return fmt.Errorf("failed to mark StepSummary upload as complete")
 	}
 	return nil
+}
+
+////////////// Timeline Record //////////////
+
+func (s *resultService) TimelineRecorder() timeline.Recorder {
+	return &resultTimelineRecorder{svc: s}
+}
+
+type resultTimelineRecorder struct {
+	svc   *resultService
+	order int
+}
+
+func (r *resultTimelineRecorder) Update(ctx context.Context, records ...*timeline.Record) error {
+	if len(records) == 0 {
+		return nil
+	}
+
+	steps := make([]*step, len(records))
+	for i, rec := range records {
+		steps[i] = toStep(rec)
+	}
+
+	err := r.svc.updateWorkflowSteps(ctx, r.order, steps)
+	r.order++
+
+	return err
+}
+
+// https://github.com/actions/runner/blob/v2.324.0/src/Sdk/WebApi/WebApi/ResultsHttpClient.cs#L567
+func (s *resultService) updateWorkflowSteps(ctx context.Context, order int, steps []*step) error {
+	req := &stepsUpdateRequest{
+		PlanId:      s.planUid,
+		JobId:       s.jobUid,
+		ChangeOrder: order,
+		Steps:       steps,
+	}
+	resp := new(metadataResponse)
+	e := s.client.Post(path.Join(workflowEndpoint, "WorkflowStepsUpdate")).
+		WithBodyProvider(xhttp.JsonEncode(req)).
+		OnSuccess(xhttp.JsonDecode(resp))
+
+	if err := e.Do(ctx); err != nil {
+		return err
+	}
+	if !resp.Ok {
+		return fmt.Errorf("failed to update WorkflowSteps")
+	}
+	return nil
+}
+
+// https://github.com/actions/runner/blob/v2.324.0/src/Sdk/WebApi/WebApi/ResultsHttpClient.cs#L515
+func toStep(r *timeline.Record) *step {
+	return &step{
+		Id:          r.Uid,
+		Number:      r.Order,
+		Name:        "rec.Name",
+		Status:      toStepStatus(r.State),
+		Conclusion:  toStepConclusion(r.Result),
+		StartedAt:   r.StartedAt,
+		CompletedAt: r.CompletedAt,
+	}
+}
+
+// https://github.com/actions/runner/blob/v2.324.0/src/Sdk/WebApi/WebApi/ResultsHttpClient.cs#L529
+func toStepStatus(s timeline.State) stepStatus {
+	switch s {
+	case timeline.StatePending:
+		return stepStatusPending
+	case timeline.StateInProgress:
+		return stepStatusInProgress
+	case timeline.StateCompleted:
+		return stepStatusCompleted
+	default:
+		return stepStatusUnknown
+	}
+}
+
+// https://github.com/actions/runner/blob/v2.324.0/src/Sdk/WebApi/WebApi/ResultsHttpClient.cs#L544
+func toStepConclusion(r timeline.Result) stepConclusion {
+	switch r {
+	case timeline.ResultSucceeded:
+		return stepConclusionSuccess
+	case timeline.ResultFailed:
+		return stepConclusionFailure
+	case timeline.ResultCanceled:
+		return stepConclusionCancelled
+	case timeline.ResultSkipped:
+		return stepConclusionSkipped
+	default:
+		return stepConclusionUnknown
+	}
 }
