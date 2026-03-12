@@ -13,9 +13,12 @@ import (
 	"net/http"
 	"path"
 
+	"drassi.run/core/pkg/executor/command/cmdtypes"
 	"drassi.run/core/util/http"
 	"drassi.run/gha-runner/pkg/messages"
 	"drassi.run/gha-runner/pkg/report/types"
+	"drassi.run/gha-runner/pkg/timeline"
+	util "drassi.run/gha-runner/pkg/types"
 )
 
 const (
@@ -29,6 +32,7 @@ type JobService interface {
 	LogsUploader(uid string) types.Uploader
 	AttachmentUploader(uid, kind, name string) types.Uploader
 	LiveFeedAppender() types.Appender
+	TimelineRecorder() timeline.Recorder
 }
 
 func NewJobService(url string, hc *http.Client, msg *messages.PipelineAgentJobRequest) (JobService, error) {
@@ -147,4 +151,76 @@ func (s *jobService) feedingLogs(ctx context.Context, uid string, startAt int, l
 		WithBodyProvider(xhttp.JsonEncode(data))
 
 	return e.Do(ctx)
+}
+
+////////////// Timeline Record //////////////
+
+func (s *jobService) TimelineRecorder() timeline.Recorder {
+	return &jobTimelineRecorder{svc: s}
+}
+
+type jobTimelineRecorder struct {
+	svc *jobService
+}
+
+func (r *jobTimelineRecorder) Update(ctx context.Context, records ...*timeline.Record) error {
+	if len(records) == 0 {
+		return nil
+	}
+
+	timelineRecords := make([]*record, len(records))
+	for i, rec := range records {
+		timelineRecords[i] = toTimelineRecord("", r.svc.timelineUid, rec)
+	}
+
+	return r.svc.updateTimelineRecord(ctx, timelineRecords)
+}
+
+func (s *jobService) updateTimelineRecord(ctx context.Context, records []*record) error {
+	endpoint := fmt.Sprintf(taskTimelineEndpoint, s.scopeUid, s.planType, s.planUid, s.timelineUid)
+	body := util.NewList(records)
+
+	e := s.client.Patch(endpoint).
+		SetQuery("api-version", "5.1-preview").
+		WithBodyProvider(xhttp.JsonEncode(body))
+
+	return e.Do(ctx)
+}
+
+func toTimelineRecord(parentId, timelineUid string, rec *timeline.Record) *record {
+	r := &record{
+		Id:         rec.Uid,
+		ParentId:   parentId,
+		Order:      rec.Order,
+		TimelineId: timelineUid,
+		StartTime:  rec.StartedAt,
+		FinishTime: rec.CompletedAt,
+		State:      rec.State,
+		Result:     rec.Result,
+		Issues:     rec.Issues,
+	}
+
+	for _, i := range rec.Issues {
+		switch i.Type {
+		case cmdtypes.IssueTypeError:
+			r.ErrorCount++
+		case cmdtypes.IssueTypeWarning:
+			r.WarningCount++
+		case cmdtypes.IssueTypeNotice:
+			r.NoticeCount++
+		}
+	}
+
+	if rec.State == timeline.StateCompleted {
+		r.PercentComplete = 100
+	}
+
+	// https://github.com/actions/runner/blob/v2.324.0/src/Runner.Worker/ExecutionContext.cs#L27-L31
+	switch rec.Object.(type) {
+	case *timeline.JobObject:
+		r.Type = "Job"
+	case *timeline.StepObject:
+		r.Type = "Task"
+	}
+	return r
 }

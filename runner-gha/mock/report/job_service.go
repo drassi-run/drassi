@@ -13,6 +13,7 @@ import (
 	reflect "reflect"
 
 	types "drassi.run/gha-runner/pkg/report/types"
+	timeline "drassi.run/gha-runner/pkg/timeline"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -150,6 +151,44 @@ func (c *MockJobServiceLogsUploaderCall) Do(f func(string) types.Uploader) *Mock
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockJobServiceLogsUploaderCall) DoAndReturn(f func(string) types.Uploader) *MockJobServiceLogsUploaderCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// TimelineRecorder mocks base method.
+func (m *MockJobService) TimelineRecorder() timeline.Recorder {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TimelineRecorder")
+	ret0, _ := ret[0].(timeline.Recorder)
+	return ret0
+}
+
+// TimelineRecorder indicates an expected call of TimelineRecorder.
+func (mr *MockJobServiceMockRecorder) TimelineRecorder() *MockJobServiceTimelineRecorderCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TimelineRecorder", reflect.TypeOf((*MockJobService)(nil).TimelineRecorder))
+	return &MockJobServiceTimelineRecorderCall{Call: call}
+}
+
+// MockJobServiceTimelineRecorderCall wrap *gomock.Call
+type MockJobServiceTimelineRecorderCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockJobServiceTimelineRecorderCall) Return(arg0 timeline.Recorder) *MockJobServiceTimelineRecorderCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockJobServiceTimelineRecorderCall) Do(f func() timeline.Recorder) *MockJobServiceTimelineRecorderCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockJobServiceTimelineRecorderCall) DoAndReturn(f func() timeline.Recorder) *MockJobServiceTimelineRecorderCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
