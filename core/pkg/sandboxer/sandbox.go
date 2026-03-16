@@ -21,7 +21,7 @@ type Sandbox interface {
 	Stat(ctx context.Context, path string) (fs.FileInfo, error)
 	CopyIn(ctx context.Context, reader io.Reader, dst string) error
 	CopyOut(ctx context.Context, src string) (io.ReadCloser, error)
-	Execute(ctx context.Context, cmd, path []string, env map[string]string, workdir string, streams stream.Streams) error
+	Execute(ctx context.Context, cmd, path []string, env map[string]string, workdir string, streams *stream.Streams) error
 
 	Terminate(ctx context.Context) error
 }

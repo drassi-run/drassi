@@ -13,6 +13,7 @@ import (
 	mock_container "drassi.run/core/mock/container"
 	"drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/container/types"
+	"drassi.run/core/pkg/stream"
 	. "drassi.run/core/util/types"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
@@ -178,6 +179,6 @@ func TestContainerRun(t *testing.T) {
 			return "container_id", nil
 		})
 
-	err = rt.Run(ctx, image, entrypoint, cmd, env, nil)
+	err = rt.Run(ctx, image, entrypoint, cmd, env, new(stream.Streams))
 	assert.NoError(t, err)
 }

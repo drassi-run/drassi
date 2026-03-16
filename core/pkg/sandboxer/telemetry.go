@@ -93,7 +93,7 @@ func (s *telemetrySandbox) CopyOut(ctx context.Context, src string) (r io.ReadCl
 	return s.Sandbox.CopyOut(ctx, src)
 }
 
-func (s *telemetrySandbox) Execute(ctx context.Context, cmd, path []string, env map[string]string, workdir string, streams stream.Streams) (err error) {
+func (s *telemetrySandbox) Execute(ctx context.Context, cmd, path []string, env map[string]string, workdir string, streams *stream.Streams) (err error) {
 	ctx, span := xotel.StartSpan(ctx, "Sandbox.Execute")
 	defer xotel.EndSpan(span, &err)
 

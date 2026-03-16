@@ -33,7 +33,7 @@ func TestProcessCommand(t *testing.T) {
 		mgr := mock_command.NewMockConsoleManager[any](ctrl)
 		mgr.EXPECT().ParseCommand(line).Return(nil)
 
-		hdl := mock_stream.NewMockHandler[any](ctrl)
+		hdl := mock_stream.NewMockResourceHandler[any](ctrl)
 		hdl.EXPECT().Handle(t.Context(), nil, line).Return(nil)
 
 		handler := ProcessCommand[any](mgr)(hdl)
@@ -73,7 +73,7 @@ type ScanProblemTestSuite struct {
 	pm1  *mock_problem.MockMatcher
 	pm2  *mock_problem.MockMatcher
 	trk  *mock_support.MockTracker
-	hdl  *mock_stream.MockHandler[string]
+	hdl  *mock_stream.MockResourceHandler[string]
 	ps   *problemScanner[string]
 	res  string
 }
@@ -88,7 +88,7 @@ func (s *ScanProblemTestSuite) SetupTest() {
 	}
 	s.trk = mock_support.NewMockTracker(s.ctrl)
 	s.res = "awesome-resource"
-	s.hdl = mock_stream.NewMockHandler[string](s.ctrl)
+	s.hdl = mock_stream.NewMockResourceHandler[string](s.ctrl)
 	s.hdl.EXPECT().Handle(s.T().Context(), s.res, gomock.Any()).Return(nil)
 	s.ps = ScanProblem[string](pm, s.trk)(s.hdl).(*problemScanner[string])
 }
@@ -173,7 +173,7 @@ func TestMaskSecret(t *testing.T) {
 	sm := mock_secret.NewMockMasker(ctrl)
 	sm.EXPECT().Mask(line).Return(maskedLine)
 
-	hdl := mock_stream.NewMockHandler[string](ctrl)
+	hdl := mock_stream.NewMockResourceHandler[string](ctrl)
 	hdl.EXPECT().Handle(t.Context(), "res", maskedLine).Return(nil)
 
 	handler := MaskSecret[string](sm)(hdl)

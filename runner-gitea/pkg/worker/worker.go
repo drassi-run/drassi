@@ -145,7 +145,7 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 	cp := xcontext.NewStaticProvider(w.ctx)
 
 	log := reporter.NewLogStreamer(w.task.Id, cp, client)
-	if err := xdig.Supply[stream.Handler](scope, log); err != nil {
+	if err := xdig.Supply[stream.ResourceHandler](scope, log); err != nil {
 		return err
 	}
 	if err := log.Start(); err != nil {
@@ -179,11 +179,11 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 		return err
 	}
 
-	return scope.Invoke(func(streams stream.Streams) {
-		if closer, ok := streams.Out().(io.Closer); ok {
+	return scope.Invoke(func(streams *stream.Streams) {
+		if closer, ok := streams.Out.(io.Closer); ok {
 			w.addCleaner(closer.Close)
 		}
-		if closer, ok := streams.Err().(io.Closer); ok {
+		if closer, ok := streams.Err.(io.Closer); ok {
 			w.addCleaner(closer.Close)
 		}
 	})

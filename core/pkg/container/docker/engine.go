@@ -361,7 +361,7 @@ func (e *engine) start(ctx context.Context, id string, exec bool, stdio *types.S
 	}
 }
 
-func (e *engine) streamingStdio(ctx context.Context, id string, exec bool, stdio *types.Stdio, streams stream.Streams, fn run) run {
+func (e *engine) streamingStdio(ctx context.Context, id string, exec bool, stdio *types.Stdio, streams *stream.Streams, fn run) run {
 	ctx, cancel := context.WithCancel(ctx)
 
 	return func() (err error) {
@@ -391,8 +391,7 @@ func (e *engine) streamingStdio(ctx context.Context, id string, exec bool, stdio
 			defer hijackedResp.Close()
 
 			reader := xio.NewContextReader(ctx, hijackedResp.Reader)
-			outWriter := streams.Out()
-			errWriter := streams.Err()
+			outWriter, errWriter := streams.Out, streams.Err
 
 			var err error
 			if stdio.Tty {

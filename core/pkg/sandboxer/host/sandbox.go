@@ -79,7 +79,7 @@ func (sb *sandbox) CopyOut(ctx context.Context, src string) (io.ReadCloser, erro
 	return r, nil
 }
 
-func (sb *sandbox) Execute(ctx context.Context, cmd, path []string, env map[string]string, workdir string, streams stream.Streams) error {
+func (sb *sandbox) Execute(ctx context.Context, cmd, path []string, env map[string]string, workdir string, streams *stream.Streams) error {
 	// TODO lookup entrypoint under custom PATH
 	c := exec.CommandContext(ctx, cmd[0], cmd[1:]...)
 
@@ -106,10 +106,7 @@ func (sb *sandbox) Execute(ctx context.Context, cmd, path []string, env map[stri
 	}
 
 	// streams
-	c.Stdin = streams.In()
-	c.Stdout = streams.Out()
-	c.Stderr = streams.Err()
-
+	c.Stdin, c.Stdout, c.Stderr = streams.In, streams.Out, streams.Err
 	return c.Run()
 }
 

@@ -170,6 +170,7 @@ func (e *dockerActionExecutor) execute(stage Stage) ActionRun {
 		}
 
 		streams := e.sExec.Streams(ctx)
+		defer streams.Close()
 		return e.runtime.Run(ctx, e.resolvedImage, entrypoint, args, env, streams)
 	}
 }

@@ -20,10 +20,10 @@ import (
 	"drassi.run/core/pkg/stream"
 )
 
-type Middleware[R any] func(handler stream.Handler[R]) stream.Handler[R]
+type Middleware[R any] func(handler stream.ResourceHandler[R]) stream.ResourceHandler[R]
 
 func ProcessCommand[R any](consMgr command.ConsoleManager[R]) Middleware[R] {
-	return func(handler stream.Handler[R]) stream.Handler[R] {
+	return func(handler stream.ResourceHandler[R]) stream.ResourceHandler[R] {
 		return &commandProcessor[R]{
 			handler: handler,
 			consMgr: consMgr,
@@ -32,7 +32,7 @@ func ProcessCommand[R any](consMgr command.ConsoleManager[R]) Middleware[R] {
 }
 
 type commandProcessor[R any] struct {
-	handler stream.Handler[R]
+	handler stream.ResourceHandler[R]
 	consMgr command.ConsoleManager[R]
 }
 
@@ -49,7 +49,7 @@ func (mw *commandProcessor[R]) Handle(ctx context.Context, res R, line string) e
 }
 
 func ScanProblem[R any](pm map[string]problem.Matcher, tracker support.Tracker) Middleware[R] {
-	return func(handler stream.Handler[R]) stream.Handler[R] {
+	return func(handler stream.ResourceHandler[R]) stream.ResourceHandler[R] {
 		return &problemScanner[R]{
 			handler: handler,
 			matcher: pm,
@@ -59,7 +59,7 @@ func ScanProblem[R any](pm map[string]problem.Matcher, tracker support.Tracker) 
 }
 
 type problemScanner[R any] struct {
-	handler stream.Handler[R]
+	handler stream.ResourceHandler[R]
 	matcher map[string]problem.Matcher
 	tracker support.Tracker
 }
@@ -153,7 +153,7 @@ func (mw *problemScanner[R]) toIssuer(pbl *problem.Problem) (*support.Issue, err
 }
 
 func MaskSecret[R any](masker secret.Masker) Middleware[R] {
-	return func(handler stream.Handler[R]) stream.Handler[R] {
+	return func(handler stream.ResourceHandler[R]) stream.ResourceHandler[R] {
 		return &secretMasker[R]{
 			handler: handler,
 			masker:  masker,
@@ -162,7 +162,7 @@ func MaskSecret[R any](masker secret.Masker) Middleware[R] {
 }
 
 type secretMasker[R any] struct {
-	handler stream.Handler[R]
+	handler stream.ResourceHandler[R]
 	masker  secret.Masker
 }
 

@@ -90,7 +90,7 @@ func (sb *sandbox) CopyOut(ctx context.Context, src string) (io.ReadCloser, erro
 	})
 }
 
-func (sb *sandbox) Execute(ctx context.Context, cmd, path []string, env map[string]string, workdir string, streams stream.Streams) error {
+func (sb *sandbox) Execute(ctx context.Context, cmd, path []string, env map[string]string, workdir string, streams *stream.Streams) error {
 	opts := &container.ExecOptions{
 		Cmd:     cmd,
 		Env:     env,

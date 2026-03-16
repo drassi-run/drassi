@@ -8,29 +8,22 @@ package stream
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"io"
 )
 
-type lineWriter[R any] struct {
-	ctx     context.Context
-	res     R
-	handler Handler[R]
+type lineWriter struct {
+	handler Handler
 	buffer  bytes.Buffer
 	closed  bool
 }
 
 // NewLineWriter return an [io.Writer] that split input into lines and forward to the [Handler]
-func NewLineWriter[R any](ctx context.Context, res R, h Handler[R]) io.Writer {
-	return &lineWriter[R]{
-		ctx:     ctx,
-		res:     res,
-		handler: h,
-	}
+func NewLineWriter(h Handler) io.Writer {
+	return &lineWriter{handler: h}
 }
 
-func (w *lineWriter[R]) Write(p []byte) (int, error) {
+func (w *lineWriter) Write(p []byte) (int, error) {
 	if w.closed {
 		return 0, errors.New("attempt to write to closed writer")
 	}
@@ -47,7 +40,7 @@ func (w *lineWriter[R]) Write(p []byte) (int, error) {
 			}
 			return written, err
 		}
-		if err = w.handler.Handle(w.ctx, w.res, w.buffer.String()); err != nil {
+		if err = w.handler.Handle(w.buffer.String()); err != nil {
 			return written, err
 		}
 		w.buffer.Reset()
@@ -55,15 +48,15 @@ func (w *lineWriter[R]) Write(p []byte) (int, error) {
 	return written, nil
 }
 
-func (w *lineWriter[R]) WriteString(s string) (int, error) {
+func (w *lineWriter) WriteString(s string) (int, error) {
 	return w.Write([]byte(s))
 }
 
-func (w *lineWriter[R]) Close() error {
+func (w *lineWriter) Close() error {
 	w.closed = true
 	defer w.buffer.Reset()
 	if s := w.buffer.String(); s != "" {
-		return w.handler.Handle(w.ctx, w.res, s)
+		return w.handler.Handle(s)
 	}
 	return nil
 }

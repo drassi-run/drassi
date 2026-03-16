@@ -17,31 +17,93 @@ import (
 )
 
 // MockHandler is a mock of Handler interface.
-type MockHandler[R any] struct {
+type MockHandler struct {
 	ctrl     *gomock.Controller
-	recorder *MockHandlerMockRecorder[R]
+	recorder *MockHandlerMockRecorder
 	isgomock struct{}
 }
 
 // MockHandlerMockRecorder is the mock recorder for MockHandler.
-type MockHandlerMockRecorder[R any] struct {
-	mock *MockHandler[R]
+type MockHandlerMockRecorder struct {
+	mock *MockHandler
 }
 
 // NewMockHandler creates a new mock instance.
-func NewMockHandler[R any](ctrl *gomock.Controller) *MockHandler[R] {
-	mock := &MockHandler[R]{ctrl: ctrl}
-	mock.recorder = &MockHandlerMockRecorder[R]{mock}
+func NewMockHandler(ctrl *gomock.Controller) *MockHandler {
+	mock := &MockHandler{ctrl: ctrl}
+	mock.recorder = &MockHandlerMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockHandler[R]) EXPECT() *MockHandlerMockRecorder[R] {
+func (m *MockHandler) EXPECT() *MockHandlerMockRecorder {
 	return m.recorder
 }
 
 // Handle mocks base method.
-func (m *MockHandler[R]) Handle(arg0 context.Context, arg1 R, arg2 string) error {
+func (m *MockHandler) Handle(arg0 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Handle", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Handle indicates an expected call of Handle.
+func (mr *MockHandlerMockRecorder) Handle(arg0 any) *MockHandlerHandleCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Handle", reflect.TypeOf((*MockHandler)(nil).Handle), arg0)
+	return &MockHandlerHandleCall{Call: call}
+}
+
+// MockHandlerHandleCall wrap *gomock.Call
+type MockHandlerHandleCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockHandlerHandleCall) Return(arg0 error) *MockHandlerHandleCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockHandlerHandleCall) Do(f func(string) error) *MockHandlerHandleCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockHandlerHandleCall) DoAndReturn(f func(string) error) *MockHandlerHandleCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// MockResourceHandler is a mock of ResourceHandler interface.
+type MockResourceHandler[R any] struct {
+	ctrl     *gomock.Controller
+	recorder *MockResourceHandlerMockRecorder[R]
+	isgomock struct{}
+}
+
+// MockResourceHandlerMockRecorder is the mock recorder for MockResourceHandler.
+type MockResourceHandlerMockRecorder[R any] struct {
+	mock *MockResourceHandler[R]
+}
+
+// NewMockResourceHandler creates a new mock instance.
+func NewMockResourceHandler[R any](ctrl *gomock.Controller) *MockResourceHandler[R] {
+	mock := &MockResourceHandler[R]{ctrl: ctrl}
+	mock.recorder = &MockResourceHandlerMockRecorder[R]{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockResourceHandler[R]) EXPECT() *MockResourceHandlerMockRecorder[R] {
+	return m.recorder
+}
+
+// Handle mocks base method.
+func (m *MockResourceHandler[R]) Handle(arg0 context.Context, arg1 R, arg2 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Handle", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -49,31 +111,31 @@ func (m *MockHandler[R]) Handle(arg0 context.Context, arg1 R, arg2 string) error
 }
 
 // Handle indicates an expected call of Handle.
-func (mr *MockHandlerMockRecorder[R]) Handle(arg0, arg1, arg2 any) *MockHandlerHandleCall[R] {
+func (mr *MockResourceHandlerMockRecorder[R]) Handle(arg0, arg1, arg2 any) *MockResourceHandlerHandleCall[R] {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Handle", reflect.TypeOf((*MockHandler[R])(nil).Handle), arg0, arg1, arg2)
-	return &MockHandlerHandleCall[R]{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Handle", reflect.TypeOf((*MockResourceHandler[R])(nil).Handle), arg0, arg1, arg2)
+	return &MockResourceHandlerHandleCall[R]{Call: call}
 }
 
-// MockHandlerHandleCall wrap *gomock.Call
-type MockHandlerHandleCall[R any] struct {
+// MockResourceHandlerHandleCall wrap *gomock.Call
+type MockResourceHandlerHandleCall[R any] struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockHandlerHandleCall[R]) Return(arg0 error) *MockHandlerHandleCall[R] {
+func (c *MockResourceHandlerHandleCall[R]) Return(arg0 error) *MockResourceHandlerHandleCall[R] {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockHandlerHandleCall[R]) Do(f func(context.Context, R, string) error) *MockHandlerHandleCall[R] {
+func (c *MockResourceHandlerHandleCall[R]) Do(f func(context.Context, R, string) error) *MockResourceHandlerHandleCall[R] {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockHandlerHandleCall[R]) DoAndReturn(f func(context.Context, R, string) error) *MockHandlerHandleCall[R] {
+func (c *MockResourceHandlerHandleCall[R]) DoAndReturn(f func(context.Context, R, string) error) *MockResourceHandlerHandleCall[R] {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

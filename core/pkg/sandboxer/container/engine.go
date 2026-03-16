@@ -72,7 +72,7 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*san
 		spec.NetworkMode = "host"
 		runOpts := &container.RunOptions{
 			Stdio:   new(types.Stdio),
-			Streams: stream.NewStreams(),
+			Streams: new(stream.Streams),
 		}
 		if cid, err := e.client.ContainerRun(ctx, spec, runOpts); err != nil {
 			return nil, err
@@ -250,7 +250,7 @@ func (e *engine) runContainer(ctx context.Context, def *workflows.Container, ref
 
 	runOpts := &container.RunOptions{
 		Stdio:   new(types.Stdio),
-		Streams: stream.NewStreams(),
+		Streams: new(stream.Streams),
 	}
 	return e.client.ContainerRun(ctx, spec, runOpts)
 }

@@ -7,21 +7,26 @@
 package stream
 
 import (
-	"context"
 	"io"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
+type HandlerFunc func(string) error
+
+func (f HandlerFunc) Handle(line string) error {
+	return f(line)
+}
+
 func TestLineWriter(t *testing.T) {
 	lines := make([]string, 0)
-	lineHandler := HandlerFunc[any](func(ctx context.Context, _ any, s string) error {
+	lineHandler := HandlerFunc(func(s string) error {
 		lines = append(lines, s)
 		return nil
 	})
 
-	lw := NewLineWriter(t.Context(), nil, lineHandler)
+	lw := NewLineWriter(lineHandler)
 
 	write := func(s string) {
 		n, err := io.WriteString(lw, s)

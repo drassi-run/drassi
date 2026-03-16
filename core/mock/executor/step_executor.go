@@ -570,10 +570,10 @@ func (c *MockStepExecutorStepSpecCall) DoAndReturn(f func() *executor.StepSpec) 
 }
 
 // Streams mocks base method.
-func (m *MockStepExecutor) Streams(ctx context.Context) stream.Streams {
+func (m *MockStepExecutor) Streams(ctx context.Context) *stream.Streams {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Streams", ctx)
-	ret0, _ := ret[0].(stream.Streams)
+	ret0, _ := ret[0].(*stream.Streams)
 	return ret0
 }
 
@@ -590,19 +590,19 @@ type MockStepExecutorStreamsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStepExecutorStreamsCall) Return(arg0 stream.Streams) *MockStepExecutorStreamsCall {
+func (c *MockStepExecutorStreamsCall) Return(arg0 *stream.Streams) *MockStepExecutorStreamsCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStepExecutorStreamsCall) Do(f func(context.Context) stream.Streams) *MockStepExecutorStreamsCall {
+func (c *MockStepExecutorStreamsCall) Do(f func(context.Context) *stream.Streams) *MockStepExecutorStreamsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStepExecutorStreamsCall) DoAndReturn(f func(context.Context) stream.Streams) *MockStepExecutorStreamsCall {
+func (c *MockStepExecutorStreamsCall) DoAndReturn(f func(context.Context) *stream.Streams) *MockStepExecutorStreamsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
