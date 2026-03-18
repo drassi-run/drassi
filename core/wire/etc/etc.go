@@ -17,34 +17,12 @@ import (
 )
 
 func Wire(scope *dig.Scope) error {
-	if err := provideStack(scope); err != nil {
-		return err
-	}
-
 	if err := provideTelemetry(scope); err != nil {
 		return err
 	}
+	// TODO: systemEnv Provider
 
-	if err := scope.Provide(NewTracker); err != nil {
-		return err
-	}
-
-	if err := scope.Provide(support.NewEnvProvider); err != nil {
-		return err
-	}
-
-	return scope.Invoke(provideEnv)
-}
-
-func provideEnv(envProv support.EnvProvider) {
-	envProv.ProvideEnv(support.CIEnv())
-}
-
-func provideStack(scope *dig.Scope) error {
-	return scope.Provide(support.NewStack,
-		dig.As(new(support.Stack), new(executor.JobRunDecorator), new(executor.StepRunDecorator)),
-		dig.Name("stack"),
-	)
+	return scope.Provide(NewTracker)
 }
 
 func provideTelemetry(scope *dig.Scope) error {
