@@ -19,17 +19,17 @@ import (
 )
 
 func ProvideTo(scope *dig.Scope) error {
-	if err := scope.Provide(mdw.ProcessCommand[exec.SupportCommands], dig.Name("processCommand")); err != nil {
+	if err := scope.Provide(mdw.ProcessCommand[exec.Milieu], dig.Name("processCommand")); err != nil {
 		return err
 	}
-	if err := scope.Provide(mdw.ScanProblem[exec.SupportCommands], dig.Name("scanProblem")); err != nil {
+	if err := scope.Provide(mdw.ScanProblem[exec.Milieu], dig.Name("scanProblem")); err != nil {
 		return err
 	}
-	if err := scope.Provide(mdw.MaskSecret[exec.SupportCommands], dig.Name("maskSecret")); err != nil {
+	if err := scope.Provide(mdw.MaskSecret[exec.Milieu], dig.Name("maskSecret")); err != nil {
 		return err
 	}
 
-	if err := scope.Provide(newStreamFactory[exec.SupportCommands], dig.Export(true)); err != nil {
+	if err := scope.Provide(newStreamFactory[exec.Milieu], dig.Export(true)); err != nil {
 		return err
 	}
 	if err := scope.Provide(newScribeDiary, dig.Export(true)); err != nil {

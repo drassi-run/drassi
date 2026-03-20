@@ -102,7 +102,7 @@ type stepExecutor struct {
 	decorator ActionRunDecorator
 	envProv   EnvProvider
 	exprEnv   expression.Env
-	factory   stream.Factory[SupportCommands]
+	factory   stream.Factory[Milieu]
 }
 
 func (e *stepExecutor) StepSpec() *StepSpec {
@@ -348,7 +348,7 @@ func (e *stepExecutor) Sandbox() sandboxer.Sandbox {
 }
 
 func (e *stepExecutor) Streams(ctx context.Context) *stream.Streams {
-	s := NewSupportCommands(e)
+	s := NewMilieu(e)
 	return e.factory.Create(ctx, s)
 }
 

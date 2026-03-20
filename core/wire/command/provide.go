@@ -19,10 +19,10 @@ const (
 )
 
 func ProvideTo(scope *dig.Scope) error {
-	if err := scope.Provide(cmd.NewFileManager[exec.SupportCommands]); err != nil {
+	if err := scope.Provide(cmd.NewFileManager[exec.Milieu]); err != nil {
 		return err
 	}
-	if err := scope.Provide(cmd.NewConsoleManager[exec.SupportCommands]); err != nil {
+	if err := scope.Provide(cmd.NewConsoleManager[exec.Milieu]); err != nil {
 		return err
 	}
 
@@ -47,37 +47,37 @@ func ProvideTo(scope *dig.Scope) error {
 
 func provideConsoleHandlers(scope *dig.Scope) error {
 	group := dig.Group(ConsoleCommandHandlers)
-	if err := scope.Provide(ch.AddSecretMask[exec.SupportCommands], group); err != nil {
+	if err := scope.Provide(ch.AddSecretMask[exec.Milieu], group); err != nil {
 		return err
 	}
-	if err := scope.Provide(ch.AddProblemMatcher[exec.SupportCommands], group); err != nil {
+	if err := scope.Provide(ch.AddProblemMatcher[exec.Milieu], group); err != nil {
 		return err
 	}
-	if err := scope.Provide(ch.RemoveProblemMatcher[exec.SupportCommands], group); err != nil {
+	if err := scope.Provide(ch.RemoveProblemMatcher[exec.Milieu], group); err != nil {
 		return err
 	}
-	if err := scope.Provide(ch.GroupingLog[exec.SupportCommands], group); err != nil {
+	if err := scope.Provide(ch.GroupingLog[exec.Milieu], group); err != nil {
 		return err
 	}
-	if err := scope.Provide(ch.EndGroupingLog[exec.SupportCommands], group); err != nil {
+	if err := scope.Provide(ch.EndGroupingLog[exec.Milieu], group); err != nil {
 		return err
 	}
-	if err := scope.Provide(ch.DebugMessage[exec.SupportCommands], group); err != nil {
+	if err := scope.Provide(ch.DebugMessage[exec.Milieu], group); err != nil {
 		return err
 	}
-	if err := scope.Provide(ch.LogMessage[exec.SupportCommands], dig.Group(ConsoleCommandHandlers+",flatten")); err != nil {
+	if err := scope.Provide(ch.LogMessage[exec.Milieu], dig.Group(ConsoleCommandHandlers+",flatten")); err != nil {
 		return err
 	}
-	if err := scope.Provide(ch.ConsoleAddPath[exec.SupportCommands], group); err != nil {
+	if err := scope.Provide(ch.ConsoleAddPath[exec.Milieu], group); err != nil {
 		return err
 	}
-	if err := scope.Provide(ch.ConsoleSetEnv[exec.SupportCommands], group); err != nil {
+	if err := scope.Provide(ch.ConsoleSetEnv[exec.Milieu], group); err != nil {
 		return err
 	}
-	if err := scope.Provide(ch.ConsoleSetOutput[exec.SupportCommands], group); err != nil {
+	if err := scope.Provide(ch.ConsoleSetOutput[exec.Milieu], group); err != nil {
 		return err
 	}
-	if err := scope.Provide(ch.ConsoleSaveState[exec.SupportCommands], group); err != nil {
+	if err := scope.Provide(ch.ConsoleSaveState[exec.Milieu], group); err != nil {
 		return err
 	}
 	return nil
@@ -85,19 +85,19 @@ func provideConsoleHandlers(scope *dig.Scope) error {
 
 func provideFileHandlers(scope *dig.Scope) error {
 	group := dig.Group(FileCommandHandlers)
-	if err := scope.Provide(ch.FileAddPath[exec.SupportCommands], group); err != nil {
+	if err := scope.Provide(ch.FileAddPath[exec.Milieu], group); err != nil {
 		return err
 	}
-	if err := scope.Provide(ch.FileSetEnv[exec.SupportCommands], group); err != nil {
+	if err := scope.Provide(ch.FileSetEnv[exec.Milieu], group); err != nil {
 		return err
 	}
-	if err := scope.Provide(ch.FileSaveState[exec.SupportCommands], group); err != nil {
+	if err := scope.Provide(ch.FileSaveState[exec.Milieu], group); err != nil {
 		return err
 	}
-	if err := scope.Provide(ch.FileSetOutput[exec.SupportCommands], group); err != nil {
+	if err := scope.Provide(ch.FileSetOutput[exec.Milieu], group); err != nil {
 		return err
 	}
-	if err := scope.Provide(ch.CreateStepSummary[exec.SupportCommands], group); err != nil {
+	if err := scope.Provide(ch.CreateStepSummary[exec.Milieu], group); err != nil {
 		return err
 	}
 	return nil

@@ -11,16 +11,16 @@ import (
 )
 
 type CommandDecorator struct {
-	fileMgr cmd.FileManager[exec.SupportCommands]
+	fileMgr cmd.FileManager[exec.Milieu]
 }
 
-func NewCommandDecorator(fileMgr cmd.FileManager[exec.SupportCommands]) *CommandDecorator {
+func NewCommandDecorator(fileMgr cmd.FileManager[exec.Milieu]) *CommandDecorator {
 	return &CommandDecorator{fileMgr}
 }
 
 func (c *CommandDecorator) DecorateActionRun(task *exec.ActionTask) exec.ActionRun {
 	run := task.Run
-	sup := exec.NewSupportCommands(task.Executor.StepExecutor())
+	sup := exec.NewMilieu(task.Executor.StepExecutor())
 	return func(ctx context.Context) error {
 		if err := c.fileMgr.Initialize(ctx, sup); err != nil {
 			return err
@@ -35,11 +35,11 @@ func (c *CommandDecorator) DecorateActionRun(task *exec.ActionTask) exec.ActionR
 type CommandInitDecorator struct {
 	dig.In
 
-	ConsMgr      cmd.ConsoleManager[exec.SupportCommands]
-	ConsHandlers []*cmd.ConsoleHandler[exec.SupportCommands] `group:"console-handlers"`
+	ConsMgr      cmd.ConsoleManager[exec.Milieu]
+	ConsHandlers []*cmd.ConsoleHandler[exec.Milieu] `group:"console-handlers"`
 
-	FileMgr      cmd.FileManager[exec.SupportCommands]
-	FileHandlers []*cmd.FileHandler[exec.SupportCommands] `group:"file-handlers"`
+	FileMgr      cmd.FileManager[exec.Milieu]
+	FileHandlers []*cmd.FileHandler[exec.Milieu] `group:"file-handlers"`
 
 	Runner records.Runner
 	Diary  scribe.Diary
