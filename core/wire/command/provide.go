@@ -10,12 +10,14 @@ import (
 	exec "drassi.run/core/pkg/executor"
 	cmd "drassi.run/core/pkg/executor/command"
 	ch "drassi.run/core/pkg/executor/command/cmdhandler"
+	xdig "drassi.run/core/util/dig"
 	"go.uber.org/dig"
 )
 
 const (
 	ConsoleCommandHandlers = "console-handlers"
 	FileCommandHandlers    = "file-handlers"
+	PostStart              = "post-start"
 )
 
 func ProvideTo(scope *dig.Scope) error {
@@ -40,9 +42,7 @@ func ProvideTo(scope *dig.Scope) error {
 		return err
 	}
 
-	return scope.Provide(NewCommandInitDecorator,
-		dig.As(new(exec.JobRunDecorator)), dig.Name("command-init"),
-	)
+	return xdig.Supply(scope, NewCommandInitHook[exec.JobExecutor](scope), dig.Group(PostStart))
 }
 
 func provideConsoleHandlers(scope *dig.Scope) error {
