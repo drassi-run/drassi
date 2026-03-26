@@ -102,40 +102,40 @@ func (m *MockResourceHandler[R]) EXPECT() *MockResourceHandlerMockRecorder[R] {
 	return m.recorder
 }
 
-// Handle mocks base method.
-func (m *MockResourceHandler[R]) Handle(arg0 context.Context, arg1 R, arg2 string) error {
+// RHandle mocks base method.
+func (m *MockResourceHandler[R]) RHandle(arg0 context.Context, arg1 R, arg2 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Handle", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "RHandle", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// Handle indicates an expected call of Handle.
-func (mr *MockResourceHandlerMockRecorder[R]) Handle(arg0, arg1, arg2 any) *MockResourceHandlerHandleCall[R] {
+// RHandle indicates an expected call of RHandle.
+func (mr *MockResourceHandlerMockRecorder[R]) RHandle(arg0, arg1, arg2 any) *MockResourceHandlerRHandleCall[R] {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Handle", reflect.TypeOf((*MockResourceHandler[R])(nil).Handle), arg0, arg1, arg2)
-	return &MockResourceHandlerHandleCall[R]{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RHandle", reflect.TypeOf((*MockResourceHandler[R])(nil).RHandle), arg0, arg1, arg2)
+	return &MockResourceHandlerRHandleCall[R]{Call: call}
 }
 
-// MockResourceHandlerHandleCall wrap *gomock.Call
-type MockResourceHandlerHandleCall[R any] struct {
+// MockResourceHandlerRHandleCall wrap *gomock.Call
+type MockResourceHandlerRHandleCall[R any] struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockResourceHandlerHandleCall[R]) Return(arg0 error) *MockResourceHandlerHandleCall[R] {
+func (c *MockResourceHandlerRHandleCall[R]) Return(arg0 error) *MockResourceHandlerRHandleCall[R] {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockResourceHandlerHandleCall[R]) Do(f func(context.Context, R, string) error) *MockResourceHandlerHandleCall[R] {
+func (c *MockResourceHandlerRHandleCall[R]) Do(f func(context.Context, R, string) error) *MockResourceHandlerRHandleCall[R] {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockResourceHandlerHandleCall[R]) DoAndReturn(f func(context.Context, R, string) error) *MockResourceHandlerHandleCall[R] {
+func (c *MockResourceHandlerRHandleCall[R]) DoAndReturn(f func(context.Context, R, string) error) *MockResourceHandlerRHandleCall[R] {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

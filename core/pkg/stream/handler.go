@@ -15,20 +15,33 @@ type Handler interface {
 }
 
 type ResourceHandler[R any] interface {
-	Handle(context.Context, R, string) error
+	RHandle(context.Context, R, string) error
 }
 
-// NewHandlerWithResource return new Handler that attach resource to it
-func NewHandlerWithResource[R any](ctx context.Context, res R, h ResourceHandler[R]) Handler {
-	return &handlerWithResource[R]{ctx: ctx, res: res, hdl: h}
+// NewAttachResourceHandler return new Handler which attach resource and forward to ResourceHandler
+func NewAttachResourceHandler[R any](ctx context.Context, res R, h ResourceHandler[R]) Handler {
+	return &attachResourceHandler[R]{ctx: ctx, res: res, hdl: h}
 }
 
-type handlerWithResource[R any] struct {
+type attachResourceHandler[R any] struct {
 	ctx context.Context
 	res R
 	hdl ResourceHandler[R]
 }
 
-func (h *handlerWithResource[R]) Handle(s string) error {
-	return h.hdl.Handle(h.ctx, h.res, s)
+func (h *attachResourceHandler[R]) Handle(s string) error {
+	return h.hdl.RHandle(h.ctx, h.res, s)
+}
+
+// NewDetachResourceHandler return new ResourceHandler which detach (discard) resource and forward to Handler
+func NewDetachResourceHandler[R any](h Handler) ResourceHandler[R] {
+	return &detachResourceHandler[R]{hdl: h}
+}
+
+type detachResourceHandler[R any] struct {
+	hdl Handler
+}
+
+func (h *detachResourceHandler[R]) RHandle(_ context.Context, _ R, s string) error {
+	return h.hdl.Handle(s)
 }

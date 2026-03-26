@@ -34,10 +34,10 @@ func TestProcessCommand(t *testing.T) {
 		mgr.EXPECT().ParseCommand(line).Return(nil)
 
 		hdl := mock_stream.NewMockResourceHandler[any](ctrl)
-		hdl.EXPECT().Handle(t.Context(), nil, line).Return(nil)
+		hdl.EXPECT().RHandle(t.Context(), nil, line).Return(nil)
 
 		handler := ProcessCommand[any](mgr)(hdl)
-		err := handler.Handle(t.Context(), nil, line)
+		err := handler.RHandle(t.Context(), nil, line)
 		assert.NoError(t, err)
 	})
 
@@ -47,7 +47,7 @@ func TestProcessCommand(t *testing.T) {
 		mgr.EXPECT().Process(t.Context(), "awesome-resource", line, cmd).Return(nil)
 
 		handler := ProcessCommand[string](mgr)(nil)
-		err := handler.Handle(t.Context(), "awesome-resource", line)
+		err := handler.RHandle(t.Context(), "awesome-resource", line)
 		assert.NoError(t, err)
 	})
 
@@ -58,7 +58,7 @@ func TestProcessCommand(t *testing.T) {
 		mgr.EXPECT().Process(t.Context(), nil, line, cmd).Return(ex)
 
 		handler := ProcessCommand[any](mgr)(nil)
-		err := handler.Handle(t.Context(), nil, line)
+		err := handler.RHandle(t.Context(), nil, line)
 		assert.ErrorIs(t, err, ex)
 	})
 }
@@ -89,7 +89,7 @@ func (s *ScanProblemTestSuite) SetupTest() {
 	s.trk = mock_support.NewMockTracker(s.ctrl)
 	s.res = "awesome-resource"
 	s.hdl = mock_stream.NewMockResourceHandler[string](s.ctrl)
-	s.hdl.EXPECT().Handle(s.T().Context(), s.res, gomock.Any()).Return(nil)
+	s.hdl.EXPECT().RHandle(s.T().Context(), s.res, gomock.Any()).Return(nil)
 	s.ps = ScanProblem[string](pm, s.trk)(s.hdl).(*problemScanner[string])
 }
 
@@ -103,7 +103,7 @@ func (s *ScanProblemTestSuite) TestNotMatch() {
 	s.pm1.EXPECT().Match(line).Return(nil)
 	s.pm2.EXPECT().Match(line).Return(nil)
 
-	err := s.ps.Handle(t.Context(), s.res, line)
+	err := s.ps.RHandle(t.Context(), s.res, line)
 	assert.NoError(t, err)
 }
 
@@ -124,7 +124,7 @@ func (s *ScanProblemTestSuite) TestMatchAndSuccess() {
 	s.pm1.EXPECT().Reset().Return() // reset other matchers
 	s.trk.EXPECT().AddIssue(t.Context(), iss).Return(nil)
 
-	err := s.ps.Handle(t.Context(), s.res, line)
+	err := s.ps.RHandle(t.Context(), s.res, line)
 	assert.NoError(t, err)
 }
 
@@ -138,7 +138,7 @@ func (s *ScanProblemTestSuite) TestConvertError() {
 	s.pm2.EXPECT().Match(line).Return(nil).MinTimes(0).MaxTimes(1)
 	s.pm2.EXPECT().Reset().Return()
 
-	err := s.ps.Handle(t.Context(), s.res, line)
+	err := s.ps.RHandle(t.Context(), s.res, line)
 	assert.Error(t, err)
 }
 
@@ -160,7 +160,7 @@ func (s *ScanProblemTestSuite) TestReportError() {
 	s.pm2.EXPECT().Reset().Return()
 	s.trk.EXPECT().AddIssue(t.Context(), iss).Return(ex)
 
-	err := s.ps.Handle(t.Context(), s.res, line)
+	err := s.ps.RHandle(t.Context(), s.res, line)
 	assert.ErrorIs(t, err, ex)
 }
 
@@ -174,9 +174,9 @@ func TestMaskSecret(t *testing.T) {
 	sm.EXPECT().Mask(line).Return(maskedLine)
 
 	hdl := mock_stream.NewMockResourceHandler[string](ctrl)
-	hdl.EXPECT().Handle(t.Context(), "res", maskedLine).Return(nil)
+	hdl.EXPECT().RHandle(t.Context(), "res", maskedLine).Return(nil)
 
 	handler := MaskSecret[string](sm)(hdl)
-	err := handler.Handle(t.Context(), "res", line)
+	err := handler.RHandle(t.Context(), "res", line)
 	assert.NoError(t, err)
 }

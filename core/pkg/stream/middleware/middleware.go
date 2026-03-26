@@ -36,10 +36,10 @@ type commandProcessor[R any] struct {
 	consMgr command.ConsoleManager[R]
 }
 
-func (mw *commandProcessor[R]) Handle(ctx context.Context, res R, line string) error {
+func (mw *commandProcessor[R]) RHandle(ctx context.Context, res R, line string) error {
 	cmd := mw.consMgr.ParseCommand(line)
 	if cmd == nil {
-		return mw.handler.Handle(ctx, res, line)
+		return mw.handler.RHandle(ctx, res, line)
 	}
 
 	if err := mw.consMgr.Process(ctx, res, line, cmd); err != nil {
@@ -64,9 +64,9 @@ type problemScanner[R any] struct {
 	tracker support.Tracker
 }
 
-func (mw *problemScanner[R]) Handle(ctx context.Context, res R, line string) error {
+func (mw *problemScanner[R]) RHandle(ctx context.Context, res R, line string) error {
 	err1 := mw.scan(ctx, line)
-	err2 := mw.handler.Handle(ctx, res, line)
+	err2 := mw.handler.RHandle(ctx, res, line)
 	return errors.Join(err1, err2)
 }
 
@@ -166,7 +166,7 @@ type secretMasker[R any] struct {
 	masker  secret.Masker
 }
 
-func (mw *secretMasker[R]) Handle(ctx context.Context, res R, line string) error {
+func (mw *secretMasker[R]) RHandle(ctx context.Context, res R, line string) error {
 	line = mw.masker.Mask(line)
-	return mw.handler.Handle(ctx, res, line)
+	return mw.handler.RHandle(ctx, res, line)
 }

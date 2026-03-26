@@ -61,7 +61,7 @@ func (f *factory[R]) Create(ctx context.Context, res R) *Streams {
 }
 
 func (f *factory[R]) newWriter(ctx context.Context, res R, hdl ResourceHandler[R]) io.Writer {
-	handler := NewHandlerWithResource(ctx, res, hdl)
+	handler := NewAttachResourceHandler(ctx, res, hdl)
 	return NewLineWriter(handler)
 }
 
