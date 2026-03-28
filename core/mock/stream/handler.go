@@ -17,63 +17,63 @@ import (
 )
 
 // MockHandler is a mock of Handler interface.
-type MockHandler struct {
+type MockHandler[R any] struct {
 	ctrl     *gomock.Controller
-	recorder *MockHandlerMockRecorder
+	recorder *MockHandlerMockRecorder[R]
 	isgomock struct{}
 }
 
 // MockHandlerMockRecorder is the mock recorder for MockHandler.
-type MockHandlerMockRecorder struct {
-	mock *MockHandler
+type MockHandlerMockRecorder[R any] struct {
+	mock *MockHandler[R]
 }
 
 // NewMockHandler creates a new mock instance.
-func NewMockHandler(ctrl *gomock.Controller) *MockHandler {
-	mock := &MockHandler{ctrl: ctrl}
-	mock.recorder = &MockHandlerMockRecorder{mock}
+func NewMockHandler[R any](ctrl *gomock.Controller) *MockHandler[R] {
+	mock := &MockHandler[R]{ctrl: ctrl}
+	mock.recorder = &MockHandlerMockRecorder[R]{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockHandler) EXPECT() *MockHandlerMockRecorder {
+func (m *MockHandler[R]) EXPECT() *MockHandlerMockRecorder[R] {
 	return m.recorder
 }
 
 // Handle mocks base method.
-func (m *MockHandler) Handle(arg0 context.Context, arg1 string) error {
+func (m *MockHandler[R]) Handle(arg0 context.Context, arg1 R, arg2 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Handle", arg0, arg1)
+	ret := m.ctrl.Call(m, "Handle", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Handle indicates an expected call of Handle.
-func (mr *MockHandlerMockRecorder) Handle(arg0, arg1 any) *MockHandlerHandleCall {
+func (mr *MockHandlerMockRecorder[R]) Handle(arg0, arg1, arg2 any) *MockHandlerHandleCall[R] {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Handle", reflect.TypeOf((*MockHandler)(nil).Handle), arg0, arg1)
-	return &MockHandlerHandleCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Handle", reflect.TypeOf((*MockHandler[R])(nil).Handle), arg0, arg1, arg2)
+	return &MockHandlerHandleCall[R]{Call: call}
 }
 
 // MockHandlerHandleCall wrap *gomock.Call
-type MockHandlerHandleCall struct {
+type MockHandlerHandleCall[R any] struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockHandlerHandleCall) Return(arg0 error) *MockHandlerHandleCall {
+func (c *MockHandlerHandleCall[R]) Return(arg0 error) *MockHandlerHandleCall[R] {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockHandlerHandleCall) Do(f func(context.Context, string) error) *MockHandlerHandleCall {
+func (c *MockHandlerHandleCall[R]) Do(f func(context.Context, R, string) error) *MockHandlerHandleCall[R] {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockHandlerHandleCall) DoAndReturn(f func(context.Context, string) error) *MockHandlerHandleCall {
+func (c *MockHandlerHandleCall[R]) DoAndReturn(f func(context.Context, R, string) error) *MockHandlerHandleCall[R] {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
