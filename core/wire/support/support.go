@@ -7,17 +7,27 @@
 package wire_support
 
 import (
-	"context"
-	"io"
-
-	"drassi.run/core/pkg/executor"
+	exec "drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/executor/support"
-	"github.com/chainguard-dev/clog"
+	"drassi.run/core/wire"
 	"go.uber.org/dig"
 )
 
 func Wire(scope *dig.Scope) error {
 	if err := provideTelemetry(scope); err != nil {
+		return err
+	}
+	if err := provideEnv(scope); err != nil {
+		return err
+	}
+
+	if err := scope.Provide(scrapeEnvProvider); err != nil {
+		return err
+	}
+	if err := scope.Provide(scrapePostStartHook[exec.JobExecutor], dig.Name(wire.PostStart)); err != nil {
+		return err
+	}
+	if err := scope.Provide(scrapePreStopHook[exec.JobExecutor], dig.Name(wire.PreStop)); err != nil {
 		return err
 	}
 
@@ -28,27 +38,43 @@ func provideTelemetry(scope *dig.Scope) error {
 	return scope.Provide(support.NewTelemetry,
 		dig.Name("telemetry"),
 		dig.As(
-			new(executor.JobRunDecorator),
-			new(executor.StepRunDecorator),
-			new(executor.ActionRunDecorator),
+			new(exec.JobRunDecorator),
+			new(exec.StepRunDecorator),
+			new(exec.ActionRunDecorator),
 		),
 	)
 }
 
-func NewTracker() support.Tracker {
-	return new(tracker)
+func provideEnv(scope *dig.Scope) error {
+	return scope.Provide(exec.CIEnv, dig.Group(wire.EnvProvider))
 }
 
-type tracker struct{}
+type envProviderParams struct {
+	dig.In
 
-func (t *tracker) AddIssue(ctx context.Context, issue *support.Issue) error {
-	l := clog.FromContext(ctx)
-	l.Warnf("Issue: Type=%d, Category=%s, Message=%s, Data=%v", issue.Type, issue.Category, issue.Message, issue.Data)
-	return nil
+	EnvProvider []exec.EnvProvider `group:"env-provider"` // = [wire.EnvProvider]
 }
 
-func (t *tracker) AttachFile(ctx context.Context, kind, name string, reader io.Reader) error {
-	l := clog.FromContext(ctx)
-	l.Warnf("AttachFile: Kind=%s, Name=%s", kind, name)
-	return nil
+func scrapeEnvProvider(p envProviderParams) exec.EnvProvider {
+	return exec.MultiEnvProvider(p.EnvProvider)
+}
+
+type postStartHookParams[R any] struct {
+	dig.In
+
+	Hooks []exec.Hook[R] `group:"post-start"` // = [wire.PostStart]
+}
+
+func scrapePostStartHook[R any](p postStartHookParams[R]) exec.Hook[R] {
+	return exec.Hooks[R](p.Hooks)
+}
+
+type preStopHookParams[R any] struct {
+	dig.In
+
+	Hooks []exec.Hook[R] `group:"pre-stop"` // = [wire.PreStop]
+}
+
+func scrapePreStopHook[R any](p preStopHookParams[R]) exec.Hook[R] {
+	return exec.Hooks[R](p.Hooks)
 }

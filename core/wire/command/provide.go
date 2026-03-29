@@ -11,14 +11,13 @@ import (
 	cmd "drassi.run/core/pkg/executor/command"
 	ch "drassi.run/core/pkg/executor/command/cmdhandler"
 	xdig "drassi.run/core/util/dig"
+	"drassi.run/core/wire"
 	"go.uber.org/dig"
 )
 
 const (
 	ConsoleCommandHandlers = "console-handlers"
 	FileCommandHandlers    = "file-handlers"
-	PostStart              = "post-start"
-	EnvProvider            = "env-provider"
 )
 
 func ProvideTo(scope *dig.Scope) error {
@@ -41,11 +40,11 @@ func ProvideTo(scope *dig.Scope) error {
 		return err
 	}
 
-	if err := scope.Provide(NewCommandEnvProvider, dig.Group(EnvProvider)); err != nil {
+	if err := scope.Provide(NewCommandEnvProvider, dig.Group(wire.EnvProvider)); err != nil {
 		return err
 	}
 
-	return xdig.Supply(scope, NewCommandInitHook[exec.JobExecutor](scope), dig.Group(PostStart))
+	return xdig.Supply(scope, NewCommandInitHook[exec.JobExecutor](scope), dig.Group(wire.PostStart))
 }
 
 func provideConsoleHandlers(scope *dig.Scope) error {
