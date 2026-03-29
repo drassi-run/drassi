@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package etc
+package wire_support
 
 import (
 	"context"
@@ -20,15 +20,18 @@ func Wire(scope *dig.Scope) error {
 	if err := provideTelemetry(scope); err != nil {
 		return err
 	}
-	// TODO: systemEnv Provider
 
 	return scope.Provide(NewTracker)
 }
 
 func provideTelemetry(scope *dig.Scope) error {
 	return scope.Provide(support.NewTelemetry,
-		dig.As(new(executor.JobRunDecorator), new(executor.StepRunDecorator), new(executor.ActionRunDecorator)),
 		dig.Name("telemetry"),
+		dig.As(
+			new(executor.JobRunDecorator),
+			new(executor.StepRunDecorator),
+			new(executor.ActionRunDecorator),
+		),
 	)
 }
 

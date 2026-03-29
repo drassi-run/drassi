@@ -18,6 +18,7 @@ const (
 	ConsoleCommandHandlers = "console-handlers"
 	FileCommandHandlers    = "file-handlers"
 	PostStart              = "post-start"
+	EnvProvider            = "env-provider"
 )
 
 func ProvideTo(scope *dig.Scope) error {
@@ -36,9 +37,11 @@ func ProvideTo(scope *dig.Scope) error {
 		return err
 	}
 
-	if err := scope.Provide(NewCommandDecorator,
-		dig.As(new(exec.ActionRunDecorator)), dig.Name("command"),
-	); err != nil {
+	if err := scope.Provide(NewCommandDecorator, dig.Name("command")); err != nil {
+		return err
+	}
+
+	if err := scope.Provide(NewCommandEnvProvider, dig.Group(EnvProvider)); err != nil {
 		return err
 	}
 
