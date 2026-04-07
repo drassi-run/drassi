@@ -10,7 +10,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"slices"
 	"strings"
 
@@ -20,7 +19,6 @@ import (
 	"drassi.run/core/pkg/executor/problem"
 	"drassi.run/core/pkg/executor/runtime"
 	"drassi.run/core/pkg/executor/secret"
-	"drassi.run/core/pkg/executor/support"
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/expression/libraries"
 	"drassi.run/core/pkg/model"
@@ -31,10 +29,11 @@ import (
 	"drassi.run/core/pkg/stream"
 	"drassi.run/core/util/context"
 	"drassi.run/core/util/dig"
+	"drassi.run/core/wire"
 	"drassi.run/core/wire/command"
-	"drassi.run/core/wire/etc"
 	"drassi.run/core/wire/runtime"
 	"drassi.run/core/wire/streams"
+	"drassi.run/core/wire/support"
 	"drassi.run/gitea-runner/pkg/gitea"
 	"drassi.run/gitea-runner/pkg/reporter"
 	"go.uber.org/dig"
@@ -57,16 +56,14 @@ func (w *Worker) setup(scope *dig.Scope) error {
 	if err := w.initScope(scope); err != nil {
 		return err
 	}
-	if err := w.initContext(scope); err != nil {
-		return err
-	}
-	if err := w.initExecutor(scope); err != nil {
-		return err
-	}
-
-	return nil
+	return w.initContext(scope)
 }
 
+func (w *Worker) Context() context.Context {
+	return w.ctx
+}
+
+//goland:noinspection GoResourceLeak
 func (w *Worker) initScope(scope *dig.Scope) error {
 	// expression.Env
 	needs := convertJobNeeds(w.task.Needs)
@@ -123,17 +120,19 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 	}
 
 	// Wire scope
+	if err := xdig.Supply[xcontext.Provider](scope, w); err != nil {
+		return err
+	}
 	if err := wire_command.ProvideTo(scope); err != nil {
 		return err
 	}
 	if err := wire_streams.ProvideTo(scope.Scope("internal(streams)")); err != nil {
 		return err
 	}
-	if err := scope.Provide(newContainerRuntime(w.ctx, &github)); err != nil {
+	if err := wire_support.Wire(scope); err != nil {
 		return err
 	}
-
-	if err := etc.Wire(scope); err != nil {
+	if err := scope.Provide(newContainerRuntime(w.ctx, &github)); err != nil {
 		return err
 	}
 
@@ -142,10 +141,14 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 		return err
 	}
 
-	cp := xcontext.NewStaticProvider(w.ctx)
-
-	log := reporter.NewLogStreamer(w.task.Id, cp, client)
-	if err := xdig.Supply[stream.ResourceHandler](scope, log); err != nil {
+	log := reporter.NewLogStreamer(w.task.Id, w, client)
+	if err := xdig.Supply(scope, log); err != nil {
+		return err
+	}
+	if err := scope.Provide(newScribeHandler); err != nil {
+		return err
+	}
+	if err := scope.Provide(newResourceHandler[executor.Milieu]); err != nil {
 		return err
 	}
 	if err := log.Start(); err != nil {
@@ -153,8 +156,11 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 	}
 	w.addCleaner(log.Close)
 
-	rep := reporter.New(w.task.Id, client, cp, log, w.Cancel)
-	if err := xdig.Supply(scope, rep); err != nil {
+	rep := reporter.New(w.task.Id, client, w, log, w.Cancel)
+	if err := xdig.Supply(scope, rep,
+		dig.As(new(executor.JobRunDecorator), new(executor.StepRunDecorator)),
+		dig.Name("reporter"),
+	); err != nil {
 		return err
 	}
 	if err := rep.Start(); err != nil {
@@ -162,31 +168,18 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 	}
 	w.addCleaner(rep.Close)
 
-	if err := scope.Provide(reporter.NewListener,
-		dig.As(new(executor.JobListener), new(executor.StepListener)),
-		dig.Name("reporter")); err != nil {
+	// decorators
+	if err := scope.Provide(newJobRunDecorator); err != nil {
+		return err
+	}
+	if err := scope.Provide(newStepRunDecorator); err != nil {
+		return err
+	}
+	if err := scope.Provide(newActionRunDecorator); err != nil {
 		return err
 	}
 
-	if err := scope.Provide(composeJobListener); err != nil {
-		return err
-	}
-	if err := scope.Provide(composeStepListener); err != nil {
-		return err
-	}
-
-	if err := scope.Invoke(w.provideEnv); err != nil {
-		return err
-	}
-
-	return scope.Invoke(func(streams *stream.Streams) {
-		if closer, ok := streams.Out.(io.Closer); ok {
-			w.addCleaner(closer.Close)
-		}
-		if closer, ok := streams.Err.(io.Closer); ok {
-			w.addCleaner(closer.Close)
-		}
-	})
+	return scope.Provide(w.endpointEnv, dig.Group(wire.EnvProvider))
 }
 
 func (w *Worker) initContext(scope *dig.Scope) error {
@@ -199,7 +192,7 @@ func (w *Worker) initContext(scope *dig.Scope) error {
 	return nil
 }
 
-func (w *Worker) provideEnv(client gitea.Client, github records.Github, envProv support.EnvProvider) error {
+func (w *Worker) endpointEnv(client gitea.Client, github records.Github) executor.EnvProvider {
 	endpoint := client.Address()
 	endpoint = strings.TrimSuffix(endpoint, "/")
 
@@ -217,29 +210,7 @@ func (w *Worker) provideEnv(client gitea.Client, github records.Github, envProv 
 		"ACTIONS_RESULTS_URL":   endpoint,
 		//"ACTIONS_CACHE_URL":     "", // TODO
 	}
-
-	envProv.ProvideEnv(support.StaticEnv(m))
-	return nil
-}
-
-func (w *Worker) initExecutor(scope *dig.Scope) error {
-	workflow := new(workflows.Workflow)
-	if err := decodeWorkflow(w.task.WorkflowPayload, workflow); err != nil {
-		return err
-	}
-	spec, err := convertJobSpec(workflow)
-	if err != nil {
-		return err
-	}
-
-	scope = scope.Scope(fmt.Sprintf("job(%s)", w.exec.JobSpec().Id))
-	if exec, err := spec.CreateExecutor(w.ctx, scope); err != nil {
-		return err
-	} else {
-		w.addCleanerContext(w.exec.Finalize)
-		w.exec = exec
-		return w.exec.Initialize(w.ctx)
-	}
+	return executor.StaticEnv(m)
 }
 
 func (w *Worker) Run(ctx context.Context, scope *dig.Scope) (err error) {
@@ -255,12 +226,26 @@ func (w *Worker) Run(ctx context.Context, scope *dig.Scope) (err error) {
 		return err
 	}
 
-	// run main execution
-	r, _ := w.exec.RunJob(w.ctx)
-	if r.Result != records.ResultSuccess {
-		return fmt.Errorf("job failed")
+	return w.run(w.ctx, scope)
+}
+
+func (w *Worker) run(ctx context.Context, scope *dig.Scope) error {
+	workflow := new(workflows.Workflow)
+	if err := decodeWorkflow(w.task.WorkflowPayload, workflow); err != nil {
+		return err
 	}
-	return nil
+	spec, err := convertJobSpec(workflow)
+	if err != nil {
+		return err
+	}
+
+	scope = scope.Scope(fmt.Sprintf("job(%s)", spec.Id))
+	if job, err := executor.Run(ctx, spec, scope); err != nil {
+		return err
+	} else if job.Result != records.ResultSuccess {
+		return fmt.Errorf("job.Result failed")
+	}
+	return err
 }
 
 func (w *Worker) teardown() error {
@@ -299,19 +284,52 @@ func newContainerRuntime(ctx context.Context, gh *records.Github) func(
 	}
 }
 
-type listenerParams[L any] struct {
+func newScribeHandler(log *reporter.LogStreamer) scribe.Handler {
+	return log.ContextHandle
+}
+
+func newResourceHandler[R any](log *reporter.LogStreamer) stream.ResourceHandler[R] {
+	return stream.NewDetachResourceHandler[R](log)
+}
+
+type jobRunDecoratorParam struct {
 	dig.In
-	Stack    L `name:"stack"`
-	Reporter L `name:"reporter"`
-	Command  L `name:"command"`
+
+	Telemetry executor.JobRunDecorator `name:"telemetry"`
+	Reporter  executor.JobRunDecorator `name:"reporter"`
 }
 
-func composeJobListener(p listenerParams[executor.JobListener]) executor.JobListener {
-	//TODO implement me
-	panic("implement me")
+func newJobRunDecorator(p jobRunDecoratorParam) executor.JobRunDecorator {
+	return executor.MultiJobRunDecorator{
+		p.Reporter,
+		p.Telemetry,
+	}
 }
 
-func composeStepListener(p listenerParams[executor.StepListener]) executor.StepListener {
-	//TODO implement me
-	panic("implement me")
+type stepRunDecoratorParam struct {
+	dig.In
+
+	Telemetry executor.StepRunDecorator `name:"telemetry"`
+	Reporter  executor.StepRunDecorator `name:"reporter"`
+}
+
+func newStepRunDecorator(p stepRunDecoratorParam) executor.StepRunDecorator {
+	return executor.MultiStepRunDecorator{
+		p.Reporter,
+		p.Telemetry,
+	}
+}
+
+type actionRunDecoratorParam struct {
+	dig.In
+
+	Telemetry      executor.ActionRunDecorator `name:"telemetry"`
+	ConsoleCommand executor.ActionRunDecorator `name:"command"`
+}
+
+func newActionRunDecorator(p actionRunDecoratorParam) executor.ActionRunDecorator {
+	return executor.MultiActionRunDecorator{
+		p.ConsoleCommand,
+		p.Telemetry,
+	}
 }
