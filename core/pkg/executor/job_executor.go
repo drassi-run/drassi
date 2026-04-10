@@ -211,22 +211,22 @@ func (e *jobExecutor) initializeJob(s *scribe.Scribe) error {
 	// inject dependencies
 	// workaround because dig not support pass dig.Name() into Invoke func
 	if err := e.scope.Invoke(e.populateHooks); err != nil {
-		return err
+		return fmt.Errorf("populate 'hooks': %w", err)
 	}
 	if err := xdig.Populate(e.scope, &e.decorator); err != nil {
-		return err
+		return fmt.Errorf("populate 'decorator': %w", err)
 	}
 	if err := xdig.Populate(e.scope, &e.exprEnv); err != nil {
-		return err
+		return fmt.Errorf("populate 'exprEnv': %w", err)
 	}
 	if err := xdig.Populate(e.scope, &e.env); err != nil {
-		return err
+		return fmt.Errorf("populate 'env': %w", err)
 	}
 	if err := xdig.Populate(e.scope, &e.runner); err != nil {
-		return err
+		return fmt.Errorf("populate 'runner': %w", err)
 	}
 	if err := xdig.Populate(e.scope, &e.github); err != nil {
-		return err
+		return fmt.Errorf("populate 'github': %w", err)
 	}
 
 	// sanitize GitHub
@@ -249,7 +249,7 @@ func (e *jobExecutor) initializeJob(s *scribe.Scribe) error {
 		expression.WithLibrary(libraries.StatusLib(e)),
 	}
 	if exprEnv, err := e.exprEnv.New(opts...); err != nil {
-		return err
+		return fmt.Errorf("create child expression.Env: %w", err)
 	} else {
 		e.exprEnv = exprEnv
 	}
@@ -258,7 +258,7 @@ func (e *jobExecutor) initializeJob(s *scribe.Scribe) error {
 	s.Debugf("Evaluating job-level environment variables")
 	env := make(map[string]string)
 	if err := evaluator.Evaluate(e.exprEnv, e.spec.Env, &env); err != nil {
-		return err
+		return fmt.Errorf("evaluate 'env': %w", err)
 	} else {
 		e.SetEnv(env)
 	}
@@ -266,9 +266,9 @@ func (e *jobExecutor) initializeJob(s *scribe.Scribe) error {
 	s.Debugf("Evaluating job defaults")
 	var defaults workflows.Defaults
 	if err := evaluator.Evaluate(e.exprEnv, e.spec.Defaults, &defaults); err != nil {
-		return err
+		return fmt.Errorf("evaluate 'defaults': %w", err)
 	} else if err = xdig.Supply(e.scope, defaults); err != nil {
-		return err
+		return fmt.Errorf("supply 'defaults': %w", err)
 	}
 
 	return nil
@@ -287,17 +287,19 @@ func (e *jobExecutor) initializeSandbox(ctx context.Context, s *scribe.Scribe) e
 
 	s.Debugf("Evaluating job container")
 	if err := evaluator.Evaluate(e.exprEnv, e.spec.Container, &req.JobContainer); err != nil {
-		return err
+		return fmt.Errorf("evaluate 'container': %w", err)
 	}
 
 	s.Debugf("Evaluating service containers")
 	if err := evaluator.Evaluate(e.exprEnv, e.spec.Services, &req.ServiceContainers); err != nil {
-		return err
+		return fmt.Errorf("evaluate 'services': %w", err)
 	}
 
+	s.Debugf("Launching sandbox")
 	if resp, err := runtime.Launch(ctx, req); err != nil {
-		return fmt.Errorf("sandbox launch: %w", err)
+		return fmt.Errorf("launch sandbox: %w", err)
 	} else {
+		s.Debugf("Sandbox is running...")
 		e.sandbox = resp.Sandbox
 
 		// set records values
@@ -312,10 +314,10 @@ func (e *jobExecutor) initializeSandbox(ctx context.Context, s *scribe.Scribe) e
 		e.runner.Temp = layout.Temp
 
 		if err = xdig.Supply(e.scope, resp.ContainerEngine, dig.Export(true)); err != nil {
-			return err
+			return fmt.Errorf("supply 'container.Engine': %w", err)
 		}
 		if err = xdig.Supply(e.scope, resp.Sandbox, dig.Export(true)); err != nil {
-			return err
+			return fmt.Errorf("supply 'sandbox': %w", err)
 		}
 	}
 
@@ -332,7 +334,7 @@ func (e *jobExecutor) initializeSandbox(ctx context.Context, s *scribe.Scribe) e
 	}
 	opt := expression.WithLibrary(libraries.SandboxLib(cp, e.sandbox))
 	if exprEnv, err := e.exprEnv.New(opt); err != nil {
-		return err
+		return fmt.Errorf("create child expression.Env: %w", err)
 	} else {
 		e.exprEnv = exprEnv
 	}
@@ -343,16 +345,16 @@ func (e *jobExecutor) initializeSandbox(ctx context.Context, s *scribe.Scribe) e
 func (e *jobExecutor) initializeScope() error {
 	// Provide scope values
 	if err := xdig.Supply(e.scope, e.exprEnv); err != nil {
-		return err
+		return fmt.Errorf("supply 'exprEnv': %w", err)
 	}
 	if err := xdig.Supply(e.scope, e.github); err != nil {
-		return err
+		return fmt.Errorf("supply 'github': %w", err)
 	}
 	if err := xdig.Supply(e.scope, e.jobInfo, dig.Export(true)); err != nil {
-		return err
+		return fmt.Errorf("supply 'jobInfo': %w", err)
 	}
 	if err := xdig.Supply(e.scope, e.env); err != nil {
-		return err
+		return fmt.Errorf("supply 'env': %w", err)
 	}
 
 	return nil
@@ -375,7 +377,7 @@ func (e *jobExecutor) initializeSteps(ctx context.Context) error {
 	for _, step := range e.spec.Steps {
 		s := e.scope.Scope(fmt.Sprintf("step(%s)", step.Id))
 		if exec, err := step.CreateExecutor(ctx, s, e, nil); err != nil {
-			return err
+			return fmt.Errorf("create StepExecutor for %q: %w", step.Id, err)
 		} else {
 			e.children[step.Id] = exec
 		}
@@ -534,7 +536,7 @@ func (e *jobExecutor) setupEventFile(ctx context.Context) (string, error) {
 	}
 
 	if err = e.sandbox.CopyIn(ctx, r, e.runner.Temp); err != nil {
-		return "", err
+		return "", fmt.Errorf("copy event file to sandbox: %w", err)
 	}
 
 	location := path.Join(e.runner.Temp, "workflow", "event.json")
