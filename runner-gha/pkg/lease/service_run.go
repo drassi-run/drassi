@@ -270,7 +270,7 @@ func (l *runLease) toStepResult(r *timeline.Record) (*StepResult, error) {
 	res := &StepResult{
 		Id:          r.Uid,
 		Number:      r.Order,
-		Name:        step.StepRun.DisplayName(step.Stage),
+		Name:        "step.StepSpec.DisplayName(step.Stage)", // TODO evaluate displayName
 		Status:      r.State,
 		Conclusion:  r.Result,
 		StartedAt:   r.StartedAt,
@@ -279,7 +279,7 @@ func (l *runLease) toStepResult(r *timeline.Record) (*StepResult, error) {
 	}
 
 	// https://github.com/actions/runner/blob/v2.324.0/src/Runner.Worker/Handlers/Handler.cs#L57
-	switch sr := step.StepRun.Action.(type) {
+	switch action := step.StepSpec.Action.(type) {
 	case *executor.ScriptActionSpec:
 		res.ActionType = "run"
 	case *executor.DockerActionSpec:
@@ -287,7 +287,7 @@ func (l *runLease) toStepResult(r *timeline.Record) (*StepResult, error) {
 	case *executor.ReferenceActionSpec:
 		res.ActionType = "repository"
 
-		repo := sr.Repository()
+		repo := action.Repository()
 		res.ActionRef = repo.Ref
 		if repo.Path == "" {
 			res.ActionName = repo.Name

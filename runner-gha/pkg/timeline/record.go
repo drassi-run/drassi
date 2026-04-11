@@ -79,6 +79,6 @@ type JobObject struct {
 }
 
 type StepObject struct {
-	StepRun executor.StepSpec
-	Stage   executor.Stage
+	StepSpec executor.StepSpec
+	Stage    executor.Stage
 }
