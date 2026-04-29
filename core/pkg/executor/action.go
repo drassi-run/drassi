@@ -60,7 +60,3 @@ const (
 )
 
 type ActionRun func(context.Context) error
-
-type ActionRunDecorator interface {
-	DecorateActionRun(*ActionTask) ActionRun
-}

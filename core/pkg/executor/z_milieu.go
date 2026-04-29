@@ -46,7 +46,8 @@ func (s *milieu) SetOutput(output map[string]string) {
 }
 
 func (s *milieu) SaveState(state map[string]string) {
-	s.exec.SaveState(state)
+	root := Root(s.exec)
+	root.SaveState(state)
 }
 
 func (s *milieu) CommandFile(cmd string) string {

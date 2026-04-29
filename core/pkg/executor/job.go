@@ -28,7 +28,6 @@ type JobSpec struct {
 	Steps []*StepSpec
 }
 
-func (spec *JobSpec) CreateExecutor(scope *dig.Scope) (JobExecutor, error) {
-	e := &jobExecutor{spec: spec, scope: scope}
-	return e, nil
+func (spec *JobSpec) CreateExecutor(scope *dig.Scope) JobExecutor {
+	return &jobExecutor{spec: spec, scope: scope}
 }

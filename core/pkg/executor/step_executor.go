@@ -82,10 +82,6 @@ func (t *StepTask) JobSpec() *JobSpec {
 
 type StepRun func(context.Context) (*records.Step, error)
 
-type StepRunDecorator interface {
-	DecorateStepRun(*StepTask) StepRun
-}
-
 type stepExecutor struct {
 	spec   *StepSpec
 	parent StepExecutor

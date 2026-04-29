@@ -67,10 +67,6 @@ func (t *JobTask) JobSpec() *JobSpec {
 
 type JobRun func(context.Context) (*records.Job, error)
 
-type JobRunDecorator interface {
-	DecorateJobRun(*JobTask) JobRun
-}
-
 type jobExecutor struct {
 	spec  *JobSpec
 	scope *dig.Scope
@@ -130,7 +126,7 @@ func (e *jobExecutor) Initialize(ctx context.Context) (job *records.Job, err err
 	}
 
 	if hook := e.postStart; hook != nil {
-		if ex := e.postStart.Hook(ctx, e); ex != nil {
+		if ex := hook.Hook(ctx, e); ex != nil {
 			err = fmt.Errorf("postStart hook: %w", ex)
 		}
 	}
@@ -174,7 +170,7 @@ func (e *jobExecutor) Finalize(ctx context.Context) (job *records.Job, err error
 	defer done(&err)
 
 	if hook := e.preStop; hook != nil {
-		if ex := e.preStop.Hook(ctx, e); ex != nil {
+		if ex := hook.Hook(ctx, e); ex != nil {
 			err = fmt.Errorf("preStop hook: %w", ex)
 		}
 	}
@@ -199,12 +195,22 @@ func (e *jobExecutor) Finalize(ctx context.Context) (job *records.Job, err error
 	return
 }
 
+type paramHooks struct {
+	dig.In
+
+	PostStart Hook[JobExecutor] `name:"post-start" optional:"true"` // see [wire.PostStart]
+	PreStop   Hook[JobExecutor] `name:"pre-stop" optional:"true"`   // see [wire.PreStop]
+}
+
+func (e *jobExecutor) populateHooks(p paramHooks) {
+	e.postStart = p.PostStart
+	e.preStop = p.PreStop
+}
+
 func (e *jobExecutor) initializeJob(s *scribe.Scribe) error {
 	// inject dependencies
-	if err := xdig.Populate(e.scope, &e.postStart); err != nil {
-		return err
-	}
-	if err := xdig.Populate(e.scope, &e.preStop); err != nil {
+	// workaround because dig not support pass dig.Name() into Invoke func
+	if err := e.scope.Invoke(e.populateHooks); err != nil {
 		return err
 	}
 	if err := xdig.Populate(e.scope, &e.decorator); err != nil {
