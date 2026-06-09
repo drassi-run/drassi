@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: (c) 2024 The Drassi Authors
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 package cmdhandler
 
 import "drassi.run/core/pkg/executor/runtime"
