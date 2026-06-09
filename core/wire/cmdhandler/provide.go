@@ -20,8 +20,8 @@ func ProvideTo(scope *dig.Scope) error {
 		return err
 	}
 
-	return scope.Provide(NewListener,
-		dig.As(new(executor.JobListener), new(executor.StepListener)),
+	return scope.Provide(NewCommandDecorator,
+		dig.As(new(executor.ActionRunDecorator), new(executor.JobRunDecorator)),
 		dig.Name("command"),
 	)
 }

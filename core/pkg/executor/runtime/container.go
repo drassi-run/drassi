@@ -26,12 +26,15 @@ type Container interface {
 
 	Pull(ctx context.Context, image string, auth container.RegistryAuth) error
 	Build(ctx context.Context) error
-	Run(ctx context.Context, image string, entrypoint, cmd []string, env map[string]string) error
+	Run(
+		ctx context.Context, image string,
+		entrypoint, cmd []string, env map[string]string,
+		streams stream.Streams,
+	) error
 }
 
 type containerRuntime struct {
-	engine  container.Engine
-	streams stream.Streams
+	engine container.Engine
 
 	workdir string
 	labels  map[string]string
@@ -66,11 +69,8 @@ func WithMounts(mounts []Pair[string, *types.Mount]) ContainerRuntimeOption {
 	}
 }
 
-func NewContainerRuntime(engine container.Engine, streams stream.Streams, opts ...ContainerRuntimeOption) (Container, error) {
-	rt := &containerRuntime{
-		engine:  engine,
-		streams: streams,
-	}
+func NewContainerRuntime(engine container.Engine, opts ...ContainerRuntimeOption) (Container, error) {
+	rt := &containerRuntime{engine: engine}
 	for _, o := range opts {
 		o(rt)
 	}
@@ -124,7 +124,6 @@ func (rt *containerRuntime) pathMapSeq(yield func(string, string) bool) {
 func (rt *containerRuntime) Pull(ctx context.Context, image string, auth container.RegistryAuth) error {
 	return rt.engine.ImagePull(ctx, image, &container.PullOptions{
 		RegistryAuth: auth,
-		Streams:      rt.streams,
 	})
 }
 
@@ -133,7 +132,11 @@ func (rt *containerRuntime) Build(ctx context.Context) error {
 	panic("implement me")
 }
 
-func (rt *containerRuntime) Run(ctx context.Context, image string, entrypoint, cmd []string, env map[string]string) error {
+func (rt *containerRuntime) Run(
+	ctx context.Context, image string,
+	entrypoint, cmd []string, env map[string]string,
+	streams stream.Streams,
+) error {
 	// clone env to avoid modify the original
 	runEnv := maps.Clone(env)
 	for k, v := range env {
@@ -162,10 +165,15 @@ func (rt *containerRuntime) Run(ctx context.Context, image string, entrypoint, c
 	}
 
 	stdio := new(types.Stdio)
-	stdio.Attach = types.Stdout | types.Stderr
+	if streams.Out() != nil {
+		stdio.Attach |= types.Stdout
+	}
+	if streams.Err() != nil {
+		stdio.Attach |= types.Stderr
+	}
 	_, err := rt.engine.ContainerRun(ctx, spec, &container.RunOptions{
 		Stdio:   stdio,
-		Streams: rt.streams,
+		Streams: streams,
 	})
 	return err
 }

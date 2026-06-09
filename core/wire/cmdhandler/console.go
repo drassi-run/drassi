@@ -47,13 +47,13 @@ func AddSecretMask(secretMasker secret.Masker) *command.ConsoleHandler {
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L451
-func AddProblemMatcher(m map[string]problem.Matcher, sb sandboxer.Sandbox, stack executor.Stack) *command.ConsoleHandler {
+func AddProblemMatcher(m map[string]problem.Matcher, sb sandboxer.Sandbox, stack *support.Stack) *command.ConsoleHandler {
 	run := func(ctx context.Context, cmd *command.Command) error {
 		file := cmd.Value
 		if file == "" {
 			return fmt.Errorf("%w %q: empty file path (in cmd value)", command.ErrInvalidCommand, "add-matcher")
 		}
-		if pt := getPathTranslator(stack.Leaf()); pt != nil {
+		if pt := getPathTranslator(stack); pt != nil {
 			if p, ok := pt.TranslatePath(file); ok {
 				file = p
 			}
@@ -88,7 +88,7 @@ func AddProblemMatcher(m map[string]problem.Matcher, sb sandboxer.Sandbox, stack
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L498
-func RemoveProblemMatcher(m map[string]problem.Matcher, sb sandboxer.Sandbox, stack executor.Stack) *command.ConsoleHandler {
+func RemoveProblemMatcher(m map[string]problem.Matcher, sb sandboxer.Sandbox, stack *support.Stack) *command.ConsoleHandler {
 	run := func(ctx context.Context, cmd *command.Command) error {
 		file := cmd.Value
 		owner := cmd.Params["owner"]
@@ -96,7 +96,7 @@ func RemoveProblemMatcher(m map[string]problem.Matcher, sb sandboxer.Sandbox, st
 			return fmt.Errorf("%w %q: either owner or file must be specified, but not both", command.ErrInvalidCommand, "remove-matcher")
 		}
 		if file != "" {
-			if pt := getPathTranslator(stack.Leaf()); pt != nil {
+			if pt := getPathTranslator(stack); pt != nil {
 				if p, ok := pt.TranslatePath(file); ok {
 					file = p
 				}
@@ -192,13 +192,13 @@ func LogMessage() []*command.ConsoleHandler {
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L417
-func ConsoleAddPath(stack executor.Stack) *command.ConsoleHandler {
+func ConsoleAddPath(stack *support.Stack) *command.ConsoleHandler {
 	run := func(ctx context.Context, cmd *command.Command) error {
 		if cmd.Value == "" {
 			return fmt.Errorf("%w %q: missing value", command.ErrInvalidCommand, "add-path")
 		}
 
-		job := stack.Job()
+		_, job := stack.Job()
 		if job == nil {
 			return ErrNoJobRunning
 		}
@@ -213,7 +213,7 @@ func ConsoleAddPath(stack executor.Stack) *command.ConsoleHandler {
 var setEnvBlockList = sets.New("NODE_OPTIONS")
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L234
-func ConsoleSetEnv(stack executor.Stack, tracker support.Tracker) *command.ConsoleHandler {
+func ConsoleSetEnv(stack *support.Stack, tracker support.Tracker) *command.ConsoleHandler {
 	run := func(ctx context.Context, cmd *command.Command) error {
 		name, ok := cmd.Params["name"]
 		if !ok || name == "" {
@@ -233,29 +233,26 @@ func ConsoleSetEnv(stack executor.Stack, tracker support.Tracker) *command.Conso
 		env := map[string]string{name: cmd.Value}
 		scribe.Debugf(ctx, "Set env: %s = %s", name, cmd.Value)
 
-		steps := stack.Stack()
-		if len(steps) == 0 {
-			return ErrNoStepRunning
+		if _, job := stack.Job(); job != nil {
+			job.SetEnv(env)
 		}
-
-		for _, step := range steps {
+		if _, step := stack.CurrentStep(); step != nil {
 			step.SetEnv(env)
 		}
-		stack.Job().SetEnv(env)
 		return nil
 	}
 	return command.NewConsoleHandler("set-env", true, run)
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L301
-func ConsoleSetOutput(stack executor.Stack) *command.ConsoleHandler {
+func ConsoleSetOutput(stack *support.Stack) *command.ConsoleHandler {
 	run := func(ctx context.Context, cmd *command.Command) error {
 		name, ok := cmd.Params["name"]
 		if !ok || name == "" {
 			return fmt.Errorf("%w %q: required field %q is missing", command.ErrInvalidCommand, "set-output", "name")
 		}
 
-		step := stack.Leaf()
+		_, step := stack.CurrentStep()
 		if step == nil {
 			return ErrNoStepRunning
 		}
@@ -271,17 +268,18 @@ func ConsoleSetOutput(stack executor.Stack) *command.ConsoleHandler {
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L336
-func ConsoleSaveState(stack executor.Stack) *command.ConsoleHandler {
+func ConsoleSaveState(stack *support.Stack) *command.ConsoleHandler {
 	run := func(ctx context.Context, cmd *command.Command) error {
 		name, ok := cmd.Params["name"]
 		if !ok || name == "" {
 			return fmt.Errorf("%w %q: required field %q is missing", command.ErrInvalidCommand, "save-state", "name")
 		}
 
-		step := stack.Root()
+		_, step := stack.CurrentStep()
 		if step == nil {
 			return ErrNoStepRunning
 		}
+		step = executor.Root(step)
 
 		state := map[string]string{
 			name: cmd.Value,

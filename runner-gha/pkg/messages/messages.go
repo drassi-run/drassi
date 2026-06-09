@@ -345,7 +345,7 @@ type JobStep struct {
 
 // https://github.com/actions/runner/blob/main/src/Sdk/DTPipelines/Pipelines/ActionStepDefinitionReference.cs
 type StepReference struct {
-	Type SourceType `actions:"type,omitempty"`
+	Type Source `actions:"type,omitempty"`
 
 	//ContainerRegistryReference
 	Image string `actions:"image,omitempty"`
@@ -357,10 +357,10 @@ type StepReference struct {
 	RepositoryType string `actions:"repositoryType,omitempty"`
 }
 
-type SourceType string
+type Source string
 
 const (
-	SourceTypeRepository        SourceType = "repository"
-	SourceTypeContainerRegistry SourceType = "containerRegistry"
-	SourceTypeScript            SourceType = "script"
+	SourceRepository        Source = "repository"
+	SourceContainerRegistry Source = "containerRegistry"
+	SourceScript            Source = "script"
 )

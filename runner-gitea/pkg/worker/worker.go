@@ -234,16 +234,19 @@ func (w *Worker) initExecutor(scope *dig.Scope) error {
 	if err := decodeWorkflow(w.task.WorkflowPayload, workflow); err != nil {
 		return err
 	}
-	jr, err := convertJobRun(workflow)
+	spec, err := convertJobSpec(workflow)
 	if err != nil {
 		return err
 	}
 
-	w.exec = executor.NewJobExecutor(jr)
-	w.addCleanerContext(w.exec.Finalize)
-	scope = scope.Scope(fmt.Sprintf("job(%s)", executor.JobId(w.exec)))
-
-	return w.exec.Initialize(w.ctx, scope)
+	scope = scope.Scope(fmt.Sprintf("job(%s)", w.exec.JobSpec().Id))
+	if exec, err := spec.CreateExecutor(w.ctx, scope); err != nil {
+		return err
+	} else {
+		w.addCleanerContext(w.exec.Finalize)
+		w.exec = exec
+		return w.exec.Initialize(w.ctx)
+	}
 }
 
 func (w *Worker) Run(ctx context.Context, scope *dig.Scope) (err error) {
@@ -260,7 +263,7 @@ func (w *Worker) Run(ctx context.Context, scope *dig.Scope) (err error) {
 	}
 
 	// run main execution
-	r := w.exec.RunJob(w.ctx)
+	r, _ := w.exec.RunJob(w.ctx)
 	if r.Result != records.ResultSuccess {
 		return fmt.Errorf("job failed")
 	}
@@ -292,15 +295,14 @@ func (w *Worker) Cancel(cause error) {
 }
 
 func newContainerRuntime(ctx context.Context, gh *records.Github) func(
-	container.Engine, stream.Streams, sandboxer.Sandbox, *records.JobInfo,
+	container.Engine, sandboxer.Sandbox, *records.JobInfo,
 ) (runtime.Container, error) {
 	return func(
 		engine container.Engine,
-		streams stream.Streams,
 		sandbox sandboxer.Sandbox,
 		info *records.JobInfo,
 	) (runtime.Container, error) {
-		return wire_runtime.NewContainerRuntime(ctx, engine, streams, sandbox, info, gh)
+		return wire_runtime.NewContainerRuntime(ctx, engine, sandbox, info, gh)
 	}
 }
 
@@ -312,9 +314,11 @@ type listenerParams[L any] struct {
 }
 
 func composeJobListener(p listenerParams[executor.JobListener]) executor.JobListener {
-	return executor.NewCompositeJobListener(p.Stack, p.Reporter, p.Command)
+	//TODO implement me
+	panic("implement me")
 }
 
 func composeStepListener(p listenerParams[executor.StepListener]) executor.StepListener {
-	return executor.NewCompositeStepListener(p.Stack, p.Reporter, p.Command)
+	//TODO implement me
+	panic("implement me")
 }

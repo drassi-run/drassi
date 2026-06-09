@@ -7,14 +7,16 @@
 package wire_cmdhandler
 
 import (
+	"testing"
+
 	mock_executor "drassi.run/core/mock/executor"
 	mock_secret "drassi.run/core/mock/executor/secret"
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/executor/command"
 	"drassi.run/core/pkg/executor/secret"
+	"drassi.run/core/pkg/executor/support"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
-	"testing"
 )
 
 func TestAddSecretMask(t *testing.T) {
@@ -54,7 +56,7 @@ func TestAddSecretMask(t *testing.T) {
 	})
 }
 
-type consoleHdlCreator func(stack executor.Stack) *command.ConsoleHandler
+type consoleHdlCreator func(stack *support.Stack) *command.ConsoleHandler
 
 func testInvalidCommand(ctrl *gomock.Controller, creator consoleHdlCreator) func(t *testing.T) {
 	return func(t *testing.T) {
@@ -116,7 +118,7 @@ func TestConsoleSetEnv(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	creator := func(stack executor.Stack) *command.ConsoleHandler {
+	creator := func(stack *support.Stack) *command.ConsoleHandler {
 		return ConsoleSetEnv(stack, nil)
 	}
 

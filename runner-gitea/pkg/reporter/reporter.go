@@ -69,26 +69,26 @@ func New(
 	return r
 }
 
-func (r *Reporter) StartJob(jr *executor.JobRun) error {
+func (r *Reporter) StartJob(spec *executor.JobSpec) error {
 	if r.jobUid != "" {
-		if r.jobUid == jr.Uid {
+		if r.jobUid == spec.Uid {
 			return fmt.Errorf("job already running")
 		} else {
 			return fmt.Errorf("another job is running")
 		}
 	}
 
-	r.jobUid = jr.Uid
+	r.jobUid = spec.Uid
 
 	r.jobState = &runnerv1.TaskState{
 		Id:        r.taskId,
 		StartedAt: timestamppb.Now(),
-		Steps:     make([]*runnerv1.StepState, len(jr.Steps)),
+		Steps:     make([]*runnerv1.StepState, len(spec.Steps)),
 	}
 	r.jobOutputs = make(map[string]string)
 
-	r.stepStates = make(map[string]*runnerv1.StepState, len(jr.Steps))
-	for i, step := range jr.Steps {
+	r.stepStates = make(map[string]*runnerv1.StepState, len(spec.Steps))
+	for i, step := range spec.Steps {
 		s := &runnerv1.StepState{Id: int64(i)}
 		r.jobState.Steps[i] = s
 		r.stepStates[step.StepId()] = s
@@ -98,11 +98,11 @@ func (r *Reporter) StartJob(jr *executor.JobRun) error {
 	return nil
 }
 
-func (r *Reporter) EndJob(jr *executor.JobRun, state *records.Job) error {
+func (r *Reporter) EndJob(spec *executor.JobSpec, state *records.Job) error {
 	if r.jobUid == "" {
 		return fmt.Errorf("no job already running")
 	}
-	if r.jobUid != jr.Uid {
+	if r.jobUid != spec.Uid {
 		return fmt.Errorf("another job is running")
 	}
 
@@ -114,7 +114,7 @@ func (r *Reporter) EndJob(jr *executor.JobRun, state *records.Job) error {
 	return nil
 }
 
-func (r *Reporter) StartStep(sr executor.StepRun, stage executor.Stage) error {
+func (r *Reporter) StartStep(sr executor.StepSpec, stage executor.Stage) error {
 	if stage != executor.StageMain {
 		// Gitea only report main stage for now
 		return nil
@@ -128,7 +128,7 @@ func (r *Reporter) StartStep(sr executor.StepRun, stage executor.Stage) error {
 	return nil
 }
 
-func (r *Reporter) EndStep(sr executor.StepRun, stage executor.Stage, state *records.Step) error {
+func (r *Reporter) EndStep(sr executor.StepSpec, stage executor.Stage, state *records.Step) error {
 	if stage != executor.StageMain {
 		// Gitea only report main stage for now
 		return nil

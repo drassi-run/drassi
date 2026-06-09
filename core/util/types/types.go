@@ -11,6 +11,10 @@ type Pair[K, V any] struct {
 	Value V
 }
 
+func NewPair[K, V any](k K, v V) *Pair[K, V] {
+	return &Pair[K, V]{k, v}
+}
+
 type Unwrapper[T any] interface {
 	Unwrap() T
 }

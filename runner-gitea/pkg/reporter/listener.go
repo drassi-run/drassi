@@ -37,12 +37,12 @@ type jobRunEventHandler struct {
 }
 
 func (h *jobRunEventHandler) Begin(context.Context) error {
-	return h.reporter.StartJob(h.exec.JobRun())
+	return h.reporter.StartJob(h.exec.JobSpec())
 }
 
 func (h *jobRunEventHandler) End(error) error {
 	state := h.exec.State()
-	return h.reporter.EndJob(h.exec.JobRun(), state)
+	return h.reporter.EndJob(h.exec.JobSpec(), state)
 }
 
 type stepRunEventHandler struct {
@@ -52,10 +52,10 @@ type stepRunEventHandler struct {
 }
 
 func (h *stepRunEventHandler) Begin(context.Context) error {
-	return h.reporter.StartStep(h.exec.StepRun(), h.stage)
+	return h.reporter.StartStep(h.exec.StepSpec(), h.stage)
 }
 
 func (h *stepRunEventHandler) End(error) error {
 	state := h.exec.State()
-	return h.reporter.EndStep(h.exec.StepRun(), h.stage, state)
+	return h.reporter.EndStep(h.exec.StepSpec(), h.stage, state)
 }

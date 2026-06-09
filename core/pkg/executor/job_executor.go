@@ -1,0 +1,508 @@
+/*
+ * SPDX-FileCopyrightText: (c) 2024 The Drassi Authors
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+package executor
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"maps"
+	"path"
+	"slices"
+	"strings"
+	"time"
+
+	"drassi.run/core/pkg/executor/evaluator"
+	"drassi.run/core/pkg/expression"
+	"drassi.run/core/pkg/expression/libraries"
+	"drassi.run/core/pkg/model/records"
+	"drassi.run/core/pkg/model/workflows"
+	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/pkg/scribe"
+	"drassi.run/core/util/context"
+	"drassi.run/core/util/dig"
+	"drassi.run/core/util/otel"
+	"drassi.run/core/util/tar"
+	"github.com/chainguard-dev/clog"
+	"go.uber.org/dig"
+	"k8s.io/apimachinery/pkg/util/sets"
+)
+
+type JobExecutor interface {
+	JobSpec() *JobSpec
+
+	Initialize(ctx context.Context) (*records.Job, error)
+	RunJob(ctx context.Context) (*records.Job, error)
+	Finalize(ctx context.Context) (*records.Job, error)
+
+	Sandbox() sandboxer.Sandbox
+	ExprEnv() expression.Env
+
+	Status() records.Result // inherit libraries.StatusProvider
+	SetStatus(status records.Result)
+	AddPath(paths []string)
+	SystemPaths() []string
+	Env() map[string]string
+	SystemEnv() map[string]string
+	SetEnv(env map[string]string)
+}
+
+type JobTask struct {
+	Run      JobRun
+	Stage    Stage
+	Executor JobExecutor
+}
+
+func (t *JobTask) JobId() string {
+	return t.JobSpec().Id
+}
+
+func (t *JobTask) JobSpec() *JobSpec {
+	return t.Executor.JobSpec()
+}
+
+type JobRun func(context.Context) (*records.Job, error)
+
+type JobRunDecorator interface {
+	DecorateJobRun(*JobTask) JobRun
+}
+
+type jobExecutor struct {
+	spec  *JobSpec
+	scope *dig.Scope
+
+	// records
+	github  records.Github
+	runner  records.Runner
+	jobInfo *records.JobInfo
+	job     *records.Job
+	steps   map[string]*records.Step
+	env     map[string]string
+	paths   []string
+
+	decorator StepRunDecorator
+	exprEnv   expression.Env
+	sandbox   sandboxer.Sandbox
+
+	children  map[string]StepExecutor
+	stageRuns map[Stage]func(context.Context) error
+}
+
+func (e *jobExecutor) JobSpec() *JobSpec {
+	return e.spec
+}
+
+func (e *jobExecutor) Initialize(ctx context.Context) (job *records.Job, err error) {
+	job = e.job
+	ctx, done := xotel.SetupTelemetry(ctx,
+		fmt.Sprintf("JobExecutor.Initialize(%s)", e.spec.Id),
+		xotel.DrassiJob(e.spec.Id),
+	)
+	defer done(&err)
+
+	s := scribe.FromContext(ctx)
+
+	// do job initialization
+	if err = e.initializeJob(s); err != nil {
+		err = fmt.Errorf("initialize job: %w", err)
+		return
+	}
+
+	if err = e.initializeSandbox(ctx, s); err != nil {
+		err = fmt.Errorf("initialize sandbox: %w", err)
+		return
+	}
+
+	if err = e.initializeScope(); err != nil {
+		err = fmt.Errorf("initialize scope: %w", err)
+		return
+	}
+
+	if err = e.initializeSteps(ctx); err != nil {
+		err = fmt.Errorf("initialize steps: %w", err)
+	}
+	return
+}
+
+func (e *jobExecutor) RunJob(ctx context.Context) (job *records.Job, err error) {
+	job = e.job
+	ctx, done := xotel.SetupTelemetry(ctx,
+		fmt.Sprintf("JobExecutor.RunJob(%s)", e.spec.Id),
+		xotel.DrassiJob(e.spec.Id),
+	)
+	defer done(&err)
+
+	// do job run
+	e.SetStatus(records.ResultSuccess)
+
+	errs := make([]error, 0, 3)
+	for _, stage := range []Stage{StagePre, StageMain, StagePost} {
+		if run := e.stageRuns[stage]; run != nil {
+			if err := run(ctx); err != nil {
+				errs = append(errs, err)
+			}
+		}
+	}
+	if err = evaluator.Evaluate(e.exprEnv, e.spec.Outputs, &e.job.Outputs); err != nil {
+		e.SetStatus(records.ResultFailure)
+		err = fmt.Errorf("evaluate 'output': %w", err)
+		errs = append(errs, err)
+	}
+	err = errors.Join(errs...)
+	return
+}
+
+func (e *jobExecutor) Finalize(ctx context.Context) (job *records.Job, err error) {
+	job = e.job
+	ctx, done := xotel.SetupTelemetry(ctx,
+		fmt.Sprintf("JobExecutor.Finalize(%s)", e.spec.Id),
+		xotel.DrassiJob(e.spec.Id),
+	)
+	defer done(&err)
+
+	if e.sandbox == nil {
+		return
+	}
+
+	// create new ctx w/ timeout 5s to clean up resources
+	ctx = context.WithoutCancel(ctx)
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	err = e.sandbox.Terminate(ctx)
+	return
+}
+
+func (e *jobExecutor) initializeJob(s *scribe.Scribe) error {
+	// inject dependencies
+	if err := xdig.Populate(e.scope, &e.decorator); err != nil {
+		return err
+	}
+	if err := xdig.Populate(e.scope, &e.exprEnv); err != nil {
+		return err
+	}
+	if err := xdig.Populate(e.scope, &e.env); err != nil {
+		return err
+	}
+	if err := xdig.Populate(e.scope, &e.runner); err != nil {
+		return err
+	}
+	if err := xdig.Populate(e.scope, &e.github); err != nil {
+		return err
+	}
+
+	// sanitize GitHub
+	e.github.Job = e.spec.Id
+	e.github.Action = ""
+	e.github.ActionPath = ""
+	e.github.ActionRef = ""
+	e.github.ActionRepository = ""
+	e.github.ActionStatus = ""
+	e.jobInfo = new(records.JobInfo)
+	e.job = new(records.Job)
+	e.steps = make(map[string]*records.Step, len(e.spec.Steps))
+
+	// setup expression.Env
+	opts := []expression.Option{
+		expression.WithVariable("github", &e.github),
+		expression.WithVariable("job", e.jobInfo),
+		expression.WithVariable("steps", e.steps),
+		expression.WithVariable("env", e.env),
+		expression.WithLibrary(libraries.StatusLib(e)),
+	}
+	if exprEnv, err := e.exprEnv.New(opts...); err != nil {
+		return err
+	} else {
+		e.exprEnv = exprEnv
+	}
+
+	// Evaluate expressions
+	s.Debugf("Evaluating job-level environment variables")
+	env := make(map[string]string)
+	if err := evaluator.Evaluate(e.exprEnv, e.spec.Env, &env); err != nil {
+		return err
+	} else {
+		e.SetEnv(env)
+	}
+
+	s.Debugf("Evaluating job defaults")
+	var defaults workflows.Defaults
+	if err := evaluator.Evaluate(e.exprEnv, e.spec.Defaults, &defaults); err != nil {
+		return err
+	} else if err = xdig.Supply(e.scope, defaults); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (e *jobExecutor) initializeSandbox(ctx context.Context, s *scribe.Scribe) error {
+	var runtime sandboxer.Engine
+	if err := xdig.Populate(e.scope, &runtime); err != nil {
+		return err
+	}
+
+	req := &sandboxer.LaunchRequest{
+		Uid:    e.spec.Uid,
+		Github: &e.github,
+	}
+
+	s.Debugf("Evaluating job container")
+	if err := evaluator.Evaluate(e.exprEnv, e.spec.Container, &req.JobContainer); err != nil {
+		return err
+	}
+
+	s.Debugf("Evaluating service containers")
+	if err := evaluator.Evaluate(e.exprEnv, e.spec.Services, &req.ServiceContainers); err != nil {
+		return err
+	}
+
+	if resp, err := runtime.Launch(ctx, req); err != nil {
+		return fmt.Errorf("sandbox launch: %w", err)
+	} else {
+		e.sandbox = resp.Sandbox
+
+		// set records values
+		s.Debugf("Update context data")
+		e.jobInfo.Container = resp.JobContainer
+		e.jobInfo.Services = resp.ServiceContainers
+
+		layout := e.sandbox.Layout()
+		e.github.Workspace = layout.Workspace
+		e.runner.Workspace = layout.Workspace
+		e.runner.ToolCache = layout.Tools
+		e.runner.Temp = layout.Temp
+
+		if err = xdig.Supply(e.scope, resp.ContainerEngine, dig.Export(true)); err != nil {
+			return err
+		}
+		if err = xdig.Supply(e.scope, resp.Sandbox, dig.Export(true)); err != nil {
+			return err
+		}
+	}
+
+	if location, err := e.setupEventFile(ctx); err != nil {
+		return err
+	} else {
+		e.github.EventPath = location
+	}
+
+	// register SandboxLib (e.g. hashFiles func) to expression.Env
+	var cp xcontext.Provider
+	if err := xdig.Populate(e.scope, &cp); err != nil {
+		return err
+	}
+	opt := expression.WithLibrary(libraries.SandboxLib(cp, e.sandbox))
+	if exprEnv, err := e.exprEnv.New(opt); err != nil {
+		return err
+	} else {
+		e.exprEnv = exprEnv
+	}
+
+	return nil
+}
+
+func (e *jobExecutor) initializeScope() error {
+	// Provide scope values
+	if err := xdig.Supply(e.scope, e.exprEnv); err != nil {
+		return err
+	}
+	if err := xdig.Supply(e.scope, e.github); err != nil {
+		return err
+	}
+	if err := xdig.Supply(e.scope, e.jobInfo, dig.Export(true)); err != nil {
+		return err
+	}
+	if err := xdig.Supply(e.scope, e.env); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (e *jobExecutor) initializeSteps(ctx context.Context) error {
+	e.children = make(map[string]StepExecutor, len(e.spec.Steps))
+
+	// TODO: concurrent version of Initialize is temporary disable because of concurrent map writes in scope
+	//g, ctx := errgroup.WithContext(ctx)
+	//for _, step := range e.jobRun.Steps {
+	//	exec := e.NewStepExecutor(step)
+	//	s := scope.Scope(fmt.Sprintf("step(%s)", exec.StepId()))
+	//	g.Go(func() error {
+	//		return exec.Initialize(s)
+	//	})
+	//}
+	//return g.Wait()
+
+	for _, step := range e.spec.Steps {
+		s := e.scope.Scope(fmt.Sprintf("step(%s)", step.Id))
+		if exec, err := step.CreateExecutor(ctx, s, e, nil); err != nil {
+			return err
+		} else {
+			e.children[step.Id] = exec
+		}
+	}
+
+	e.stageRuns = make(map[Stage]func(context.Context) error, 3)
+	e.stageRuns[StagePre] = e.planStage(StagePre)
+	e.stageRuns[StageMain] = e.planStage(StageMain)
+	e.stageRuns[StagePost] = e.planStage(StagePost)
+	return nil
+}
+
+func (e *jobExecutor) planStage(stage Stage) func(context.Context) error {
+	// 1. Plan the execution
+	ids := make([]string, len(e.spec.Steps))
+	for i, step := range e.spec.Steps {
+		ids[i] = step.Id
+	}
+	if stage == StagePost {
+		slices.Reverse(ids) // in-place reverse
+	}
+	tasks := make([]*StepTask, len(ids))
+	for i, id := range ids {
+		cExec := e.children[id]
+		task := cExec.CreateTask(stage)
+		if task != nil {
+			task.Run = e.decorator.DecorateStepRun(task)
+		}
+		tasks[i] = task
+	}
+
+	// all runs are nil
+	if !slices.ContainsFunc(tasks, func(t *StepTask) bool { return t != nil }) {
+		return nil
+	}
+
+	// 2. Execute the plan
+	return func(ctx context.Context) error {
+		errs := make([]error, 0)
+		for i, task := range tasks {
+			if task == nil {
+				continue
+			}
+
+			id := ids[i]
+			res, err := task.Run(ctx)
+			// Only set `steps` records in `main` stage & `id` is user specified
+			if stage == StageMain && !strings.HasPrefix(id, "__") {
+				e.steps[id] = res
+			}
+			if res != nil && res.Conclusion == records.ResultFailure {
+				clog.WarnContextf(ctx, "set job.Result='failure' because of step %s failed", id)
+				e.SetStatus(records.ResultFailure)
+			}
+			if err != nil {
+				errs = append(errs, fmt.Errorf("run step %q (%s): %w", id, stage, err))
+			}
+		}
+		return errors.Join(errs...)
+	}
+}
+
+func (e *jobExecutor) Sandbox() sandboxer.Sandbox {
+	return e.sandbox
+}
+
+func (e *jobExecutor) ExprEnv() expression.Env {
+	return e.exprEnv
+}
+
+// Status return current job's Result
+// its implement [libraries.StatusProvider]
+func (e *jobExecutor) Status() records.Result {
+	if e.job != nil {
+		return e.job.Result
+	}
+	return records.ResultSuccess
+}
+
+func (e *jobExecutor) SetStatus(status records.Result) {
+	e.job.Result = status
+	e.jobInfo.Status = status
+}
+
+// AddPath prepending a directory to the system PATH variable (and remove duplicates).
+// It automatically makes it available to all subsequent actions in the current job.
+//
+// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L107
+// https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#adding-a-system-path
+func (e *jobExecutor) AddPath(paths []string) {
+	if len(paths) == 0 {
+		return
+	}
+
+	newPaths := make([]string, 0, len(e.paths))
+	set := sets.New[string]()
+
+	for _, p := range slices.Backward(paths) {
+		if !set.Has(p) {
+			newPaths = append(newPaths, p)
+			set.Insert(p)
+		}
+	}
+	for _, p := range e.paths {
+		if !set.Has(p) {
+			newPaths = append(newPaths, p)
+			set.Insert(p)
+		}
+	}
+
+	e.paths = newPaths
+}
+
+func (e *jobExecutor) SystemPaths() []string {
+	return e.paths
+}
+
+func (e *jobExecutor) Env() map[string]string {
+	return e.env
+}
+
+func (e *jobExecutor) SystemEnv() map[string]string {
+	m := make(map[string]string)
+	// TODO provided env
+
+	runnerEnv := map[string]string{
+		"RUNNER_NAME":        e.runner.Name,
+		"RUNNER_ARCH":        string(e.runner.Arch),
+		"RUNNER_OS":          string(e.runner.Os),
+		"RUNNER_ENVIRONMENT": e.runner.Environment,
+		"RUNNER_TEMP":        e.runner.Temp,
+		"RUNNER_TOOL_CACHE":  e.runner.ToolCache,
+		"RUNNER_WORKSPACE":   e.runner.Workspace,
+	}
+	if e.runner.Debug == "1" {
+		runnerEnv["RUNNER_DEBUG"] = "1"
+	}
+	maps.Copy(m, runnerEnv)
+
+	return m
+}
+
+// SetEnv make an environment variable available to any subsequent steps in a workflow job.
+//
+// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L132
+// https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#setting-an-environment-variable
+func (e *jobExecutor) SetEnv(env map[string]string) {
+	maps.Copy(e.env, env)
+}
+
+func (e *jobExecutor) setupEventFile(ctx context.Context) (string, error) {
+	files := map[string]any{"workflow/event.json": e.github.Event}
+	r, err := xtar.JsonObjectReader(files, false)
+	if err != nil {
+		return "", err
+	}
+
+	if err = e.sandbox.CopyIn(ctx, r, e.runner.Temp); err != nil {
+		return "", err
+	}
+
+	location := path.Join(e.runner.Temp, "workflow", "event.json")
+	return location, nil
+}

@@ -8,8 +8,7 @@
 //go:generate mockgen -source=../pkg/executor/problem/matcher.go -destination=executor/problem/matcher.go -typed
 //go:generate mockgen -source=../pkg/executor/secret/masker.go -destination=executor/secret/masker.go -typed
 //go:generate mockgen -source=../pkg/executor/support/tracker.go -destination=executor/support/tracker.go -typed
-//go:generate mockgen -source=../pkg/executor/executor_job.go -destination=executor/executor_job.go -typed
-//go:generate mockgen -source=../pkg/executor/executor_step.go -destination=executor/executor_step.go -typed
-//go:generate mockgen -source=../pkg/executor/stack.go -destination=executor/stack.go -typed
+//go:generate mockgen -source=../pkg/executor/job_executor.go -destination=executor/job_executor.go -typed
+//go:generate mockgen -source=../pkg/executor/step_executor.go -destination=executor/step_executor.go -typed
 //go:generate mockgen -source=../pkg/stream/handler.go -destination=stream/handler.go -typed
 package mock

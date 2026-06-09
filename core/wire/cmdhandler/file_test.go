@@ -9,18 +9,20 @@ package wire_cmdhandler
 import (
 	"archive/tar"
 	"context"
-	mock_executor "drassi.run/core/mock/executor"
-	"drassi.run/core/pkg/executor"
-	"drassi.run/core/pkg/executor/command"
-	"drassi.run/core/util/tar"
-	"github.com/stretchr/testify/assert"
-	"go.uber.org/mock/gomock"
 	"io"
 	"strings"
 	"testing"
+
+	mock_executor "drassi.run/core/mock/executor"
+	"drassi.run/core/pkg/executor"
+	"drassi.run/core/pkg/executor/command"
+	"drassi.run/core/pkg/executor/support"
+	"drassi.run/core/util/tar"
+	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 )
 
-type fileHdlCreator func(stack executor.Stack) *command.FileHandler
+type fileHdlCreator func(stack *support.Stack) *command.FileHandler
 
 func testFileNoJob(ctrl *gomock.Controller, creator fileHdlCreator) func(t *testing.T) {
 	return func(t *testing.T) {
@@ -81,7 +83,7 @@ func TestFileSetEnv(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	t.Run("no-step", testFileNoStep(ctrl, func(stack executor.Stack) *command.FileHandler {
+	t.Run("no-step", testFileNoStep(ctrl, func(stack *support.Stack) *command.FileHandler {
 		return FileSetEnv(stack, nil)
 	}))
 
