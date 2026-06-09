@@ -128,16 +128,16 @@ func (e *stepExecutor) init(ctx context.Context, scope *dig.Scope) (ex error) {
 	// do step initialization
 	// inject dependencies
 	if err := xdig.Populate(scope, &e.decorator); err != nil {
-		return err
+		return fmt.Errorf("populate 'decorator': %w", err)
 	}
 	if err := xdig.Populate(scope, &e.envProv); err != nil {
-		return err
+		return fmt.Errorf("populate 'envProv': %w", err)
 	}
 	if err := xdig.Populate(scope, &e.factory); err != nil {
-		return err
+		return fmt.Errorf("populate 'stream.Factory': %w", err)
 	}
 	if err := xdig.Populate(scope, &e.github); err != nil {
-		return err
+		return fmt.Errorf("populate 'github': %w", err)
 	}
 	e.github.Action = e.spec.Id
 	e.env = maps.Clone(e.upperEnv())
@@ -161,14 +161,14 @@ func (e *stepExecutor) init(ctx context.Context, scope *dig.Scope) (ex error) {
 		)
 	}
 	if exprEnv, err := e.exprEnv.New(opts...); err != nil {
-		return err
+		return fmt.Errorf("create child expression.Env: %w", err)
 	} else {
 		e.exprEnv = exprEnv
 	}
 
 	// initialize StepRun
 	if exec, err := e.spec.Action.CreateExecutor(ctx, scope, e); err != nil {
-		return err
+		return fmt.Errorf("create ActionExecutor for %q: %w", e.spec.Id, err)
 	} else {
 		e.aExec = exec
 	}
@@ -182,13 +182,13 @@ func (e *stepExecutor) init(ctx context.Context, scope *dig.Scope) (ex error) {
 
 	// Provide scope values
 	if err := xdig.Supply(scope, e.exprEnv); err != nil {
-		return err
+		return fmt.Errorf("supply 'exprEnv': %w", err)
 	}
 	if err := xdig.Supply(scope, e.github); err != nil {
-		return err
+		return fmt.Errorf("supply 'github': %w", err)
 	}
 	if err := xdig.Supply(scope, e.env); err != nil {
-		return err
+		return fmt.Errorf("supply 'env': %w", err)
 	}
 
 	return nil

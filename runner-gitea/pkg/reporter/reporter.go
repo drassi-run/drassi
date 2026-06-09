@@ -30,23 +30,6 @@ var resultMap = map[records.Result]runnerv1.Result{
 	records.ResultSkipped:   runnerv1.Result_RESULT_SKIPPED,
 }
 
-type Reporter struct {
-	taskId      int64
-	client      runnerv1connect.RunnerServiceClient
-	contextual  xcontext.Provider
-	logStreamer *LogStreamer
-
-	timer  *time.Timer
-	stopCh chan struct{}
-	cancel context.CancelCauseFunc
-	ws     *reactive.WaitState[reactive.State]
-
-	jobUid     string
-	jobState   *runnerv1.TaskState
-	jobOutputs map[string]string
-	stepStates map[string]*runnerv1.StepState
-}
-
 var ErrServerCancel = fmt.Errorf("task cancelled by Gitea server")
 
 func New(
@@ -69,79 +52,88 @@ func New(
 	return r
 }
 
-func (r *Reporter) StartJob(spec *executor.JobSpec) error {
-	if r.jobUid != "" {
-		if r.jobUid == spec.Uid {
-			return fmt.Errorf("job already running")
-		} else {
-			return fmt.Errorf("another job is running")
-		}
-	}
+type Reporter struct {
+	taskId      int64
+	client      runnerv1connect.RunnerServiceClient
+	contextual  xcontext.Provider
+	logStreamer *LogStreamer
 
+	timer  *time.Timer
+	stopCh chan struct{}
+	cancel context.CancelCauseFunc // hook that triggered by server used to cancel running job
+	ws     *reactive.WaitState[reactive.State]
+
+	jobUid     string
+	jobState   *runnerv1.TaskState
+	jobOutputs map[string]string
+	stepStates map[string]*runnerv1.StepState
+}
+
+func (r *Reporter) init(spec *executor.JobSpec) {
 	r.jobUid = spec.Uid
-
-	r.jobState = &runnerv1.TaskState{
-		Id:        r.taskId,
-		StartedAt: timestamppb.Now(),
-		Steps:     make([]*runnerv1.StepState, len(spec.Steps)),
-	}
 	r.jobOutputs = make(map[string]string)
-
+	r.jobState = &runnerv1.TaskState{
+		Id:    r.taskId,
+		Steps: make([]*runnerv1.StepState, len(spec.Steps)),
+	}
 	r.stepStates = make(map[string]*runnerv1.StepState, len(spec.Steps))
 	for i, step := range spec.Steps {
 		s := &runnerv1.StepState{Id: int64(i)}
 		r.jobState.Steps[i] = s
-		r.stepStates[step.StepId()] = s
+		r.stepStates[step.Id] = s
 	}
-
-	r.timer.Reset(0)
-	return nil
 }
 
-func (r *Reporter) EndJob(spec *executor.JobSpec, state *records.Job) error {
-	if r.jobUid == "" {
-		return fmt.Errorf("no job already running")
-	}
-	if r.jobUid != spec.Uid {
-		return fmt.Errorf("another job is running")
+func (r *Reporter) DecorateJobRun(task *executor.JobTask) executor.JobRun {
+	if task.Stage == executor.StagePre {
+		r.init(task.JobSpec())
 	}
 
-	r.jobState.StoppedAt = timestamppb.Now()
-	r.jobState.Result = resultMap[state.Result]
-	r.jobOutputs = state.Outputs
+	run := task.Run
+	if task.Stage != executor.StageMain {
+		return run
+	}
 
-	r.timer.Reset(0)
-	return nil
+	return func(ctx context.Context) (*records.Job, error) {
+		r.jobState.StartedAt = timestamppb.Now()
+		r.flush()
+
+		rec, err := run(ctx)
+
+		r.jobState.StoppedAt = timestamppb.Now()
+		r.jobState.Result = resultMap[rec.Result]
+		r.jobOutputs = rec.Outputs
+		r.flush()
+
+		return rec, err
+	}
 }
 
-func (r *Reporter) StartStep(sr executor.StepSpec, stage executor.Stage) error {
-	if stage != executor.StageMain {
-		// Gitea only report main stage for now
-		return nil
+func (r *Reporter) DecorateStepRun(task *executor.StepTask) executor.StepRun {
+	if task.Stage != executor.StageMain {
+		return task.Run
 	}
 
-	stepState := r.stepStates[sr.Base().StepId()]
-	stepState.StartedAt = timestamppb.Now()
-	stepState.LogIndex = r.logStreamer.Offset()
+	run := task.Run
+	stepState := r.stepStates[task.StepId()]
+	return func(ctx context.Context) (*records.Step, error) {
+		stepState.StartedAt = timestamppb.Now()
+		stepState.LogIndex = r.logStreamer.Offset()
+		r.flush()
 
-	r.timer.Reset(0)
-	return nil
+		rec, err := run(ctx)
+
+		stepState.StoppedAt = timestamppb.Now()
+		stepState.Result = resultMap[rec.Conclusion]
+		stepState.LogLength = r.logStreamer.Offset() - stepState.LogIndex
+		r.flush()
+
+		return rec, err
+	}
 }
 
-func (r *Reporter) EndStep(sr executor.StepSpec, stage executor.Stage, state *records.Step) error {
-	if stage != executor.StageMain {
-		// Gitea only report main stage for now
-		return nil
-	}
-
-	stepState := r.stepStates[sr.Base().StepId()]
-
-	stepState.StoppedAt = timestamppb.Now()
-	stepState.Result = resultMap[state.Conclusion]
-	stepState.LogLength = r.logStreamer.Offset() - stepState.LogIndex
-
+func (r *Reporter) flush() {
 	r.timer.Reset(0)
-	return nil
 }
 
 func (r *Reporter) Start() error {

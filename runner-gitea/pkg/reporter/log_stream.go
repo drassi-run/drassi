@@ -86,7 +86,12 @@ func (ls *LogStreamer) uploadLogE(ctx context.Context, logRows []*runnerv1.LogRo
 	return nil
 }
 
-func (ls *LogStreamer) Handle(_ context.Context, msg string) error {
+// ContextHandle is used for [scribe.Handler]
+func (ls *LogStreamer) ContextHandle(_ context.Context, msg string) error {
+	return ls.Handle(msg)
+}
+
+func (ls *LogStreamer) Handle(msg string) error {
 	ls.logOffset++
 	msg = strings.TrimRight(msg, "\r\n")
 
