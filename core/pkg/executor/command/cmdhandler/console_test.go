@@ -1,0 +1,141 @@
+/*
+ * SPDX-FileCopyrightText: (c) 2024 The Drassi Authors
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+package cmdhandler
+
+import (
+	"testing"
+
+	mock_cmdhandler "drassi.run/core/mock/executor/command/cmdhandler"
+	mock_secret "drassi.run/core/mock/executor/secret"
+	"drassi.run/core/pkg/executor/command"
+	"drassi.run/core/pkg/executor/secret"
+	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
+)
+
+func TestAddSecretMask(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	t.Run("empty-value", func(t *testing.T) {
+		sm := mock_secret.NewMockMasker(ctrl)
+		h := AddSecretMask[any](sm)
+		cmd := &command.Command{Name: "add-mask", Value: ""}
+		err := command.ConsoleRun(h, t.Context(), nil, cmd)
+		assert.ErrorIs(t, err, command.ErrInvalidCommand)
+	})
+
+	t.Run("single-secret", func(t *testing.T) {
+		sm := mock_secret.NewMockMasker(ctrl)
+		sm.EXPECT().AddSecret(secret.NewValueSecret("abc"))
+
+		h := AddSecretMask[any](sm)
+		cmd := &command.Command{Name: "add-mask", Value: "abc"}
+		err := command.ConsoleRun(h, t.Context(), nil, cmd)
+		assert.NoError(t, err)
+	})
+
+	t.Run("multi-secret", func(t *testing.T) {
+		sm := mock_secret.NewMockMasker(ctrl)
+		sm.EXPECT().AddSecret(secret.NewValueSecret("abc\nxyz\r\nfoo  \r  bar"))
+		sm.EXPECT().AddSecret(secret.NewValueSecret("abc"))
+		sm.EXPECT().AddSecret(secret.NewValueSecret("xyz"))
+		sm.EXPECT().AddSecret(secret.NewValueSecret("foo"))
+		sm.EXPECT().AddSecret(secret.NewValueSecret("bar"))
+
+		h := AddSecretMask[any](sm)
+		cmd := &command.Command{Name: "add-mask", Value: "abc\nxyz\r\nfoo  \r  bar"}
+		err := command.ConsoleRun(h, t.Context(), nil, cmd)
+		assert.NoError(t, err)
+	})
+}
+
+type consoleHdlCreator[R any] func() *command.ConsoleHandler[R]
+
+func testInvalidCommand[R any](creator consoleHdlCreator[R]) func(t *testing.T) {
+	return func(t *testing.T) {
+		h := creator()
+		r := new(R)
+		cmd := new(command.Command)
+		err := command.ConsoleRun(h, t.Context(), *r, cmd)
+		assert.ErrorIs(t, err, command.ErrInvalidCommand)
+	}
+}
+
+func TestConsoleAddPath(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	t.Run("empty-value", testInvalidCommand(ConsoleAddPath[SupportAddPath]))
+
+	t.Run("success", func(t *testing.T) {
+		res := mock_cmdhandler.NewMockSupportAddPath(ctrl)
+		res.EXPECT().AddPath([]string{"foobar"})
+
+		h := ConsoleAddPath[SupportAddPath]()
+
+		cmd := &command.Command{Name: "add-path", Value: "foobar"}
+		err := command.ConsoleRun[SupportAddPath](h, t.Context(), res, cmd)
+		assert.NoError(t, err)
+	})
+}
+
+func TestConsoleSetEnv(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	t.Run("empty-name", testInvalidCommand(func() *command.ConsoleHandler[SupportSetEnv] {
+		return ConsoleSetEnv[SupportSetEnv](nil)
+	}))
+
+	t.Run("success", func(t *testing.T) {
+		res := mock_cmdhandler.NewMockSupportSetEnv(ctrl)
+		res.EXPECT().SetEnv(map[string]string{"XXX": "set-env-value"})
+
+		h := ConsoleSetEnv[SupportSetEnv](nil)
+
+		cmd := &command.Command{Name: "set-env", Params: map[string]string{"name": "XXX"}, Value: "set-env-value"}
+		err := command.ConsoleRun[SupportSetEnv](h, t.Context(), res, cmd)
+		assert.NoError(t, err)
+	})
+}
+
+func TestConsoleSetOutput(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	t.Run("empty-name", testInvalidCommand(ConsoleSetOutput[SupportSetOutput]))
+
+	t.Run("success", func(t *testing.T) {
+		res := mock_cmdhandler.NewMockSupportSetOutput(ctrl)
+		res.EXPECT().SetOutput(map[string]string{"XXX": "set-output-value"})
+
+		h := ConsoleSetOutput[SupportSetOutput]()
+
+		cmd := &command.Command{Name: "set-output", Params: map[string]string{"name": "XXX"}, Value: "set-output-value"}
+		err := command.ConsoleRun[SupportSetOutput](h, t.Context(), res, cmd)
+		assert.NoError(t, err)
+	})
+}
+
+func TestConsoleSaveState(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	t.Run("empty-name", testInvalidCommand(ConsoleSaveState[SupportSaveState]))
+
+	t.Run("success", func(t *testing.T) {
+		res := mock_cmdhandler.NewMockSupportSaveState(ctrl)
+		res.EXPECT().SaveState(map[string]string{"XXX": "save-state-value"})
+
+		h := ConsoleSaveState[SupportSaveState]()
+
+		cmd := &command.Command{Name: "save-state", Params: map[string]string{"name": "XXX"}, Value: "save-state-value"}
+		err := command.ConsoleRun[SupportSaveState](h, t.Context(), res, cmd)
+		assert.NoError(t, err)
+	})
+}

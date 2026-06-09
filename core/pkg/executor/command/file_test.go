@@ -8,29 +8,36 @@ package command
 
 import (
 	"context"
-	mock_sandboxer "drassi.run/core/mock/sandboxer"
-	"drassi.run/core/pkg/sandboxer"
-	xtar "drassi.run/core/util/tar"
 	"errors"
-	"github.com/stretchr/testify/assert"
-	"go.uber.org/mock/gomock"
 	"io"
 	"io/fs"
 	"testing"
+
+	mock_sandboxer "drassi.run/core/mock/sandboxer"
+	"drassi.run/core/pkg/sandboxer"
+	xtar "drassi.run/core/util/tar"
+	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 )
 
+type res string
+
+func (r res) CommandFile(cmd string) string {
+	return cmd + string(r)
+}
+
 var (
-	suffix = "_suffix"
+	suffix = res("_suffix")
 	layout = &sandboxer.Layout{
 		Temp: "/tmp/sandbox",
 	}
 )
 
-func setupFileCmdMgr(sandbox sandboxer.Sandbox) *fileManager {
-	return NewFileManager(sandbox).(*fileManager)
+func setupFileCmdMgr(sandbox sandboxer.Sandbox) *fileManager[res] {
+	return NewFileManager[res](sandbox).(*fileManager[res])
 }
 
-func noopHandler(context.Context, io.Reader) error {
+func noopHandler(context.Context, res, io.Reader) error {
 	return nil
 }
 
@@ -53,7 +60,7 @@ func TestFileManager_Initialize(t *testing.T) {
 		mgr := setupFileCmdMgr(sandbox)
 
 		err := mgr.Initialize(ctx, suffix)
-		env := mgr.Env(suffix)
+		env := mgr.Env("")
 		assert.NoError(tt, err)
 		assert.Empty(tt, env)
 	})
@@ -90,11 +97,11 @@ func TestFileManager_Process(t *testing.T) {
 	})
 
 	t.Run("normal", func(tt *testing.T) {
-		stringHandler := func(s string) func(context.Context, io.Reader) error {
-			return func(ctx context.Context, r io.Reader) error {
+		stringHandler := func(s res) func(context.Context, res, io.Reader) error {
+			return func(ctx context.Context, _ res, r io.Reader) error {
 				b, err := io.ReadAll(r)
 				assert.NoError(tt, err)
-				assert.Equal(tt, s, string(b))
+				assert.Equal(tt, string(s), string(b))
 				return nil
 			}
 		}
@@ -153,7 +160,7 @@ func TestFileManager_Process(t *testing.T) {
 			Return(&noopReadCloser{r1}, nil)
 
 		mgr := setupFileCmdMgr(sandbox)
-		_ = mgr.Register(NewFileHandler("FIRST", func(_ context.Context, _ io.Reader) error {
+		_ = mgr.Register(NewFileHandler("FIRST", func(_ context.Context, _ res, _ io.Reader) error {
 			return errors.New("unexpected error")
 		}))
 

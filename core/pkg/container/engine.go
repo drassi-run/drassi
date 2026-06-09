@@ -45,12 +45,12 @@ type PullOptions struct {
 
 type BuildOptions struct {
 	Tags    []string
-	Streams stream.Streams
+	Streams *stream.Streams
 }
 
 type RunOptions struct {
 	Stdio   *types.Stdio
-	Streams stream.Streams
+	Streams *stream.Streams
 }
 
 type ExecOptions struct {
@@ -58,7 +58,7 @@ type ExecOptions struct {
 	Env     map[string]string
 	Workdir string
 	Stdio   *types.Stdio
-	Streams stream.Streams
+	Streams *stream.Streams
 }
 
 type RemoveOptions struct {

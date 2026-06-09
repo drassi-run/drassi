@@ -7,26 +7,29 @@
 package wire_streams
 
 import (
+	"context"
 	"slices"
 
+	exec "drassi.run/core/pkg/executor"
+	"drassi.run/core/pkg/executor/secret"
 	"drassi.run/core/pkg/scribe"
 	"drassi.run/core/pkg/stream"
-	"drassi.run/core/util/context"
+	mdw "drassi.run/core/pkg/stream/middleware"
 	"go.uber.org/dig"
 )
 
 func ProvideTo(scope *dig.Scope) error {
-	if err := scope.Provide(ProcessCommand, dig.Name("processCommand")); err != nil {
+	if err := scope.Provide(mdw.ProcessCommand[exec.Milieu], dig.Name("processCommand")); err != nil {
 		return err
 	}
-	if err := scope.Provide(ScanProblem, dig.Name("scanProblem")); err != nil {
+	if err := scope.Provide(mdw.ScanProblem[exec.Milieu], dig.Name("scanProblem")); err != nil {
 		return err
 	}
-	if err := scope.Provide(MaskSecret, dig.Name("maskSecret")); err != nil {
+	if err := scope.Provide(mdw.MaskSecret[exec.Milieu], dig.Name("maskSecret")); err != nil {
 		return err
 	}
 
-	if err := scope.Provide(newStream, dig.Export(true)); err != nil {
+	if err := scope.Provide(newStreamFactory[exec.Milieu], dig.Export(true)); err != nil {
 		return err
 	}
 	if err := scope.Provide(newScribeDiary, dig.Export(true)); err != nil {
@@ -36,37 +39,39 @@ func ProvideTo(scope *dig.Scope) error {
 	return nil
 }
 
-type streamParams struct {
+type streamParams[R any] struct {
 	dig.In
-	Handler         stream.Handler
-	ContextProvider xcontext.Provider
-	ProcessCommand  Middleware `name:"processCommand"`
-	ScanProblem     Middleware `name:"scanProblem"`
-	MaskSecret      Middleware `name:"maskSecret"`
+
+	Handler        stream.ResourceHandler[R]
+	ProcessCommand mdw.Middleware[R] `name:"processCommand"`
+	ScanProblem    mdw.Middleware[R] `name:"scanProblem"`
+	MaskSecret     mdw.Middleware[R] `name:"maskSecret"`
 }
 
-func newStream(p streamParams) stream.Streams {
+func newStreamFactory[R any](p streamParams[R]) stream.Factory[R] {
 	handler := p.Handler
-	middlewares := []Middleware{p.ProcessCommand, p.ScanProblem, p.MaskSecret}
+	middlewares := []mdw.Middleware[R]{p.ProcessCommand, p.ScanProblem, p.MaskSecret}
 	for _, mw := range slices.Backward(middlewares) {
 		handler = mw(handler)
 	}
-	w := stream.NewLineWriter(p.ContextProvider, handler)
-
-	return stream.NewStreams(
-		stream.WithStdout(w),
-		stream.WithStderr(w),
+	return stream.NewFactory[R](
+		stream.WithStdout(handler),
+		stream.WithStderr(handler),
 	)
 }
 
 type scribeParams struct {
 	dig.In
-	Handler    stream.Handler
-	MaskSecret Middleware `name:"maskSecret"`
+	Handler      scribe.Handler
+	SecretMasker secret.Masker
 }
 
 func newScribeDiary(p scribeParams) scribe.Diary {
-	handler := p.Handler
-	handler = p.MaskSecret(handler)
-	return stream.NewScribeDiary(handler)
+	h := p.Handler
+	sm := p.SecretMasker
+	handler := func(ctx context.Context, line string) error {
+		line = sm.Mask(line)
+		return h(ctx, line)
+	}
+	return scribe.NewForwardDiary(handler)
 }

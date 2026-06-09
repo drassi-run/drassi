@@ -10,23 +10,17 @@ import (
 	"bytes"
 	"errors"
 	"io"
-
-	"drassi.run/core/util/context"
 )
 
 type lineWriter struct {
-	closed     bool
-	buffer     bytes.Buffer
-	handler    Handler
-	contextual xcontext.Provider
+	handler Handler
+	buffer  bytes.Buffer
+	closed  bool
 }
 
 // NewLineWriter return an [io.Writer] that split input into lines and forward to the [Handler]
-func NewLineWriter(c xcontext.Provider, h Handler) io.Writer {
-	return &lineWriter{
-		handler:    h,
-		contextual: c,
-	}
+func NewLineWriter(h Handler) io.Writer {
+	return &lineWriter{handler: h}
 }
 
 func (w *lineWriter) Write(p []byte) (int, error) {
@@ -34,7 +28,6 @@ func (w *lineWriter) Write(p []byte) (int, error) {
 		return 0, errors.New("attempt to write to closed writer")
 	}
 
-	ctx := w.contextual.Context()
 	buf := bytes.NewBuffer(p)
 	written := 0
 	for {
@@ -47,7 +40,7 @@ func (w *lineWriter) Write(p []byte) (int, error) {
 			}
 			return written, err
 		}
-		if err = w.handler.Handle(ctx, w.buffer.String()); err != nil {
+		if err = w.handler.Handle(w.buffer.String()); err != nil {
 			return written, err
 		}
 		w.buffer.Reset()
@@ -63,8 +56,7 @@ func (w *lineWriter) Close() error {
 	w.closed = true
 	defer w.buffer.Reset()
 	if s := w.buffer.String(); s != "" {
-		ctx := w.contextual.Context()
-		return w.handler.Handle(ctx, s)
+		return w.handler.Handle(s)
 	}
 	return nil
 }

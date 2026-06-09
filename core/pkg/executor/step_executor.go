@@ -36,7 +36,7 @@ type StepExecutor interface {
 
 	ExprEnv() expression.Env
 	Sandbox() sandboxer.Sandbox
-	Streams(ctx context.Context) stream.Streams
+	Streams(ctx context.Context) *stream.Streams
 
 	Status() records.Result // inherit libraries.StatusProvider
 	SetStatus(status records.Result)
@@ -82,10 +82,6 @@ func (t *StepTask) JobSpec() *JobSpec {
 
 type StepRun func(context.Context) (*records.Step, error)
 
-type StepRunDecorator interface {
-	DecorateStepRun(*StepTask) StepRun
-}
-
 type stepExecutor struct {
 	spec   *StepSpec
 	parent StepExecutor
@@ -101,8 +97,8 @@ type stepExecutor struct {
 
 	decorator ActionRunDecorator
 	envProv   EnvProvider
-	streams   stream.Streams
 	exprEnv   expression.Env
+	factory   stream.Factory[Milieu]
 }
 
 func (e *stepExecutor) StepSpec() *StepSpec {
@@ -137,7 +133,7 @@ func (e *stepExecutor) init(ctx context.Context, scope *dig.Scope) (ex error) {
 	if err := xdig.Populate(scope, &e.envProv); err != nil {
 		return err
 	}
-	if err := xdig.Populate(scope, &e.streams); err != nil {
+	if err := xdig.Populate(scope, &e.factory); err != nil {
 		return err
 	}
 	if err := xdig.Populate(scope, &e.github); err != nil {
@@ -347,8 +343,9 @@ func (e *stepExecutor) Sandbox() sandboxer.Sandbox {
 	return e.jExec.Sandbox()
 }
 
-func (e *stepExecutor) Streams(_ context.Context) stream.Streams {
-	return e.streams
+func (e *stepExecutor) Streams(ctx context.Context) *stream.Streams {
+	s := NewMilieu(e)
+	return e.factory.Create(ctx, s)
 }
 
 // Status return current step's Outcome

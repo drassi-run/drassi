@@ -7,22 +7,26 @@
 package stream
 
 import (
-	"context"
-	"drassi.run/core/util/context"
-	"github.com/stretchr/testify/assert"
 	"io"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
+
+type HandlerFunc func(string) error
+
+func (f HandlerFunc) Handle(line string) error {
+	return f(line)
+}
 
 func TestLineWriter(t *testing.T) {
 	lines := make([]string, 0)
-	lineHandler := HandlerFunc(func(ctx context.Context, s string) error {
+	lineHandler := HandlerFunc(func(s string) error {
 		lines = append(lines, s)
 		return nil
 	})
 
-	p := xcontext.NewStaticProvider(t.Context())
-	lw := NewLineWriter(p, lineHandler)
+	lw := NewLineWriter(lineHandler)
 
 	write := func(s string) {
 		n, err := io.WriteString(lw, s)

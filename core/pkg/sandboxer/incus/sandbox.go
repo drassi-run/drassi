@@ -102,7 +102,7 @@ func (sb *sandbox) CopyOut(ctx context.Context, src string) (io.ReadCloser, erro
 	return r, nil
 }
 
-func (sb *sandbox) Execute(ctx context.Context, cmd, path []string, env map[string]string, workdir string, streams stream.Streams) error {
+func (sb *sandbox) Execute(ctx context.Context, cmd, path []string, env map[string]string, workdir string, streams *stream.Streams) error {
 	op, doneC, err := sb.execute(ctx, cmd, path, env, workdir, streams)
 	if err != nil {
 		return err
@@ -123,7 +123,7 @@ func (sb *sandbox) Execute(ctx context.Context, cmd, path []string, env map[stri
 func (sb *sandbox) execute(
 	ctx context.Context,
 	cmd, path []string, env map[string]string, workdir string,
-	streams stream.Streams,
+	streams *stream.Streams,
 ) (incusclient.Operation, <-chan bool, error) {
 	// Prepare the command
 	req := incusapi.InstanceExecPost{
@@ -160,9 +160,9 @@ func (sb *sandbox) execute(
 	// => So we need to wrap them in ContextReader/Writer
 	// NOTE: executing command will exit when all streams terminated
 	var (
-		stdin  = streams.In()
-		stdout = streams.Out()
-		stderr = streams.Err()
+		stdin  = streams.In
+		stdout = streams.Out
+		stderr = streams.Err
 	)
 	if stdin != nil {
 		stdin = xio.NewContextReader(ctx, stdin)
@@ -226,10 +226,10 @@ func (sb *sandbox) Dialer(cmd []string) func(ctx context.Context, network, addr 
 		inRead, inWrite := io.Pipe()
 		outRead, outWrite := io.Pipe()
 
-		streams := stream.NewStreams(
-			stream.WithStdin(inRead),
-			stream.WithStdout(outWrite),
-		)
+		streams := &stream.Streams{
+			In:  inRead,
+			Out: outWrite,
+		}
 		_, doneC, err := sb.execute(ctx, cmd, nil, nil, "", streams)
 		if err != nil {
 			return nil, err

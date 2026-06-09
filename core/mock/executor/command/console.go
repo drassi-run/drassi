@@ -18,31 +18,31 @@ import (
 )
 
 // MockConsoleManager is a mock of ConsoleManager interface.
-type MockConsoleManager struct {
+type MockConsoleManager[R any] struct {
 	ctrl     *gomock.Controller
-	recorder *MockConsoleManagerMockRecorder
+	recorder *MockConsoleManagerMockRecorder[R]
 	isgomock struct{}
 }
 
 // MockConsoleManagerMockRecorder is the mock recorder for MockConsoleManager.
-type MockConsoleManagerMockRecorder struct {
-	mock *MockConsoleManager
+type MockConsoleManagerMockRecorder[R any] struct {
+	mock *MockConsoleManager[R]
 }
 
 // NewMockConsoleManager creates a new mock instance.
-func NewMockConsoleManager(ctrl *gomock.Controller) *MockConsoleManager {
-	mock := &MockConsoleManager{ctrl: ctrl}
-	mock.recorder = &MockConsoleManagerMockRecorder{mock}
+func NewMockConsoleManager[R any](ctrl *gomock.Controller) *MockConsoleManager[R] {
+	mock := &MockConsoleManager[R]{ctrl: ctrl}
+	mock.recorder = &MockConsoleManagerMockRecorder[R]{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockConsoleManager) EXPECT() *MockConsoleManagerMockRecorder {
+func (m *MockConsoleManager[R]) EXPECT() *MockConsoleManagerMockRecorder[R] {
 	return m.recorder
 }
 
 // ParseCommand mocks base method.
-func (m *MockConsoleManager) ParseCommand(line string) *command.Command {
+func (m *MockConsoleManager[R]) ParseCommand(line string) *command.Command {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ParseCommand", line)
 	ret0, _ := ret[0].(*command.Command)
@@ -50,75 +50,75 @@ func (m *MockConsoleManager) ParseCommand(line string) *command.Command {
 }
 
 // ParseCommand indicates an expected call of ParseCommand.
-func (mr *MockConsoleManagerMockRecorder) ParseCommand(line any) *MockConsoleManagerParseCommandCall {
+func (mr *MockConsoleManagerMockRecorder[R]) ParseCommand(line any) *MockConsoleManagerParseCommandCall[R] {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ParseCommand", reflect.TypeOf((*MockConsoleManager)(nil).ParseCommand), line)
-	return &MockConsoleManagerParseCommandCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ParseCommand", reflect.TypeOf((*MockConsoleManager[R])(nil).ParseCommand), line)
+	return &MockConsoleManagerParseCommandCall[R]{Call: call}
 }
 
 // MockConsoleManagerParseCommandCall wrap *gomock.Call
-type MockConsoleManagerParseCommandCall struct {
+type MockConsoleManagerParseCommandCall[R any] struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockConsoleManagerParseCommandCall) Return(arg0 *command.Command) *MockConsoleManagerParseCommandCall {
+func (c *MockConsoleManagerParseCommandCall[R]) Return(arg0 *command.Command) *MockConsoleManagerParseCommandCall[R] {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockConsoleManagerParseCommandCall) Do(f func(string) *command.Command) *MockConsoleManagerParseCommandCall {
+func (c *MockConsoleManagerParseCommandCall[R]) Do(f func(string) *command.Command) *MockConsoleManagerParseCommandCall[R] {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockConsoleManagerParseCommandCall) DoAndReturn(f func(string) *command.Command) *MockConsoleManagerParseCommandCall {
+func (c *MockConsoleManagerParseCommandCall[R]) DoAndReturn(f func(string) *command.Command) *MockConsoleManagerParseCommandCall[R] {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // Process mocks base method.
-func (m *MockConsoleManager) Process(ctx context.Context, line string, cmd *command.Command) error {
+func (m *MockConsoleManager[R]) Process(ctx context.Context, res R, line string, cmd *command.Command) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Process", ctx, line, cmd)
+	ret := m.ctrl.Call(m, "Process", ctx, res, line, cmd)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Process indicates an expected call of Process.
-func (mr *MockConsoleManagerMockRecorder) Process(ctx, line, cmd any) *MockConsoleManagerProcessCall {
+func (mr *MockConsoleManagerMockRecorder[R]) Process(ctx, res, line, cmd any) *MockConsoleManagerProcessCall[R] {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Process", reflect.TypeOf((*MockConsoleManager)(nil).Process), ctx, line, cmd)
-	return &MockConsoleManagerProcessCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Process", reflect.TypeOf((*MockConsoleManager[R])(nil).Process), ctx, res, line, cmd)
+	return &MockConsoleManagerProcessCall[R]{Call: call}
 }
 
 // MockConsoleManagerProcessCall wrap *gomock.Call
-type MockConsoleManagerProcessCall struct {
+type MockConsoleManagerProcessCall[R any] struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockConsoleManagerProcessCall) Return(arg0 error) *MockConsoleManagerProcessCall {
+func (c *MockConsoleManagerProcessCall[R]) Return(arg0 error) *MockConsoleManagerProcessCall[R] {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockConsoleManagerProcessCall) Do(f func(context.Context, string, *command.Command) error) *MockConsoleManagerProcessCall {
+func (c *MockConsoleManagerProcessCall[R]) Do(f func(context.Context, R, string, *command.Command) error) *MockConsoleManagerProcessCall[R] {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockConsoleManagerProcessCall) DoAndReturn(f func(context.Context, string, *command.Command) error) *MockConsoleManagerProcessCall {
+func (c *MockConsoleManagerProcessCall[R]) DoAndReturn(f func(context.Context, R, string, *command.Command) error) *MockConsoleManagerProcessCall[R] {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // Register mocks base method.
-func (m *MockConsoleManager) Register(handler *command.ConsoleHandler) error {
+func (m *MockConsoleManager[R]) Register(handler *command.ConsoleHandler[R]) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Register", handler)
 	ret0, _ := ret[0].(error)
@@ -126,31 +126,31 @@ func (m *MockConsoleManager) Register(handler *command.ConsoleHandler) error {
 }
 
 // Register indicates an expected call of Register.
-func (mr *MockConsoleManagerMockRecorder) Register(handler any) *MockConsoleManagerRegisterCall {
+func (mr *MockConsoleManagerMockRecorder[R]) Register(handler any) *MockConsoleManagerRegisterCall[R] {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Register", reflect.TypeOf((*MockConsoleManager)(nil).Register), handler)
-	return &MockConsoleManagerRegisterCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Register", reflect.TypeOf((*MockConsoleManager[R])(nil).Register), handler)
+	return &MockConsoleManagerRegisterCall[R]{Call: call}
 }
 
 // MockConsoleManagerRegisterCall wrap *gomock.Call
-type MockConsoleManagerRegisterCall struct {
+type MockConsoleManagerRegisterCall[R any] struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockConsoleManagerRegisterCall) Return(arg0 error) *MockConsoleManagerRegisterCall {
+func (c *MockConsoleManagerRegisterCall[R]) Return(arg0 error) *MockConsoleManagerRegisterCall[R] {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockConsoleManagerRegisterCall) Do(f func(*command.ConsoleHandler) error) *MockConsoleManagerRegisterCall {
+func (c *MockConsoleManagerRegisterCall[R]) Do(f func(*command.ConsoleHandler[R]) error) *MockConsoleManagerRegisterCall[R] {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockConsoleManagerRegisterCall) DoAndReturn(f func(*command.ConsoleHandler) error) *MockConsoleManagerRegisterCall {
+func (c *MockConsoleManagerRegisterCall[R]) DoAndReturn(f func(*command.ConsoleHandler[R]) error) *MockConsoleManagerRegisterCall[R] {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -17,7 +17,6 @@ import (
 	runnerv1 "code.gitea.io/actions-proto-go/runner/v1"
 	"drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/executor"
-	"drassi.run/core/pkg/executor/command"
 	"drassi.run/core/pkg/executor/problem"
 	"drassi.run/core/pkg/executor/runtime"
 	"drassi.run/core/pkg/executor/secret"
@@ -32,7 +31,7 @@ import (
 	"drassi.run/core/pkg/stream"
 	"drassi.run/core/util/context"
 	"drassi.run/core/util/dig"
-	"drassi.run/core/wire/cmdhandler"
+	"drassi.run/core/wire/command"
 	"drassi.run/core/wire/etc"
 	"drassi.run/core/wire/runtime"
 	"drassi.run/core/wire/streams"
@@ -124,13 +123,7 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 	}
 
 	// Wire scope
-	if err := scope.Provide(command.NewFileManager); err != nil {
-		return err
-	}
-	if err := scope.Provide(command.NewConsoleManager); err != nil {
-		return err
-	}
-	if err := wire_cmdhandler.ProvideTo(scope); err != nil {
+	if err := wire_command.ProvideTo(scope); err != nil {
 		return err
 	}
 	if err := wire_streams.ProvideTo(scope.Scope("internal(streams)")); err != nil {
@@ -152,7 +145,7 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 	cp := xcontext.NewStaticProvider(w.ctx)
 
 	log := reporter.NewLogStreamer(w.task.Id, cp, client)
-	if err := xdig.Supply[stream.Handler](scope, log); err != nil {
+	if err := xdig.Supply[stream.ResourceHandler](scope, log); err != nil {
 		return err
 	}
 	if err := log.Start(); err != nil {
@@ -186,11 +179,11 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 		return err
 	}
 
-	return scope.Invoke(func(streams stream.Streams) {
-		if closer, ok := streams.Out().(io.Closer); ok {
+	return scope.Invoke(func(streams *stream.Streams) {
+		if closer, ok := streams.Out.(io.Closer); ok {
 			w.addCleaner(closer.Close)
 		}
-		if closer, ok := streams.Err().(io.Closer); ok {
+		if closer, ok := streams.Err.(io.Closer); ok {
 			w.addCleaner(closer.Close)
 		}
 	})

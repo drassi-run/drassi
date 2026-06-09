@@ -67,10 +67,6 @@ func (t *JobTask) JobSpec() *JobSpec {
 
 type JobRun func(context.Context) (*records.Job, error)
 
-type JobRunDecorator interface {
-	DecorateJobRun(*JobTask) JobRun
-}
-
 type jobExecutor struct {
 	spec  *JobSpec
 	scope *dig.Scope
@@ -84,6 +80,8 @@ type jobExecutor struct {
 	env     map[string]string
 	paths   []string
 
+	postStart Hook[JobExecutor]
+	preStop   Hook[JobExecutor]
 	decorator StepRunDecorator
 	exprEnv   expression.Env
 	sandbox   sandboxer.Sandbox
@@ -107,23 +105,30 @@ func (e *jobExecutor) Initialize(ctx context.Context) (job *records.Job, err err
 	s := scribe.FromContext(ctx)
 
 	// do job initialization
-	if err = e.initializeJob(s); err != nil {
-		err = fmt.Errorf("initialize job: %w", err)
+	if ex := e.initializeJob(s); ex != nil {
+		err = fmt.Errorf("initialize job: %w", ex)
 		return
 	}
 
-	if err = e.initializeSandbox(ctx, s); err != nil {
-		err = fmt.Errorf("initialize sandbox: %w", err)
+	if ex := e.initializeSandbox(ctx, s); ex != nil {
+		err = fmt.Errorf("initialize sandbox: %w", ex)
 		return
 	}
 
-	if err = e.initializeScope(); err != nil {
-		err = fmt.Errorf("initialize scope: %w", err)
+	if ex := e.initializeScope(); ex != nil {
+		err = fmt.Errorf("initialize scope: %w", ex)
 		return
 	}
 
-	if err = e.initializeSteps(ctx); err != nil {
-		err = fmt.Errorf("initialize steps: %w", err)
+	if ex := e.initializeSteps(ctx); ex != nil {
+		err = fmt.Errorf("initialize steps: %w", ex)
+		return
+	}
+
+	if hook := e.postStart; hook != nil {
+		if ex := hook.Hook(ctx, e); ex != nil {
+			err = fmt.Errorf("postStart hook: %w", ex)
+		}
 	}
 	return
 }
@@ -164,6 +169,12 @@ func (e *jobExecutor) Finalize(ctx context.Context) (job *records.Job, err error
 	)
 	defer done(&err)
 
+	if hook := e.preStop; hook != nil {
+		if ex := hook.Hook(ctx, e); ex != nil {
+			err = fmt.Errorf("preStop hook: %w", ex)
+		}
+	}
+
 	if e.sandbox == nil {
 		return
 	}
@@ -173,12 +184,35 @@ func (e *jobExecutor) Finalize(ctx context.Context) (job *records.Job, err error
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	err = e.sandbox.Terminate(ctx)
+	if ex := e.sandbox.Terminate(ctx); ex != nil {
+		ex = fmt.Errorf("terminate sandbox: %w", err)
+		if err != nil {
+			err = errors.Join(err, ex)
+		} else {
+			err = ex
+		}
+	}
 	return
+}
+
+type paramHooks struct {
+	dig.In
+
+	PostStart Hook[JobExecutor] `name:"post-start" optional:"true"` // see [wire.PostStart]
+	PreStop   Hook[JobExecutor] `name:"pre-stop" optional:"true"`   // see [wire.PreStop]
+}
+
+func (e *jobExecutor) populateHooks(p paramHooks) {
+	e.postStart = p.PostStart
+	e.preStop = p.PreStop
 }
 
 func (e *jobExecutor) initializeJob(s *scribe.Scribe) error {
 	// inject dependencies
+	// workaround because dig not support pass dig.Name() into Invoke func
+	if err := e.scope.Invoke(e.populateHooks); err != nil {
+		return err
+	}
 	if err := xdig.Populate(e.scope, &e.decorator); err != nil {
 		return err
 	}

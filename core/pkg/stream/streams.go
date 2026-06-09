@@ -6,42 +6,81 @@
 
 package stream
 
-import "io"
+import (
+	"context"
+	"errors"
+	"io"
+)
 
-type Streams interface {
-	In() io.Reader
-	Out() io.Writer
-	Err() io.Writer
+type Streams struct {
+	In  io.Reader
+	Out io.Writer
+	Err io.Writer
 }
 
-type streams struct {
-	in  io.Reader
-	out io.Writer
-	err io.Writer
-}
-
-func (s *streams) In() io.Reader  { return s.in }
-func (s *streams) Out() io.Writer { return s.out }
-func (s *streams) Err() io.Writer { return s.err }
-
-func NewStreams(opts ...StreamsOption) Streams {
-	s := new(streams)
-	for _, opt := range opts {
-		opt(s)
+func (s *Streams) Close() error {
+	errs := make([]error, 0, 3)
+	if c, ok := s.In.(io.Closer); ok {
+		errs = append(errs, c.Close())
 	}
-	return s
+	if c, ok := s.Out.(io.Closer); ok {
+		errs = append(errs, c.Close())
+	}
+	if c, ok := s.Err.(io.Closer); ok {
+		errs = append(errs, c.Close())
+	}
+	return errors.Join(errs...)
 }
 
-type StreamsOption func(*streams)
-
-func WithStdin(in io.Reader) StreamsOption {
-	return func(s *streams) { s.in = in }
+type Factory[R any] interface {
+	Create(ctx context.Context, res R) *Streams
 }
 
-func WithStdout(out io.Writer) StreamsOption {
-	return func(s *streams) { s.out = out }
+func NewFactory[R any](opts ...FactoryOption[R]) Factory[R] {
+	f := new(factory[R])
+	for _, opt := range opts {
+		opt(f)
+	}
+	return f
 }
 
-func WithStderr(err io.Writer) StreamsOption {
-	return func(s *streams) { s.err = err }
+type factory[R any] struct {
+	in         io.Reader
+	outHandler ResourceHandler[R]
+	errHandler ResourceHandler[R]
+}
+
+func (f *factory[R]) Create(ctx context.Context, res R) *Streams {
+	out := f.newWriter(ctx, res, f.outHandler)
+	err := f.newWriter(ctx, res, f.errHandler)
+	return &Streams{
+		In:  f.in,
+		Out: out,
+		Err: err,
+	}
+}
+
+func (f *factory[R]) newWriter(ctx context.Context, res R, hdl ResourceHandler[R]) io.Writer {
+	handler := NewAttachResourceHandler(ctx, res, hdl)
+	return NewLineWriter(handler)
+}
+
+type FactoryOption[R any] func(*factory[R])
+
+func WithStdin[R any](in io.Reader) FactoryOption[R] {
+	return func(f *factory[R]) {
+		f.in = in
+	}
+}
+
+func WithStdout[R any](out ResourceHandler[R]) FactoryOption[R] {
+	return func(f *factory[R]) {
+		f.outHandler = out
+	}
+}
+
+func WithStderr[R any](err ResourceHandler[R]) FactoryOption[R] {
+	return func(f *factory[R]) {
+		f.errHandler = err
+	}
 }

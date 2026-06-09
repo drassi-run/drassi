@@ -26,11 +26,7 @@ type Container interface {
 
 	Pull(ctx context.Context, image string, auth container.RegistryAuth) error
 	Build(ctx context.Context) error
-	Run(
-		ctx context.Context, image string,
-		entrypoint, cmd []string, env map[string]string,
-		streams stream.Streams,
-	) error
+	Run(ctx context.Context, image string, entrypoint, cmd []string, env map[string]string, streams *stream.Streams) error
 }
 
 type containerRuntime struct {
@@ -135,7 +131,7 @@ func (rt *containerRuntime) Build(ctx context.Context) error {
 func (rt *containerRuntime) Run(
 	ctx context.Context, image string,
 	entrypoint, cmd []string, env map[string]string,
-	streams stream.Streams,
+	streams *stream.Streams,
 ) error {
 	// clone env to avoid modify the original
 	runEnv := maps.Clone(env)
@@ -165,10 +161,10 @@ func (rt *containerRuntime) Run(
 	}
 
 	stdio := new(types.Stdio)
-	if streams.Out() != nil {
+	if streams.Out != nil {
 		stdio.Attach |= types.Stdout
 	}
-	if streams.Err() != nil {
+	if streams.Err != nil {
 		stdio.Attach |= types.Stderr
 	}
 	_, err := rt.engine.ContainerRun(ctx, spec, &container.RunOptions{

@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package wire_cmdhandler
+package cmdhandler
 
 import (
 	"archive/tar"
@@ -14,7 +14,6 @@ import (
 	"io"
 	"strings"
 
-	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/executor/command"
 	"drassi.run/core/pkg/executor/problem"
 	"drassi.run/core/pkg/executor/secret"
@@ -26,9 +25,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L384
-func AddSecretMask(secretMasker secret.Masker) *command.ConsoleHandler {
-	run := func(ctx context.Context, cmd *command.Command) error {
+// AddSecretMask create [command.ConsoleHandler] that handle "add-mask" command
+//
+//   - https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L384
+func AddSecretMask[R any](secretMasker secret.Masker) *command.ConsoleHandler[R] {
+	run := func(ctx context.Context, _ R, cmd *command.Command) error {
 		if cmd.Value == "" {
 			return fmt.Errorf("%w %q: empty value", command.ErrInvalidCommand, "add-mask")
 		}
@@ -46,14 +47,16 @@ func AddSecretMask(secretMasker secret.Masker) *command.ConsoleHandler {
 	return command.NewConsoleHandler("add-mask", false, run)
 }
 
-// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L451
-func AddProblemMatcher(m map[string]problem.Matcher, sb sandboxer.Sandbox, stack *support.Stack) *command.ConsoleHandler {
-	run := func(ctx context.Context, cmd *command.Command) error {
+// AddProblemMatcher create [command.ConsoleHandler] that handle "add-matcher" command
+//
+//   - https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L451
+func AddProblemMatcher[R any](m map[string]problem.Matcher, sb sandboxer.Sandbox) *command.ConsoleHandler[R] {
+	run := func(ctx context.Context, res R, cmd *command.Command) error {
 		file := cmd.Value
 		if file == "" {
 			return fmt.Errorf("%w %q: empty file path (in cmd value)", command.ErrInvalidCommand, "add-matcher")
 		}
-		if pt := getPathTranslator(stack); pt != nil {
+		if pt := getPathTranslator(res); pt != nil {
 			if p, ok := pt.TranslatePath(file); ok {
 				file = p
 			}
@@ -87,16 +90,18 @@ func AddProblemMatcher(m map[string]problem.Matcher, sb sandboxer.Sandbox, stack
 	return command.NewConsoleHandler("add-matcher", true, run)
 }
 
-// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L498
-func RemoveProblemMatcher(m map[string]problem.Matcher, sb sandboxer.Sandbox, stack *support.Stack) *command.ConsoleHandler {
-	run := func(ctx context.Context, cmd *command.Command) error {
+// RemoveProblemMatcher create [command.ConsoleHandler] that handle "remove-matcher" command
+//
+//   - https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L498
+func RemoveProblemMatcher[R any](m map[string]problem.Matcher, sb sandboxer.Sandbox) *command.ConsoleHandler[R] {
+	run := func(ctx context.Context, res R, cmd *command.Command) error {
 		file := cmd.Value
 		owner := cmd.Params["owner"]
 		if (file == "") == (owner == "") {
 			return fmt.Errorf("%w %q: either owner or file must be specified, but not both", command.ErrInvalidCommand, "remove-matcher")
 		}
 		if file != "" {
-			if pt := getPathTranslator(stack); pt != nil {
+			if pt := getPathTranslator(res); pt != nil {
 				if p, ok := pt.TranslatePath(file); ok {
 					file = p
 				}
@@ -151,60 +156,66 @@ func readProblemMatcherFile(ctx context.Context, sb sandboxer.Sandbox, file stri
 	return conf, err
 }
 
-// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L751
-func GroupingLog() *command.ConsoleHandler {
-	run := func(ctx context.Context, cmd *command.Command) error {
+// GroupingLog create [command.ConsoleHandler] that handle "group" command
+//
+//   - https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L751
+func GroupingLog[R any]() *command.ConsoleHandler[R] {
+	run := func(ctx context.Context, _ R, cmd *command.Command) error {
 		scribe.Log(ctx, scribe.TagGroup, cmd.Value)
 		return nil
 	}
 	return command.NewConsoleHandler("group", true, run)
 }
 
-// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L751
-func EndGroupingLog() *command.ConsoleHandler {
-	run := func(ctx context.Context, cmd *command.Command) error {
+// EndGroupingLog create [command.ConsoleHandler] that handle "endgroup" command
+//
+//   - https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L751
+func EndGroupingLog[R any]() *command.ConsoleHandler[R] {
+	run := func(ctx context.Context, _ R, cmd *command.Command) error {
 		scribe.Log(ctx, scribe.TagEndGroup, cmd.Value)
 		return nil
 	}
 	return command.NewConsoleHandler("endgroup", true, run)
 }
 
-// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L566
-func DebugMessage() *command.ConsoleHandler {
-	run := func(ctx context.Context, cmd *command.Command) error {
+// DebugMessage create [command.ConsoleHandler] that handle "debug" command
+//
+//   - https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L566
+func DebugMessage[R any]() *command.ConsoleHandler[R] {
+	run := func(ctx context.Context, _ R, cmd *command.Command) error {
 		scribe.Log(ctx, scribe.TagDebug, cmd.Value)
 		return nil
 	}
 	return command.NewConsoleHandler("debug", false, run)
 }
 
-// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L600
-func LogMessage() []*command.ConsoleHandler {
-	run := func(ctx context.Context, cmd *command.Command) error {
+// LogMessage create [command.ConsoleHandler] that handle "notice", "warning", "error" commands
+//
+//   - https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L600
+func LogMessage[R any]() []*command.ConsoleHandler[R] {
+	run := func(ctx context.Context, _ R, cmd *command.Command) error {
 		scribe.Log(ctx, cmd.Name, cmd.Value)
 		return nil
 	}
-	return []*command.ConsoleHandler{
+	return []*command.ConsoleHandler[R]{
 		command.NewConsoleHandler("notice", false, run),
 		command.NewConsoleHandler("warning", false, run),
 		command.NewConsoleHandler("error", false, run),
 	}
 }
 
-// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L417
-func ConsoleAddPath(stack *support.Stack) *command.ConsoleHandler {
-	run := func(ctx context.Context, cmd *command.Command) error {
+// ConsoleAddPath create [command.ConsoleHandler] that handle "add-path" command
+//
+//   - https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L417
+func ConsoleAddPath[R SupportAddPath]() *command.ConsoleHandler[R] {
+	run := func(ctx context.Context, res R, cmd *command.Command) error {
 		if cmd.Value == "" {
 			return fmt.Errorf("%w %q: missing value", command.ErrInvalidCommand, "add-path")
 		}
 
-		_, job := stack.Job()
-		if job == nil {
-			return ErrNoJobRunning
-		}
 		paths := []string{cmd.Value}
 		scribe.Debugf(ctx, "Add path: %q", cmd.Value)
-		job.AddPath(paths)
+		res.AddPath(paths)
 		return nil
 	}
 	return command.NewConsoleHandler("add-path", true, run)
@@ -212,9 +223,11 @@ func ConsoleAddPath(stack *support.Stack) *command.ConsoleHandler {
 
 var setEnvBlockList = sets.New("NODE_OPTIONS")
 
-// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L234
-func ConsoleSetEnv(stack *support.Stack, tracker support.Tracker) *command.ConsoleHandler {
-	run := func(ctx context.Context, cmd *command.Command) error {
+// ConsoleSetEnv create [command.ConsoleHandler] that handle "set-env" command
+//
+//   - https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L234
+func ConsoleSetEnv[R SupportSetEnv](tracker support.Tracker) *command.ConsoleHandler[R] {
+	run := func(ctx context.Context, res R, cmd *command.Command) error {
 		name, ok := cmd.Params["name"]
 		if !ok || name == "" {
 			return fmt.Errorf("%w %q: required field %q is missing", command.ErrInvalidCommand, "set-env", "name")
@@ -232,60 +245,47 @@ func ConsoleSetEnv(stack *support.Stack, tracker support.Tracker) *command.Conso
 
 		env := map[string]string{name: cmd.Value}
 		scribe.Debugf(ctx, "Set env: %s = %s", name, cmd.Value)
-
-		if _, job := stack.Job(); job != nil {
-			job.SetEnv(env)
-		}
-		if _, step := stack.CurrentStep(); step != nil {
-			step.SetEnv(env)
-		}
+		res.SetEnv(env)
 		return nil
 	}
 	return command.NewConsoleHandler("set-env", true, run)
 }
 
-// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L301
-func ConsoleSetOutput(stack *support.Stack) *command.ConsoleHandler {
-	run := func(ctx context.Context, cmd *command.Command) error {
+// ConsoleSetOutput create [command.ConsoleHandler] that handle "set-output" command
+//
+//   - https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L301
+func ConsoleSetOutput[R SupportSetOutput]() *command.ConsoleHandler[R] {
+	run := func(ctx context.Context, res R, cmd *command.Command) error {
 		name, ok := cmd.Params["name"]
 		if !ok || name == "" {
 			return fmt.Errorf("%w %q: required field %q is missing", command.ErrInvalidCommand, "set-output", "name")
-		}
-
-		_, step := stack.CurrentStep()
-		if step == nil {
-			return ErrNoStepRunning
 		}
 
 		output := map[string]string{
 			name: cmd.Value,
 		}
 		scribe.Debugf(ctx, "Set output: %s = %s", name, cmd.Value)
-		step.SetOutput(output)
+		res.SetOutput(output)
 		return nil
 	}
 	return command.NewConsoleHandler("set-output", true, run)
 }
 
-// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L336
-func ConsoleSaveState(stack *support.Stack) *command.ConsoleHandler {
-	run := func(ctx context.Context, cmd *command.Command) error {
+// ConsoleSaveState create [command.ConsoleHandler] that handle "save-state" command
+//
+// - https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L336
+func ConsoleSaveState[R SupportSaveState]() *command.ConsoleHandler[R] {
+	run := func(ctx context.Context, res R, cmd *command.Command) error {
 		name, ok := cmd.Params["name"]
 		if !ok || name == "" {
 			return fmt.Errorf("%w %q: required field %q is missing", command.ErrInvalidCommand, "save-state", "name")
 		}
 
-		_, step := stack.CurrentStep()
-		if step == nil {
-			return ErrNoStepRunning
-		}
-		step = executor.Root(step)
-
 		state := map[string]string{
 			name: cmd.Value,
 		}
 		scribe.Debugf(ctx, "Save intra-action state: %s = %s", name, cmd.Value)
-		step.SaveState(state)
+		res.SaveState(state)
 		return nil
 	}
 	return command.NewConsoleHandler("save-state", true, run)

@@ -7,10 +7,11 @@
 package wire_runtime
 
 import (
-	"drassi.run/core/pkg/container/types"
-	"github.com/stretchr/testify/assert"
 	"path"
 	"testing"
+
+	"drassi.run/core/pkg/container/types"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestChMount(t *testing.T) {

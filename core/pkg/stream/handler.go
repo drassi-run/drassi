@@ -8,44 +8,40 @@ package stream
 
 import (
 	"context"
-	"errors"
-	"io"
 )
 
 type Handler interface {
-	Handle(context.Context, string) error
+	Handle(string) error
 }
 
-type HandlerFunc func(context.Context, string) error
-
-func (f HandlerFunc) Handle(ctx context.Context, line string) error {
-	return f(ctx, line)
+type ResourceHandler[R any] interface {
+	RHandle(context.Context, R, string) error
 }
 
-func WriteTo(w io.Writer) Handler {
-	return HandlerFunc(func(ctx context.Context, msg string) error {
-		if _, err := io.WriteString(w, msg); err != nil {
-			return err
-		}
-		if l := len(msg); l == 0 || msg[l-1] != '\n' {
-			_, err := w.Write([]byte{'\n'})
-			return err
-		}
-		return nil
-	})
+// NewAttachResourceHandler return new Handler which attach resource and forward to ResourceHandler
+func NewAttachResourceHandler[R any](ctx context.Context, res R, h ResourceHandler[R]) Handler {
+	return &attachResourceHandler[R]{ctx: ctx, res: res, hdl: h}
 }
 
-// Fanout create new Handler that distribute output to all its handlers
-func Fanout(handlers ...Handler) Handler {
-	return fanoutHandler(handlers)
+type attachResourceHandler[R any] struct {
+	ctx context.Context
+	res R
+	hdl ResourceHandler[R]
 }
 
-type fanoutHandler []Handler
+func (h *attachResourceHandler[R]) Handle(s string) error {
+	return h.hdl.RHandle(h.ctx, h.res, s)
+}
 
-func (f fanoutHandler) Handle(ctx context.Context, s string) error {
-	errs := make([]error, len(f))
-	for i, h := range f {
-		errs[i] = h.Handle(ctx, s)
-	}
-	return errors.Join(errs...)
+// NewDetachResourceHandler return new ResourceHandler which detach (discard) resource and forward to Handler
+func NewDetachResourceHandler[R any](h Handler) ResourceHandler[R] {
+	return &detachResourceHandler[R]{hdl: h}
+}
+
+type detachResourceHandler[R any] struct {
+	hdl Handler
+}
+
+func (h *detachResourceHandler[R]) RHandle(_ context.Context, _ R, s string) error {
+	return h.hdl.Handle(s)
 }

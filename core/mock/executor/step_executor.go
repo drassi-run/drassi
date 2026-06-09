@@ -570,10 +570,10 @@ func (c *MockStepExecutorStepSpecCall) DoAndReturn(f func() *executor.StepSpec) 
 }
 
 // Streams mocks base method.
-func (m *MockStepExecutor) Streams(ctx context.Context) stream.Streams {
+func (m *MockStepExecutor) Streams(ctx context.Context) *stream.Streams {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Streams", ctx)
-	ret0, _ := ret[0].(stream.Streams)
+	ret0, _ := ret[0].(*stream.Streams)
 	return ret0
 }
 
@@ -590,19 +590,19 @@ type MockStepExecutorStreamsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStepExecutorStreamsCall) Return(arg0 stream.Streams) *MockStepExecutorStreamsCall {
+func (c *MockStepExecutorStreamsCall) Return(arg0 *stream.Streams) *MockStepExecutorStreamsCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStepExecutorStreamsCall) Do(f func(context.Context) stream.Streams) *MockStepExecutorStreamsCall {
+func (c *MockStepExecutorStreamsCall) Do(f func(context.Context) *stream.Streams) *MockStepExecutorStreamsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStepExecutorStreamsCall) DoAndReturn(f func(context.Context) stream.Streams) *MockStepExecutorStreamsCall {
+func (c *MockStepExecutorStreamsCall) DoAndReturn(f func(context.Context) *stream.Streams) *MockStepExecutorStreamsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -641,68 +641,6 @@ func (c *MockStepExecutorSystemEnvCall) Do(f func() map[string]string) *MockStep
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStepExecutorSystemEnvCall) DoAndReturn(f func() map[string]string) *MockStepExecutorSystemEnvCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// MockStepRunDecorator is a mock of StepRunDecorator interface.
-type MockStepRunDecorator struct {
-	ctrl     *gomock.Controller
-	recorder *MockStepRunDecoratorMockRecorder
-	isgomock struct{}
-}
-
-// MockStepRunDecoratorMockRecorder is the mock recorder for MockStepRunDecorator.
-type MockStepRunDecoratorMockRecorder struct {
-	mock *MockStepRunDecorator
-}
-
-// NewMockStepRunDecorator creates a new mock instance.
-func NewMockStepRunDecorator(ctrl *gomock.Controller) *MockStepRunDecorator {
-	mock := &MockStepRunDecorator{ctrl: ctrl}
-	mock.recorder = &MockStepRunDecoratorMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockStepRunDecorator) EXPECT() *MockStepRunDecoratorMockRecorder {
-	return m.recorder
-}
-
-// DecorateStepRun mocks base method.
-func (m *MockStepRunDecorator) DecorateStepRun(arg0 *executor.StepTask) executor.StepRun {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DecorateStepRun", arg0)
-	ret0, _ := ret[0].(executor.StepRun)
-	return ret0
-}
-
-// DecorateStepRun indicates an expected call of DecorateStepRun.
-func (mr *MockStepRunDecoratorMockRecorder) DecorateStepRun(arg0 any) *MockStepRunDecoratorDecorateStepRunCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DecorateStepRun", reflect.TypeOf((*MockStepRunDecorator)(nil).DecorateStepRun), arg0)
-	return &MockStepRunDecoratorDecorateStepRunCall{Call: call}
-}
-
-// MockStepRunDecoratorDecorateStepRunCall wrap *gomock.Call
-type MockStepRunDecoratorDecorateStepRunCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStepRunDecoratorDecorateStepRunCall) Return(arg0 executor.StepRun) *MockStepRunDecoratorDecorateStepRunCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStepRunDecoratorDecorateStepRunCall) Do(f func(*executor.StepTask) executor.StepRun) *MockStepRunDecoratorDecorateStepRunCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStepRunDecoratorDecorateStepRunCall) DoAndReturn(f func(*executor.StepTask) executor.StepRun) *MockStepRunDecoratorDecorateStepRunCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
