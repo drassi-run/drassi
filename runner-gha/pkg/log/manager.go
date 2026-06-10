@@ -7,7 +7,6 @@
 package log
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"sync"
@@ -65,7 +64,7 @@ func (m *Manager) Subscribe() <-chan *Event {
 	return ch
 }
 
-func (m *Manager) Handle(_ context.Context, line string) error {
+func (m *Manager) Handle(line string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

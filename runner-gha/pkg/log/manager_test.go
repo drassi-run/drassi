@@ -94,7 +94,7 @@ func (s *ManagerTestSuite) TestHandle_Write() {
 
 	// write log "hello"
 	line := "hello"
-	err = s.m.Handle(t.Context(), line)
+	err = s.m.Handle(line)
 	require.NoError(t, err)
 	assert.EqualValues(t, 1, s.m.currLines)
 	size := len(line) + 1
@@ -107,7 +107,7 @@ func (s *ManagerTestSuite) TestHandle_Write() {
 
 	// write log "world"
 	line = "world"
-	err = s.m.Handle(t.Context(), line)
+	err = s.m.Handle(line)
 	require.NoError(t, err)
 	assert.EqualValues(t, 2, s.m.currLines)
 	size += len(line) + 1
@@ -127,14 +127,14 @@ func (s *ManagerTestSuite) TestHandle_Rotation() {
 	// Write first 2 lines - should NOT trigger rotation yet
 	line := strings.Repeat("x", 10) // 10 bytes + 1 newline = 11 bytes
 	for range 2 {                   // 2 lines = 22 bytes
-		err = s.m.Handle(t.Context(), line)
+		err = s.m.Handle(line)
 		require.NoError(t, err)
 		assert.Equal(t, 0, s.m.idx)
 		assert.NotNil(t, s.m.f)
 	}
 
 	// 3rd line -> trigger rotate
-	err = s.m.Handle(t.Context(), line)
+	err = s.m.Handle(line)
 	require.NoError(t, err)
 	assert.Equal(t, 1, s.m.idx)
 	assert.Nil(t, s.m.f)
@@ -142,7 +142,7 @@ func (s *ManagerTestSuite) TestHandle_Rotation() {
 	assert.EqualValues(t, 0, s.m.currSize)
 
 	// 4th line -> in next file
-	err = s.m.Handle(t.Context(), line)
+	err = s.m.Handle(line)
 	require.NoError(t, err)
 	assert.Equal(t, 1, s.m.idx)
 	assert.NotNil(t, s.m.f)
@@ -174,7 +174,7 @@ func (s *ManagerTestSuite) TestSubscribe() {
 
 		// 1st OnRecordLog
 		line := strings.Repeat("x", 15)
-		err = s.m.Handle(t.Context(), line)
+		err = s.m.Handle(line)
 		require.NoError(t, err)
 
 		size := len(line) + 1
@@ -191,7 +191,7 @@ func (s *ManagerTestSuite) TestSubscribe() {
 		}
 
 		// 2nd OnRecordLog - file size reach limit => rotate
-		err = s.m.Handle(t.Context(), line)
+		err = s.m.Handle(line)
 		require.NoError(t, err)
 
 		size += len(line) + 1
@@ -232,7 +232,7 @@ func (s *ManagerTestSuite) TestSubscribe() {
 
 		// 3rd OnRecordLog - write in 2nd file
 		line := strings.Repeat("z", 20)
-		err := s.m.Handle(t.Context(), line)
+		err := s.m.Handle(line)
 		require.NoError(t, err)
 
 		size := len(line) + 1
