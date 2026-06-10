@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"drassi.run/core/pkg/executor"
+	"drassi.run/core/pkg/executor/command/cmdtypes"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/model/workflows"
 	"github.com/google/uuid"
@@ -122,6 +123,12 @@ func (m *Manager) DecorateStepRun(task *executor.StepTask) executor.StepRun {
 		m.push(r)
 		return rec, err
 	}
+}
+
+func (m *Manager) AddIssue(stage executor.Stage, stepUid string, iss *cmdtypes.Issue) {
+	uid := m.RecordUid(stage, stepUid)
+	r := m.records[uid]
+	r.Issues = append(r.Issues, iss)
 }
 
 func (m *Manager) newRecord(uid string, obj any) *Record {
