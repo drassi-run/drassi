@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"drassi.run/core/pkg/executor/evaluator"
 	"drassi.run/core/pkg/expression"
+	"drassi.run/core/pkg/expression/evaluator"
 	"drassi.run/core/pkg/expression/libraries"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/sandboxer"

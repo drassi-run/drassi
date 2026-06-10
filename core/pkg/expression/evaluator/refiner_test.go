@@ -7,10 +7,11 @@
 package evaluator
 
 import (
+	"testing"
+
 	"drassi.run/core/pkg/expression/ast"
 	"drassi.run/core/pkg/expression/ast/operators"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 var r = new(refiner)

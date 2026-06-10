@@ -7,11 +7,12 @@
 package evaluator
 
 import (
+	"iter"
+	"testing"
+
 	"drassi.run/core/pkg/model"
 	. "drassi.run/core/pkg/model/workflows"
 	"github.com/stretchr/testify/assert"
-	"iter"
-	"testing"
 )
 
 type Tuple2[T1, T2 any] struct {

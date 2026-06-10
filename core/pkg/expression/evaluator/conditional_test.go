@@ -7,12 +7,13 @@
 package evaluator
 
 import (
+	"testing"
+
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/expression/libraries"
 	"drassi.run/core/pkg/model/records"
 	. "drassi.run/core/pkg/model/workflows"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 var (

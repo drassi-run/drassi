@@ -7,10 +7,11 @@
 package evaluator
 
 import (
-	. "drassi.run/core/pkg/model/workflows"
-	"github.com/stretchr/testify/assert"
 	"math"
 	"testing"
+
+	. "drassi.run/core/pkg/model/workflows"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestUnravel(t *testing.T) {
