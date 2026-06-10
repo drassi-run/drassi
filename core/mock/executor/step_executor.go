@@ -570,17 +570,17 @@ func (c *MockStepExecutorStepSpecCall) DoAndReturn(f func() *executor.StepSpec) 
 }
 
 // Streams mocks base method.
-func (m *MockStepExecutor) Streams(ctx context.Context) *stream.Streams {
+func (m *MockStepExecutor) Streams(ctx context.Context, stage executor.Stage) *stream.Streams {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Streams", ctx)
+	ret := m.ctrl.Call(m, "Streams", ctx, stage)
 	ret0, _ := ret[0].(*stream.Streams)
 	return ret0
 }
 
 // Streams indicates an expected call of Streams.
-func (mr *MockStepExecutorMockRecorder) Streams(ctx any) *MockStepExecutorStreamsCall {
+func (mr *MockStepExecutorMockRecorder) Streams(ctx, stage any) *MockStepExecutorStreamsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Streams", reflect.TypeOf((*MockStepExecutor)(nil).Streams), ctx)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Streams", reflect.TypeOf((*MockStepExecutor)(nil).Streams), ctx, stage)
 	return &MockStepExecutorStreamsCall{Call: call}
 }
 
@@ -596,13 +596,13 @@ func (c *MockStepExecutorStreamsCall) Return(arg0 *stream.Streams) *MockStepExec
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStepExecutorStreamsCall) Do(f func(context.Context) *stream.Streams) *MockStepExecutorStreamsCall {
+func (c *MockStepExecutorStreamsCall) Do(f func(context.Context, executor.Stage) *stream.Streams) *MockStepExecutorStreamsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStepExecutorStreamsCall) DoAndReturn(f func(context.Context) *stream.Streams) *MockStepExecutorStreamsCall {
+func (c *MockStepExecutorStreamsCall) DoAndReturn(f func(context.Context, executor.Stage) *stream.Streams) *MockStepExecutorStreamsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

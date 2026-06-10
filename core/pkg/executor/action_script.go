@@ -134,7 +134,7 @@ func (e *scriptActionExecutor) executeMain(ctx context.Context) error {
 
 	env := composeEnv(e.sExec)
 	paths := e.sExec.JobExecutor().SystemPaths()
-	streams := e.sExec.Streams(ctx)
+	streams := e.sExec.Streams(ctx, StageMain)
 	defer streams.Close()
 	return sandbox.Execute(ctx, cmd, paths, env, workdir, streams)
 }

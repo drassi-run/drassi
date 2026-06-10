@@ -20,6 +20,6 @@ func NewCommandEnvProvider(fileMgr cmd.FileManager[exec.Milieu]) exec.EnvProvide
 }
 
 func (c *commandEnvProvider) Env(e exec.StepExecutor) map[string]string {
-	res := exec.NewMilieu(e)
+	res := exec.NewMilieu("", e)
 	return c.fileMgr.Env(res)
 }

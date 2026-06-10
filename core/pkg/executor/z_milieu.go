@@ -12,7 +12,8 @@ import (
 )
 
 type Milieu interface {
-	StepExecutor() StepExecutor
+	Stage() Stage
+	StepSpec() *StepSpec
 
 	AddPath(paths []string)
 	SetEnv(env map[string]string)
@@ -24,16 +25,21 @@ type Milieu interface {
 	//PathTranslator() runtime.PathTranslator
 }
 
-func NewMilieu(exec StepExecutor) Milieu {
-	return &milieu{exec: exec}
+func NewMilieu(stage Stage, exec StepExecutor) Milieu {
+	return &milieu{stage: stage, exec: exec}
 }
 
 type milieu struct {
-	exec StepExecutor
+	stage Stage
+	exec  StepExecutor
 }
 
-func (s *milieu) StepExecutor() StepExecutor {
-	return s.exec
+func (s *milieu) Stage() Stage {
+	return s.stage
+}
+
+func (s *milieu) StepSpec() *StepSpec {
+	return s.exec.StepSpec()
 }
 
 func (s *milieu) AddPath(paths []string) {
@@ -57,7 +63,7 @@ func (s *milieu) SaveState(state map[string]string) {
 }
 
 func (s *milieu) CommandFile(cmd string) string {
-	return cmd + "_" + s.exec.StepSpec().Uid
+	return cmd + "_" + s.StepSpec().Uid
 }
 
 func (s *milieu) PathTranslator() runtime.PathTranslator {

@@ -121,7 +121,7 @@ func (e *nodeActionExecutor) execute(stage Stage) ActionRun {
 		}
 
 		paths := e.sExec.JobExecutor().SystemPaths()
-		streams := e.sExec.Streams(ctx)
+		streams := e.sExec.Streams(ctx, stage)
 		defer streams.Close()
 		return sandbox.Execute(ctx, cmd, paths, env, "", streams)
 	}

@@ -23,7 +23,7 @@ func NewCommandDecorator(fileMgr cmd.FileManager[exec.Milieu]) exec.ActionRunDec
 
 func (c *commandDecorator) DecorateActionRun(task *exec.ActionTask) exec.ActionRun {
 	run := task.Run
-	res := exec.NewMilieu(task.Executor.StepExecutor())
+	res := exec.NewMilieu(task.Stage, task.Executor.StepExecutor())
 	return func(ctx context.Context) error {
 		if err := c.fileMgr.Initialize(ctx, res); err != nil {
 			return err

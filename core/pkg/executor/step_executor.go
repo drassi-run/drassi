@@ -36,7 +36,7 @@ type StepExecutor interface {
 
 	ExprEnv() expression.Env
 	Sandbox() sandboxer.Sandbox
-	Streams(ctx context.Context) *stream.Streams
+	Streams(ctx context.Context, stage Stage) *stream.Streams
 
 	Status() records.Result // inherit libraries.StatusProvider
 	SetStatus(status records.Result)
@@ -355,8 +355,8 @@ func (e *stepExecutor) Sandbox() sandboxer.Sandbox {
 	return e.jExec.Sandbox()
 }
 
-func (e *stepExecutor) Streams(ctx context.Context) *stream.Streams {
-	s := NewMilieu(e)
+func (e *stepExecutor) Streams(ctx context.Context, stage Stage) *stream.Streams {
+	s := NewMilieu(stage, e)
 	return e.factory.Create(ctx, s)
 }
 
