@@ -226,7 +226,7 @@ var setEnvBlockList = sets.New("NODE_OPTIONS")
 // ConsoleSetEnv create [command.ConsoleHandler] that handle "set-env" command
 //
 //   - https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L234
-func ConsoleSetEnv[R SupportSetEnv](reporter issue.Reporter) *command.ConsoleHandler[R] {
+func ConsoleSetEnv[R SupportSetEnv](reporter issue.Reporter[R]) *command.ConsoleHandler[R] {
 	run := func(ctx context.Context, res R, cmd *command.Command) error {
 		name, ok := cmd.Params["name"]
 		if !ok || name == "" {
@@ -238,7 +238,7 @@ func ConsoleSetEnv[R SupportSetEnv](reporter issue.Reporter) *command.ConsoleHan
 				Type:    issue.TypeError,
 				Message: fmt.Sprintf("Can't update %q environment variable using ::%s:: command.", name, cmd.Name),
 			}
-			if err := reporter.AddIssue(ctx, iss); err != nil {
+			if err := reporter.AddIssue(ctx, res, iss); err != nil {
 				return err
 			}
 		}

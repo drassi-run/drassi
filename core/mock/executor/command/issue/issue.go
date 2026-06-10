@@ -18,63 +18,63 @@ import (
 )
 
 // MockReporter is a mock of Reporter interface.
-type MockReporter struct {
+type MockReporter[R any] struct {
 	ctrl     *gomock.Controller
-	recorder *MockReporterMockRecorder
+	recorder *MockReporterMockRecorder[R]
 	isgomock struct{}
 }
 
 // MockReporterMockRecorder is the mock recorder for MockReporter.
-type MockReporterMockRecorder struct {
-	mock *MockReporter
+type MockReporterMockRecorder[R any] struct {
+	mock *MockReporter[R]
 }
 
 // NewMockReporter creates a new mock instance.
-func NewMockReporter(ctrl *gomock.Controller) *MockReporter {
-	mock := &MockReporter{ctrl: ctrl}
-	mock.recorder = &MockReporterMockRecorder{mock}
+func NewMockReporter[R any](ctrl *gomock.Controller) *MockReporter[R] {
+	mock := &MockReporter[R]{ctrl: ctrl}
+	mock.recorder = &MockReporterMockRecorder[R]{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockReporter) EXPECT() *MockReporterMockRecorder {
+func (m *MockReporter[R]) EXPECT() *MockReporterMockRecorder[R] {
 	return m.recorder
 }
 
 // AddIssue mocks base method.
-func (m *MockReporter) AddIssue(ctx context.Context, issue *issue.Issue) error {
+func (m *MockReporter[R]) AddIssue(ctx context.Context, res R, issue *issue.Issue) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddIssue", ctx, issue)
+	ret := m.ctrl.Call(m, "AddIssue", ctx, res, issue)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AddIssue indicates an expected call of AddIssue.
-func (mr *MockReporterMockRecorder) AddIssue(ctx, issue any) *MockReporterAddIssueCall {
+func (mr *MockReporterMockRecorder[R]) AddIssue(ctx, res, issue any) *MockReporterAddIssueCall[R] {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddIssue", reflect.TypeOf((*MockReporter)(nil).AddIssue), ctx, issue)
-	return &MockReporterAddIssueCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddIssue", reflect.TypeOf((*MockReporter[R])(nil).AddIssue), ctx, res, issue)
+	return &MockReporterAddIssueCall[R]{Call: call}
 }
 
 // MockReporterAddIssueCall wrap *gomock.Call
-type MockReporterAddIssueCall struct {
+type MockReporterAddIssueCall[R any] struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockReporterAddIssueCall) Return(arg0 error) *MockReporterAddIssueCall {
+func (c *MockReporterAddIssueCall[R]) Return(arg0 error) *MockReporterAddIssueCall[R] {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockReporterAddIssueCall) Do(f func(context.Context, *issue.Issue) error) *MockReporterAddIssueCall {
+func (c *MockReporterAddIssueCall[R]) Do(f func(context.Context, R, *issue.Issue) error) *MockReporterAddIssueCall[R] {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockReporterAddIssueCall) DoAndReturn(f func(context.Context, *issue.Issue) error) *MockReporterAddIssueCall {
+func (c *MockReporterAddIssueCall[R]) DoAndReturn(f func(context.Context, R, *issue.Issue) error) *MockReporterAddIssueCall[R] {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

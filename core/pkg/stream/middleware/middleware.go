@@ -48,7 +48,7 @@ func (mw *commandProcessor[R]) RHandle(ctx context.Context, res R, line string) 
 	return nil
 }
 
-func ScanProblem[R any](pm map[string]problem.Matcher, reporter issue.Reporter) Middleware[R] {
+func ScanProblem[R any](pm map[string]problem.Matcher, reporter issue.Reporter[R]) Middleware[R] {
 	return func(handler stream.ResourceHandler[R]) stream.ResourceHandler[R] {
 		return &problemScanner[R]{
 			handler:  handler,
@@ -61,21 +61,24 @@ func ScanProblem[R any](pm map[string]problem.Matcher, reporter issue.Reporter) 
 type problemScanner[R any] struct {
 	handler  stream.ResourceHandler[R]
 	matcher  map[string]problem.Matcher
-	reporter issue.Reporter
+	reporter issue.Reporter[R]
 }
 
-func (mw *problemScanner[R]) RHandle(ctx context.Context, res R, line string) error {
-	err1 := mw.scan(ctx, line)
+func (mw *problemScanner[R]) RHandle(ctx context.Context, res R, line string) (err error) {
+	pbl := mw.scan(line)
+	if pbl != nil {
+		err = mw.report(ctx, res, pbl)
+	}
+
 	err2 := mw.handler.RHandle(ctx, res, line)
-	return errors.Join(err1, err2)
+	return errors.Join(err, err2)
 }
 
 // https://en.wikipedia.org/wiki/ANSI_escape_code
 var colorCodeRegex = regexp.MustCompile(`\033\[[\d;]*m`)
 
-func (mw *problemScanner[R]) scan(ctx context.Context, line string) error {
+func (mw *problemScanner[R]) scan(line string) (pbl *problem.Problem) {
 	var owner string
-	var pbl *problem.Problem
 
 	line = colorCodeRegex.ReplaceAllLiteralString(line, "")
 	for o, m := range mw.matcher {
@@ -87,25 +90,26 @@ func (mw *problemScanner[R]) scan(ctx context.Context, line string) error {
 
 	// Not matched
 	if pbl == nil {
-		return nil
+		return
 	}
 
-	// Matched
-	// 1. Reset other matchers
+	// Matched - then reset other matchers
 	for o, m := range mw.matcher {
 		if o != owner {
 			m.Reset()
 		}
 	}
 
-	// 2. convert Problem to Issue
-	issue, err := mw.toIssuer(pbl)
+	return
+}
+
+func (mw *problemScanner[R]) report(ctx context.Context, res R, pbl *problem.Problem) error {
+	iss, err := mw.toIssuer(pbl)
 	if err != nil {
 		return err
 	}
 
-	// 3. Report the issue
-	return mw.reporter.AddIssue(ctx, issue)
+	return mw.reporter.AddIssue(ctx, res, iss)
 }
 
 const skippedIssueMsg = "skipped logging an issue for the matched line because of"

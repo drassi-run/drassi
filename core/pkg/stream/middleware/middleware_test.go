@@ -72,7 +72,7 @@ type ScanProblemTestSuite struct {
 	ctrl *gomock.Controller
 	pm1  *mock_problem.MockMatcher
 	pm2  *mock_problem.MockMatcher
-	rpt  *mock_issue.MockReporter
+	rpt  *mock_issue.MockReporter[string]
 	hdl  *mock_stream.MockResourceHandler[string]
 	ps   *problemScanner[string]
 	res  string
@@ -86,7 +86,7 @@ func (s *ScanProblemTestSuite) SetupTest() {
 		"first":  s.pm1,
 		"second": s.pm2,
 	}
-	s.rpt = mock_issue.NewMockReporter(s.ctrl)
+	s.rpt = mock_issue.NewMockReporter[string](s.ctrl)
 	s.res = "awesome-resource"
 	s.hdl = mock_stream.NewMockResourceHandler[string](s.ctrl)
 	s.hdl.EXPECT().RHandle(s.T().Context(), s.res, gomock.Any()).Return(nil)
@@ -122,7 +122,7 @@ func (s *ScanProblemTestSuite) TestMatchAndSuccess() {
 	s.pm1.EXPECT().Match(line).Return(nil).MinTimes(0).MaxTimes(1)
 	s.pm2.EXPECT().Match(line).Return(pbl)
 	s.pm1.EXPECT().Reset().Return() // reset other matchers
-	s.rpt.EXPECT().AddIssue(t.Context(), iss).Return(nil)
+	s.rpt.EXPECT().AddIssue(t.Context(), s.res, iss).Return(nil)
 
 	err := s.ps.RHandle(t.Context(), s.res, line)
 	assert.NoError(t, err)
@@ -158,7 +158,7 @@ func (s *ScanProblemTestSuite) TestReportError() {
 	s.pm1.EXPECT().Match(line).Return(pbl)
 	s.pm2.EXPECT().Match(line).Return(nil).MinTimes(0).MaxTimes(1)
 	s.pm2.EXPECT().Reset().Return()
-	s.rpt.EXPECT().AddIssue(t.Context(), iss).Return(ex)
+	s.rpt.EXPECT().AddIssue(t.Context(), s.res, iss).Return(ex)
 
 	err := s.ps.RHandle(t.Context(), s.res, line)
 	assert.ErrorIs(t, err, ex)

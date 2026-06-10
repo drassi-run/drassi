@@ -121,9 +121,6 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 	}
 
 	// Wire scope
-	if err := xdig.Supply(scope, issue.Discard); err != nil {
-		return err
-	}
 	if err := xdig.Supply[xcontext.Provider](scope, w); err != nil {
 		return err
 	}
@@ -147,6 +144,9 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 
 	log := reporter.NewLogStreamer(w.task.Id, w, client)
 	if err := xdig.Supply(scope, log); err != nil {
+		return err
+	}
+	if err := scope.Provide(issue.Discard[executor.Milieu]); err != nil {
 		return err
 	}
 	if err := scope.Provide(newScribeHandler); err != nil {

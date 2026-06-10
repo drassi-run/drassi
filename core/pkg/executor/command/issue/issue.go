@@ -26,12 +26,14 @@ type Issue struct {
 	Data     map[string]string `json:"data,omitempty" yaml:"data,omitempty"`
 }
 
-type Reporter interface {
-	AddIssue(ctx context.Context, issue *Issue) error
+type Reporter[R any] interface {
+	AddIssue(ctx context.Context, res R, issue *Issue) error
 }
 
-var Discard Reporter = discard{}
+func Discard[R any]() Reporter[R] {
+	return discard[R]{}
+}
 
-type discard struct{}
+type discard[R any] struct{}
 
-func (d discard) AddIssue(context.Context, *Issue) error { return nil }
+func (d discard[R]) AddIssue(context.Context, R, *Issue) error { return nil }
