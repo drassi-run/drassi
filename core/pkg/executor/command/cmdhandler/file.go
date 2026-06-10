@@ -12,7 +12,7 @@ import (
 	"io"
 
 	"drassi.run/core/pkg/executor/command"
-	"drassi.run/core/pkg/executor/support"
+	"drassi.run/core/pkg/executor/command/issue"
 	"drassi.run/core/pkg/scribe"
 )
 
@@ -38,7 +38,7 @@ func FileAddPath[R SupportAddPath]() *command.FileHandler[R] {
 // FileSetEnv create [command.FileHandler] that handle "GITHUB_ENV" command
 //
 //   - https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L132
-func FileSetEnv[R SupportSetEnv](tracker support.Tracker) *command.FileHandler[R] {
+func FileSetEnv[R SupportSetEnv](reporter issue.Reporter) *command.FileHandler[R] {
 	run := func(ctx context.Context, res R, r io.Reader) error {
 		env, err := parseEnvVars(r)
 		if err != nil {
@@ -48,11 +48,11 @@ func FileSetEnv[R SupportSetEnv](tracker support.Tracker) *command.FileHandler[R
 		s := scribe.FromContext(ctx)
 		for k, v := range env {
 			if setEnvBlockList.Has(k) {
-				iss := &support.Issue{
-					Type:    support.IssueTypeError,
+				iss := &issue.Issue{
+					Type:    issue.TypeError,
 					Message: fmt.Sprintf("Can't update %q environment variable using '$GITHUB_ENV' command.", k),
 				}
-				if err := tracker.AddIssue(ctx, iss); err != nil {
+				if err := reporter.AddIssue(ctx, iss); err != nil {
 					return err
 				}
 			} else {

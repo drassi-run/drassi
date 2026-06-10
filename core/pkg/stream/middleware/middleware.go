@@ -14,9 +14,9 @@ import (
 	"strings"
 
 	"drassi.run/core/pkg/executor/command"
+	"drassi.run/core/pkg/executor/command/issue"
 	"drassi.run/core/pkg/executor/problem"
 	"drassi.run/core/pkg/executor/secret"
-	"drassi.run/core/pkg/executor/support"
 	"drassi.run/core/pkg/stream"
 )
 
@@ -48,20 +48,20 @@ func (mw *commandProcessor[R]) RHandle(ctx context.Context, res R, line string) 
 	return nil
 }
 
-func ScanProblem[R any](pm map[string]problem.Matcher, tracker support.Tracker) Middleware[R] {
+func ScanProblem[R any](pm map[string]problem.Matcher, reporter issue.Reporter) Middleware[R] {
 	return func(handler stream.ResourceHandler[R]) stream.ResourceHandler[R] {
 		return &problemScanner[R]{
-			handler: handler,
-			matcher: pm,
-			tracker: tracker,
+			handler:  handler,
+			matcher:  pm,
+			reporter: reporter,
 		}
 	}
 }
 
 type problemScanner[R any] struct {
-	handler stream.ResourceHandler[R]
-	matcher map[string]problem.Matcher
-	tracker support.Tracker
+	handler  stream.ResourceHandler[R]
+	matcher  map[string]problem.Matcher
+	reporter issue.Reporter
 }
 
 func (mw *problemScanner[R]) RHandle(ctx context.Context, res R, line string) error {
@@ -105,7 +105,7 @@ func (mw *problemScanner[R]) scan(ctx context.Context, line string) error {
 	}
 
 	// 3. Report the issue
-	return mw.tracker.AddIssue(ctx, issue)
+	return mw.reporter.AddIssue(ctx, issue)
 }
 
 const skippedIssueMsg = "skipped logging an issue for the matched line because of"
@@ -113,22 +113,22 @@ const skippedIssueMsg = "skipped logging an issue for the matched line because o
 var numberRegex = regexp.MustCompile(`^[+\-]?\d+$`)
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/Handlers/OutputManager.cs#L200
-func (mw *problemScanner[R]) toIssuer(pbl *problem.Problem) (*support.Issue, error) {
+func (mw *problemScanner[R]) toIssuer(pbl *problem.Problem) (*issue.Issue, error) {
 	if pbl.Message == "" {
 		return nil, fmt.Errorf("%s empty message", skippedIssueMsg)
 	}
-	iss := &support.Issue{
+	iss := &issue.Issue{
 		Message: pbl.Message,
 		Data:    make(map[string]string),
 	}
 
 	switch strings.ToUpper(pbl.Severity) {
 	case "", "ERROR":
-		iss.Type = support.IssueTypeError
+		iss.Type = issue.TypeError
 	case "WARNING":
-		iss.Type = support.IssueTypeWarning
+		iss.Type = issue.TypeWarning
 	case "NOTICE":
-		iss.Type = support.IssueTypeNotice
+		iss.Type = issue.TypeNotice
 	default:
 		return nil, fmt.Errorf("%s unknown severity %q", skippedIssueMsg, pbl.Severity)
 	}

@@ -11,9 +11,9 @@ import (
 	"testing"
 
 	mock_command "drassi.run/core/mock/executor/command"
+	mock_issue "drassi.run/core/mock/executor/command/issue"
 	mock_problem "drassi.run/core/mock/executor/problem"
 	mock_secret "drassi.run/core/mock/executor/secret"
-	mock_support "drassi.run/core/mock/executor/support"
 	mock_stream "drassi.run/core/mock/stream"
 	"drassi.run/core/pkg/executor/command"
 	"drassi.run/core/pkg/executor/problem"
@@ -72,7 +72,7 @@ type ScanProblemTestSuite struct {
 	ctrl *gomock.Controller
 	pm1  *mock_problem.MockMatcher
 	pm2  *mock_problem.MockMatcher
-	trk  *mock_support.MockTracker
+	rpt  *mock_issue.MockReporter
 	hdl  *mock_stream.MockResourceHandler[string]
 	ps   *problemScanner[string]
 	res  string
@@ -86,11 +86,11 @@ func (s *ScanProblemTestSuite) SetupTest() {
 		"first":  s.pm1,
 		"second": s.pm2,
 	}
-	s.trk = mock_support.NewMockTracker(s.ctrl)
+	s.rpt = mock_issue.NewMockReporter(s.ctrl)
 	s.res = "awesome-resource"
 	s.hdl = mock_stream.NewMockResourceHandler[string](s.ctrl)
 	s.hdl.EXPECT().RHandle(s.T().Context(), s.res, gomock.Any()).Return(nil)
-	s.ps = ScanProblem[string](pm, s.trk)(s.hdl).(*problemScanner[string])
+	s.ps = ScanProblem[string](pm, s.rpt)(s.hdl).(*problemScanner[string])
 }
 
 func (s *ScanProblemTestSuite) TearDownTest() {
@@ -122,7 +122,7 @@ func (s *ScanProblemTestSuite) TestMatchAndSuccess() {
 	s.pm1.EXPECT().Match(line).Return(nil).MinTimes(0).MaxTimes(1)
 	s.pm2.EXPECT().Match(line).Return(pbl)
 	s.pm1.EXPECT().Reset().Return() // reset other matchers
-	s.trk.EXPECT().AddIssue(t.Context(), iss).Return(nil)
+	s.rpt.EXPECT().AddIssue(t.Context(), iss).Return(nil)
 
 	err := s.ps.RHandle(t.Context(), s.res, line)
 	assert.NoError(t, err)
@@ -158,7 +158,7 @@ func (s *ScanProblemTestSuite) TestReportError() {
 	s.pm1.EXPECT().Match(line).Return(pbl)
 	s.pm2.EXPECT().Match(line).Return(nil).MinTimes(0).MaxTimes(1)
 	s.pm2.EXPECT().Reset().Return()
-	s.trk.EXPECT().AddIssue(t.Context(), iss).Return(ex)
+	s.rpt.EXPECT().AddIssue(t.Context(), iss).Return(ex)
 
 	err := s.ps.RHandle(t.Context(), s.res, line)
 	assert.ErrorIs(t, err, ex)

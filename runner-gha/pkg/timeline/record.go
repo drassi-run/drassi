@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"drassi.run/core/pkg/executor"
-	"drassi.run/core/pkg/executor/support"
+	"drassi.run/core/pkg/executor/command/issue"
 	"drassi.run/core/pkg/model/records"
 )
 
@@ -27,7 +27,7 @@ type Record struct {
 	Result      Result
 	StartedAt   *time.Time
 	CompletedAt *time.Time
-	Issues      []*support.Issue
+	Issues      []*issue.Issue
 }
 
 // Result equals to TaskResult in C# of GitHub actions/runner

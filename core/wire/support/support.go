@@ -32,7 +32,7 @@ func Wire(scope *dig.Scope) error {
 		return err
 	}
 
-	return scope.Provide(NewTracker)
+	return nil
 }
 
 func provideTelemetry(scope *dig.Scope) error {

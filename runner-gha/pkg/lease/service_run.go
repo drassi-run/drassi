@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"drassi.run/core/pkg/executor"
-	"drassi.run/core/pkg/executor/support"
+	"drassi.run/core/pkg/executor/command/issue"
 	"drassi.run/core/util/http"
 	"drassi.run/gha-runner/pkg/messages"
 	"drassi.run/gha-runner/pkg/timeline"
@@ -178,10 +178,10 @@ func (l *runLease) convertOutputs(m map[string]string) map[string]messages.Varia
 	return res
 }
 
-func (l *runLease) toAnnotations(issues []*support.Issue) []*Annotation {
+func (l *runLease) toAnnotations(issues []*issue.Issue) []*Annotation {
 	annotations := make([]*Annotation, 0, len(issues))
-	for _, issue := range issues {
-		if anno := l.toAnnotation(issue); anno != nil {
+	for _, iss := range issues {
+		if anno := l.toAnnotation(iss); anno != nil {
 			annotations = append(annotations, anno)
 		}
 	}
@@ -189,12 +189,12 @@ func (l *runLease) toAnnotations(issues []*support.Issue) []*Annotation {
 }
 
 // https://github.com/actions/runner/blob/v2.324.0/src/Sdk/RSWebApi/Contracts/IssueExtensions.cs#L7
-func (l *runLease) toAnnotation(issue *support.Issue) *Annotation {
+func (l *runLease) toAnnotation(iss *issue.Issue) *Annotation {
 	var msg string
-	if m := issue.Message; m != "" {
+	if m := iss.Message; m != "" {
 		msg = m
 	} else {
-		msg = issue.Data["message"]
+		msg = iss.Data["message"]
 	}
 	if msg = strings.TrimSpace(msg); msg == "" {
 		return nil
@@ -202,41 +202,41 @@ func (l *runLease) toAnnotation(issue *support.Issue) *Annotation {
 
 	a := &Annotation{
 		Message: msg,
-		Level:   ToAnnotationLevel(issue.Type),
+		Level:   ToAnnotationLevel(iss.Type),
 	}
 
-	if file := issue.Data["file"]; file != "" {
+	if file := iss.Data["file"]; file != "" {
 		a.Path = file
 	}
-	if title := issue.Data["title"]; title != "" {
+	if title := iss.Data["title"]; title != "" {
 		a.Title = title
 	}
-	if s := issue.Data["line"]; s != "" {
+	if s := iss.Data["line"]; s != "" {
 		if i, err := strconv.ParseInt(s, 10, 64); err == nil {
 			a.StartLine = i
 		}
 	}
-	if s := issue.Data["endLine"]; s != "" {
+	if s := iss.Data["endLine"]; s != "" {
 		if i, err := strconv.ParseInt(s, 10, 64); err == nil {
 			a.EndLine = i
 		}
 	}
-	if s := issue.Data["col"]; s != "" {
+	if s := iss.Data["col"]; s != "" {
 		if i, err := strconv.ParseInt(s, 10, 64); err == nil {
 			a.StartColumn = i
 		}
 	}
-	if s := issue.Data["endColumn"]; s != "" {
+	if s := iss.Data["endColumn"]; s != "" {
 		if i, err := strconv.ParseInt(s, 10, 64); err == nil {
 			a.EndColumn = i
 		}
 	}
-	if s := issue.Data["stepNumber"]; s != "" {
+	if s := iss.Data["stepNumber"]; s != "" {
 		if i, err := strconv.ParseInt(s, 10, 64); err == nil {
 			a.StepNumber = i
 		}
 	}
-	if s := issue.Data["logFileLineNumber"]; s != "" {
+	if s := iss.Data["logFileLineNumber"]; s != "" {
 		if i, err := strconv.ParseInt(s, 10, 64); err == nil && i != 0 {
 			if a.Path == "" && a.StartLine == 0 {
 				a.StartLine = i

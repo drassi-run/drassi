@@ -4,32 +4,34 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package support
+package issue
 
-import (
-	"context"
-	"io"
-)
+import "context"
 
 // https://github.com/actions/runner/blob/main/src/Sdk/DTWebApi/WebApi/Issue.cs
 // https://github.com/actions/runner/blob/main/src/Sdk/RSWebApi/Contracts/AnnotationLevel.cs
 // https://github.com/actions/runner/blob/main/src/Sdk/RSWebApi/Contracts/IssueExtensions.cs
-type IssueType int
+type Type int
 
 const (
-	IssueTypeError   IssueType = 1
-	IssueTypeWarning IssueType = 2
-	IssueTypeNotice  IssueType = 3
+	TypeError   Type = 1
+	TypeWarning Type = 2
+	TypeNotice  Type = 3
 )
 
 type Issue struct {
-	Type     IssueType         `json:"type,omitempty" yaml:"type,omitempty"`
+	Type     Type              `json:"type,omitempty" yaml:"type,omitempty"`
 	Category string            `json:"category,omitempty" yaml:"category,omitempty"`
 	Message  string            `json:"message,omitempty" yaml:"message,omitempty"`
 	Data     map[string]string `json:"data,omitempty" yaml:"data,omitempty"`
 }
 
-type Tracker interface {
+type Reporter interface {
 	AddIssue(ctx context.Context, issue *Issue) error
-	AttachFile(ctx context.Context, kind, name string, reader io.Reader) error
 }
+
+var Discard Reporter = discard{}
+
+type discard struct{}
+
+func (d discard) AddIssue(context.Context, *Issue) error { return nil }

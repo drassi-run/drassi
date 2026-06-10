@@ -15,9 +15,9 @@ import (
 	"strings"
 
 	"drassi.run/core/pkg/executor/command"
+	"drassi.run/core/pkg/executor/command/issue"
 	"drassi.run/core/pkg/executor/problem"
 	"drassi.run/core/pkg/executor/secret"
-	"drassi.run/core/pkg/executor/support"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/scribe"
 	"drassi.run/core/util/path"
@@ -226,7 +226,7 @@ var setEnvBlockList = sets.New("NODE_OPTIONS")
 // ConsoleSetEnv create [command.ConsoleHandler] that handle "set-env" command
 //
 //   - https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L234
-func ConsoleSetEnv[R SupportSetEnv](tracker support.Tracker) *command.ConsoleHandler[R] {
+func ConsoleSetEnv[R SupportSetEnv](reporter issue.Reporter) *command.ConsoleHandler[R] {
 	run := func(ctx context.Context, res R, cmd *command.Command) error {
 		name, ok := cmd.Params["name"]
 		if !ok || name == "" {
@@ -234,11 +234,11 @@ func ConsoleSetEnv[R SupportSetEnv](tracker support.Tracker) *command.ConsoleHan
 		}
 
 		if setEnvBlockList.Has(name) {
-			iss := &support.Issue{
-				Type:    support.IssueTypeError,
+			iss := &issue.Issue{
+				Type:    issue.TypeError,
 				Message: fmt.Sprintf("Can't update %q environment variable using ::%s:: command.", name, cmd.Name),
 			}
-			if err := tracker.AddIssue(ctx, iss); err != nil {
+			if err := reporter.AddIssue(ctx, iss); err != nil {
 				return err
 			}
 		}

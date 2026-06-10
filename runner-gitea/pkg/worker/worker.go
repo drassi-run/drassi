@@ -16,6 +16,7 @@ import (
 	runnerv1 "code.gitea.io/actions-proto-go/runner/v1"
 	"drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/executor"
+	"drassi.run/core/pkg/executor/command/issue"
 	"drassi.run/core/pkg/executor/problem"
 	"drassi.run/core/pkg/executor/runtime"
 	"drassi.run/core/pkg/executor/secret"
@@ -120,13 +121,16 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 	}
 
 	// Wire scope
+	if err := xdig.Supply(scope, issue.Discard); err != nil {
+		return err
+	}
 	if err := xdig.Supply[xcontext.Provider](scope, w); err != nil {
 		return err
 	}
 	if err := wire_command.ProvideTo(scope); err != nil {
 		return err
 	}
-	if err := wire_streams.ProvideTo(scope.Scope("internal(streams)")); err != nil {
+	if err := wire_streams.ProvideTo(scope); err != nil {
 		return err
 	}
 	if err := wire_support.Wire(scope); err != nil {
