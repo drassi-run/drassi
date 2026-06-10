@@ -8,16 +8,12 @@ package wire_support
 
 import (
 	exec "drassi.run/core/pkg/executor"
-	"drassi.run/core/pkg/executor/support"
 	xdig "drassi.run/core/util/dig"
 	"drassi.run/core/wire"
 	"go.uber.org/dig"
 )
 
 func Wire(scope *dig.Scope) error {
-	if err := provideTelemetry(scope); err != nil {
-		return err
-	}
 	if err := provideEnv(scope); err != nil {
 		return err
 	}
@@ -33,17 +29,6 @@ func Wire(scope *dig.Scope) error {
 	}
 
 	return nil
-}
-
-func provideTelemetry(scope *dig.Scope) error {
-	return scope.Provide(support.NewTelemetry,
-		dig.Name("telemetry"),
-		dig.As(
-			new(exec.JobRunDecorator),
-			new(exec.StepRunDecorator),
-			new(exec.ActionRunDecorator),
-		),
-	)
 }
 
 func provideEnv(scope *dig.Scope) error {

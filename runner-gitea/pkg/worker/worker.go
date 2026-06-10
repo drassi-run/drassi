@@ -299,41 +299,29 @@ func newResourceHandler[R any](log *reporter.LogStreamer) stream.ResourceHandler
 type jobRunDecoratorParam struct {
 	dig.In
 
-	Telemetry executor.JobRunDecorator `name:"telemetry"`
-	Reporter  executor.JobRunDecorator `name:"reporter"`
+	Reporter executor.JobRunDecorator `name:"reporter"`
 }
 
 func newJobRunDecorator(p jobRunDecoratorParam) executor.JobRunDecorator {
-	return executor.MultiJobRunDecorator{
-		p.Reporter,
-		p.Telemetry,
-	}
+	return p.Reporter
 }
 
 type stepRunDecoratorParam struct {
 	dig.In
 
-	Telemetry executor.StepRunDecorator `name:"telemetry"`
-	Reporter  executor.StepRunDecorator `name:"reporter"`
+	Reporter executor.StepRunDecorator `name:"reporter"`
 }
 
 func newStepRunDecorator(p stepRunDecoratorParam) executor.StepRunDecorator {
-	return executor.MultiStepRunDecorator{
-		p.Reporter,
-		p.Telemetry,
-	}
+	return p.Reporter
 }
 
 type actionRunDecoratorParam struct {
 	dig.In
 
-	Telemetry      executor.ActionRunDecorator `name:"telemetry"`
 	ConsoleCommand executor.ActionRunDecorator `name:"command"`
 }
 
 func newActionRunDecorator(p actionRunDecoratorParam) executor.ActionRunDecorator {
-	return executor.MultiActionRunDecorator{
-		p.ConsoleCommand,
-		p.Telemetry,
-	}
+	return p.ConsoleCommand
 }

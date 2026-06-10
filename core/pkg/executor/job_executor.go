@@ -405,6 +405,7 @@ func (e *jobExecutor) planStage(stage Stage) func(context.Context) error {
 		task := cExec.CreateTask(stage)
 		if task != nil {
 			task.Run = e.decorator.DecorateStepRun(task)
+			task.Run = e.telemetry(id, stage, task.Run)
 		}
 		tasks[i] = task
 	}
@@ -437,6 +438,18 @@ func (e *jobExecutor) planStage(stage Stage) func(context.Context) error {
 			}
 		}
 		return errors.Join(errs...)
+	}
+}
+
+func (e *jobExecutor) telemetry(stepId string, stage Stage, run StepRun) StepRun {
+	return func(ctx context.Context) (_ *records.Step, err error) {
+		ctx, done := xotel.SetupTelemetry(ctx,
+			fmt.Sprintf("StepRun(%s, %s)", stepId, stage),
+			xotel.DrassiStep(stepId), xotel.DrassiStage(stage),
+		)
+		defer done(&err)
+
+		return run(ctx)
 	}
 }
 

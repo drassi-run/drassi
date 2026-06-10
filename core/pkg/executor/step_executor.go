@@ -203,6 +203,7 @@ func (e *stepExecutor) CreateTask(stage Stage) *StepTask {
 		task.Condition = e.spec.Condition
 	}
 	task.Run = e.decorator.DecorateActionRun(task)
+	task.Run = e.telemetry(stage, task.Run)
 
 	run := func(ctx context.Context) (*records.Step, error) {
 		err := e.runAction(ctx, task)
@@ -222,6 +223,17 @@ func (e *stepExecutor) CreateTask(stage Stage) *StepTask {
 		Run:      run,
 		Stage:    stage,
 		Executor: e,
+	}
+}
+
+func (e *stepExecutor) telemetry(stage Stage, run ActionRun) ActionRun {
+	return func(ctx context.Context) (err error) {
+		ctx, done := xotel.SetupTelemetry(ctx,
+			fmt.Sprintf("ActionRun(%s, %s)", e.spec.Id, stage),
+		)
+		defer done(&err)
+
+		return run(ctx)
 	}
 }
 
