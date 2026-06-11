@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package subscriber
+package logsubscriber
 
 import (
 	"os"
@@ -14,7 +14,7 @@ import (
 	"time"
 
 	xcontext "drassi.run/core/util/context"
-	mock_types "drassi.run/gha-runner/mock/report/types"
+	mock_logtypes "drassi.run/gha-runner/mock/log/logtypes"
 	"drassi.run/gha-runner/pkg/log"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
@@ -27,14 +27,14 @@ func TestLiveFeedSubscriberSuite(t *testing.T) {
 type LiveFeedSubscriberTestSuite struct {
 	suite.Suite
 	ctrl   *gomock.Controller
-	app    *mock_types.MockAppender
+	app    *mock_logtypes.MockAppender
 	sub    *liveFeedSubscriber
 	tmpDir string
 }
 
 func (s *LiveFeedSubscriberTestSuite) SetupTest() {
 	s.ctrl = gomock.NewController(s.T())
-	s.app = mock_types.NewMockAppender(s.ctrl)
+	s.app = mock_logtypes.NewMockAppender(s.ctrl)
 	ctx := xcontext.NewStaticProvider(s.T().Context())
 	s.sub = NewLiveFeedSubscriber(ctx, s.app).(*liveFeedSubscriber)
 	s.tmpDir = s.T().TempDir()

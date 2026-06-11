@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package subscriber
+package logsubscriber
 
 import (
 	"os"
@@ -13,10 +13,10 @@ import (
 	"testing/synctest"
 
 	xcontext "drassi.run/core/util/context"
-	mock_report "drassi.run/gha-runner/mock/report"
-	mock_types "drassi.run/gha-runner/mock/report/types"
+	mock_logtypes "drassi.run/gha-runner/mock/log/logtypes"
+	mock_service "drassi.run/gha-runner/mock/service"
 	"drassi.run/gha-runner/pkg/log"
-	"drassi.run/gha-runner/pkg/report/types"
+	"drassi.run/gha-runner/pkg/log/logtypes"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
 )
@@ -28,7 +28,7 @@ func TestResultServiceStepLogsSubscriberSuite(t *testing.T) {
 type ResultServiceStepLogsSubscriberTestSuite struct {
 	suite.Suite
 	ctrl *gomock.Controller
-	svc  *mock_report.MockResultService
+	svc  *mock_service.MockResultService
 	sub  *resultServiceStepLogsSubscriber
 
 	tmpDir string
@@ -40,7 +40,7 @@ type ResultServiceStepLogsSubscriberTestSuite struct {
 func (s *ResultServiceStepLogsSubscriberTestSuite) SetupTest() {
 	s.ctrl = gomock.NewController(s.T())
 
-	s.svc = mock_report.NewMockResultService(s.ctrl)
+	s.svc = mock_service.NewMockResultService(s.ctrl)
 	ctx := xcontext.NewStaticProvider(s.T().Context())
 	s.sub = NewResultServiceStepLogsSubscriber(ctx, s.svc).(*resultServiceStepLogsSubscriber)
 	s.tmpDir = s.T().TempDir()
@@ -59,10 +59,10 @@ func (s *ResultServiceStepLogsSubscriberTestSuite) TestRun() {
 		content := "step log line\n"
 		logFile := s.tempFile("step.log", content)
 
-		c := mock_types.NewMockConveyor(s.ctrl)
+		c := mock_logtypes.NewMockConveyor(s.ctrl)
 		s.svc.EXPECT().StepLogsConveyor(uid).Return(c)
 		c.EXPECT().Run(gomock.Any()).
-			Return(types.NewStat(1, int64(len(content))), nil)
+			Return(logtypes.NewStat(1, int64(len(content))), nil)
 
 		ch := make(chan *log.Event)
 		go s.sub.Run(ch)
@@ -116,14 +116,14 @@ func (s *ResultServiceStepLogsSubscriberTestSuite) TestRun() {
 
 func (s *ResultServiceStepLogsSubscriberTestSuite) TestConveyorCaching() {
 	synctest.Test(s.T(), func(t *testing.T) {
-		c := mock_types.NewMockConveyor(s.ctrl)
+		c := mock_logtypes.NewMockConveyor(s.ctrl)
 		c.EXPECT().Run(gomock.Any()).
-			Return(new(types.Stat), nil).
+			Return(new(logtypes.Stat), nil).
 			AnyTimes()
 
 		callCount := 0
 		s.svc.EXPECT().StepLogsConveyor(gomock.Any()).
-			DoAndReturn(func(uid string) types.Conveyor {
+			DoAndReturn(func(uid string) logtypes.Conveyor {
 				callCount++
 				return c
 			}).AnyTimes()

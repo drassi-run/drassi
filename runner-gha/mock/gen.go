@@ -2,10 +2,10 @@
 
 //go:generate mockgen -source=../pkg/log/batcher.go -destination=log/batcher.go -typed
 //go:generate mockgen -source=../pkg/log/chunker.go -destination=log/chunker.go -typed
-//go:generate mockgen -source=../pkg/report/job_service.go -destination=report/job_service.go -typed
-//go:generate mockgen -source=../pkg/report/result_service.go -destination=report/result_service.go -typed
-//go:generate mockgen -source=../pkg/report/types/appender.go -destination=report/types/appender.go -typed
-//go:generate mockgen -source=../pkg/report/types/conveyor.go -destination=report/types/conveyor.go -typed
-//go:generate mockgen -source=../pkg/report/types/uploader.go -destination=report/types/uploader.go -typed
-//go:generate mockgen -source=../pkg/report/types/types.go -destination=report/types/types.go -typed
+//go:generate mockgen -source=../pkg/log/logtypes/types.go -destination=log/logtypes/types.go -typed
+//go:generate mockgen -source=../pkg/log/logtypes/appender.go -destination=log/logtypes/appender.go -typed
+//go:generate mockgen -source=../pkg/log/logtypes/conveyor.go -destination=log/logtypes/conveyor.go -typed
+//go:generate mockgen -source=../pkg/log/logtypes/uploader.go -destination=log/logtypes/uploader.go -typed
+//go:generate mockgen -source=../pkg/service/job.go -destination=service/job.go -typed
+//go:generate mockgen -source=../pkg/service/result.go -destination=service/result.go -typed
 package mock

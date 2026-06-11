@@ -7,12 +7,17 @@
 package timeline
 
 import (
+	"context"
 	"time"
 
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/executor/command/cmdtypes"
 	"drassi.run/core/pkg/model/records"
 )
+
+type Recorder interface {
+	Update(ctx context.Context, records ...*Record) error
+}
 
 type Record struct {
 	// UUID from step/job.
@@ -73,12 +78,13 @@ const (
 )
 
 type JobObject struct {
-	JobSpec        executor.JobSpec
+	JobSpec        *executor.JobSpec
 	Outputs        map[string]string
 	EnvironmentUrl string
 }
 
 type StepObject struct {
-	StepSpec executor.StepSpec
+	StepSpec *executor.StepSpec
+	Outputs  map[string]string
 	Stage    executor.Stage
 }

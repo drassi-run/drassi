@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package report
+package service
 
 import (
 	"encoding/json"
@@ -13,9 +13,9 @@ import (
 	"testing"
 	"time"
 
-	mock_types "drassi.run/gha-runner/mock/report/types"
+	"drassi.run/gha-runner/mock/log/logtypes"
+	"drassi.run/gha-runner/pkg/log/logtypes"
 	"drassi.run/gha-runner/pkg/messages"
-	"drassi.run/gha-runner/pkg/report/types"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
@@ -65,7 +65,7 @@ func (s *ResultServiceTestSuite) TestStepLogs_GetSignedUrl() {
 
 		resp := signedUrlStepLogsResponse{
 			Url:         "http://signed-url",
-			StorageType: types.StorageAzureBlob,
+			StorageType: logtypes.StorageAzureBlob,
 		}
 		writeJsonResponse(s.T(), w, &resp)
 	})
@@ -73,7 +73,7 @@ func (s *ResultServiceTestSuite) TestStepLogs_GetSignedUrl() {
 	resp, err := s.svc.getStepLogsSignedUrl(s.T().Context(), stepUid)
 	s.Require().NoError(err)
 	s.Equal("http://signed-url", resp.GetUrl())
-	s.Equal(types.StorageAzureBlob, resp.GetStorageType())
+	s.Equal(logtypes.StorageAzureBlob, resp.GetStorageType())
 }
 
 func (s *ResultServiceTestSuite) TestStepLogs_CreateMetadata() {
@@ -103,7 +103,7 @@ func (s *ResultServiceTestSuite) TestJobLogs_GetSignedUrl() {
 
 		resp := signedUrlJobLogsResponse{
 			Url:         "http://job-signed-url",
-			StorageType: types.StorageAzureBlob,
+			StorageType: logtypes.StorageAzureBlob,
 		}
 		writeJsonResponse(s.T(), w, &resp)
 	})
@@ -111,7 +111,7 @@ func (s *ResultServiceTestSuite) TestJobLogs_GetSignedUrl() {
 	resp, err := s.svc.getJobLogsSignedUrl(s.T().Context())
 	s.Require().NoError(err)
 	s.Equal("http://job-signed-url", resp.GetUrl())
-	s.Equal(types.StorageAzureBlob, resp.GetStorageType())
+	s.Equal(logtypes.StorageAzureBlob, resp.GetStorageType())
 }
 
 func (s *ResultServiceTestSuite) TestJobLogs_CreateMetadata() {
@@ -140,7 +140,7 @@ func (s *ResultServiceTestSuite) TestDiagnosticLogs_GetSignedUrl() {
 
 		resp := signedUrlDiagnosticLogsResponse{
 			Url:         "http://diag-signed-url",
-			StorageType: types.StorageAzureBlob,
+			StorageType: logtypes.StorageAzureBlob,
 		}
 		writeJsonResponse(s.T(), w, &resp)
 	})
@@ -148,7 +148,7 @@ func (s *ResultServiceTestSuite) TestDiagnosticLogs_GetSignedUrl() {
 	resp, err := s.svc.getDiagnosticLogsSignedUrl(s.T().Context())
 	s.Require().NoError(err)
 	s.Equal("http://diag-signed-url", resp.GetUrl())
-	s.Equal(types.StorageAzureBlob, resp.GetStorageType())
+	s.Equal(logtypes.StorageAzureBlob, resp.GetStorageType())
 }
 
 func (s *ResultServiceTestSuite) TestStepSummary_GetSignedUrl() {
@@ -162,7 +162,7 @@ func (s *ResultServiceTestSuite) TestStepSummary_GetSignedUrl() {
 
 		resp := signedUrlStepSummaryResponse{
 			Url:         "http://summary-signed-url",
-			StorageType: types.StorageAzureBlob,
+			StorageType: logtypes.StorageAzureBlob,
 		}
 		writeJsonResponse(s.T(), w, &resp)
 	})
@@ -170,7 +170,7 @@ func (s *ResultServiceTestSuite) TestStepSummary_GetSignedUrl() {
 	resp, err := s.svc.getStepSummarySignedUrl(s.T().Context(), stepUid)
 	s.Require().NoError(err)
 	s.Equal("http://summary-signed-url", resp.GetUrl())
-	s.Equal(types.StorageAzureBlob, resp.GetStorageType())
+	s.Equal(logtypes.StorageAzureBlob, resp.GetStorageType())
 }
 
 func (s *ResultServiceTestSuite) TestStepSummary_CreateMetadata() {
@@ -193,8 +193,8 @@ func (s *ResultServiceTestSuite) TestStepSummary_CreateMetadata() {
 
 func (s *ResultServiceTestSuite) TestResultStepLogsConveyor_Run() {
 	ctx := s.T().Context()
-	mockConv := mock_types.NewMockConveyor(s.ctrl)
-	stat := types.NewStat(10, 100)
+	mockConv := mock_logtypes.NewMockConveyor(s.ctrl)
+	stat := logtypes.NewStat(10, 100)
 	mockConv.EXPECT().Run(ctx).Return(stat, nil)
 
 	receivedMetadata := false
@@ -217,8 +217,8 @@ func (s *ResultServiceTestSuite) TestResultStepLogsConveyor_Run() {
 
 func (s *ResultServiceTestSuite) TestResultJobLogsConveyor_Run() {
 	ctx := s.T().Context()
-	mockConv := mock_types.NewMockConveyor(s.ctrl)
-	stat := types.NewStat(50, 500)
+	mockConv := mock_logtypes.NewMockConveyor(s.ctrl)
+	stat := logtypes.NewStat(50, 500)
 
 	mockConv.EXPECT().Run(ctx).Return(stat, nil)
 
@@ -241,8 +241,8 @@ func (s *ResultServiceTestSuite) TestResultJobLogsConveyor_Run() {
 
 func (s *ResultServiceTestSuite) TestResultStepSummaryUploader_Upload() {
 	ctx := s.T().Context()
-	mockUp := mock_types.NewMockUploader(s.ctrl)
-	stat := types.NewStat(0, 2048)
+	mockUp := mock_logtypes.NewMockUploader(s.ctrl)
+	stat := logtypes.NewStat(0, 2048)
 	mockUp.EXPECT().Upload(ctx, gomock.Any(), stat).Return(nil)
 
 	receivedMetadata := false
