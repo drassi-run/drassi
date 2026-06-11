@@ -12,6 +12,7 @@ package mock_service
 import (
 	reflect "reflect"
 
+	lease "drassi.run/gha-runner/pkg/lease"
 	logtypes "drassi.run/gha-runner/pkg/log/logtypes"
 	timeline "drassi.run/gha-runner/pkg/timeline"
 	gomock "go.uber.org/mock/gomock"
@@ -189,6 +190,44 @@ func (c *MockJobServiceTimelineRecorderCall) Do(f func() timeline.Recorder) *Moc
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockJobServiceTimelineRecorderCall) DoAndReturn(f func() timeline.Recorder) *MockJobServiceTimelineRecorderCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// WrapLease mocks base method.
+func (m *MockJobService) WrapLease(l lease.Lease) lease.Lease {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WrapLease", l)
+	ret0, _ := ret[0].(lease.Lease)
+	return ret0
+}
+
+// WrapLease indicates an expected call of WrapLease.
+func (mr *MockJobServiceMockRecorder) WrapLease(l any) *MockJobServiceWrapLeaseCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WrapLease", reflect.TypeOf((*MockJobService)(nil).WrapLease), l)
+	return &MockJobServiceWrapLeaseCall{Call: call}
+}
+
+// MockJobServiceWrapLeaseCall wrap *gomock.Call
+type MockJobServiceWrapLeaseCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockJobServiceWrapLeaseCall) Return(arg0 lease.Lease) *MockJobServiceWrapLeaseCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockJobServiceWrapLeaseCall) Do(f func(lease.Lease) lease.Lease) *MockJobServiceWrapLeaseCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockJobServiceWrapLeaseCall) DoAndReturn(f func(lease.Lease) lease.Lease) *MockJobServiceWrapLeaseCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

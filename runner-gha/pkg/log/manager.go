@@ -7,6 +7,7 @@
 package log
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"sync"
@@ -62,6 +63,11 @@ func (m *Manager) Subscribe() <-chan *Event {
 
 	m.subs = append(m.subs, ch)
 	return ch
+}
+
+// ContextHandle is used for [scribe.Handler]
+func (m *Manager) ContextHandle(_ context.Context, msg string) error {
+	return m.Handle(msg)
 }
 
 func (m *Manager) Handle(line string) error {

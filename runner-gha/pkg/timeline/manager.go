@@ -21,7 +21,11 @@ import (
 	"github.com/google/uuid"
 )
 
-func NewManager(interval time.Duration, recorder Recorder) *Manager {
+func NewManager(recorder Recorder) *Manager {
+	return NewManagerInterval(10*time.Second, recorder)
+}
+
+func NewManagerInterval(interval time.Duration, recorder Recorder) *Manager {
 	ticker := time.NewTicker(interval)
 	ticker.Stop()
 
@@ -58,6 +62,10 @@ func (m *Manager) RecordUid(stage executor.Stage, uid string) string {
 		s[stage] = r
 	}
 	return r
+}
+
+func (m *Manager) JobRecord() *Record {
+	return m.jobRecord
 }
 
 func (m *Manager) InitJob(spec *executor.JobSpec) {

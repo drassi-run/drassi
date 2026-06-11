@@ -15,6 +15,7 @@ import (
 
 	"drassi.run/core/pkg/executor/command/cmdtypes"
 	"drassi.run/core/util/http"
+	"drassi.run/gha-runner/pkg/lease"
 	"drassi.run/gha-runner/pkg/log/logtypes"
 	"drassi.run/gha-runner/pkg/messages"
 	"drassi.run/gha-runner/pkg/timeline"
@@ -33,6 +34,7 @@ type JobService interface {
 	AttachmentUploader(uid, kind, name string) logtypes.Uploader
 	LiveFeedAppender() logtypes.Appender
 	TimelineRecorder() timeline.Recorder
+	WrapLease(l lease.Lease) lease.Lease
 }
 
 func NewJobService(url string, hc *http.Client, msg *messages.PipelineAgentJobRequest) (JobService, error) {
@@ -223,4 +225,24 @@ func toTimelineRecord(parentId, timelineUid string, rec *timeline.Record) *recor
 		r.Type = "Task"
 	}
 	return r
+}
+
+func (s *jobService) WrapLease(l lease.Lease) lease.Lease {
+	return &jobLeaseWrapper{Lease: l, svc: s}
+}
+
+type jobLeaseWrapper struct {
+	lease.Lease
+	svc *jobService
+}
+
+func (l *jobLeaseWrapper) Complete(ctx context.Context, record *timeline.Record) error {
+	if err := l.svc.completeJob(ctx, record); err != nil {
+		return err
+	}
+	return l.Lease.Complete(ctx, record)
+}
+
+func (s *jobService) completeJob(ctx context.Context, record *timeline.Record) error {
+	return nil // TODO
 }
