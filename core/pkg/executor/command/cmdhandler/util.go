@@ -14,6 +14,7 @@ import (
 	"iter"
 	"strings"
 
+	"drassi.run/core/pkg/executor/command/cmdtypes"
 	"drassi.run/core/pkg/executor/runtime"
 )
 
@@ -115,7 +116,7 @@ func getPathTranslator(res any) runtime.PathTranslator {
 	if res == nil {
 		return nil
 	}
-	if prov, ok := res.(SupportPathTranslator); ok {
+	if prov, ok := res.(cmdtypes.SupportPathTranslator); ok {
 		return prov.PathTranslator()
 	}
 	return nil

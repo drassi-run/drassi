@@ -10,8 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	mock_cmdhandler "drassi.run/core/mock/executor/command/cmdhandler"
+	mock_cmdtypes "drassi.run/core/mock/executor/command/cmdtypes"
 	"drassi.run/core/pkg/executor/command"
+	"drassi.run/core/pkg/executor/command/cmdtypes"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 )
@@ -33,11 +34,11 @@ func TestFileAddPath(t *testing.T) {
 
 	r := strings.NewReader("/fir/path\n/second/path")
 
-	res := mock_cmdhandler.NewMockSupportAddPath(ctrl)
+	res := mock_cmdtypes.NewMockSupportAddPath(ctrl)
 	res.EXPECT().AddPath([]string{"/fir/path", "/second/path"})
 
-	h := FileAddPath[SupportAddPath]()
-	err := command.FileRun[SupportAddPath](h, t.Context(), res, r)
+	h := FileAddPath[cmdtypes.SupportAddPath]()
+	err := command.FileRun[cmdtypes.SupportAddPath](h, t.Context(), res, r)
 	assert.NoError(t, err)
 }
 
@@ -48,17 +49,17 @@ func TestFileSetEnv(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		r := strings.NewReader(mapContent)
 
-		res := mock_cmdhandler.NewMockSupportSetEnv(ctrl)
+		res := mock_cmdtypes.NewMockSupportSetEnv(ctrl)
 		res.EXPECT().SetEnv(mapContentMap)
 
-		h := FileSetEnv[SupportSetEnv](nil)
-		err := command.FileRun[SupportSetEnv](h, t.Context(), res, r)
+		h := FileSetEnv[cmdtypes.SupportSetEnv](nil)
+		err := command.FileRun[cmdtypes.SupportSetEnv](h, t.Context(), res, r)
 		assert.NoError(t, err)
 	})
 
 	t.Run("failure", func(t *testing.T) {
 		r := strings.NewReader("foobar")
-		h := FileSetEnv[SupportSetEnv](nil)
+		h := FileSetEnv[cmdtypes.SupportSetEnv](nil)
 		err := command.FileRun(h, t.Context(), nil, r)
 		assert.ErrorIs(t, err, ErrInvalidFile)
 	})
@@ -71,18 +72,18 @@ func TestFileSaveState(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		r := strings.NewReader(mapContent)
 
-		res := mock_cmdhandler.NewMockSupportSaveState(ctrl)
+		res := mock_cmdtypes.NewMockSupportSaveState(ctrl)
 		res.EXPECT().SaveState(mapContentMap)
 
-		h := FileSaveState[SupportSaveState]()
-		err := command.FileRun[SupportSaveState](h, t.Context(), res, r)
+		h := FileSaveState[cmdtypes.SupportSaveState]()
+		err := command.FileRun[cmdtypes.SupportSaveState](h, t.Context(), res, r)
 		assert.NoError(t, err)
 	})
 
 	t.Run("failure", func(t *testing.T) {
 		r := strings.NewReader("foobar")
-		h := FileSaveState[SupportSaveState]()
-		err := command.FileRun[SupportSaveState](h, t.Context(), nil, r)
+		h := FileSaveState[cmdtypes.SupportSaveState]()
+		err := command.FileRun[cmdtypes.SupportSaveState](h, t.Context(), nil, r)
 		assert.ErrorIs(t, err, ErrInvalidFile)
 	})
 }
@@ -94,17 +95,17 @@ func TestFileSetOutput(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		r := strings.NewReader(mapContent)
 
-		res := mock_cmdhandler.NewMockSupportSetOutput(ctrl)
+		res := mock_cmdtypes.NewMockSupportSetOutput(ctrl)
 		res.EXPECT().SetOutput(mapContentMap)
 
-		h := FileSetOutput[SupportSetOutput]()
-		err := command.FileRun[SupportSetOutput](h, t.Context(), res, r)
+		h := FileSetOutput[cmdtypes.SupportSetOutput]()
+		err := command.FileRun[cmdtypes.SupportSetOutput](h, t.Context(), res, r)
 		assert.NoError(t, err)
 	})
 
 	t.Run("failure", func(t *testing.T) {
 		r := strings.NewReader("foobar")
-		h := FileSetOutput[SupportSetOutput]()
+		h := FileSetOutput[cmdtypes.SupportSetOutput]()
 		err := command.FileRun(h, t.Context(), nil, r)
 		assert.ErrorIs(t, err, ErrInvalidFile)
 	})

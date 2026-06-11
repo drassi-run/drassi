@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	mock_command "drassi.run/core/mock/executor/command"
-	mock_issue "drassi.run/core/mock/executor/command/issue"
+	mock_cmdtypes "drassi.run/core/mock/executor/command/cmdtypes"
 	mock_problem "drassi.run/core/mock/executor/problem"
 	mock_secret "drassi.run/core/mock/executor/secret"
 	mock_stream "drassi.run/core/mock/stream"
@@ -72,7 +72,7 @@ type ScanProblemTestSuite struct {
 	ctrl *gomock.Controller
 	pm1  *mock_problem.MockMatcher
 	pm2  *mock_problem.MockMatcher
-	rpt  *mock_issue.MockReporter[string]
+	rpt  *mock_cmdtypes.MockReporter[string]
 	hdl  *mock_stream.MockResourceHandler[string]
 	ps   *problemScanner[string]
 	res  string
@@ -86,7 +86,7 @@ func (s *ScanProblemTestSuite) SetupTest() {
 		"first":  s.pm1,
 		"second": s.pm2,
 	}
-	s.rpt = mock_issue.NewMockReporter[string](s.ctrl)
+	s.rpt = mock_cmdtypes.NewMockReporter[string](s.ctrl)
 	s.res = "awesome-resource"
 	s.hdl = mock_stream.NewMockResourceHandler[string](s.ctrl)
 	s.hdl.EXPECT().RHandle(s.T().Context(), s.res, gomock.Any()).Return(nil)

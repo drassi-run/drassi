@@ -10,7 +10,7 @@ import (
 	"context"
 	"time"
 
-	"drassi.run/core/pkg/executor/command/issue"
+	"drassi.run/core/pkg/executor/command/cmdtypes"
 	"drassi.run/gha-runner/pkg/messages"
 	"drassi.run/gha-runner/pkg/timeline"
 )
@@ -123,13 +123,13 @@ const (
 	AnnotationLevelFailure AnnotationLevel = "failure"
 )
 
-func ToAnnotationLevel(t issue.Type) AnnotationLevel {
+func ToAnnotationLevel(t cmdtypes.IssueType) AnnotationLevel {
 	switch t {
-	case issue.TypeError:
+	case cmdtypes.IssueTypeError:
 		return AnnotationLevelFailure
-	case issue.TypeWarning:
+	case cmdtypes.IssueTypeWarning:
 		return AnnotationLevelWarning
-	case issue.TypeNotice:
+	case cmdtypes.IssueTypeNotice:
 		return AnnotationLevelNotice
 	default:
 		return AnnotationLevelUnknown

@@ -16,7 +16,7 @@ import (
 	runnerv1 "code.gitea.io/actions-proto-go/runner/v1"
 	"drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/executor"
-	"drassi.run/core/pkg/executor/command/issue"
+	"drassi.run/core/pkg/executor/command/cmdtypes"
 	"drassi.run/core/pkg/executor/problem"
 	"drassi.run/core/pkg/executor/runtime"
 	"drassi.run/core/pkg/executor/secret"
@@ -146,7 +146,7 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 	if err := xdig.Supply(scope, log); err != nil {
 		return err
 	}
-	if err := scope.Provide(issue.Discard[executor.Milieu]); err != nil {
+	if err := scope.Provide(cmdtypes.Discard[executor.Milieu]); err != nil {
 		return err
 	}
 	if err := scope.Provide(newScribeHandler); err != nil {

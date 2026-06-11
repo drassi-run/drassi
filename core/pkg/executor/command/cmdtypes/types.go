@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package cmdhandler
+package cmdtypes
 
 import "drassi.run/core/pkg/executor/runtime"
 

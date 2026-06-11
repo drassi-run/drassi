@@ -15,7 +15,7 @@ import (
 	"strings"
 
 	"drassi.run/core/pkg/executor/command"
-	"drassi.run/core/pkg/executor/command/issue"
+	"drassi.run/core/pkg/executor/command/cmdtypes"
 	"drassi.run/core/pkg/executor/problem"
 	"drassi.run/core/pkg/executor/secret"
 	"drassi.run/core/pkg/sandboxer"
@@ -207,7 +207,7 @@ func LogMessage[R any]() []*command.ConsoleHandler[R] {
 // ConsoleAddPath create [command.ConsoleHandler] that handle "add-path" command
 //
 //   - https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L417
-func ConsoleAddPath[R SupportAddPath]() *command.ConsoleHandler[R] {
+func ConsoleAddPath[R cmdtypes.SupportAddPath]() *command.ConsoleHandler[R] {
 	run := func(ctx context.Context, res R, cmd *command.Command) error {
 		if cmd.Value == "" {
 			return fmt.Errorf("%w %q: missing value", command.ErrInvalidCommand, "add-path")
@@ -226,7 +226,7 @@ var setEnvBlockList = sets.New("NODE_OPTIONS")
 // ConsoleSetEnv create [command.ConsoleHandler] that handle "set-env" command
 //
 //   - https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L234
-func ConsoleSetEnv[R SupportSetEnv](reporter issue.Reporter[R]) *command.ConsoleHandler[R] {
+func ConsoleSetEnv[R cmdtypes.SupportSetEnv](reporter cmdtypes.Reporter[R]) *command.ConsoleHandler[R] {
 	run := func(ctx context.Context, res R, cmd *command.Command) error {
 		name, ok := cmd.Params["name"]
 		if !ok || name == "" {
@@ -234,8 +234,8 @@ func ConsoleSetEnv[R SupportSetEnv](reporter issue.Reporter[R]) *command.Console
 		}
 
 		if setEnvBlockList.Has(name) {
-			iss := &issue.Issue{
-				Type:    issue.TypeError,
+			iss := &cmdtypes.Issue{
+				Type:    cmdtypes.IssueTypeError,
 				Message: fmt.Sprintf("Can't update %q environment variable using ::%s:: command.", name, cmd.Name),
 			}
 			if err := reporter.AddIssue(ctx, res, iss); err != nil {
@@ -254,7 +254,7 @@ func ConsoleSetEnv[R SupportSetEnv](reporter issue.Reporter[R]) *command.Console
 // ConsoleSetOutput create [command.ConsoleHandler] that handle "set-output" command
 //
 //   - https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L301
-func ConsoleSetOutput[R SupportSetOutput]() *command.ConsoleHandler[R] {
+func ConsoleSetOutput[R cmdtypes.SupportSetOutput]() *command.ConsoleHandler[R] {
 	run := func(ctx context.Context, res R, cmd *command.Command) error {
 		name, ok := cmd.Params["name"]
 		if !ok || name == "" {
@@ -274,7 +274,7 @@ func ConsoleSetOutput[R SupportSetOutput]() *command.ConsoleHandler[R] {
 // ConsoleSaveState create [command.ConsoleHandler] that handle "save-state" command
 //
 // - https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L336
-func ConsoleSaveState[R SupportSaveState]() *command.ConsoleHandler[R] {
+func ConsoleSaveState[R cmdtypes.SupportSaveState]() *command.ConsoleHandler[R] {
 	run := func(ctx context.Context, res R, cmd *command.Command) error {
 		name, ok := cmd.Params["name"]
 		if !ok || name == "" {

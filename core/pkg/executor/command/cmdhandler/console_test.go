@@ -9,9 +9,10 @@ package cmdhandler
 import (
 	"testing"
 
-	mock_cmdhandler "drassi.run/core/mock/executor/command/cmdhandler"
+	mock_cmdtypes "drassi.run/core/mock/executor/command/cmdtypes"
 	mock_secret "drassi.run/core/mock/executor/secret"
 	"drassi.run/core/pkg/executor/command"
+	"drassi.run/core/pkg/executor/command/cmdtypes"
 	"drassi.run/core/pkg/executor/secret"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
@@ -70,16 +71,16 @@ func TestConsoleAddPath(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	t.Run("empty-value", testInvalidCommand(ConsoleAddPath[SupportAddPath]))
+	t.Run("empty-value", testInvalidCommand(ConsoleAddPath[cmdtypes.SupportAddPath]))
 
 	t.Run("success", func(t *testing.T) {
-		res := mock_cmdhandler.NewMockSupportAddPath(ctrl)
+		res := mock_cmdtypes.NewMockSupportAddPath(ctrl)
 		res.EXPECT().AddPath([]string{"foobar"})
 
-		h := ConsoleAddPath[SupportAddPath]()
+		h := ConsoleAddPath[cmdtypes.SupportAddPath]()
 
 		cmd := &command.Command{Name: "add-path", Value: "foobar"}
-		err := command.ConsoleRun[SupportAddPath](h, t.Context(), res, cmd)
+		err := command.ConsoleRun[cmdtypes.SupportAddPath](h, t.Context(), res, cmd)
 		assert.NoError(t, err)
 	})
 }
@@ -88,18 +89,18 @@ func TestConsoleSetEnv(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	t.Run("empty-name", testInvalidCommand(func() *command.ConsoleHandler[SupportSetEnv] {
-		return ConsoleSetEnv[SupportSetEnv](nil)
+	t.Run("empty-name", testInvalidCommand(func() *command.ConsoleHandler[cmdtypes.SupportSetEnv] {
+		return ConsoleSetEnv[cmdtypes.SupportSetEnv](nil)
 	}))
 
 	t.Run("success", func(t *testing.T) {
-		res := mock_cmdhandler.NewMockSupportSetEnv(ctrl)
+		res := mock_cmdtypes.NewMockSupportSetEnv(ctrl)
 		res.EXPECT().SetEnv(map[string]string{"XXX": "set-env-value"})
 
-		h := ConsoleSetEnv[SupportSetEnv](nil)
+		h := ConsoleSetEnv[cmdtypes.SupportSetEnv](nil)
 
 		cmd := &command.Command{Name: "set-env", Params: map[string]string{"name": "XXX"}, Value: "set-env-value"}
-		err := command.ConsoleRun[SupportSetEnv](h, t.Context(), res, cmd)
+		err := command.ConsoleRun[cmdtypes.SupportSetEnv](h, t.Context(), res, cmd)
 		assert.NoError(t, err)
 	})
 }
@@ -108,16 +109,16 @@ func TestConsoleSetOutput(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	t.Run("empty-name", testInvalidCommand(ConsoleSetOutput[SupportSetOutput]))
+	t.Run("empty-name", testInvalidCommand(ConsoleSetOutput[cmdtypes.SupportSetOutput]))
 
 	t.Run("success", func(t *testing.T) {
-		res := mock_cmdhandler.NewMockSupportSetOutput(ctrl)
+		res := mock_cmdtypes.NewMockSupportSetOutput(ctrl)
 		res.EXPECT().SetOutput(map[string]string{"XXX": "set-output-value"})
 
-		h := ConsoleSetOutput[SupportSetOutput]()
+		h := ConsoleSetOutput[cmdtypes.SupportSetOutput]()
 
 		cmd := &command.Command{Name: "set-output", Params: map[string]string{"name": "XXX"}, Value: "set-output-value"}
-		err := command.ConsoleRun[SupportSetOutput](h, t.Context(), res, cmd)
+		err := command.ConsoleRun[cmdtypes.SupportSetOutput](h, t.Context(), res, cmd)
 		assert.NoError(t, err)
 	})
 }
@@ -126,16 +127,16 @@ func TestConsoleSaveState(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	t.Run("empty-name", testInvalidCommand(ConsoleSaveState[SupportSaveState]))
+	t.Run("empty-name", testInvalidCommand(ConsoleSaveState[cmdtypes.SupportSaveState]))
 
 	t.Run("success", func(t *testing.T) {
-		res := mock_cmdhandler.NewMockSupportSaveState(ctrl)
+		res := mock_cmdtypes.NewMockSupportSaveState(ctrl)
 		res.EXPECT().SaveState(map[string]string{"XXX": "save-state-value"})
 
-		h := ConsoleSaveState[SupportSaveState]()
+		h := ConsoleSaveState[cmdtypes.SupportSaveState]()
 
 		cmd := &command.Command{Name: "save-state", Params: map[string]string{"name": "XXX"}, Value: "save-state-value"}
-		err := command.ConsoleRun[SupportSaveState](h, t.Context(), res, cmd)
+		err := command.ConsoleRun[cmdtypes.SupportSaveState](h, t.Context(), res, cmd)
 		assert.NoError(t, err)
 	})
 }

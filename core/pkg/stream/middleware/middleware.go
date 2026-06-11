@@ -14,7 +14,7 @@ import (
 	"strings"
 
 	"drassi.run/core/pkg/executor/command"
-	"drassi.run/core/pkg/executor/command/issue"
+	"drassi.run/core/pkg/executor/command/cmdtypes"
 	"drassi.run/core/pkg/executor/problem"
 	"drassi.run/core/pkg/executor/secret"
 	"drassi.run/core/pkg/stream"
@@ -48,7 +48,7 @@ func (mw *commandProcessor[R]) RHandle(ctx context.Context, res R, line string) 
 	return nil
 }
 
-func ScanProblem[R any](pm map[string]problem.Matcher, reporter issue.Reporter[R]) Middleware[R] {
+func ScanProblem[R any](pm map[string]problem.Matcher, reporter cmdtypes.Reporter[R]) Middleware[R] {
 	return func(handler stream.ResourceHandler[R]) stream.ResourceHandler[R] {
 		return &problemScanner[R]{
 			handler:  handler,
@@ -61,7 +61,7 @@ func ScanProblem[R any](pm map[string]problem.Matcher, reporter issue.Reporter[R
 type problemScanner[R any] struct {
 	handler  stream.ResourceHandler[R]
 	matcher  map[string]problem.Matcher
-	reporter issue.Reporter[R]
+	reporter cmdtypes.Reporter[R]
 }
 
 func (mw *problemScanner[R]) RHandle(ctx context.Context, res R, line string) (err error) {
@@ -117,22 +117,22 @@ const skippedIssueMsg = "skipped logging an issue for the matched line because o
 var numberRegex = regexp.MustCompile(`^[+\-]?\d+$`)
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/Handlers/OutputManager.cs#L200
-func (mw *problemScanner[R]) toIssuer(pbl *problem.Problem) (*issue.Issue, error) {
+func (mw *problemScanner[R]) toIssuer(pbl *problem.Problem) (*cmdtypes.Issue, error) {
 	if pbl.Message == "" {
 		return nil, fmt.Errorf("%s empty message", skippedIssueMsg)
 	}
-	iss := &issue.Issue{
+	iss := &cmdtypes.Issue{
 		Message: pbl.Message,
 		Data:    make(map[string]string),
 	}
 
 	switch strings.ToUpper(pbl.Severity) {
 	case "", "ERROR":
-		iss.Type = issue.TypeError
+		iss.Type = cmdtypes.IssueTypeError
 	case "WARNING":
-		iss.Type = issue.TypeWarning
+		iss.Type = cmdtypes.IssueTypeWarning
 	case "NOTICE":
-		iss.Type = issue.TypeNotice
+		iss.Type = cmdtypes.IssueTypeNotice
 	default:
 		return nil, fmt.Errorf("%s unknown severity %q", skippedIssueMsg, pbl.Severity)
 	}
