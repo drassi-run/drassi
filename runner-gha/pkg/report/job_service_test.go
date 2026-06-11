@@ -15,8 +15,8 @@ import (
 	"strings"
 	"testing"
 
+	"drassi.run/gha-runner/pkg/log/logtypes"
 	"drassi.run/gha-runner/pkg/messages"
-	"drassi.run/gha-runner/pkg/report/types"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
 )
@@ -142,7 +142,7 @@ func (s *JobServiceTestSuite) TestLiveFeedAppender() {
 	s.mux.HandleFunc("POST "+feedEndpoint, func(w http.ResponseWriter, r *http.Request) {
 		s.Equal("5.1-preview", r.URL.Query().Get("api-version"))
 
-		var req types.LinesWrapper
+		var req logtypes.LinesWrapper
 		readJsonRequest(s.T(), r, &req)
 		s.Equal(uid, req.StepId)
 		s.Equal(lines, req.Value)

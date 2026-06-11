@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package subscriber
+package logsubscriber
 
 import (
 	"context"
@@ -14,10 +14,10 @@ import (
 	"drassi.run/core/util/context"
 	"drassi.run/core/util/otel"
 	"drassi.run/gha-runner/pkg/log"
-	"drassi.run/gha-runner/pkg/report/types"
+	"drassi.run/gha-runner/pkg/log/logtypes"
 )
 
-func NewLiveFeedSubscriber(context xcontext.Provider, app types.Appender) types.Subscriber {
+func NewLiveFeedSubscriber(context xcontext.Provider, app logtypes.Appender) logtypes.Subscriber {
 	return &liveFeedSubscriber{
 		ctx: context.Context(),
 		app: app,
@@ -26,7 +26,7 @@ func NewLiveFeedSubscriber(context xcontext.Provider, app types.Appender) types.
 
 type liveFeedSubscriber struct {
 	ctx context.Context
-	app types.Appender
+	app logtypes.Appender
 
 	mu sync.Mutex
 	wg sync.WaitGroup

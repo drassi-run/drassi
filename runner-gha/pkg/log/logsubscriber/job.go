@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package subscriber
+package logsubscriber
 
 import (
 	"context"
@@ -14,17 +14,17 @@ import (
 	"drassi.run/core/util/context"
 	"drassi.run/core/util/otel"
 	"drassi.run/gha-runner/pkg/log"
+	"drassi.run/gha-runner/pkg/log/logtypes"
 	"drassi.run/gha-runner/pkg/report"
-	"drassi.run/gha-runner/pkg/report/types"
 )
 
 ////////////// Logs Subscriber for JobService //////////////
 
-func NewJobServiceLogsSubscriber(context xcontext.Provider, svc report.JobService) types.Subscriber {
+func NewJobServiceLogsSubscriber(context xcontext.Provider, svc report.JobService) logtypes.Subscriber {
 	return &jobServiceLogsSubscriber{
 		svc: svc,
 		ctx: context.Context(),
-		ups: make(map[string]types.Uploader),
+		ups: make(map[string]logtypes.Uploader),
 	}
 }
 
@@ -35,7 +35,7 @@ type jobServiceLogsSubscriber struct {
 	mu sync.Mutex
 	wg sync.WaitGroup
 
-	ups map[string]types.Uploader
+	ups map[string]logtypes.Uploader
 }
 
 func (s *jobServiceLogsSubscriber) Run(ch <-chan *log.Event) {
@@ -56,7 +56,7 @@ func (s *jobServiceLogsSubscriber) Run(ch <-chan *log.Event) {
 	}
 }
 
-func (s *jobServiceLogsSubscriber) uploader(uid string) types.Uploader {
+func (s *jobServiceLogsSubscriber) uploader(uid string) logtypes.Uploader {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -84,7 +84,7 @@ func (s *jobServiceLogsSubscriber) handle(e *log.Event) {
 	}
 	defer f.Close()
 
-	stat := types.NewStat(d.Line, d.Offset)
+	stat := logtypes.NewStat(d.Line, d.Offset)
 	if err = u.Upload(ctx, f, stat); err != nil {
 		logger.Errorf("error uploading file %s: %s", d.File, err)
 	}

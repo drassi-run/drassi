@@ -15,8 +15,8 @@ import (
 
 	"drassi.run/core/pkg/executor/command/cmdtypes"
 	"drassi.run/core/util/http"
+	"drassi.run/gha-runner/pkg/log/logtypes"
 	"drassi.run/gha-runner/pkg/messages"
-	"drassi.run/gha-runner/pkg/report/types"
 	"drassi.run/gha-runner/pkg/timeline"
 	util "drassi.run/gha-runner/pkg/types"
 )
@@ -29,9 +29,9 @@ const (
 )
 
 type JobService interface {
-	LogsUploader(uid string) types.Uploader
-	AttachmentUploader(uid, kind, name string) types.Uploader
-	LiveFeedAppender() types.Appender
+	LogsUploader(uid string) logtypes.Uploader
+	AttachmentUploader(uid, kind, name string) logtypes.Uploader
+	LiveFeedAppender() logtypes.Appender
 	TimelineRecorder() timeline.Recorder
 }
 
@@ -62,7 +62,7 @@ type jobService struct {
 
 ////////////// Logs //////////////
 
-func (s *jobService) LogsUploader(uid string) types.Uploader {
+func (s *jobService) LogsUploader(uid string) logtypes.Uploader {
 	return &jobLogsUploader{svc: s, uid: uid}
 }
 
@@ -71,7 +71,7 @@ type jobLogsUploader struct {
 	uid string
 }
 
-func (u *jobLogsUploader) Upload(ctx context.Context, r io.Reader, _ *types.Stat) error {
+func (u *jobLogsUploader) Upload(ctx context.Context, r io.Reader, _ *logtypes.Stat) error {
 	return u.svc.uploadLogs(ctx, u.uid, r)
 }
 
@@ -103,7 +103,7 @@ func (s *jobService) uploadLogs(ctx context.Context, uid string, r io.Reader) er
 
 ////////////// Attachment //////////////
 
-func (s *jobService) AttachmentUploader(uid, kind, name string) types.Uploader {
+func (s *jobService) AttachmentUploader(uid, kind, name string) logtypes.Uploader {
 	return &jobAttachmentUploader{svc: s, uid: uid, kind: kind, name: name}
 }
 
@@ -112,7 +112,7 @@ type jobAttachmentUploader struct {
 	uid, kind, name string
 }
 
-func (u *jobAttachmentUploader) Upload(ctx context.Context, r io.Reader, _ *types.Stat) error {
+func (u *jobAttachmentUploader) Upload(ctx context.Context, r io.Reader, _ *logtypes.Stat) error {
 	return u.svc.uploadAttach(ctx, u.uid, u.kind, u.name, r)
 }
 
@@ -131,14 +131,14 @@ func (s *jobService) uploadAttach(ctx context.Context, uid, kind, name string, r
 
 ////////////// Live Feed //////////////
 
-func (s *jobService) LiveFeedAppender() types.Appender {
-	return types.FuncAppender(s.feedingLogs)
+func (s *jobService) LiveFeedAppender() logtypes.Appender {
+	return logtypes.FuncAppender(s.feedingLogs)
 }
 
 // https://github.com/actions/runner/blob/v2.332.0/src/Runner.Common/JobServer.cs#L285-L295
 // https://github.com/actions/runner/blob/v2.332.0/src/Sdk/DTGenerated/Generated/TaskHttpClientBase.cs#L115-L141
 func (s *jobService) feedingLogs(ctx context.Context, uid string, startAt int, lines []string) error {
-	data := &types.LinesWrapper{
+	data := &logtypes.LinesWrapper{
 		Value:     lines,
 		Count:     len(lines),
 		StepId:    uid,

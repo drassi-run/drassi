@@ -12,7 +12,7 @@ package mock_report
 import (
 	reflect "reflect"
 
-	types "drassi.run/gha-runner/pkg/report/types"
+	logtypes "drassi.run/gha-runner/pkg/log/logtypes"
 	timeline "drassi.run/gha-runner/pkg/timeline"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -42,10 +42,10 @@ func (m *MockResultService) EXPECT() *MockResultServiceMockRecorder {
 }
 
 // DiagnosticLogsUploader mocks base method.
-func (m *MockResultService) DiagnosticLogsUploader() types.Uploader {
+func (m *MockResultService) DiagnosticLogsUploader() logtypes.Uploader {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DiagnosticLogsUploader")
-	ret0, _ := ret[0].(types.Uploader)
+	ret0, _ := ret[0].(logtypes.Uploader)
 	return ret0
 }
 
@@ -62,28 +62,28 @@ type MockResultServiceDiagnosticLogsUploaderCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockResultServiceDiagnosticLogsUploaderCall) Return(arg0 types.Uploader) *MockResultServiceDiagnosticLogsUploaderCall {
+func (c *MockResultServiceDiagnosticLogsUploaderCall) Return(arg0 logtypes.Uploader) *MockResultServiceDiagnosticLogsUploaderCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockResultServiceDiagnosticLogsUploaderCall) Do(f func() types.Uploader) *MockResultServiceDiagnosticLogsUploaderCall {
+func (c *MockResultServiceDiagnosticLogsUploaderCall) Do(f func() logtypes.Uploader) *MockResultServiceDiagnosticLogsUploaderCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockResultServiceDiagnosticLogsUploaderCall) DoAndReturn(f func() types.Uploader) *MockResultServiceDiagnosticLogsUploaderCall {
+func (c *MockResultServiceDiagnosticLogsUploaderCall) DoAndReturn(f func() logtypes.Uploader) *MockResultServiceDiagnosticLogsUploaderCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // JobLogsConveyor mocks base method.
-func (m *MockResultService) JobLogsConveyor() types.Conveyor {
+func (m *MockResultService) JobLogsConveyor() logtypes.Conveyor {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "JobLogsConveyor")
-	ret0, _ := ret[0].(types.Conveyor)
+	ret0, _ := ret[0].(logtypes.Conveyor)
 	return ret0
 }
 
@@ -100,28 +100,28 @@ type MockResultServiceJobLogsConveyorCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockResultServiceJobLogsConveyorCall) Return(arg0 types.Conveyor) *MockResultServiceJobLogsConveyorCall {
+func (c *MockResultServiceJobLogsConveyorCall) Return(arg0 logtypes.Conveyor) *MockResultServiceJobLogsConveyorCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockResultServiceJobLogsConveyorCall) Do(f func() types.Conveyor) *MockResultServiceJobLogsConveyorCall {
+func (c *MockResultServiceJobLogsConveyorCall) Do(f func() logtypes.Conveyor) *MockResultServiceJobLogsConveyorCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockResultServiceJobLogsConveyorCall) DoAndReturn(f func() types.Conveyor) *MockResultServiceJobLogsConveyorCall {
+func (c *MockResultServiceJobLogsConveyorCall) DoAndReturn(f func() logtypes.Conveyor) *MockResultServiceJobLogsConveyorCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // StepLogsConveyor mocks base method.
-func (m *MockResultService) StepLogsConveyor(stepUid string) types.Conveyor {
+func (m *MockResultService) StepLogsConveyor(stepUid string) logtypes.Conveyor {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StepLogsConveyor", stepUid)
-	ret0, _ := ret[0].(types.Conveyor)
+	ret0, _ := ret[0].(logtypes.Conveyor)
 	return ret0
 }
 
@@ -138,28 +138,28 @@ type MockResultServiceStepLogsConveyorCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockResultServiceStepLogsConveyorCall) Return(arg0 types.Conveyor) *MockResultServiceStepLogsConveyorCall {
+func (c *MockResultServiceStepLogsConveyorCall) Return(arg0 logtypes.Conveyor) *MockResultServiceStepLogsConveyorCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockResultServiceStepLogsConveyorCall) Do(f func(string) types.Conveyor) *MockResultServiceStepLogsConveyorCall {
+func (c *MockResultServiceStepLogsConveyorCall) Do(f func(string) logtypes.Conveyor) *MockResultServiceStepLogsConveyorCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockResultServiceStepLogsConveyorCall) DoAndReturn(f func(string) types.Conveyor) *MockResultServiceStepLogsConveyorCall {
+func (c *MockResultServiceStepLogsConveyorCall) DoAndReturn(f func(string) logtypes.Conveyor) *MockResultServiceStepLogsConveyorCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // StepSummaryUploader mocks base method.
-func (m *MockResultService) StepSummaryUploader(stepUid string) types.Uploader {
+func (m *MockResultService) StepSummaryUploader(stepUid string) logtypes.Uploader {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StepSummaryUploader", stepUid)
-	ret0, _ := ret[0].(types.Uploader)
+	ret0, _ := ret[0].(logtypes.Uploader)
 	return ret0
 }
 
@@ -176,19 +176,19 @@ type MockResultServiceStepSummaryUploaderCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockResultServiceStepSummaryUploaderCall) Return(arg0 types.Uploader) *MockResultServiceStepSummaryUploaderCall {
+func (c *MockResultServiceStepSummaryUploaderCall) Return(arg0 logtypes.Uploader) *MockResultServiceStepSummaryUploaderCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockResultServiceStepSummaryUploaderCall) Do(f func(string) types.Uploader) *MockResultServiceStepSummaryUploaderCall {
+func (c *MockResultServiceStepSummaryUploaderCall) Do(f func(string) logtypes.Uploader) *MockResultServiceStepSummaryUploaderCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockResultServiceStepSummaryUploaderCall) DoAndReturn(f func(string) types.Uploader) *MockResultServiceStepSummaryUploaderCall {
+func (c *MockResultServiceStepSummaryUploaderCall) DoAndReturn(f func(string) logtypes.Uploader) *MockResultServiceStepSummaryUploaderCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

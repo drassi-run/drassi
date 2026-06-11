@@ -12,7 +12,7 @@ package mock_report
 import (
 	reflect "reflect"
 
-	types "drassi.run/gha-runner/pkg/report/types"
+	logtypes "drassi.run/gha-runner/pkg/log/logtypes"
 	timeline "drassi.run/gha-runner/pkg/timeline"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -42,10 +42,10 @@ func (m *MockJobService) EXPECT() *MockJobServiceMockRecorder {
 }
 
 // AttachmentUploader mocks base method.
-func (m *MockJobService) AttachmentUploader(uid, kind, name string) types.Uploader {
+func (m *MockJobService) AttachmentUploader(uid, kind, name string) logtypes.Uploader {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AttachmentUploader", uid, kind, name)
-	ret0, _ := ret[0].(types.Uploader)
+	ret0, _ := ret[0].(logtypes.Uploader)
 	return ret0
 }
 
@@ -62,28 +62,28 @@ type MockJobServiceAttachmentUploaderCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockJobServiceAttachmentUploaderCall) Return(arg0 types.Uploader) *MockJobServiceAttachmentUploaderCall {
+func (c *MockJobServiceAttachmentUploaderCall) Return(arg0 logtypes.Uploader) *MockJobServiceAttachmentUploaderCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockJobServiceAttachmentUploaderCall) Do(f func(string, string, string) types.Uploader) *MockJobServiceAttachmentUploaderCall {
+func (c *MockJobServiceAttachmentUploaderCall) Do(f func(string, string, string) logtypes.Uploader) *MockJobServiceAttachmentUploaderCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockJobServiceAttachmentUploaderCall) DoAndReturn(f func(string, string, string) types.Uploader) *MockJobServiceAttachmentUploaderCall {
+func (c *MockJobServiceAttachmentUploaderCall) DoAndReturn(f func(string, string, string) logtypes.Uploader) *MockJobServiceAttachmentUploaderCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // LiveFeedAppender mocks base method.
-func (m *MockJobService) LiveFeedAppender() types.Appender {
+func (m *MockJobService) LiveFeedAppender() logtypes.Appender {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LiveFeedAppender")
-	ret0, _ := ret[0].(types.Appender)
+	ret0, _ := ret[0].(logtypes.Appender)
 	return ret0
 }
 
@@ -100,28 +100,28 @@ type MockJobServiceLiveFeedAppenderCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockJobServiceLiveFeedAppenderCall) Return(arg0 types.Appender) *MockJobServiceLiveFeedAppenderCall {
+func (c *MockJobServiceLiveFeedAppenderCall) Return(arg0 logtypes.Appender) *MockJobServiceLiveFeedAppenderCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockJobServiceLiveFeedAppenderCall) Do(f func() types.Appender) *MockJobServiceLiveFeedAppenderCall {
+func (c *MockJobServiceLiveFeedAppenderCall) Do(f func() logtypes.Appender) *MockJobServiceLiveFeedAppenderCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockJobServiceLiveFeedAppenderCall) DoAndReturn(f func() types.Appender) *MockJobServiceLiveFeedAppenderCall {
+func (c *MockJobServiceLiveFeedAppenderCall) DoAndReturn(f func() logtypes.Appender) *MockJobServiceLiveFeedAppenderCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // LogsUploader mocks base method.
-func (m *MockJobService) LogsUploader(uid string) types.Uploader {
+func (m *MockJobService) LogsUploader(uid string) logtypes.Uploader {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LogsUploader", uid)
-	ret0, _ := ret[0].(types.Uploader)
+	ret0, _ := ret[0].(logtypes.Uploader)
 	return ret0
 }
 
@@ -138,19 +138,19 @@ type MockJobServiceLogsUploaderCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockJobServiceLogsUploaderCall) Return(arg0 types.Uploader) *MockJobServiceLogsUploaderCall {
+func (c *MockJobServiceLogsUploaderCall) Return(arg0 logtypes.Uploader) *MockJobServiceLogsUploaderCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockJobServiceLogsUploaderCall) Do(f func(string) types.Uploader) *MockJobServiceLogsUploaderCall {
+func (c *MockJobServiceLogsUploaderCall) Do(f func(string) logtypes.Uploader) *MockJobServiceLogsUploaderCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockJobServiceLogsUploaderCall) DoAndReturn(f func(string) types.Uploader) *MockJobServiceLogsUploaderCall {
+func (c *MockJobServiceLogsUploaderCall) DoAndReturn(f func(string) logtypes.Uploader) *MockJobServiceLogsUploaderCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
