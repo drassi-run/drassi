@@ -179,7 +179,7 @@ func (e *jobExecutor) Finalize(ctx context.Context) (job *records.Job, err error
 		return
 	}
 
-	// create new ctx w/ timeout 5s to clean up resources
+	// create new ctx w/ timeout 30s to clean up resources
 	ctx = context.WithoutCancel(ctx)
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()

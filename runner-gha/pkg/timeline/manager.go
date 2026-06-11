@@ -8,16 +8,37 @@ package timeline
 
 import (
 	"context"
+	"maps"
+	"slices"
+	"sync"
 	"time"
 
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/executor/command/cmdtypes"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/model/workflows"
+	"github.com/chainguard-dev/clog"
 	"github.com/google/uuid"
 )
 
+func NewManager(interval time.Duration, recorder Recorder) *Manager {
+	ticker := time.NewTicker(interval)
+	ticker.Stop()
+
+	return &Manager{
+		ticker:     ticker,
+		recorder:   recorder,
+		recordUids: make(map[string]map[executor.Stage]string),
+		records:    make(map[string]*Record),
+	}
+}
+
 type Manager struct {
+	mu       sync.Mutex
+	wg       sync.WaitGroup
+	ticker   *time.Ticker
+	recorder Recorder
+
 	order      int
 	recordUids map[string]map[executor.Stage]string
 
@@ -131,6 +152,35 @@ func (m *Manager) AddIssue(stage executor.Stage, stepUid string, iss *cmdtypes.I
 	r.Issues = append(r.Issues, iss)
 }
 
+func (m *Manager) Run(ctx context.Context) {
+	l := clog.FromContext(ctx)
+	m.wg.Add(1)
+	defer m.wg.Done()
+
+	for {
+		select {
+		case <-m.ticker.C:
+			m.flush(ctx, l)
+		case <-ctx.Done():
+			m.ticker.Stop()
+
+			// New 30s timeout context for flush remaining records
+			var cancel context.CancelFunc
+			ctx = context.WithoutCancel(ctx)
+			ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
+			//goland:noinspection GoDeferInLoop
+			defer cancel()
+
+			m.flush(ctx, l)
+			return
+		}
+	}
+}
+
+func (m *Manager) Wait() {
+	m.wg.Wait()
+}
+
 func (m *Manager) newRecord(uid string, obj any) *Record {
 	r := &Record{
 		Uid:    uid,
@@ -143,12 +193,28 @@ func (m *Manager) newRecord(uid string, obj any) *Record {
 }
 
 func (m *Manager) push(r *Record) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.records[r.Uid] = r
 }
 
 func (m *Manager) addToJob(r *Record) {
 	m.jobRecord.Children = append(m.jobRecord.Children, r)
 	m.push(m.jobRecord)
+}
+
+func (m *Manager) flush(ctx context.Context, l *clog.Logger) {
+	m.mu.Lock()
+	r := slices.Collect(maps.Values(m.records))
+	clear(m.records)
+	m.mu.Unlock()
+
+	if len(r) <= 0 {
+		return
+	}
+	if err := m.recorder.Update(ctx, r...); err != nil {
+		l.Errorf("failed to update record: %v", err)
+	}
 }
 
 func setupJobObject(uid string) *StepObject {
