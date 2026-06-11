@@ -14,7 +14,7 @@ import (
 
 	xcontext "drassi.run/core/util/context"
 	mock_logtypes "drassi.run/gha-runner/mock/log/logtypes"
-	mock_report "drassi.run/gha-runner/mock/report"
+	mock_service "drassi.run/gha-runner/mock/service"
 	"drassi.run/gha-runner/pkg/log"
 	"drassi.run/gha-runner/pkg/log/logtypes"
 	"github.com/stretchr/testify/suite"
@@ -28,7 +28,7 @@ func TestResultServiceStepLogsSubscriberSuite(t *testing.T) {
 type ResultServiceStepLogsSubscriberTestSuite struct {
 	suite.Suite
 	ctrl *gomock.Controller
-	svc  *mock_report.MockResultService
+	svc  *mock_service.MockResultService
 	sub  *resultServiceStepLogsSubscriber
 
 	tmpDir string
@@ -40,7 +40,7 @@ type ResultServiceStepLogsSubscriberTestSuite struct {
 func (s *ResultServiceStepLogsSubscriberTestSuite) SetupTest() {
 	s.ctrl = gomock.NewController(s.T())
 
-	s.svc = mock_report.NewMockResultService(s.ctrl)
+	s.svc = mock_service.NewMockResultService(s.ctrl)
 	ctx := xcontext.NewStaticProvider(s.T().Context())
 	s.sub = NewResultServiceStepLogsSubscriber(ctx, s.svc).(*resultServiceStepLogsSubscriber)
 	s.tmpDir = s.T().TempDir()

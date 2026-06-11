@@ -14,12 +14,12 @@ import (
 	"drassi.run/core/util/otel"
 	"drassi.run/gha-runner/pkg/log"
 	"drassi.run/gha-runner/pkg/log/logtypes"
-	"drassi.run/gha-runner/pkg/report"
+	"drassi.run/gha-runner/pkg/service"
 )
 
 ////////////// StepLogs Subscriber for ResultService //////////////
 
-func NewResultServiceStepLogsSubscriber(context xcontext.Provider, svc report.ResultService) logtypes.Subscriber {
+func NewResultServiceStepLogsSubscriber(context xcontext.Provider, svc service.ResultService) logtypes.Subscriber {
 	return &resultServiceStepLogsSubscriber{
 		svc:  svc,
 		ctx:  context.Context(),
@@ -28,7 +28,7 @@ func NewResultServiceStepLogsSubscriber(context xcontext.Provider, svc report.Re
 }
 
 type resultServiceStepLogsSubscriber struct {
-	svc report.ResultService
+	svc service.ResultService
 	ctx context.Context
 
 	mu sync.Mutex

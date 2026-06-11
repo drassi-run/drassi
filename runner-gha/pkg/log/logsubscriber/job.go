@@ -15,12 +15,12 @@ import (
 	"drassi.run/core/util/otel"
 	"drassi.run/gha-runner/pkg/log"
 	"drassi.run/gha-runner/pkg/log/logtypes"
-	"drassi.run/gha-runner/pkg/report"
+	"drassi.run/gha-runner/pkg/service"
 )
 
 ////////////// Logs Subscriber for JobService //////////////
 
-func NewJobServiceLogsSubscriber(context xcontext.Provider, svc report.JobService) logtypes.Subscriber {
+func NewJobServiceLogsSubscriber(context xcontext.Provider, svc service.JobService) logtypes.Subscriber {
 	return &jobServiceLogsSubscriber{
 		svc: svc,
 		ctx: context.Context(),
@@ -29,7 +29,7 @@ func NewJobServiceLogsSubscriber(context xcontext.Provider, svc report.JobServic
 }
 
 type jobServiceLogsSubscriber struct {
-	svc report.JobService
+	svc service.JobService
 	ctx context.Context
 
 	mu sync.Mutex

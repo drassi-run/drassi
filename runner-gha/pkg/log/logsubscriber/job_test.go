@@ -20,11 +20,11 @@ import (
 
 	xcontext "drassi.run/core/util/context"
 	mock_logtypes "drassi.run/gha-runner/mock/log/logtypes"
-	mock_report "drassi.run/gha-runner/mock/report"
+	mock_service "drassi.run/gha-runner/mock/service"
 	"drassi.run/gha-runner/pkg/log"
 	"drassi.run/gha-runner/pkg/log/logtypes"
 	"drassi.run/gha-runner/pkg/messages"
-	"drassi.run/gha-runner/pkg/report"
+	"drassi.run/gha-runner/pkg/service"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
@@ -37,7 +37,7 @@ func TestJobServiceLogsSubscriberSuite(t *testing.T) {
 type JobServiceLogsSubscriberTestSuite struct {
 	suite.Suite
 	ctrl *gomock.Controller
-	svc  *mock_report.MockJobService
+	svc  *mock_service.MockJobService
 	sub  *jobServiceLogsSubscriber
 
 	tmpDir string
@@ -51,7 +51,7 @@ type JobServiceLogsSubscriberTestSuite struct {
 func (s *JobServiceLogsSubscriberTestSuite) SetupTest() {
 	s.ctrl = gomock.NewController(s.T())
 
-	s.svc = mock_report.NewMockJobService(s.ctrl)
+	s.svc = mock_service.NewMockJobService(s.ctrl)
 	ctx := xcontext.NewStaticProvider(s.T().Context())
 	s.sub = NewJobServiceLogsSubscriber(ctx, s.svc).(*jobServiceLogsSubscriber)
 	s.tmpDir = s.T().TempDir()
@@ -144,7 +144,7 @@ func (s *JobServiceLogsSubscriberTestSuite) TestIntegrationWithService() {
 			Id: s.timelineUid,
 		},
 	}
-	svc, err := report.NewJobService(server.URL, nil, msg)
+	svc, err := service.NewJobService(server.URL, nil, msg)
 	s.Require().NoError(err)
 
 	sub := NewJobServiceLogsSubscriber(cp, svc)
