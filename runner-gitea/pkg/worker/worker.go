@@ -143,16 +143,16 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 	}
 
 	log := reporter.NewLogStreamer(w.task.Id, w, client)
-	if err := xdig.Supply(scope, log); err != nil {
+	if err := xdig.Supply(scope, log, dig.As(new(stream.Handler))); err != nil {
+		return err
+	}
+	if err := xdig.Supply[scribe.Handler](scope, log.ContextHandle); err != nil {
+		return err
+	}
+	if err := scope.Provide(stream.NewDetachResourceHandler[executor.Milieu]); err != nil {
 		return err
 	}
 	if err := scope.Provide(cmdtypes.Discard[executor.Milieu]); err != nil {
-		return err
-	}
-	if err := scope.Provide(newScribeHandler); err != nil {
-		return err
-	}
-	if err := scope.Provide(newResourceHandler[executor.Milieu]); err != nil {
 		return err
 	}
 	if err := log.Start(); err != nil {
@@ -286,14 +286,6 @@ func newContainerRuntime(ctx context.Context, gh *records.Github) func(
 	) (runtime.Container, error) {
 		return wire_runtime.NewContainerRuntime(ctx, engine, sandbox, info, gh)
 	}
-}
-
-func newScribeHandler(log *reporter.LogStreamer) scribe.Handler {
-	return log.ContextHandle
-}
-
-func newResourceHandler[R any](log *reporter.LogStreamer) stream.ResourceHandler[R] {
-	return stream.NewDetachResourceHandler[R](log)
 }
 
 type jobRunDecoratorParam struct {
