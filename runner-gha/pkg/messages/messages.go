@@ -130,6 +130,7 @@ type RunnerJobRequest struct {
 	Id              string `json:"id,omitempty"`
 	RunnerRequestId string `json:"runner_request_id,omitempty"`
 	RunServiceUrl   string `json:"run_service_url,omitempty"`
+	BillingOwnerId  string `json:"billing_owner_id,omitempty"`
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTPipelines/Pipelines/AgentJobRequestMessage.cs
