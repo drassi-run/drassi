@@ -25,9 +25,9 @@ func TestParseDuration(t *testing.T) {
 		}
 		for i, d := range cases {
 			t.Run(i, func(t *testing.T) {
-				got := parseDuration(i)
-				assert.NotNil(t, got)
-				assert.Equal(t, d, *got)
+				got, err := parseDuration(i)
+				assert.NoError(t, err)
+				assert.Equal(t, d, got)
 			})
 		}
 	})
@@ -41,9 +41,9 @@ func TestParseDuration(t *testing.T) {
 		}
 		for i, d := range cases {
 			t.Run(i, func(t *testing.T) {
-				got := parseDuration(i)
-				assert.NotNil(t, got)
-				assert.Equal(t, d, *got)
+				got, err := parseDuration(i)
+				assert.NoError(t, err)
+				assert.Equal(t, d, got)
 			})
 		}
 	})
@@ -57,8 +57,8 @@ func TestParseDuration(t *testing.T) {
 		}
 		for _, tc := range cases {
 			t.Run(tc, func(t *testing.T) {
-				got := parseDuration(tc)
-				assert.Nil(t, got)
+				_, err := parseDuration(tc)
+				assert.ErrorContains(t, err, "unknown TimeSpan format")
 			})
 		}
 	})
@@ -332,6 +332,46 @@ func TestUnmarshalValue(t *testing.T) {
 				err := json.Unmarshal([]byte(in), &got, json.WithUnmarshalers(unmarshalers))
 				assert.Error(t, err)
 			})
+		}
+	})
+}
+
+func TestParseTimespan(t *testing.T) {
+	t.Run("success ", func(t *testing.T) {
+		testCases := map[string]time.Duration{
+			"0.00:05:00.0000": 5 * time.Minute, // 5 minutes exactly
+			"00:05:00":        5 * time.Minute, // 5 minutes (no days or fraction)
+
+			// Negative 500 microseconds
+			"-00:00:00.0005000": -500 * time.Microsecond,
+
+			// 12 hours, 30 minutes, 15.1 seconds
+			"12:30:15.1": 12*time.Hour + 30*time.Minute + 15*time.Second + 100*time.Millisecond,
+			// Truncate to nanosecond: 12 hours, 30 minutes, 15.123_456_789 seconds
+			"12:30:15.123456789123": 12*time.Hour + 30*time.Minute + 15*time.Second + 123_456_789*time.Nanosecond,
+
+			// 1 day, 2 hours, 3 minutes, 4 seconds, 123.4567 ms
+			"1.02:03:04.1234567": 24*time.Hour + 2*time.Hour + 3*time.Minute + 4*time.Second + 123_456_700*time.Nanosecond,
+		}
+
+		for input, expect := range testCases {
+			duration, err := parseTimespan(input)
+			assert.NoError(t, err)
+			assert.Equal(t, expect, duration, input)
+		}
+	})
+
+	t.Run("failure ", func(t *testing.T) {
+		testCases := map[string]string{
+			"1234":     "unknown TimeSpan format",
+			"24:00:00": "hours out of range",
+			"00:60:00": "minutes out of range",
+			"01:02:61": "seconds out of range",
+		}
+
+		for input, errMsg := range testCases {
+			_, err := parseTimespan(input)
+			assert.ErrorContains(t, err, errMsg)
 		}
 	})
 }
