@@ -193,6 +193,7 @@ func toTimelineRecord(parentId, timelineUid string, rec *timeline.Record) *recor
 	r := &record{
 		Id:         rec.Uid,
 		ParentId:   parentId,
+		Name:       rec.Name,
 		Order:      rec.Order,
 		TimelineId: timelineUid,
 		StartTime:  rec.StartedAt,

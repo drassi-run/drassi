@@ -76,7 +76,6 @@ func (m *Manager) InitJob(spec *executor.JobSpec) {
 	r.State = StateInProgress
 
 	m.jobRecord = r
-	m.push(r)
 }
 
 func (m *Manager) FinishJob(rec *records.Job) {
@@ -91,7 +90,6 @@ func (m *Manager) FinishJob(rec *records.Job) {
 	} else {
 		r.Result = ResultFailed
 	}
-	m.push(r)
 }
 
 func (m *Manager) DecorateJobRun(task *executor.JobTask) executor.JobRun {
@@ -109,6 +107,12 @@ func (m *Manager) DecorateJobRun(task *executor.JobTask) executor.JobRun {
 		o = completeJobObject(uid)
 	}
 	r := m.newRecord(uid, o)
+	switch task.Stage {
+	case executor.StagePre:
+		r.Name = "Set up job"
+	case executor.StagePost:
+		r.Name = "Complete job"
+	}
 	m.push(r)
 	m.addToJob(r)
 
@@ -142,6 +146,7 @@ func (m *Manager) DecorateStepRun(task *executor.StepTask) executor.StepRun {
 	uid := m.RecordUid(task.Stage, task.StepSpec().Uid)
 	o := &StepObject{StepSpec: task.StepSpec()}
 	r := m.newRecord(uid, o)
+	r.Name = task.Executor.Name(task.Stage)
 	m.push(r)
 	m.addToJob(r)
 
@@ -149,12 +154,14 @@ func (m *Manager) DecorateStepRun(task *executor.StepTask) executor.StepRun {
 	return func(ctx context.Context) (*records.Step, error) {
 		r.StartedAt = new(time.Now())
 		r.State = StateInProgress
+		r.Name = task.Executor.Name(task.Stage)
 		m.push(r)
 
 		rec, err := run(ctx)
 
 		r.State = StateCompleted
 		r.CompletedAt = new(time.Now())
+		r.Name = task.Executor.Name(task.Stage)
 		if err != nil {
 			r.Result = ResultFailed
 		} else {

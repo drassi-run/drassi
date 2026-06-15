@@ -350,7 +350,7 @@ func toStep(r *timeline.Record) *step {
 	return &step{
 		Id:          r.Uid,
 		Number:      r.Order,
-		Name:        "rec.Name",
+		Name:        r.Name,
 		Status:      toStepStatus(r.State),
 		Conclusion:  toStepConclusion(r.Result),
 		StartedAt:   r.StartedAt,
