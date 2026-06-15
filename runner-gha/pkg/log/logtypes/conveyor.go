@@ -23,21 +23,30 @@ type Conveyor interface {
 }
 
 func NewStorageAwareConveyor(f func(context.Context) (SignedUrlResponse, error)) Conveyor {
-	return &storageAwareConveyor{getUrl: f}
+	return &storageAwareConveyor{readyCh: make(chan struct{}), getUrl: f}
 }
 
 // storageAwareConveyor implement Conveyor that selects the appropriate storage backend
 // (e.g., S3, Azure Blob, or GCS) based on response of getUrl.
 type storageAwareConveyor struct {
 	Conveyor
-	getUrl func(context.Context) (SignedUrlResponse, error)
+	readyCh chan struct{}
+	getUrl  func(context.Context) (SignedUrlResponse, error)
 }
 
 func (s *storageAwareConveyor) Close() error {
+	<-s.readyCh
 	if c := s.Conveyor; c != nil {
 		return c.Close()
 	}
 	return nil
+}
+
+func (s *storageAwareConveyor) Update(u *log.Update) {
+	<-s.readyCh
+	if c := s.Conveyor; c != nil {
+		c.Update(u)
+	}
 }
 
 func (s *storageAwareConveyor) Run(ctx context.Context) (*Stat, error) {
@@ -50,6 +59,8 @@ func (s *storageAwareConveyor) Run(ctx context.Context) (*Stat, error) {
 
 func (s *storageAwareConveyor) underlay(ctx context.Context) (Conveyor, error) {
 	if s.Conveyor == nil {
+		defer close(s.readyCh)
+
 		r, err := s.getUrl(ctx)
 		if err != nil {
 			return nil, err
