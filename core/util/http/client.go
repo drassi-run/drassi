@@ -9,7 +9,7 @@ package xhttp
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
 	"fmt"
 	"io"
 	"maps"
@@ -237,18 +237,18 @@ func (e *Execution) matchContentType(x, y string) (bool, error) {
 	return strings.EqualFold(ct1, ct2), nil
 }
 
-func JsonEncode(obj any) func() (io.Reader, string, error) {
+func JsonEncode(obj any, opts ...json.Options) func() (io.Reader, string, error) {
 	return func() (io.Reader, string, error) {
 		buf := new(bytes.Buffer)
-		if err := json.NewEncoder(buf).Encode(obj); err != nil {
+		if err := json.MarshalWrite(buf, obj, opts...); err != nil {
 			return nil, "", err
 		}
 		return buf, "application/json", nil
 	}
 }
 
-func JsonDecode(obj any) func(io.Reader) error {
+func JsonDecode(obj any, opts ...json.Options) func(io.Reader) error {
 	return func(body io.Reader) error {
-		return json.NewDecoder(body).Decode(obj)
+		return json.UnmarshalRead(body, obj, opts...)
 	}
 }
