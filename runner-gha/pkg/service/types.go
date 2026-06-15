@@ -7,6 +7,11 @@
 package service
 
 import (
+	"encoding/json/jsontext"
+	"errors"
+	"fmt"
+	"io"
+	"strconv"
 	"time"
 
 	"drassi.run/core/pkg/executor/command/cmdtypes"
@@ -33,12 +38,12 @@ type signedUrlStepSummaryRequest struct {
 type signedUrlStepSummaryResponse struct {
 	Url           string `json:"summary_url"`
 	StorageType   string `json:"blob_storage_type"`
-	SoftSizeLimit int64  `json:"soft_size_limit"`
+	SoftSizeLimit sint64 `json:"soft_size_limit"`
 }
 
 func (s *signedUrlStepSummaryResponse) GetUrl() string          { return s.Url }
 func (s *signedUrlStepSummaryResponse) GetStorageType() string  { return s.StorageType }
-func (s *signedUrlStepSummaryResponse) GetSoftSizeLimit() int64 { return s.SoftSizeLimit }
+func (s *signedUrlStepSummaryResponse) GetSoftSizeLimit() int64 { return int64(s.SoftSizeLimit) }
 
 // StepSummaryMetadataCreate in C#
 type metadataStepSummaryRequest struct {
@@ -62,12 +67,12 @@ type signedUrlStepLogsRequest struct {
 type signedUrlStepLogsResponse struct {
 	Url           string `json:"logs_url"`
 	StorageType   string `json:"blob_storage_type"`
-	SoftSizeLimit int64  `json:"soft_size_limit"`
+	SoftSizeLimit sint64 `json:"soft_size_limit"`
 }
 
 func (s *signedUrlStepLogsResponse) GetUrl() string          { return s.Url }
 func (s *signedUrlStepLogsResponse) GetStorageType() string  { return s.StorageType }
-func (s *signedUrlStepLogsResponse) GetSoftSizeLimit() int64 { return s.SoftSizeLimit }
+func (s *signedUrlStepLogsResponse) GetSoftSizeLimit() int64 { return int64(s.SoftSizeLimit) }
 
 // StepLogsMetadataCreate in C#
 type metadataStepLogsRequest struct {
@@ -223,4 +228,33 @@ type attempt struct {
 	Attempt    int32  `json:"attempt,omitempty"`
 	TimelineId string `json:"timeline_id,omitempty"` // UUID
 	RecordId   string `json:"record_id,omitempty"`   // UUID
+}
+
+type sint64 int64
+
+func (i *sint64) UnmarshalJSONFrom(d *jsontext.Decoder) error {
+	tok, err := d.ReadToken()
+	if err != nil {
+		if errors.Is(err, io.EOF) {
+			return io.ErrUnexpectedEOF
+		}
+		return err
+	}
+
+	switch tok.Kind() {
+	case jsontext.KindNumber:
+		*i = sint64(tok.Int())
+
+	case jsontext.KindString:
+		s := tok.String()
+		if val, err := strconv.ParseInt(s, 10, 64); err != nil {
+			return fmt.Errorf("parse string %q as int64: %w", s, err)
+		} else {
+			*i = sint64(val)
+		}
+
+	default:
+		return fmt.Errorf("unexpected token kind %q", tok.Kind())
+	}
+	return nil
 }
