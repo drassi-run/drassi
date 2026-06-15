@@ -106,9 +106,9 @@ func TestParseTime(t *testing.T) {
 		}
 		for i, v := range cases {
 			t.Run(i, func(t *testing.T) {
-				got := parseTime(i)
-				assert.NotNil(t, got)
-				assert.True(t, v.Equal(*got))
+				got, err := parseTime(i)
+				assert.NoError(t, err)
+				assert.True(t, v.Equal(got))
 			})
 		}
 	})
@@ -119,9 +119,9 @@ func TestParseTime(t *testing.T) {
 		}
 		for i, v := range cases {
 			t.Run(i, func(t *testing.T) {
-				got := parseTime(i)
-				assert.NotNil(t, got)
-				assert.True(t, v.Equal(*got))
+				got, err := parseTime(i)
+				assert.NoError(t, err)
+				assert.True(t, v.Equal(got))
 			})
 		}
 	})
@@ -134,8 +134,8 @@ func TestParseTime(t *testing.T) {
 		}
 		for _, tc := range cases {
 			t.Run(tc, func(t *testing.T) {
-				got := parseTime(tc)
-				assert.Nil(t, got)
+				_, err := parseTime(tc)
+				assert.ErrorContains(t, err, "unknown time format")
 			})
 		}
 	})

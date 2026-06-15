@@ -85,25 +85,28 @@ func unmarshalTime(dec *jsontext.Decoder, val *time.Time) error {
 	}
 
 	s := tok.String()
-	if t := parseTime(s); t != nil {
-		*val = *t
-		return nil
+	t, err := parseTime(s)
+	if err != nil {
+		return err
 	}
-	return errors.New("unknown time format: " + s)
+
+	*val = t
+	return nil
 }
 
-func parseTime(s string) *time.Time {
-	// first try (RFC3339 format with zone info)
-	if t, err := time.Parse(time.RFC3339, s); err == nil {
-		return &t
+var timeFormats = []string{
+	time.RFC3339,          // RFC3339 format with zone info
+	"2006-01-02T15:04:05", // RFC3339 format w/o zone info
+}
+
+func parseTime(s string) (time.Time, error) {
+	for _, format := range timeFormats {
+		if t, err := time.Parse(format, s); err == nil {
+			return t, nil
+		}
 	}
 
-	// second try (RFC3339 format w/o zone info)
-	if t, err := time.Parse("2006-01-02T15:04:05", s); err == nil {
-		return &t
-	}
-
-	return nil
+	return time.Time{}, errors.New("unknown time format: " + s)
 }
 
 func (t *TemplateToken) UnmarshalJSONFrom(d *jsontext.Decoder) error {
