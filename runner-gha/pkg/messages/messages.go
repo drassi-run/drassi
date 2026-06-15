@@ -20,6 +20,7 @@ const (
 	TypeAgentRefresh            = "AgentRefresh"
 	TypeRunnerRefresh           = "RunnerRefresh"
 	TypeRunnerShutdown          = "RunnerShutdown"
+	TypeRunnerRefreshConfig     = "RunnerRefreshConfig"
 	TypeJobCancellation         = "JobCancellation"
 	TypeRunnerJobRequest        = "RunnerJobRequest"
 	TypePipelineAgentJobRequest = "PipelineAgentJobRequest"
@@ -106,6 +107,14 @@ type RunnerRefresh struct {
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTPipelines/Pipelines/RunnerShutdownMessage.cs
 type RunnerShutdown struct {
 	Reason string `json:"reason,omitempty"`
+}
+
+// https://github.com/actions/runner/blob/v2.335.1/src/Sdk/DTWebApi/WebApi/RunnerRefreshConfigMessage.cs
+type RunnerRefreshConfig struct {
+	RunnerQualifiedId string `json:"runner_qualified_id,omitempty"`
+	ConfigType        string `json:"config_type,omitempty"`
+	ServiceType       string `json:"service_type,omitempty"`
+	ConfigRefreshUrl  string `json:"config_refresh_url,omitempty"`
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTWebApi/WebApi/JobCancelMessage.cs
