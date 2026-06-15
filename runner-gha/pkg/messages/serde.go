@@ -20,11 +20,11 @@ import (
 var unmarshalers []*json.Unmarshalers
 
 func init() {
-	unmarshalers = append(unmarshalers,
+	unmarshalers = []*json.Unmarshalers{
 		json.UnmarshalFromFunc(unmarshalDuration),
 		json.UnmarshalFromFunc(unmarshalTime),
 		json.UnmarshalFromFunc(unmarshalValue),
-	)
+	}
 }
 
 func JsonOptions() []json.Options {

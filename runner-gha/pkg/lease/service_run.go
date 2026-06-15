@@ -48,7 +48,7 @@ func (s *RunService) AcquireJob(ctx context.Context, msgId, billingOwner string)
 	msg := new(messages.PipelineAgentJobRequest)
 	hr := s.client.Post("acquirejob").
 		WithBodyProvider(xhttp.JsonEncode(&o)).
-		OnSuccess(xhttp.JsonDecode(msg))
+		OnSuccess(xhttp.JsonDecode(msg, messages.JsonOptions()...))
 
 	if err := hr.Do(ctx); err != nil {
 		return nil, err
@@ -70,7 +70,7 @@ func (s *RunService) renewJob(ctx context.Context, req *renewJobRequest) {
 		resp := new(renewJobResponse)
 		hr := s.client.Post("renewjob").
 			WithBodyProvider(xhttp.JsonEncode(req)).
-			OnSuccess(xhttp.JsonDecode(resp))
+			OnSuccess(xhttp.JsonDecode(resp, messages.JsonOptions()...))
 
 		if err := hr.Do(ctx); err != nil {
 			return err

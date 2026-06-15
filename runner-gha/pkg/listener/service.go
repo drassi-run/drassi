@@ -90,7 +90,8 @@ func (s *runnerService) GetMessage(ctx context.Context, session *Session, os, ar
 	}
 
 	m := new(messages.Message)
-	r.AfterResponseReceive(skipEmpty).OnSuccess(xhttp.JsonDecode(m))
+	r.AfterResponseReceive(skipEmpty).
+		OnSuccess(xhttp.JsonDecode(m))
 	err := r.Do(ctx)
 
 	if err == nil && m.Id > s.lastMessageId {
@@ -169,7 +170,8 @@ func (s *brokerService) GetMessage(ctx context.Context, session *Session, os, ar
 	}
 
 	m := new(messages.Message)
-	r.AfterResponseReceive(skipEmpty).OnSuccess(xhttp.JsonDecode(m))
+	r.AfterResponseReceive(skipEmpty).
+		OnSuccess(xhttp.JsonDecode(m))
 	err := r.Do(ctx)
 
 	return m, err

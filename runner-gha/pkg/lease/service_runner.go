@@ -52,7 +52,7 @@ func (s *RunnerService) AcquireJob(ctx context.Context, messageId string) (*mess
 	msg := new(messages.PipelineAgentJobRequest)
 	hr := s.client.Get(fmt.Sprintf("_apis/distributedtask/runnermessages/%s", messageId)).
 		SetQuery("api-version", "6.0-preview").
-		OnSuccess(xhttp.JsonDecode(msg))
+		OnSuccess(xhttp.JsonDecode(msg, messages.JsonOptions()...))
 
 	if err := hr.Do(ctx); err != nil {
 		return nil, err
@@ -82,7 +82,7 @@ func (s *RunnerService) renewJob(ctx context.Context, msg *messages.PipelineAgen
 			SetQuery("api-version", "5.1-preview").
 			SetQuery("lockToken", lockToken).
 			WithBodyProvider(xhttp.JsonEncode(req)).
-			OnSuccess(xhttp.JsonDecode(resp))
+			OnSuccess(xhttp.JsonDecode(resp, messages.JsonOptions()...))
 
 		if orchId != "" {
 			hr.SetHeader("X-VSS-OrchestrationId", orchId)
