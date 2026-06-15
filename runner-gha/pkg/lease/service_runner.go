@@ -75,7 +75,7 @@ func (s *RunnerService) renewJob(ctx context.Context, msg *messages.PipelineAgen
 	doRenew := func() error {
 		req := &runnerJobRequest{
 			RequestId:   msg.RequestId,
-			LockedUntil: lockedUntil,
+			LockedUntil: new(lockedUntil),
 		}
 		resp := new(runnerJobRequest)
 		hr := s.client.Patch(fmt.Sprintf("_apis/distributedtask/pools/%d/jobrequests/%d", s.groupId, msg.RequestId)).
@@ -93,9 +93,11 @@ func (s *RunnerService) renewJob(ctx context.Context, msg *messages.PipelineAgen
 		}
 
 		l.Debugf("successfully renew job %s, job is valid till %s", msg.JobId, resp.LockedUntil)
-		lockedUntil = resp.LockedUntil
-		if d := renewAt(resp.LockedUntil); d >= 0 {
-			timer.Reset(d)
+		if lu := resp.LockedUntil; lu != nil {
+			lockedUntil = *lu
+			if d := renewAt(lockedUntil); d >= 0 {
+				timer.Reset(d)
+			}
 		}
 		return nil
 	}
@@ -118,7 +120,7 @@ func (s *RunnerService) renewJob(ctx context.Context, msg *messages.PipelineAgen
 func (s *RunnerService) completeJob(ctx context.Context, msg *messages.PipelineAgentJobRequest, result timeline.Result) error {
 	req := &runnerJobRequest{
 		RequestId:  msg.RequestId,
-		FinishTime: time.Now(),
+		FinishTime: new(time.Now()),
 		Result:     result,
 	}
 

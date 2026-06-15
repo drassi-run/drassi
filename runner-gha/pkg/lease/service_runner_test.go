@@ -108,7 +108,7 @@ func (s *RunnerServiceTestSuite) TestLease_Renew() {
 		count++
 		ttl := time.Duration(count) * time.Second // renew when 3/4 ttl time pass
 		writeJsonResponse(t, w, &runnerJobRequest{
-			LockedUntil: time.Now().Add(ttl),
+			LockedUntil: new(time.Now().Add(ttl)),
 		})
 	})
 
