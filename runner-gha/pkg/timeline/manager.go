@@ -85,8 +85,12 @@ func (m *Manager) FinishJob(rec *records.Job) {
 
 	r.State = StateCompleted
 	r.CompletedAt = new(time.Now())
-	r.Result = ToResult(rec.Result)
-	o.Outputs = rec.Outputs
+	if rec != nil {
+		r.Result = ToResult(rec.Result)
+		o.Outputs = maps.Clone(rec.Outputs)
+	} else {
+		r.Result = ResultFailed
+	}
 	m.push(r)
 }
 
@@ -118,8 +122,12 @@ func (m *Manager) DecorateJobRun(task *executor.JobTask) executor.JobRun {
 
 		r.State = StateCompleted
 		r.CompletedAt = new(time.Now())
-		r.Result = ToResult(rec.Result)
-		o.Outputs = rec.Outputs
+		if err != nil {
+			r.Result = ResultFailed
+		} else {
+			r.Result = ToResult(rec.Result)
+			o.Outputs = maps.Clone(rec.Outputs)
+		}
 		m.push(r)
 		return rec, err
 	}
@@ -147,8 +155,12 @@ func (m *Manager) DecorateStepRun(task *executor.StepTask) executor.StepRun {
 
 		r.State = StateCompleted
 		r.CompletedAt = new(time.Now())
-		r.Result = ToResult(rec.Conclusion)
-		o.Outputs = rec.Outputs
+		if err != nil {
+			r.Result = ResultFailed
+		} else {
+			r.Result = ToResult(rec.Conclusion)
+			o.Outputs = maps.Clone(rec.Outputs)
+		}
 		m.push(r)
 		return rec, err
 	}

@@ -69,7 +69,9 @@ func (w *Worker) Run(ctx context.Context, scope *dig.Scope) (err error) {
 
 	var job *records.Job
 	defer func() {
-		w.timelineMgr.FinishJob(job)
+		if job != nil {
+			w.timelineMgr.FinishJob(job)
+		}
 		ex := w.lease.Complete(w.ctx, w.timelineMgr.JobRecord())
 		err = errors.Join(err, ex)
 	}()

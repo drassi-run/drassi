@@ -33,6 +33,13 @@ type storageAwareConveyor struct {
 	getUrl func(context.Context) (SignedUrlResponse, error)
 }
 
+func (s *storageAwareConveyor) Close() error {
+	if c := s.Conveyor; c != nil {
+		return c.Close()
+	}
+	return nil
+}
+
 func (s *storageAwareConveyor) Run(ctx context.Context) (*Stat, error) {
 	if c, err := s.underlay(ctx); err != nil {
 		return nil, err

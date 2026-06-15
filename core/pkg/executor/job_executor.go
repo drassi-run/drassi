@@ -95,7 +95,9 @@ func (e *jobExecutor) JobSpec() *JobSpec {
 }
 
 func (e *jobExecutor) Initialize(ctx context.Context) (job *records.Job, err error) {
-	job = e.job
+	// e.job is late initialize
+	defer func() { job = e.job }()
+
 	ctx, done := xotel.SetupTelemetry(ctx,
 		fmt.Sprintf("JobExecutor.Initialize(%s)", e.spec.Id),
 		xotel.DrassiJob(e.spec.Id),

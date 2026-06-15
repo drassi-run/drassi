@@ -15,6 +15,7 @@ import (
 
 	"drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/executor"
+	"drassi.run/core/pkg/executor/command/cmdtypes"
 	"drassi.run/core/pkg/executor/problem"
 	"drassi.run/core/pkg/executor/runtime"
 	"drassi.run/core/pkg/executor/secret"
@@ -247,6 +248,9 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 		return err
 	}
 	if err := scope.Provide(newContainerRuntime(w.ctx, github)); err != nil {
+		return err
+	}
+	if err := scope.Provide(timeline.NewIssueReporter, dig.As(new(cmdtypes.Reporter[executor.Milieu]))); err != nil {
 		return err
 	}
 	if err := scope.Provide(stream.NewDetachResourceHandler[executor.Milieu]); err != nil {
