@@ -215,9 +215,10 @@ const (
 	TokenTypeNull             TokenType = 7
 )
 
+// Github Actions recently change from key/value to Key/Value
 type KVPair[K, V any] struct {
-	Key   K `json:"key,omitempty"`
-	Value V `json:"value,omitempty"`
+	Key   K `json:"key,omitempty,case:ignore"`
+	Value V `json:"value,omitempty,case:ignore"`
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTPipelines/Pipelines/JobResources.cs
