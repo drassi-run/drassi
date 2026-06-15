@@ -69,7 +69,7 @@ func squashTokens(tokens []TemplateToken) workflows.Token {
 }
 
 func ToStepSpec(step *JobStep) (*executor.StepSpec, error) {
-	ref := &step.Reference
+	ref := step.Reference
 	spec := &executor.StepSpec{
 		Uid:              step.Id,
 		Id:               step.ContextName,

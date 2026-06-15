@@ -71,7 +71,7 @@ func (s *RunnerService) renewJob(ctx context.Context, msg *messages.PipelineAgen
 	timer := time.NewTimer(0)
 	defer timer.Stop()
 
-	lockedUntil := msg.LockedUntil.Time
+	lockedUntil := msg.LockedUntil
 	doRenew := func() error {
 		req := &runnerJobRequest{
 			RequestId:   msg.RequestId,

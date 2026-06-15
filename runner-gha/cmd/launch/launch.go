@@ -175,6 +175,12 @@ func (l *launcher) handleMessage(ctx context.Context, msg *listener.Message) err
 		} else {
 			return l.shutdownRunner(ctx, msg)
 		}
+	case messages.TypeRunnerRefreshConfig:
+		if msg, err := messages.Decode[messages.RunnerRefreshConfig](msg.Body); err != nil {
+			return err
+		} else {
+			return l.refreshRunnerConfig(ctx, msg)
+		}
 	case messages.TypeJobCancellation:
 		if msg, err := messages.Decode[messages.JobCancel](msg.Body); err != nil {
 			return err
@@ -211,6 +217,11 @@ func (l *launcher) refreshRunner(ctx context.Context, msg *messages.RunnerRefres
 }
 
 func (l *launcher) shutdownRunner(ctx context.Context, msg *messages.RunnerShutdown) error {
+	log.Printf("%#v", msg)
+	return nil
+}
+
+func (l *launcher) refreshRunnerConfig(ctx context.Context, msg *messages.RunnerRefreshConfig) error {
 	log.Printf("%#v", msg)
 	return nil
 }
