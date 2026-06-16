@@ -38,7 +38,7 @@ type signedUrlStepSummaryRequest struct {
 type signedUrlStepSummaryResponse struct {
 	Url           string `json:"summary_url"`
 	StorageType   string `json:"blob_storage_type"`
-	SoftSizeLimit sint64 `json:"soft_size_limit"`
+	SoftSizeLimit qint64 `json:"soft_size_limit"`
 }
 
 func (s *signedUrlStepSummaryResponse) GetUrl() string          { return s.Url }
@@ -67,7 +67,7 @@ type signedUrlStepLogsRequest struct {
 type signedUrlStepLogsResponse struct {
 	Url           string `json:"logs_url"`
 	StorageType   string `json:"blob_storage_type"`
-	SoftSizeLimit sint64 `json:"soft_size_limit"`
+	SoftSizeLimit qint64 `json:"soft_size_limit"`
 }
 
 func (s *signedUrlStepLogsResponse) GetUrl() string          { return s.Url }
@@ -230,9 +230,13 @@ type attempt struct {
 	RecordId   string `json:"record_id,omitempty"`   // UUID
 }
 
-type sint64 int64
+////////////// booleans/numbers in quotes //////////////
+// Support booleans/numbers represent as string returned by GitHub server.
+// In actions/runner (C#) code, it converted automatically by Json.NET (Newtonsoft.Json)
 
-func (i *sint64) UnmarshalJSONFrom(d *jsontext.Decoder) error {
+type qint64 int64
+
+func (i *qint64) UnmarshalJSONFrom(d *jsontext.Decoder) error {
 	tok, err := d.ReadToken()
 	if err != nil {
 		if errors.Is(err, io.EOF) {
@@ -243,14 +247,14 @@ func (i *sint64) UnmarshalJSONFrom(d *jsontext.Decoder) error {
 
 	switch tok.Kind() {
 	case jsontext.KindNumber:
-		*i = sint64(tok.Int())
+		*i = qint64(tok.Int())
 
 	case jsontext.KindString:
 		s := tok.String()
 		if val, err := strconv.ParseInt(s, 10, 64); err != nil {
 			return fmt.Errorf("parse string %q as int64: %w", s, err)
 		} else {
-			*i = sint64(val)
+			*i = qint64(val)
 		}
 
 	default:
