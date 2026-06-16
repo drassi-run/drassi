@@ -148,7 +148,7 @@ func (w *Worker) initManager(scope *dig.Scope) error {
 	if logMgr, err := log.NewManager("/tmp/gha-runner/", maxLogSize); err != nil {
 		return fmt.Errorf("create log.Manager: %w", err)
 	} else {
-		w.closers = append(w.closers, logMgr)
+		w.logMgr = logMgr
 		if err = xdig.Supply(scope, logMgr); err != nil {
 			return fmt.Errorf("supply log.Manager: %w", err)
 		}

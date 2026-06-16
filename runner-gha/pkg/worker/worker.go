@@ -8,19 +8,18 @@ package worker
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"io"
-	"slices"
+	"time"
 
 	"drassi.run/core/pkg/executor"
-	"drassi.run/core/pkg/model/records"
+	"drassi.run/core/util/error"
 	"drassi.run/gha-runner/pkg/lease"
 	"drassi.run/gha-runner/pkg/log"
 	"drassi.run/gha-runner/pkg/log/logtypes"
 	"drassi.run/gha-runner/pkg/messages"
 	"drassi.run/gha-runner/pkg/timeline"
 	"drassi.run/gha-runner/pkg/types"
+	"github.com/chainguard-dev/clog"
 	"go.uber.org/dig"
 )
 
@@ -31,82 +30,65 @@ func New(msg *messages.PipelineAgentJobRequest) *Worker {
 type Worker struct {
 	msg         *messages.PipelineAgentJobRequest
 	lease       lease.Lease
+	logMgr      *log.Manager
 	timelineMgr *timeline.Manager
 
 	ctx     context.Context
-	cancel  context.CancelCauseFunc
 	waiters []types.Waiter
-	closers []io.Closer
 }
 
 func (w *Worker) Context() context.Context {
 	return w.ctx
 }
 
-func (w *Worker) Wait() {
-	for _, waiter := range w.waiters {
-		waiter.Wait()
-	}
-}
+func (w *Worker) Run(ctx context.Context, scope *dig.Scope) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	w.ctx = ctx
 
-func (w *Worker) Cancel(cause error) {
-	if cancel := w.cancel; cancel != nil {
-		w.cancel(cause)
-	}
-}
+	defer w.complete()
 
-func (w *Worker) Run(ctx context.Context, scope *dig.Scope) (err error) {
-	w.ctx, w.cancel = context.WithCancelCause(ctx)
-	defer w.cancel(nil)
-
-	defer w.close()
-	if err = w.setup(scope); err != nil {
+	if err := w.setup(scope); err != nil {
 		return err
 	}
-	if err = w.runServices(ctx, scope); err != nil {
+	if cancel = w.runServices(); cancel != nil {
+		defer cancel() // cancel timelineMgr.Run & lease.Renew
+	}
+	if err := scope.Invoke(w.runLogSubscribers); err != nil {
 		return err
 	}
 
-	var job *records.Job
-	defer func() {
-		if job != nil {
-			w.timelineMgr.FinishJob(job)
-		}
-		ex := w.lease.Complete(w.ctx, w.timelineMgr.JobRecord())
-		err = errors.Join(err, ex)
-	}()
+	return w.run(scope)
+}
 
-	req := w.lease.GetMessage()
-	spec, err := messages.ToJobSpec(req)
+func (w *Worker) run(scope *dig.Scope) (err error) {
+	defer xerror.Recover(&err)
+	l := clog.FromContext(w.ctx)
+
+	l.Debug("convert PipelineAgentJobRequest to JobSpec")
+	spec, err := messages.ToJobSpec(w.msg)
 	if err != nil {
 		return fmt.Errorf("convert PipelineAgentJobRequest to JobSpec: %w", err)
 	}
 	scope = scope.Scope(fmt.Sprintf("job(%s)", spec.Id))
 
+	l.Infof("running job %s", spec.Id)
 	w.timelineMgr.InitJob(spec)
-	job, err = executor.Run(w.ctx, spec, scope)
+	job, err := executor.Run(w.ctx, spec, scope)
+	w.timelineMgr.FinishJob(job)
+
 	return err
 }
 
-func (w *Worker) runServices(ctx context.Context, scope *dig.Scope) error {
+func (w *Worker) runServices() context.CancelFunc {
+	ctx, cancel := context.WithCancel(w.ctx)
+
 	go w.lease.Renew(ctx)
 
-	go w.timelineMgr.Run(w.ctx)
+	go w.timelineMgr.Run(ctx)
 	w.waiters = append(w.waiters, w.timelineMgr)
 
-	if err := scope.Invoke(w.runLogSubscribers); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (w *Worker) close() error {
-	errs := make([]error, 0)
-	for _, c := range slices.Backward(w.closers) {
-		errs = append(errs, c.Close())
-	}
-	return errors.Join(errs...)
+	return cancel
 }
 
 type logSubscriberParams struct {
@@ -121,5 +103,51 @@ func (w *Worker) runLogSubscribers(p logSubscriberParams) {
 		ch := p.LogManager.Subscribe()
 		go sub.Run(w.ctx, ch)
 		w.waiters = append(w.waiters, sub)
+	}
+}
+
+func (w *Worker) complete() {
+	l := clog.FromContext(w.ctx)
+
+	// close log.Manager and its subscriber channels
+	if lm := w.logMgr; lm != nil {
+		if err := lm.Close(); err != nil {
+			l.Errorf("close log.Manager failed: %v", err)
+		}
+	}
+	// waiting for logtypes.Subscriber + timeline.Manager
+	w.Wait()
+	// remove job's log folder
+	if lm := w.logMgr; lm != nil {
+		if err := lm.Dispose(); err != nil {
+			l.Errorf("dispose log.Manager failed: %v", err)
+		}
+	}
+
+	var r *timeline.Record
+	if tm := w.timelineMgr; tm != nil {
+		r = tm.JobRecord()
+	}
+
+	ls := w.lease
+	if ls == nil {
+		return
+	}
+
+	ctx := context.WithoutCancel(w.ctx)
+	var cancel context.CancelFunc
+	ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	if err := ls.Complete(ctx, r); err != nil {
+		l.Errorf("completing job error: %v", err)
+	} else {
+		l.Info("complete job")
+	}
+}
+
+func (w *Worker) Wait() {
+	for _, waiter := range w.waiters {
+		waiter.Wait()
 	}
 }
