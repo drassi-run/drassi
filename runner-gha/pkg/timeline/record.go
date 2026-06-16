@@ -22,7 +22,8 @@ type Recorder interface {
 type Record struct {
 	// UUID from step/job.
 	// For preStep, postStep, Setup job & Complete job a new UUID is generated.
-	Uid string
+	Uid  string
+	Name string
 
 	Order    int
 	Object   any

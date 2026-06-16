@@ -21,7 +21,11 @@ import (
 	"github.com/google/uuid"
 )
 
-func NewManager(interval time.Duration, recorder Recorder) *Manager {
+func NewManager(recorder Recorder) *Manager {
+	return NewManagerInterval(10*time.Second, recorder)
+}
+
+func NewManagerInterval(interval time.Duration, recorder Recorder) *Manager {
 	ticker := time.NewTicker(interval)
 	ticker.Stop()
 
@@ -60,6 +64,10 @@ func (m *Manager) RecordUid(stage executor.Stage, uid string) string {
 	return r
 }
 
+func (m *Manager) JobRecord() *Record {
+	return m.jobRecord
+}
+
 func (m *Manager) InitJob(spec *executor.JobSpec) {
 	o := &JobObject{JobSpec: spec}
 	r := m.newRecord(spec.Uid, o)
@@ -68,7 +76,6 @@ func (m *Manager) InitJob(spec *executor.JobSpec) {
 	r.State = StateInProgress
 
 	m.jobRecord = r
-	m.push(r)
 }
 
 func (m *Manager) FinishJob(rec *records.Job) {
@@ -77,9 +84,12 @@ func (m *Manager) FinishJob(rec *records.Job) {
 
 	r.State = StateCompleted
 	r.CompletedAt = new(time.Now())
-	r.Result = ToResult(rec.Result)
-	o.Outputs = rec.Outputs
-	m.push(r)
+	if rec != nil {
+		r.Result = ToResult(rec.Result)
+		o.Outputs = maps.Clone(rec.Outputs)
+	} else {
+		r.Result = ResultFailed
+	}
 }
 
 func (m *Manager) DecorateJobRun(task *executor.JobTask) executor.JobRun {
@@ -97,6 +107,12 @@ func (m *Manager) DecorateJobRun(task *executor.JobTask) executor.JobRun {
 		o = completeJobObject(uid)
 	}
 	r := m.newRecord(uid, o)
+	switch task.Stage {
+	case executor.StagePre:
+		r.Name = "Set up job"
+	case executor.StagePost:
+		r.Name = "Complete job"
+	}
 	m.push(r)
 	m.addToJob(r)
 
@@ -110,8 +126,12 @@ func (m *Manager) DecorateJobRun(task *executor.JobTask) executor.JobRun {
 
 		r.State = StateCompleted
 		r.CompletedAt = new(time.Now())
-		r.Result = ToResult(rec.Result)
-		o.Outputs = rec.Outputs
+		if err != nil {
+			r.Result = ResultFailed
+		} else {
+			r.Result = ToResult(rec.Result)
+			o.Outputs = maps.Clone(rec.Outputs)
+		}
 		m.push(r)
 		return rec, err
 	}
@@ -126,6 +146,7 @@ func (m *Manager) DecorateStepRun(task *executor.StepTask) executor.StepRun {
 	uid := m.RecordUid(task.Stage, task.StepSpec().Uid)
 	o := &StepObject{StepSpec: task.StepSpec()}
 	r := m.newRecord(uid, o)
+	r.Name = task.Executor.Name(task.Stage)
 	m.push(r)
 	m.addToJob(r)
 
@@ -133,14 +154,20 @@ func (m *Manager) DecorateStepRun(task *executor.StepTask) executor.StepRun {
 	return func(ctx context.Context) (*records.Step, error) {
 		r.StartedAt = new(time.Now())
 		r.State = StateInProgress
+		r.Name = task.Executor.Name(task.Stage)
 		m.push(r)
 
 		rec, err := run(ctx)
 
 		r.State = StateCompleted
 		r.CompletedAt = new(time.Now())
-		r.Result = ToResult(rec.Conclusion)
-		o.Outputs = rec.Outputs
+		r.Name = task.Executor.Name(task.Stage)
+		if err != nil {
+			r.Result = ResultFailed
+		} else {
+			r.Result = ToResult(rec.Conclusion)
+			o.Outputs = maps.Clone(rec.Outputs)
+		}
 		m.push(r)
 		return rec, err
 	}

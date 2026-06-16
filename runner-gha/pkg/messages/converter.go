@@ -104,6 +104,7 @@ func ToStepSpec(step *JobStep) (*executor.StepSpec, error) {
 		if !strings.EqualFold(ref.RepositoryType, "github") {
 			return nil, fmt.Errorf("unsupported step %s with repo type %s", step.ContextName, ref.RepositoryType)
 		}
+		// TODO: support local action (ref.RepositoryType=self)
 		repo := &repository.Repository{
 			Scheme:   "https",
 			Endpoint: "github.com",

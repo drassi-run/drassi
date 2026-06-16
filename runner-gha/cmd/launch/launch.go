@@ -11,15 +11,23 @@ import (
 	"crypto/rsa"
 	"fmt"
 	"log"
+	"net/http"
 	"time"
 
+	"drassi.run/core/pkg/model"
+	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/pkg/store/repository/gitstore"
+	"drassi.run/core/util/dig"
 	"drassi.run/core/util/oauth2/clientcredentials"
 	ghav1a1 "drassi.run/gha-runner/pkg/apis/v1alpha1"
+	"drassi.run/gha-runner/pkg/lease"
 	"drassi.run/gha-runner/pkg/listener"
 	"drassi.run/gha-runner/pkg/messages"
+	"drassi.run/gha-runner/pkg/worker"
 	"github.com/chainguard-dev/clog"
 	"github.com/spf13/cobra"
+	"go.uber.org/dig"
 	"golang.org/x/oauth2"
 	"golang.org/x/time/rate"
 )
@@ -31,10 +39,13 @@ type options struct {
 }
 
 type launcher struct {
-	Runner      *ghav1a1.GitHubRunner
-	Key         *rsa.PrivateKey
-	Sandboxer   sandboxer.Engine
-	TokenSource oauth2.TokenSource
+	Runner       *ghav1a1.GitHubRunner
+	Key          *rsa.PrivateKey
+	Sandboxer    sandboxer.Engine
+	TokenSource  oauth2.TokenSource
+	store        gitstore.Store
+	runnerRecord records.Runner
+	hc           *http.Client
 }
 
 func New() *cobra.Command {
@@ -79,6 +90,12 @@ func (l *launcher) Init(ctx context.Context, opts *options) (err error) {
 		return err
 	} else {
 		l.Runner = runner
+		l.runnerRecord = records.Runner{
+			Name:        runner.Status.RunnerName,
+			Os:          model.Linux,
+			Arch:        model.X64,
+			Environment: "self-hosted",
+		}
 	}
 
 	spec := l.Runner.Spec
@@ -110,6 +127,13 @@ func (l *launcher) Init(ctx context.Context, opts *options) (err error) {
 		OnTokenRetrieved: fixupToken,
 	}
 	l.TokenSource = config.TokenSource(ctx)
+	l.hc = oauth2.NewClient(ctx, l.TokenSource)
+
+	if s, err := gitstore.New(".cache"); err != nil {
+		return err
+	} else {
+		l.store = s
+	}
 
 	return nil
 }
@@ -117,7 +141,7 @@ func (l *launcher) Init(ctx context.Context, opts *options) (err error) {
 func (l *launcher) Run(ctx context.Context) error {
 	clog.InfoContextf(ctx, "gha-runner started")
 
-	lis, err := l.createListener(ctx)
+	lis, err := l.createListener()
 	if err != nil {
 		return err
 	}
@@ -145,10 +169,9 @@ func (l *launcher) Run(ctx context.Context) error {
 	}
 }
 
-func (l *launcher) createListener(ctx context.Context) (listener.Listener, error) {
-	spec := l.Runner.Spec
-	hc := oauth2.NewClient(ctx, l.TokenSource)
-	return listener.NewMigratableListener(spec.ServerUrl, hc, l.Key)
+func (l *launcher) createListener() (listener.Listener, error) {
+	url := l.Runner.Spec.ServerUrl
+	return listener.NewMigratableListener(url, l.hc, l.Key)
 }
 
 func (l *launcher) handleMessage(ctx context.Context, msg *listener.Message) error {
@@ -231,14 +254,43 @@ func (l *launcher) cancelJob(ctx context.Context, msg *messages.JobCancel) error
 	return nil
 }
 
+// https://github.com/actions/runner/blob/v2.323.0/src/Runner.Listener/Runner.cs#L559-L613
 func (l *launcher) requestRunnerJob(ctx context.Context, msg *messages.RunnerJobRequest) error {
-	log.Printf("%#v", msg)
-	return nil
+	var req *messages.PipelineAgentJobRequest = nil
+	if url := msg.RunServiceUrl; url != "" {
+		if svc, err := lease.NewRunService(url, l.hc); err != nil {
+			return err
+		} else if req, err = svc.AcquireJob(ctx, msg.RunnerRequestId, msg.BillingOwnerId); err != nil {
+			return err
+		}
+	} else {
+		url = l.Runner.Spec.ServerUrl
+		groupId := l.Runner.Spec.GroupId
+		if svc, err := lease.NewRunnerService(url, l.hc, groupId); err != nil {
+			return err
+		} else if req, err = svc.AcquireJob(ctx, msg.RunnerRequestId); err != nil {
+			return err
+		}
+	}
+	return l.requestPipelineAgentJob(ctx, req)
 }
 
 func (l *launcher) requestPipelineAgentJob(ctx context.Context, msg *messages.PipelineAgentJobRequest) error {
-	log.Printf("%#v", msg)
-	return nil
+	scope := dig.New().Scope("runner")
+
+	// Runner context
+	if err := xdig.Supply(scope, l.runnerRecord); err != nil {
+		return err
+	}
+	if err := xdig.Supply(scope, l.Sandboxer); err != nil {
+		return err
+	}
+	if err := xdig.Supply(scope, l.store); err != nil {
+		return err
+	}
+
+	w := worker.New(msg)
+	return w.Run(ctx, scope)
 }
 
 func (l *launcher) forceRefreshToken(ctx context.Context) error {

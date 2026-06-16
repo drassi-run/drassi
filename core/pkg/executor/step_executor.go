@@ -38,6 +38,7 @@ type StepExecutor interface {
 	Sandbox() sandboxer.Sandbox
 	Streams(ctx context.Context, stage Stage) *stream.Streams
 
+	Name(stage Stage) string
 	Status() records.Result // inherit libraries.StatusProvider
 	SetStatus(status records.Result)
 	Inputs() map[string]string
@@ -91,6 +92,7 @@ type stepExecutor struct {
 	// records
 	github records.Github
 	step   *records.Step
+	name   string
 	inputs map[string]string
 	env    map[string]string
 	state  map[string]string // Intra action state
@@ -180,6 +182,12 @@ func (e *stepExecutor) init(ctx context.Context, scope *dig.Scope) (ex error) {
 		e.github.ActionRef = repo.Ref
 	}
 
+	// initialize displayName
+	s := scribe.FromContext(ctx)
+	if err := e.evaluateDisplayName(s); err != nil {
+		return err
+	}
+
 	// Provide scope values
 	if err := xdig.Supply(scope, e.exprEnv); err != nil {
 		return fmt.Errorf("supply 'exprEnv': %w", err)
@@ -246,13 +254,10 @@ func (e *stepExecutor) runAction(ctx context.Context, action *ActionTask) error 
 		return fmt.Errorf("evaluate 'env': %w", err)
 	}
 
-	var displayName string
-	s.Debugf("Evaluating 'displayName' for step: (%s)", e.spec.Id)
-	if name, err := e.evaluateDisplayName(s, action.Stage); err != nil {
+	if err := e.evaluateDisplayName(s); err != nil {
 		return err
-	} else {
-		displayName = name
 	}
+	displayName := e.Name(action.Stage)
 
 	s.Debugf("Evaluating 'condition' for step: %q (%s)", displayName, e.spec.Id)
 	if meet, err := evaluator.Meet(e.exprEnv, action.Condition); err != nil {
@@ -311,7 +316,7 @@ func (e *stepExecutor) runAction(ctx context.Context, action *ActionTask) error 
 	return err
 }
 
-func (e *stepExecutor) evaluateDisplayName(s *scribe.Scribe, stage Stage) (string, error) {
+func (e *stepExecutor) evaluateDisplayName(s *scribe.Scribe) error {
 	name, prefix := "", ""
 	expr := e.spec.Name
 	if expr == nil {
@@ -321,23 +326,17 @@ func (e *stepExecutor) evaluateDisplayName(s *scribe.Scribe, stage Stage) (strin
 
 	s.Debugf("Evaluating display name")
 	if err := evaluator.Evaluate(e.exprEnv, expr, &name); err != nil {
-		return "", fmt.Errorf("evaluate 'name': %w", err)
+		return fmt.Errorf("evaluate 'name': %w", err)
 	}
 
 	name = strings.TrimLeft(name, " \t\r\n")
 	name, _, _ = strings.Cut(name, "\n")
 	name = strings.TrimSpace(name)
-
 	name = prefix + name
-	switch stage {
-	case StagePre:
-		name = "Pre " + name
-	case StagePost:
-		name = "Post " + name
-	}
 
 	s.Debugf("Set step %q display name to: %q", e.spec.Id, name)
-	return name, nil
+	e.name = name
+	return nil
 }
 
 func (e *stepExecutor) upperEnv() map[string]string {
@@ -358,6 +357,17 @@ func (e *stepExecutor) Sandbox() sandboxer.Sandbox {
 func (e *stepExecutor) Streams(ctx context.Context, stage Stage) *stream.Streams {
 	s := NewMilieu(stage, e)
 	return e.factory.Create(ctx, s)
+}
+
+func (e *stepExecutor) Name(stage Stage) string {
+	switch stage {
+	case StagePre:
+		return "Pre " + e.name
+	case StagePost:
+		return "Post " + e.name
+	default:
+		return e.name
+	}
 }
 
 // Status return current step's Outcome

@@ -270,7 +270,7 @@ func (l *runLease) toStepResult(r *timeline.Record) (*StepResult, error) {
 	res := &StepResult{
 		Id:          r.Uid,
 		Number:      r.Order,
-		Name:        "step.StepSpec.DisplayName(step.Stage)", // TODO evaluate displayName
+		Name:        r.Name,
 		Status:      r.State,
 		Conclusion:  r.Result,
 		StartedAt:   r.StartedAt,

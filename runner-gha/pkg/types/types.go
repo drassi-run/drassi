@@ -12,6 +12,10 @@ import (
 	"drassi.run/gha-runner/pkg/dotnet"
 )
 
+type Waiter interface {
+	Wait()
+}
+
 func NewList[T any](value []T) *List[T] {
 	return &List[T]{
 		Count: len(value),
