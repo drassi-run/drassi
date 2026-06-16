@@ -240,6 +240,7 @@ func (e *jobExecutor) initializeJob(s *scribe.Scribe) error {
 	e.github.ActionStatus = ""
 	e.jobInfo = new(records.JobInfo)
 	e.job = new(records.Job)
+	e.job.Result = records.ResultSuccess
 	e.steps = make(map[string]*records.Step, len(e.spec.Steps))
 
 	// setup expression.Env

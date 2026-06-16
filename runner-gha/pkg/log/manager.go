@@ -209,5 +209,9 @@ func (m *Manager) Close() error {
 		close(sub)
 	}
 	m.subs = nil // avoid panic when close twice
+	return nil
+}
+
+func (m *Manager) Dispose() error {
 	return os.RemoveAll(m.dir)
 }
