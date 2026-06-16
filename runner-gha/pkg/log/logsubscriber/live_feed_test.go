@@ -13,7 +13,6 @@ import (
 	"testing/synctest"
 	"time"
 
-	xcontext "drassi.run/core/util/context"
 	mock_logtypes "drassi.run/gha-runner/mock/log/logtypes"
 	"drassi.run/gha-runner/pkg/log"
 	"github.com/stretchr/testify/suite"
@@ -35,8 +34,7 @@ type LiveFeedSubscriberTestSuite struct {
 func (s *LiveFeedSubscriberTestSuite) SetupTest() {
 	s.ctrl = gomock.NewController(s.T())
 	s.app = mock_logtypes.NewMockAppender(s.ctrl)
-	ctx := xcontext.NewStaticProvider(s.T().Context())
-	s.sub = NewLiveFeedSubscriber(ctx, s.app).(*liveFeedSubscriber)
+	s.sub = NewLiveFeedSubscriber(s.app).(*liveFeedSubscriber)
 	s.tmpDir = s.T().TempDir()
 }
 
@@ -47,7 +45,7 @@ func (s *LiveFeedSubscriberTestSuite) TearDownTest() {
 func (s *LiveFeedSubscriberTestSuite) TestRun() {
 	synctest.Test(s.T(), func(t *testing.T) {
 		ch := make(chan *log.Event)
-		go s.sub.Run(ch)
+		go s.sub.Run(t.Context(), ch)
 
 		uid := "test-uid"
 		content := "line 1\nline 2\n"
@@ -87,7 +85,7 @@ func (s *LiveFeedSubscriberTestSuite) TestRun() {
 func (s *LiveFeedSubscriberTestSuite) TestBatchingByTimeout() {
 	synctest.Test(s.T(), func(t *testing.T) {
 		ch := make(chan *log.Event)
-		go s.sub.Run(ch)
+		go s.sub.Run(t.Context(), ch)
 
 		uid := "test-uid"
 		content := "line 1\n"
@@ -119,7 +117,7 @@ func (s *LiveFeedSubscriberTestSuite) TestBatchingByTimeout() {
 func (s *LiveFeedSubscriberTestSuite) TestSwitchUid() {
 	synctest.Test(s.T(), func(t *testing.T) {
 		ch := make(chan *log.Event)
-		go s.sub.Run(ch)
+		go s.sub.Run(t.Context(), ch)
 
 		// UID 1
 		uid1 := "uid-1"

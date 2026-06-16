@@ -11,17 +11,13 @@ import (
 	"sync"
 	"time"
 
-	"drassi.run/core/util/context"
 	"drassi.run/core/util/otel"
 	"drassi.run/gha-runner/pkg/log"
 	"drassi.run/gha-runner/pkg/log/logtypes"
 )
 
-func NewLiveFeedSubscriber(context xcontext.Provider, app logtypes.Appender) logtypes.Subscriber {
-	return &liveFeedSubscriber{
-		ctx: context.Context(),
-		app: app,
-	}
+func NewLiveFeedSubscriber(app logtypes.Appender) logtypes.Subscriber {
+	return &liveFeedSubscriber{app: app}
 }
 
 type liveFeedSubscriber struct {
@@ -36,7 +32,8 @@ type liveFeedSubscriber struct {
 	lineCount   int
 }
 
-func (s *liveFeedSubscriber) Run(ch <-chan *log.Event) {
+func (s *liveFeedSubscriber) Run(ctx context.Context, ch <-chan *log.Event) {
+	s.ctx = ctx
 	s.wg.Add(1)
 	defer s.wg.Done()
 

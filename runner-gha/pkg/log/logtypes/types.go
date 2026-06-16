@@ -6,10 +6,14 @@
 
 package logtypes
 
-import "drassi.run/gha-runner/pkg/log"
+import (
+	"context"
+
+	"drassi.run/gha-runner/pkg/log"
+)
 
 type Subscriber interface {
-	Run(ch <-chan *log.Event)
+	Run(ctx context.Context, ch <-chan *log.Event)
 	Wait()
 }
 

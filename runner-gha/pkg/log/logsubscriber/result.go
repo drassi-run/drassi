@@ -10,7 +10,6 @@ import (
 	"context"
 	"sync"
 
-	"drassi.run/core/util/context"
 	"drassi.run/core/util/otel"
 	"drassi.run/gha-runner/pkg/log"
 	"drassi.run/gha-runner/pkg/log/logtypes"
@@ -19,10 +18,9 @@ import (
 
 ////////////// StepLogs Subscriber for ResultService //////////////
 
-func NewResultServiceStepLogsSubscriber(context xcontext.Provider, svc service.ResultService) logtypes.Subscriber {
+func NewResultServiceStepLogsSubscriber(svc service.ResultService) logtypes.Subscriber {
 	return &resultServiceStepLogsSubscriber{
 		svc:  svc,
-		ctx:  context.Context(),
 		cons: make(map[string]logtypes.Conveyor),
 	}
 }
@@ -37,7 +35,8 @@ type resultServiceStepLogsSubscriber struct {
 	cons map[string]logtypes.Conveyor
 }
 
-func (s *resultServiceStepLogsSubscriber) Run(ch <-chan *log.Event) {
+func (s *resultServiceStepLogsSubscriber) Run(ctx context.Context, ch <-chan *log.Event) {
+	s.ctx = ctx
 	s.wg.Add(1)
 	defer s.wg.Done()
 

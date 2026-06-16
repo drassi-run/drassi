@@ -11,7 +11,6 @@ import (
 	"os"
 	"sync"
 
-	"drassi.run/core/util/context"
 	"drassi.run/core/util/otel"
 	"drassi.run/gha-runner/pkg/log"
 	"drassi.run/gha-runner/pkg/log/logtypes"
@@ -20,10 +19,9 @@ import (
 
 ////////////// Logs Subscriber for JobService //////////////
 
-func NewJobServiceLogsSubscriber(context xcontext.Provider, svc service.JobService) logtypes.Subscriber {
+func NewJobServiceLogsSubscriber(svc service.JobService) logtypes.Subscriber {
 	return &jobServiceLogsSubscriber{
 		svc: svc,
-		ctx: context.Context(),
 		ups: make(map[string]logtypes.Uploader),
 	}
 }
@@ -38,7 +36,8 @@ type jobServiceLogsSubscriber struct {
 	ups map[string]logtypes.Uploader
 }
 
-func (s *jobServiceLogsSubscriber) Run(ch <-chan *log.Event) {
+func (s *jobServiceLogsSubscriber) Run(ctx context.Context, ch <-chan *log.Event) {
+	s.ctx = ctx
 	s.wg.Add(1)
 	defer s.wg.Done()
 
