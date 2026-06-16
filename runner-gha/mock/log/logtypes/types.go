@@ -10,6 +10,7 @@
 package mock_logtypes
 
 import (
+	context "context"
 	reflect "reflect"
 
 	log "drassi.run/gha-runner/pkg/log"
@@ -41,15 +42,15 @@ func (m *MockSubscriber) EXPECT() *MockSubscriberMockRecorder {
 }
 
 // Run mocks base method.
-func (m *MockSubscriber) Run(ch <-chan *log.Event) {
+func (m *MockSubscriber) Run(ctx context.Context, ch <-chan *log.Event) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Run", ch)
+	m.ctrl.Call(m, "Run", ctx, ch)
 }
 
 // Run indicates an expected call of Run.
-func (mr *MockSubscriberMockRecorder) Run(ch any) *MockSubscriberRunCall {
+func (mr *MockSubscriberMockRecorder) Run(ctx, ch any) *MockSubscriberRunCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockSubscriber)(nil).Run), ch)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockSubscriber)(nil).Run), ctx, ch)
 	return &MockSubscriberRunCall{Call: call}
 }
 
@@ -65,13 +66,13 @@ func (c *MockSubscriberRunCall) Return() *MockSubscriberRunCall {
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockSubscriberRunCall) Do(f func(<-chan *log.Event)) *MockSubscriberRunCall {
+func (c *MockSubscriberRunCall) Do(f func(context.Context, <-chan *log.Event)) *MockSubscriberRunCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSubscriberRunCall) DoAndReturn(f func(<-chan *log.Event)) *MockSubscriberRunCall {
+func (c *MockSubscriberRunCall) DoAndReturn(f func(context.Context, <-chan *log.Event)) *MockSubscriberRunCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -12,7 +12,6 @@ import (
 	"testing"
 	"testing/synctest"
 
-	xcontext "drassi.run/core/util/context"
 	mock_logtypes "drassi.run/gha-runner/mock/log/logtypes"
 	mock_service "drassi.run/gha-runner/mock/service"
 	"drassi.run/gha-runner/pkg/log"
@@ -41,8 +40,7 @@ func (s *ResultServiceStepLogsSubscriberTestSuite) SetupTest() {
 	s.ctrl = gomock.NewController(s.T())
 
 	s.svc = mock_service.NewMockResultService(s.ctrl)
-	ctx := xcontext.NewStaticProvider(s.T().Context())
-	s.sub = NewResultServiceStepLogsSubscriber(ctx, s.svc).(*resultServiceStepLogsSubscriber)
+	s.sub = NewResultServiceStepLogsSubscriber(s.svc).(*resultServiceStepLogsSubscriber)
 	s.tmpDir = s.T().TempDir()
 
 	s.planUid = "plan-id"
@@ -65,7 +63,7 @@ func (s *ResultServiceStepLogsSubscriberTestSuite) TestRun() {
 			Return(logtypes.NewStat(1, int64(len(content))), nil)
 
 		ch := make(chan *log.Event)
-		go s.sub.Run(ch)
+		go s.sub.Run(t.Context(), ch)
 
 		// Record Start
 		event := &log.Event{
@@ -128,6 +126,7 @@ func (s *ResultServiceStepLogsSubscriberTestSuite) TestConveyorCaching() {
 				return c
 			}).AnyTimes()
 
+		s.sub.ctx = t.Context()
 		c1 := s.sub.conveyor("uid1")
 		s.Equal(c, c1)
 		s.Equal(1, callCount)

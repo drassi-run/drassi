@@ -18,7 +18,6 @@ import (
 	"testing"
 	"testing/synctest"
 
-	xcontext "drassi.run/core/util/context"
 	mock_logtypes "drassi.run/gha-runner/mock/log/logtypes"
 	mock_service "drassi.run/gha-runner/mock/service"
 	"drassi.run/gha-runner/pkg/log"
@@ -52,8 +51,7 @@ func (s *JobServiceLogsSubscriberTestSuite) SetupTest() {
 	s.ctrl = gomock.NewController(s.T())
 
 	s.svc = mock_service.NewMockJobService(s.ctrl)
-	ctx := xcontext.NewStaticProvider(s.T().Context())
-	s.sub = NewJobServiceLogsSubscriber(ctx, s.svc).(*jobServiceLogsSubscriber)
+	s.sub = NewJobServiceLogsSubscriber(s.svc).(*jobServiceLogsSubscriber)
 	s.tmpDir = s.T().TempDir()
 
 	s.scopeUid = "scope-id"
@@ -87,7 +85,7 @@ func (s *JobServiceLogsSubscriberTestSuite) TestRun() {
 			AnyTimes()
 
 		ch := make(chan *log.Event)
-		go s.sub.Run(ch)
+		go s.sub.Run(t.Context(), ch)
 
 		ch <- &log.Event{
 			Uid: uid,
@@ -127,9 +125,6 @@ func (s *JobServiceLogsSubscriberTestSuite) TestUploaderCaching() {
 }
 
 func (s *JobServiceLogsSubscriberTestSuite) TestIntegrationWithService() {
-	ctx := s.T().Context()
-	cp := xcontext.NewStaticProvider(ctx)
-
 	mux := http.NewServeMux()
 	server := httptest.NewServer(mux)
 	defer server.Close()
@@ -147,7 +142,7 @@ func (s *JobServiceLogsSubscriberTestSuite) TestIntegrationWithService() {
 	svc, err := service.NewJobService(server.URL, nil, msg)
 	s.Require().NoError(err)
 
-	sub := NewJobServiceLogsSubscriber(cp, svc)
+	sub := NewJobServiceLogsSubscriber(svc)
 	ch := make(chan *log.Event)
 
 	uid := "log-uid"
@@ -197,7 +192,7 @@ func (s *JobServiceLogsSubscriberTestSuite) TestIntegrationWithService() {
 		},
 	}
 
-	go sub.Run(ch)
+	go sub.Run(s.T().Context(), ch)
 	ch <- event
 	close(ch)
 

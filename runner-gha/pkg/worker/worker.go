@@ -119,7 +119,7 @@ type logSubscriberParams struct {
 func (w *Worker) runLogSubscribers(p logSubscriberParams) {
 	for _, sub := range p.Subscribers {
 		ch := p.LogManager.Subscribe()
-		go sub.Run(ch)
+		go sub.Run(w.ctx, ch)
 		w.waiters = append(w.waiters, sub)
 	}
 }
