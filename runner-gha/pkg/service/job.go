@@ -237,13 +237,13 @@ type jobLeaseWrapper struct {
 	svc *jobService
 }
 
-func (l *jobLeaseWrapper) Complete(ctx context.Context, record *timeline.Record) error {
-	if err := l.svc.completeJob(ctx, record); err != nil {
+func (l *jobLeaseWrapper) Complete(ctx context.Context, rec *timeline.Record) error {
+	if err := l.svc.completeJob(ctx, rec); err != nil {
 		return err
 	}
-	return l.Lease.Complete(ctx, record)
+	return l.Lease.Complete(ctx, rec)
 }
 
-func (s *jobService) completeJob(ctx context.Context, record *timeline.Record) error {
+func (s *jobService) completeJob(ctx context.Context, rec *timeline.Record) error {
 	return nil // TODO
 }

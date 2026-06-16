@@ -167,6 +167,26 @@ func (s *RunnerServiceTestSuite) TestLease_Complete() {
 	assert.False(t, gotReq.FinishTime.IsZero())
 }
 
+func (s *RunnerServiceTestSuite) TestLease_Complete_NilRecord() {
+	t := s.T()
+
+	var gotReq runnerJobRequest
+	s.mux.HandleFunc("PATCH /_apis/distributedtask/pools/{groupId}/jobrequests/{requestId}", func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, strconv.Itoa(s.svc.groupId), r.PathValue("groupId"))
+		assert.Equal(t, strconv.FormatInt(s.msg.RequestId, 10), r.PathValue("requestId"))
+
+		readJsonRequest(t, r, &gotReq)
+		w.WriteHeader(http.StatusOK)
+	})
+
+	l := s.svc.Lease(s.msg)
+	require.NoError(t, l.Complete(t.Context(), nil))
+
+	assert.Equal(t, s.msg.RequestId, gotReq.RequestId)
+	assert.Equal(t, timeline.ResultFailed, gotReq.Result)
+	assert.False(t, gotReq.FinishTime.IsZero())
+}
+
 func (s *RunnerServiceTestSuite) TestLease_Complete_Cancel_Renew() {
 	t := s.T()
 	ctx := t.Context()

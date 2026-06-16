@@ -154,10 +154,14 @@ func (l *runnerLease) Renew(ctx context.Context) {
 	l.svc.renewJob(ctx, l.msg, orchId)
 }
 
-func (l *runnerLease) Complete(ctx context.Context, record *timeline.Record) error {
+func (l *runnerLease) Complete(ctx context.Context, rec *timeline.Record) error {
 	if l.done != nil {
 		l.done() // cancel Renew
 	}
 
-	return l.svc.completeJob(ctx, l.msg, record.Result)
+	result := timeline.ResultFailed
+	if rec != nil {
+		result = rec.Result
+	}
+	return l.svc.completeJob(ctx, l.msg, result)
 }

@@ -18,7 +18,7 @@ import (
 type Lease interface {
 	GetMessage() *messages.PipelineAgentJobRequest
 	Renew(ctx context.Context)
-	Complete(ctx context.Context, record *timeline.Record) error
+	Complete(ctx context.Context, rec *timeline.Record) error
 }
 
 ////////////// RunService: request & response //////////////

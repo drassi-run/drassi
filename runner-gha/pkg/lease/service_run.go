@@ -8,6 +8,7 @@ package lease
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"path"
@@ -127,41 +128,46 @@ func (l *runLease) renewRequest() *renewJobRequest {
 	}
 }
 
-func (l *runLease) Complete(ctx context.Context, record *timeline.Record) error {
+func (l *runLease) Complete(ctx context.Context, rec *timeline.Record) error {
 	if l.done != nil {
 		l.done() // cancel Renew
 	}
 
-	if req, err := l.completeRequest(record); err != nil {
-		return err
-	} else {
-		return l.svc.completeJob(ctx, req)
-	}
+	var errs []error
+	req, err := l.completeRequest(rec)
+	errs = append(errs, err)
+
+	err = l.svc.completeJob(ctx, req)
+	errs = append(errs, err)
+	return errors.Join(errs...)
 }
 
 func (l *runLease) completeRequest(r *timeline.Record) (*completeJobRequest, error) {
-	job, ok := r.Object.(*timeline.JobObject)
-	if !ok {
-		return nil, fmt.Errorf("%T is not *JobObject", r.Object)
-	}
-
-	stepResults, err := l.toStepResults(r.Children)
-	if err != nil {
-		return nil, err
-	}
-
 	req := &completeJobRequest{
 		PlanId:         l.msg.Plan.PlanId,
 		JobId:          l.msg.JobId,
 		BillingOwnerId: l.msg.BillingOwnerId,
-
-		Conclusion:     r.Result,
-		Outputs:        l.convertOutputs(job.Outputs),
-		EnvironmentUrl: job.EnvironmentUrl,
-
-		StepResults: stepResults,
-		Annotations: l.toAnnotations(r.Issues),
+		Conclusion:     timeline.ResultFailed,
 	}
+
+	if r == nil {
+		return req, nil
+	}
+
+	job, ok := r.Object.(*timeline.JobObject)
+	if !ok {
+		return req, fmt.Errorf("%T is not *JobObject", r.Object)
+	}
+	req.Conclusion = r.Result
+	req.Outputs = l.convertOutputs(job.Outputs)
+	req.EnvironmentUrl = job.EnvironmentUrl
+	req.Annotations = l.toAnnotations(r.Issues)
+
+	stepResults, err := l.toStepResults(r.Children)
+	if err != nil {
+		return req, err
+	}
+	req.StepResults = stepResults
 
 	return req, nil
 }

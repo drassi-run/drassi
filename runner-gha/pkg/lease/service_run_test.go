@@ -173,6 +173,24 @@ func (s *RunServiceTestSuite) TestLease_Complete() {
 	assert.Equal(t, timeline.ResultSucceeded, gotReq.Conclusion)
 }
 
+func (s *RunServiceTestSuite) TestLease_Complete_NilRecord() {
+	t := s.T()
+
+	var gotReq completeJobRequest
+	s.mux.HandleFunc("POST /completejob", func(w http.ResponseWriter, r *http.Request) {
+		readJsonRequest(t, r, &gotReq)
+		w.WriteHeader(http.StatusOK)
+	})
+
+	l := s.svc.Lease(s.msg)
+	require.NoError(t, l.Complete(t.Context(), nil))
+
+	assert.Equal(t, s.msg.JobId, gotReq.JobId)
+	assert.Equal(t, s.msg.Plan.PlanId, gotReq.PlanId)
+	assert.Equal(t, s.msg.BillingOwnerId, gotReq.BillingOwnerId)
+	assert.Equal(t, timeline.ResultFailed, gotReq.Conclusion)
+}
+
 func (s *RunServiceTestSuite) TestLease_Complete_Cancel_Renew() {
 	t := s.T()
 	ctx := t.Context()
