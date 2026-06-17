@@ -234,6 +234,11 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 		return err
 	}
 
+	flags := initFlag(w.msg.Variables, dossier.Variables)
+	if err := xdig.Supply(scope, flags); err != nil {
+		return err
+	}
+
 	// Wire scope
 	if err := xdig.Supply[xcontext.Provider](scope, w); err != nil {
 		return err
