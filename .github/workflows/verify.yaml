@@ -13,18 +13,19 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  GOEXPERIMENT: jsonv2
+
 jobs:
   test:
+    runs-on: ${{ matrix.platform }}
     strategy:
       matrix:
         go-version: [ 1.26 ]
         platform: [ ubuntu-latest ]
-    runs-on: ${{ matrix.platform }}
-    env:
-      GOEXPERIMENT: jsonv2
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install Go
         uses: actions/setup-go@v6
@@ -37,11 +38,9 @@ jobs:
 
   check:
     runs-on: ubuntu-latest
-    env:
-      GOEXPERIMENT: jsonv2
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Check License Header
         uses: ./.github/actions/hawkeye
@@ -52,7 +51,7 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@v6
         with:
-          go-version: 1.26
+          go-version-file: go.work
           cache-dependency-path: go.work.sum
 
       - name: Run golangci-lint (core)
