@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	mock_cmdtypes "drassi.run/core/mock/command/cmdtypes"
-	"drassi.run/core/pkg/command"
 	"drassi.run/core/pkg/command/cmdtypes"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
@@ -38,7 +37,7 @@ func TestFileAddPath(t *testing.T) {
 	res.EXPECT().AddPath([]string{"/fir/path", "/second/path"})
 
 	h := FileAddPath[cmdtypes.SupportAddPath]()
-	err := command.FileRun[cmdtypes.SupportAddPath](h, t.Context(), res, r)
+	err := h.Run(t.Context(), res, r)
 	assert.NoError(t, err)
 }
 
@@ -53,14 +52,14 @@ func TestFileSetEnv(t *testing.T) {
 		res.EXPECT().SetEnv(mapContentMap)
 
 		h := FileSetEnv[cmdtypes.SupportSetEnv](nil)
-		err := command.FileRun[cmdtypes.SupportSetEnv](h, t.Context(), res, r)
+		err := h.Run(t.Context(), res, r)
 		assert.NoError(t, err)
 	})
 
 	t.Run("failure", func(t *testing.T) {
 		r := strings.NewReader("foobar")
 		h := FileSetEnv[cmdtypes.SupportSetEnv](nil)
-		err := command.FileRun(h, t.Context(), nil, r)
+		err := h.Run(t.Context(), nil, r)
 		assert.ErrorIs(t, err, ErrInvalidFile)
 	})
 }
@@ -76,14 +75,14 @@ func TestFileSaveState(t *testing.T) {
 		res.EXPECT().SaveState(mapContentMap)
 
 		h := FileSaveState[cmdtypes.SupportSaveState]()
-		err := command.FileRun[cmdtypes.SupportSaveState](h, t.Context(), res, r)
+		err := h.Run(t.Context(), res, r)
 		assert.NoError(t, err)
 	})
 
 	t.Run("failure", func(t *testing.T) {
 		r := strings.NewReader("foobar")
 		h := FileSaveState[cmdtypes.SupportSaveState]()
-		err := command.FileRun[cmdtypes.SupportSaveState](h, t.Context(), nil, r)
+		err := h.Run(t.Context(), nil, r)
 		assert.ErrorIs(t, err, ErrInvalidFile)
 	})
 }
@@ -99,14 +98,14 @@ func TestFileSetOutput(t *testing.T) {
 		res.EXPECT().SetOutput(mapContentMap)
 
 		h := FileSetOutput[cmdtypes.SupportSetOutput]()
-		err := command.FileRun[cmdtypes.SupportSetOutput](h, t.Context(), res, r)
+		err := h.Run(t.Context(), res, r)
 		assert.NoError(t, err)
 	})
 
 	t.Run("failure", func(t *testing.T) {
 		r := strings.NewReader("foobar")
 		h := FileSetOutput[cmdtypes.SupportSetOutput]()
-		err := command.FileRun(h, t.Context(), nil, r)
+		err := h.Run(t.Context(), nil, r)
 		assert.ErrorIs(t, err, ErrInvalidFile)
 	})
 }
@@ -120,7 +119,7 @@ func TestCreateStepSummary(t *testing.T) {
 		r := strings.NewReader(content)
 
 		h := CreateStepSummary[any]()
-		err := command.FileRun(h, t.Context(), nil, r)
+		err := h.Run(t.Context(), nil, r)
 		assert.NoError(t, err)
 	})
 }

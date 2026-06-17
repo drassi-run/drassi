@@ -27,12 +27,18 @@ var (
 	ErrorMultipleFile = errors.New("un-expected multiple files")
 )
 
+type FileRun[R any] func(ctx context.Context, res R, r io.Reader) error
+
 type FileHandler[R any] struct {
 	env string
-	run func(ctx context.Context, res R, r io.Reader) error
+	run FileRun[R]
 }
 
-func NewFileHandler[R any](env string, run func(context.Context, R, io.Reader) error) *FileHandler[R] {
+func (h *FileHandler[R]) Run(ctx context.Context, res R, r io.Reader) error {
+	return h.run(ctx, res, r)
+}
+
+func NewFileHandler[R any](env string, run FileRun[R]) *FileHandler[R] {
 	return &FileHandler[R]{
 		env: env,
 		run: run,
@@ -173,8 +179,4 @@ func (mgr *fileManager[R]) pathOf(res any, cmd string) string {
 		return f.CommandFile(cmd)
 	}
 	return cmd
-}
-
-func FileRun[R any](h *FileHandler[R], ctx context.Context, res R, r io.Reader) error {
-	return h.run(ctx, res, r)
 }

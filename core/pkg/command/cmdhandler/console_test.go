@@ -26,7 +26,7 @@ func TestAddSecretMask(t *testing.T) {
 		sm := mock_secret.NewMockMasker(ctrl)
 		h := AddSecretMask[any](sm)
 		cmd := &command.Command{Name: "add-mask", Value: ""}
-		err := command.ConsoleRun(h, t.Context(), nil, cmd)
+		err := h.Run(t.Context(), nil, cmd)
 		assert.ErrorIs(t, err, command.ErrInvalidCommand)
 	})
 
@@ -36,7 +36,7 @@ func TestAddSecretMask(t *testing.T) {
 
 		h := AddSecretMask[any](sm)
 		cmd := &command.Command{Name: "add-mask", Value: "abc"}
-		err := command.ConsoleRun(h, t.Context(), nil, cmd)
+		err := h.Run(t.Context(), nil, cmd)
 		assert.NoError(t, err)
 	})
 
@@ -50,7 +50,7 @@ func TestAddSecretMask(t *testing.T) {
 
 		h := AddSecretMask[any](sm)
 		cmd := &command.Command{Name: "add-mask", Value: "abc\nxyz\r\nfoo  \r  bar"}
-		err := command.ConsoleRun(h, t.Context(), nil, cmd)
+		err := h.Run(t.Context(), nil, cmd)
 		assert.NoError(t, err)
 	})
 }
@@ -62,7 +62,7 @@ func testInvalidCommand[R any](creator consoleHdlCreator[R]) func(t *testing.T) 
 		h := creator()
 		r := new(R)
 		cmd := new(command.Command)
-		err := command.ConsoleRun(h, t.Context(), *r, cmd)
+		err := h.Run(t.Context(), *r, cmd)
 		assert.ErrorIs(t, err, command.ErrInvalidCommand)
 	}
 }
@@ -80,7 +80,7 @@ func TestConsoleAddPath(t *testing.T) {
 		h := ConsoleAddPath[cmdtypes.SupportAddPath]()
 
 		cmd := &command.Command{Name: "add-path", Value: "foobar"}
-		err := command.ConsoleRun[cmdtypes.SupportAddPath](h, t.Context(), res, cmd)
+		err := h.Run(t.Context(), res, cmd)
 		assert.NoError(t, err)
 	})
 }
@@ -100,7 +100,7 @@ func TestConsoleSetEnv(t *testing.T) {
 		h := ConsoleSetEnv[cmdtypes.SupportSetEnv](nil)
 
 		cmd := &command.Command{Name: "set-env", Params: map[string]string{"name": "XXX"}, Value: "set-env-value"}
-		err := command.ConsoleRun[cmdtypes.SupportSetEnv](h, t.Context(), res, cmd)
+		err := h.Run(t.Context(), res, cmd)
 		assert.NoError(t, err)
 	})
 }
@@ -118,7 +118,7 @@ func TestConsoleSetOutput(t *testing.T) {
 		h := ConsoleSetOutput[cmdtypes.SupportSetOutput]()
 
 		cmd := &command.Command{Name: "set-output", Params: map[string]string{"name": "XXX"}, Value: "set-output-value"}
-		err := command.ConsoleRun[cmdtypes.SupportSetOutput](h, t.Context(), res, cmd)
+		err := h.Run(t.Context(), res, cmd)
 		assert.NoError(t, err)
 	})
 }
@@ -136,7 +136,7 @@ func TestConsoleSaveState(t *testing.T) {
 		h := ConsoleSaveState[cmdtypes.SupportSaveState]()
 
 		cmd := &command.Command{Name: "save-state", Params: map[string]string{"name": "XXX"}, Value: "save-state-value"}
-		err := command.ConsoleRun[cmdtypes.SupportSaveState](h, t.Context(), res, cmd)
+		err := h.Run(t.Context(), res, cmd)
 		assert.NoError(t, err)
 	})
 }

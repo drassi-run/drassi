@@ -53,13 +53,19 @@ type Command struct {
 	Value  string
 }
 
+type ConsoleRun[R any] func(ctx context.Context, res R, cmd *Command) error
+
 type ConsoleHandler[R any] struct {
 	name string
 	echo bool
-	run  func(ctx context.Context, res R, cmd *Command) error
+	run  ConsoleRun[R]
 }
 
-func NewConsoleHandler[R any](name string, echo bool, run func(context.Context, R, *Command) error) *ConsoleHandler[R] {
+func (h *ConsoleHandler[R]) Run(ctx context.Context, res R, cmd *Command) error {
+	return h.run(ctx, res, cmd)
+}
+
+func NewConsoleHandler[R any](name string, echo bool, run ConsoleRun[R]) *ConsoleHandler[R] {
 	return &ConsoleHandler[R]{
 		name: name,
 		echo: echo,
@@ -266,8 +272,4 @@ func (mgr *consoleManager[R]) validStopCommandToken(token string) bool {
 	}
 	_, exists := mgr.registeredCommands[token]
 	return !exists
-}
-
-func ConsoleRun[R any](h *ConsoleHandler[R], ctx context.Context, res R, cmd *Command) error {
-	return h.run(ctx, res, cmd)
 }
