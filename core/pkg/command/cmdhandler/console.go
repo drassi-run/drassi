@@ -16,6 +16,7 @@ import (
 
 	"drassi.run/core/pkg/command"
 	"drassi.run/core/pkg/command/cmdtypes"
+	"drassi.run/core/pkg/flag"
 	"drassi.run/core/pkg/problem"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/scribe"
@@ -254,7 +255,7 @@ func ConsoleSetEnv[R cmdtypes.SupportSetEnv](reporter cmdtypes.Reporter[R]) *com
 // ConsoleSetOutput create [command.ConsoleHandler] that handle "set-output" command
 //
 //   - https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L301
-func ConsoleSetOutput[R cmdtypes.SupportSetOutput]() *command.ConsoleHandler[R] {
+func ConsoleSetOutput[R cmdtypes.SupportSetOutput](flags flag.Flags, reporter cmdtypes.Reporter[R]) *command.ConsoleHandler[R] {
 	run := func(ctx context.Context, res R, cmd *command.Command) error {
 		name, ok := cmd.Params["name"]
 		if !ok || name == "" {
@@ -268,13 +269,16 @@ func ConsoleSetOutput[R cmdtypes.SupportSetOutput]() *command.ConsoleHandler[R] 
 		res.SetOutput(output)
 		return nil
 	}
+	if flag.Bool(flags, "DistributedTask.DeprecateStepOutputCommands", false) {
+		run = deprecate("set-output", reporter, run)
+	}
 	return command.NewConsoleHandler("set-output", true, run)
 }
 
 // ConsoleSaveState create [command.ConsoleHandler] that handle "save-state" command
 //
 // - https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L336
-func ConsoleSaveState[R cmdtypes.SupportSaveState]() *command.ConsoleHandler[R] {
+func ConsoleSaveState[R cmdtypes.SupportSaveState](flags flag.Flags, reporter cmdtypes.Reporter[R]) *command.ConsoleHandler[R] {
 	run := func(ctx context.Context, res R, cmd *command.Command) error {
 		name, ok := cmd.Params["name"]
 		if !ok || name == "" {
@@ -287,6 +291,9 @@ func ConsoleSaveState[R cmdtypes.SupportSaveState]() *command.ConsoleHandler[R] 
 		scribe.Debugf(ctx, "Save intra-action state: %s = %s", name, cmd.Value)
 		res.SaveState(state)
 		return nil
+	}
+	if flag.Bool(flags, "DistributedTask.DeprecateSaveStateCommands", false) {
+		run = deprecate("save-state", reporter, run)
 	}
 	return command.NewConsoleHandler("save-state", true, run)
 }

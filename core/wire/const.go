@@ -11,3 +11,8 @@ const (
 	PreStop     = "pre-stop"
 	EnvProvider = "env-provider"
 )
+
+const (
+	RunnerDebug = "ACTIONS_RUNNER_DEBUG"
+	StepDebug   = "ACTIONS_STEP_DEBUG"
+)
