@@ -6,7 +6,7 @@
 
 package cmdtypes
 
-import "drassi.run/core/pkg/executor/runtime"
+import "drassi.run/core/pkg/runtime"
 
 type SupportAddPath interface {
 	AddPath(paths []string)

@@ -7,8 +7,8 @@
 package wire_command
 
 import (
+	cmd "drassi.run/core/pkg/command"
 	exec "drassi.run/core/pkg/executor"
-	cmd "drassi.run/core/pkg/executor/command"
 )
 
 type commandEnvProvider struct {

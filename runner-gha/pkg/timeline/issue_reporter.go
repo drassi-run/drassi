@@ -9,8 +9,8 @@ package timeline
 import (
 	"context"
 
+	"drassi.run/core/pkg/command/cmdtypes"
 	"drassi.run/core/pkg/executor"
-	"drassi.run/core/pkg/executor/command/cmdtypes"
 )
 
 type IssueReporter struct {

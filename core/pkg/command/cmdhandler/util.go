@@ -14,8 +14,8 @@ import (
 	"iter"
 	"strings"
 
-	"drassi.run/core/pkg/executor/command/cmdtypes"
-	"drassi.run/core/pkg/executor/runtime"
+	"drassi.run/core/pkg/command/cmdtypes"
+	"drassi.run/core/pkg/runtime"
 )
 
 var ErrInvalidFile = errors.New("invalid file")

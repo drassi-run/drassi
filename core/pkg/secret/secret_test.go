@@ -7,9 +7,10 @@
 package secret
 
 import (
-	"github.com/stretchr/testify/assert"
 	"regexp"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestValueSecret(t *testing.T) {

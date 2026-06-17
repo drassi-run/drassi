@@ -7,9 +7,10 @@
 package runtime
 
 import (
-	"github.com/stretchr/testify/assert"
 	"iter"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func mapSeq() iter.Seq2[string, string] {

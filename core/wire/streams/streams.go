@@ -11,8 +11,8 @@ import (
 	"slices"
 
 	exec "drassi.run/core/pkg/executor"
-	"drassi.run/core/pkg/executor/secret"
 	"drassi.run/core/pkg/scribe"
+	"drassi.run/core/pkg/secret"
 	"drassi.run/core/pkg/stream"
 	mdw "drassi.run/core/pkg/stream/middleware"
 	"go.uber.org/dig"

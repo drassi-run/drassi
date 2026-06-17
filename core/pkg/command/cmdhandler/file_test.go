@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	mock_cmdtypes "drassi.run/core/mock/executor/command/cmdtypes"
-	"drassi.run/core/pkg/executor/command"
-	"drassi.run/core/pkg/executor/command/cmdtypes"
+	mock_cmdtypes "drassi.run/core/mock/command/cmdtypes"
+	"drassi.run/core/pkg/command"
+	"drassi.run/core/pkg/command/cmdtypes"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 )
