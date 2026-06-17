@@ -205,6 +205,12 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 	}
 
 	// Wire scope
+	if err := scope.Provide(printSecretSource[executor.JobExecutor], dig.Group(wire.PostStart)); err != nil {
+		return err
+	}
+	if err := scope.Provide(printTokenPermissions[executor.JobExecutor], dig.Group(wire.PostStart)); err != nil {
+		return err
+	}
 	if err := xdig.Supply[xcontext.Provider](scope, w); err != nil {
 		return err
 	}
