@@ -12,8 +12,6 @@ import (
 	cmd "drassi.run/core/pkg/command"
 	exec "drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/feature"
-	"drassi.run/core/pkg/scribe"
-	xdig "drassi.run/core/util/dig"
 	"drassi.run/core/wire"
 	"go.uber.org/dig"
 )
@@ -34,20 +32,7 @@ func (c *commandInitHook[R]) Hook(ctx context.Context, _ R) error {
 		return err
 	}
 
-	var flags feature.Flags
-	if err := xdig.Populate(c.scope, &flags); err != nil {
-		return err
-	}
-	if feature.Bool(flags, wire.StepDebug, false) {
-		if err := c.scope.Invoke(c.setDiaryDebug); err != nil {
-			return err
-		}
-		if err := c.scope.Invoke(c.setConsoleManagerDebug(ctx)); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return c.scope.Invoke(c.setConsoleManagerDebug(ctx))
 }
 
 type consoleCommandParams struct {
@@ -82,12 +67,12 @@ func (c *commandInitHook[R]) registerFileCommands(p fileCommandParams) error {
 	return nil
 }
 
-func (c *commandInitHook[R]) setDiaryDebug(diary scribe.Diary) {
-	diary.SetDebug(true)
-}
+func (c *commandInitHook[R]) setConsoleManagerDebug(ctx context.Context) func(feature.Flags, cmd.ConsoleManager[exec.Milieu]) error {
+	return func(flags feature.Flags, consMgr cmd.ConsoleManager[exec.Milieu]) error {
+		if !feature.Bool(flags, wire.StepDebug, false) {
+			return nil
+		}
 
-func (c *commandInitHook[R]) setConsoleManagerDebug(ctx context.Context) func(cmd.ConsoleManager[exec.Milieu]) error {
-	return func(consMgr cmd.ConsoleManager[exec.Milieu]) error {
 		com := &cmd.Command{Name: "echo", Value: "ON"}
 		return consMgr.Process(ctx, nil, "", com)
 	}
