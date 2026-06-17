@@ -8,17 +8,35 @@ package cmdhandler
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"iter"
 	"strings"
 
+	"drassi.run/core/pkg/command"
 	"drassi.run/core/pkg/command/cmdtypes"
 	"drassi.run/core/pkg/runtime"
 )
 
 var ErrInvalidFile = errors.New("invalid file")
+
+const deprecateMessage = "The %q command is deprecated and will be disabled soon. Please upgrade to using Environment Files. For more information see: https://github.blog/changelog/2022-10-11-github-actions-deprecating-save-state-and-set-output-commands/"
+
+func deprecate[R any](name string, reporter cmdtypes.Reporter[R], run command.ConsoleRun[R]) command.ConsoleRun[R] {
+	return func(ctx context.Context, r R, cmd *command.Command) error {
+		iss := &cmdtypes.Issue{
+			Type:    cmdtypes.IssueTypeWarning,
+			Message: fmt.Sprintf(deprecateMessage, name),
+			Data: map[string]string{
+				"_internal_telemetry": "UNSUPPORTED_COMMAND",
+			},
+		}
+		_ = reporter.AddIssue(ctx, r, iss)
+		return run(ctx, r, cmd)
+	}
+}
 
 func splitLine(line string) iter.Seq[string] {
 	splitter := func(c rune) bool { return c == '\n' || c == '\r' }

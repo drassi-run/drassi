@@ -16,3 +16,11 @@ func (f MapFlags) Flag(key string) (value string, ok bool) {
 	value, ok = f[key]
 	return
 }
+
+var Empty Flags = empty{}
+
+type empty struct{}
+
+func (empty) Flag(string) (string, bool) {
+	return "", false
+}

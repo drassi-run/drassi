@@ -13,6 +13,7 @@ import (
 	mock_secret "drassi.run/core/mock/secret"
 	"drassi.run/core/pkg/command"
 	"drassi.run/core/pkg/command/cmdtypes"
+	"drassi.run/core/pkg/flag"
 	"drassi.run/core/pkg/secret"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
@@ -109,13 +110,17 @@ func TestConsoleSetOutput(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	t.Run("empty-name", testInvalidCommand(ConsoleSetOutput[cmdtypes.SupportSetOutput]))
+	creator := func() *command.ConsoleHandler[cmdtypes.SupportSetOutput] {
+		return ConsoleSetOutput[cmdtypes.SupportSetOutput](flag.Empty, cmdtypes.Discard[cmdtypes.SupportSetOutput]())
+	}
+
+	t.Run("empty-name", testInvalidCommand(creator))
 
 	t.Run("success", func(t *testing.T) {
 		res := mock_cmdtypes.NewMockSupportSetOutput(ctrl)
 		res.EXPECT().SetOutput(map[string]string{"XXX": "set-output-value"})
 
-		h := ConsoleSetOutput[cmdtypes.SupportSetOutput]()
+		h := creator()
 
 		cmd := &command.Command{Name: "set-output", Params: map[string]string{"name": "XXX"}, Value: "set-output-value"}
 		err := h.Run(t.Context(), res, cmd)
@@ -127,13 +132,17 @@ func TestConsoleSaveState(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	t.Run("empty-name", testInvalidCommand(ConsoleSaveState[cmdtypes.SupportSaveState]))
+	creator := func() *command.ConsoleHandler[cmdtypes.SupportSaveState] {
+		return ConsoleSaveState[cmdtypes.SupportSaveState](flag.Empty, cmdtypes.Discard[cmdtypes.SupportSaveState]())
+	}
+
+	t.Run("empty-name", testInvalidCommand(creator))
 
 	t.Run("success", func(t *testing.T) {
 		res := mock_cmdtypes.NewMockSupportSaveState(ctrl)
 		res.EXPECT().SaveState(map[string]string{"XXX": "save-state-value"})
 
-		h := ConsoleSaveState[cmdtypes.SupportSaveState]()
+		h := creator()
 
 		cmd := &command.Command{Name: "save-state", Params: map[string]string{"name": "XXX"}, Value: "save-state-value"}
 		err := h.Run(t.Context(), res, cmd)
