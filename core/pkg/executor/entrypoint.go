@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/util/dig"
@@ -46,6 +47,11 @@ func Run(ctx context.Context, spec *JobSpec, scope *dig.Scope) (job *records.Job
 	completeTask.Run = telemetryJobRun(spec.Id, StagePost, completeTask.Run)
 	// register completeTask to ensure it always be run
 	defer func() {
+		// create new ctx w/ timeout 30s to clean up resources
+		ctx = context.WithoutCancel(ctx)
+		ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		defer cancel()
+
 		j, ex := completeTask.Run(ctx)
 		if ex != nil {
 			ex = fmt.Errorf("complete job: %w", err)
