@@ -31,7 +31,7 @@ func ContextWithScribe(ctx context.Context, s Diary) context.Context {
 
 func GroupDetails(ctx context.Context, groupName string, details ...func(*Scribe)) {
 	s := FromContext(ctx)
-	end := s.Groupf("Run %s", groupName)
+	end := s.Groupf("%s", groupName)
 	defer end()
 
 	for _, detail := range details {

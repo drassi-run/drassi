@@ -156,7 +156,7 @@ func (e *dockerActionExecutor) execute(stage Stage) ActionRun {
 			return err
 		}
 
-		scribe.GroupDetails(ctx, e.repr(),
+		scribe.GroupDetails(ctx, "Run "+e.repr(),
 			scribe.WithList("entrypoint", entrypoint),
 			scribe.WithList("args", args),
 			scribe.WithMap("with", inputs),
