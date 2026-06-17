@@ -9,11 +9,11 @@ package cmdhandler
 import (
 	"testing"
 
-	mock_cmdtypes "drassi.run/core/mock/executor/command/cmdtypes"
-	mock_secret "drassi.run/core/mock/executor/secret"
-	"drassi.run/core/pkg/executor/command"
-	"drassi.run/core/pkg/executor/command/cmdtypes"
-	"drassi.run/core/pkg/executor/secret"
+	mock_cmdtypes "drassi.run/core/mock/command/cmdtypes"
+	mock_secret "drassi.run/core/mock/secret"
+	"drassi.run/core/pkg/command"
+	"drassi.run/core/pkg/command/cmdtypes"
+	"drassi.run/core/pkg/secret"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 )

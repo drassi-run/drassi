@@ -273,6 +273,44 @@ func (c *MockStepExecutorJobExecutorCall) DoAndReturn(f func() executor.JobExecu
 	return c
 }
 
+// Name mocks base method.
+func (m *MockStepExecutor) Name(stage executor.Stage) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Name", stage)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Name indicates an expected call of Name.
+func (mr *MockStepExecutorMockRecorder) Name(stage any) *MockStepExecutorNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockStepExecutor)(nil).Name), stage)
+	return &MockStepExecutorNameCall{Call: call}
+}
+
+// MockStepExecutorNameCall wrap *gomock.Call
+type MockStepExecutorNameCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStepExecutorNameCall) Return(arg0 string) *MockStepExecutorNameCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStepExecutorNameCall) Do(f func(executor.Stage) string) *MockStepExecutorNameCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStepExecutorNameCall) DoAndReturn(f func(executor.Stage) string) *MockStepExecutorNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // Parent mocks base method.
 func (m *MockStepExecutor) Parent() executor.StepExecutor {
 	m.ctrl.T.Helper()

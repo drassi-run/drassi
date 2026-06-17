@@ -7,9 +7,9 @@
 package wire_command
 
 import (
+	cmd "drassi.run/core/pkg/command"
+	ch "drassi.run/core/pkg/command/cmdhandler"
 	exec "drassi.run/core/pkg/executor"
-	cmd "drassi.run/core/pkg/executor/command"
-	ch "drassi.run/core/pkg/executor/command/cmdhandler"
 	xdig "drassi.run/core/util/dig"
 	"drassi.run/core/wire"
 	"go.uber.org/dig"

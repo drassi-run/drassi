@@ -13,10 +13,10 @@ import (
 	"regexp"
 	"strings"
 
-	"drassi.run/core/pkg/executor/command"
-	"drassi.run/core/pkg/executor/command/cmdtypes"
-	"drassi.run/core/pkg/executor/problem"
-	"drassi.run/core/pkg/executor/secret"
+	"drassi.run/core/pkg/command"
+	"drassi.run/core/pkg/command/cmdtypes"
+	"drassi.run/core/pkg/problem"
+	"drassi.run/core/pkg/secret"
 	"drassi.run/core/pkg/stream"
 )
 

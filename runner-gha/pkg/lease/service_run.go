@@ -16,8 +16,8 @@ import (
 	"strings"
 	"time"
 
+	"drassi.run/core/pkg/command/cmdtypes"
 	"drassi.run/core/pkg/executor"
-	"drassi.run/core/pkg/executor/command/cmdtypes"
 	"drassi.run/core/util/http"
 	"drassi.run/gha-runner/pkg/messages"
 	"drassi.run/gha-runner/pkg/timeline"

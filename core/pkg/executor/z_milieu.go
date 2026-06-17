@@ -7,7 +7,7 @@
 package executor
 
 import (
-	"drassi.run/core/pkg/executor/runtime"
+	"drassi.run/core/pkg/runtime"
 	xtypes "drassi.run/core/util/types"
 )
 

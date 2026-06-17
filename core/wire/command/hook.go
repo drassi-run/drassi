@@ -9,8 +9,8 @@ package wire_command
 import (
 	"context"
 
+	cmd "drassi.run/core/pkg/command"
 	exec "drassi.run/core/pkg/executor"
-	cmd "drassi.run/core/pkg/executor/command"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/scribe"
 	xdig "drassi.run/core/util/dig"
