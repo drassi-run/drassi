@@ -22,12 +22,11 @@ import (
 )
 
 func NewManager(recorder Recorder) *Manager {
-	return NewManagerInterval(10*time.Second, recorder)
+	return NewManagerInterval(time.Second, recorder)
 }
 
 func NewManagerInterval(interval time.Duration, recorder Recorder) *Manager {
 	ticker := time.NewTicker(interval)
-	ticker.Stop()
 
 	return &Manager{
 		ticker:     ticker,
@@ -227,7 +226,6 @@ func (m *Manager) push(r *Record) {
 
 func (m *Manager) addToJob(r *Record) {
 	m.jobRecord.Children = append(m.jobRecord.Children, r)
-	m.push(m.jobRecord)
 }
 
 func (m *Manager) flush(ctx context.Context, l *clog.Logger) {
@@ -239,6 +237,8 @@ func (m *Manager) flush(ctx context.Context, l *clog.Logger) {
 	if len(r) <= 0 {
 		return
 	}
+
+	l.Info("flushing timeline.Record...")
 	if err := m.recorder.Update(ctx, r...); err != nil {
 		l.Errorf("failed to update record: %v", err)
 	}
