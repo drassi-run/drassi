@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"time"
 
 	"go.opentelemetry.io/otel/attribute"
 )
@@ -119,12 +120,19 @@ func (m *Manager) currFile() string {
 	return fmt.Sprintf("%s/%s.%d.log", m.dir, m.currUid, m.idx)
 }
 
+// RFC3339Tick is C# DateTime format with precision of 100 nanoseconds (7 digits)
+const RFC3339Tick = "2006-01-02T15:04:05.0000000Z07:00"
+
 func (m *Manager) write(line string) error {
+	now := time.Now().UTC()
+	b := now.AppendFormat(nil, RFC3339Tick)
+	b = append(b, ' ')
+	b = append(b, line...)
 	if l := len(line); l == 0 || line[l-1] != '\n' {
-		line += "\n"
+		b = append(b, '\n')
 	}
 
-	n, err := m.f.WriteString(line)
+	n, err := m.f.Write(b)
 	if err != nil {
 		return err
 	}

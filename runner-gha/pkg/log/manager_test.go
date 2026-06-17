@@ -46,12 +46,26 @@ type ManagerTestSuite struct {
 	m *Manager
 }
 
+var tsSize = len(time.Now().UTC().Format(RFC3339Tick)) + 1
+
+func tsTrim(b []byte) string {
+	lines := make([]string, 0)
+	for _, l := range strings.Split(string(b), "\n") {
+		if l == "" {
+			lines = append(lines, "")
+			continue
+		}
+		lines = append(lines, l[tsSize:])
+	}
+	return strings.Join(lines, "\n")
+}
+
 func (s *ManagerTestSuite) SetupTest() {
 	var err error
 	tempDir, err := os.MkdirTemp("", "log-manager-*")
 	s.Require().NoError(err)
 
-	s.m, err = NewManager(tempDir, 25)
+	s.m, err = NewManager(tempDir, int64(tsSize*2+25))
 	s.Require().NoError(err)
 }
 
@@ -97,25 +111,25 @@ func (s *ManagerTestSuite) TestHandle_Write() {
 	err = s.m.Handle(line)
 	require.NoError(t, err)
 	assert.EqualValues(t, 1, s.m.currLines)
-	size := len(line) + 1
+	size := tsSize + len(line) + 1
 	assert.EqualValues(t, size, s.m.currSize)
 
 	logFile := filepath.Join(s.m.dir, uid+".0.log")
 	content, err := os.ReadFile(logFile)
 	require.NoError(t, err)
-	assert.Equal(t, "hello\n", string(content))
+	assert.Equal(t, "hello\n", tsTrim(content))
 
 	// write log "world"
 	line = "world"
 	err = s.m.Handle(line)
 	require.NoError(t, err)
 	assert.EqualValues(t, 2, s.m.currLines)
-	size += len(line) + 1
+	size += tsSize + len(line) + 1
 	assert.EqualValues(t, size, s.m.currSize)
 
 	content, err = os.ReadFile(logFile)
 	require.NoError(t, err)
-	assert.Equal(t, "hello\nworld\n", string(content))
+	assert.Equal(t, "hello\nworld\n", tsTrim(content))
 }
 
 func (s *ManagerTestSuite) TestHandle_Rotation() {
@@ -125,8 +139,8 @@ func (s *ManagerTestSuite) TestHandle_Rotation() {
 	require.NoError(t, err)
 
 	// Write first 2 lines - should NOT trigger rotation yet
-	line := strings.Repeat("x", 10) // 10 bytes + 1 newline = 11 bytes
-	for range 2 {                   // 2 lines = 22 bytes
+	line := strings.Repeat("x", 10) // tsSize(29 bytes) + 10 bytes + 1 newline = 30 bytes
+	for range 2 {                   // 2 lines = 60 bytes
 		err = s.m.Handle(line)
 		require.NoError(t, err)
 		assert.Equal(t, 0, s.m.idx)
@@ -147,12 +161,12 @@ func (s *ManagerTestSuite) TestHandle_Rotation() {
 	assert.Equal(t, 1, s.m.idx)
 	assert.NotNil(t, s.m.f)
 	assert.EqualValues(t, 1, s.m.currLines)
-	assert.EqualValues(t, len(line)+1, s.m.currSize)
+	assert.EqualValues(t, tsSize+len(line)+1, s.m.currSize)
 
 	logFile := filepath.Join(s.m.dir, uid+".1.log")
 	content, err := os.ReadFile(logFile)
 	require.NoError(t, err)
-	assert.Equal(t, line+"\n", string(content))
+	assert.Equal(t, line+"\n", tsTrim(content))
 }
 
 func (s *ManagerTestSuite) TestSubscribe() {
@@ -177,7 +191,7 @@ func (s *ManagerTestSuite) TestSubscribe() {
 		err = s.m.Handle(line)
 		require.NoError(t, err)
 
-		size := len(line) + 1
+		size := tsSize + len(line) + 1
 		select {
 		case e := <-sub:
 			assert.Equal(t, OnRecordLog, e.Kind)
@@ -194,7 +208,7 @@ func (s *ManagerTestSuite) TestSubscribe() {
 		err = s.m.Handle(line)
 		require.NoError(t, err)
 
-		size += len(line) + 1
+		size += tsSize + len(line) + 1
 		select {
 		case e := <-sub:
 			assert.Equal(t, OnRecordLog, e.Kind)
@@ -235,7 +249,7 @@ func (s *ManagerTestSuite) TestSubscribe() {
 		err := s.m.Handle(line)
 		require.NoError(t, err)
 
-		size := len(line) + 1
+		size := tsSize + len(line) + 1
 		file := filepath.Join(s.m.dir, uid+".1.log")
 		select {
 		case e := <-sub:
