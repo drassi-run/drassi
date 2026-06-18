@@ -13,7 +13,7 @@ import (
 	mock_secret "drassi.run/core/mock/secret"
 	"drassi.run/core/pkg/command"
 	"drassi.run/core/pkg/command/cmdtypes"
-	"drassi.run/core/pkg/flag"
+	"drassi.run/core/pkg/feature"
 	"drassi.run/core/pkg/secret"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
@@ -111,7 +111,7 @@ func TestConsoleSetOutput(t *testing.T) {
 	defer ctrl.Finish()
 
 	creator := func() *command.ConsoleHandler[cmdtypes.SupportSetOutput] {
-		return ConsoleSetOutput[cmdtypes.SupportSetOutput](flag.Empty, cmdtypes.Discard[cmdtypes.SupportSetOutput]())
+		return ConsoleSetOutput[cmdtypes.SupportSetOutput](feature.Empty, cmdtypes.Discard[cmdtypes.SupportSetOutput]())
 	}
 
 	t.Run("empty-name", testInvalidCommand(creator))
@@ -133,7 +133,7 @@ func TestConsoleSaveState(t *testing.T) {
 	defer ctrl.Finish()
 
 	creator := func() *command.ConsoleHandler[cmdtypes.SupportSaveState] {
-		return ConsoleSaveState[cmdtypes.SupportSaveState](flag.Empty, cmdtypes.Discard[cmdtypes.SupportSaveState]())
+		return ConsoleSaveState[cmdtypes.SupportSaveState](feature.Empty, cmdtypes.Discard[cmdtypes.SupportSaveState]())
 	}
 
 	t.Run("empty-name", testInvalidCommand(creator))

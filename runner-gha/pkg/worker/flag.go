@@ -7,7 +7,7 @@
 package worker
 
 import (
-	"drassi.run/core/pkg/flag"
+	"drassi.run/core/pkg/feature"
 	"drassi.run/core/wire"
 	"drassi.run/gha-runner/pkg/messages"
 )
@@ -23,7 +23,7 @@ func (f variableFlags) Flag(key string) (string, bool) {
 }
 
 // https://github.com/actions/runner/blob/v2.335.1/src/Runner.Worker/ExecutionContext.cs#L1394-L1417
-func initFlag(sysVar map[string]messages.Variable, vars map[string]string) flag.Flags {
+func initFlag(sysVar map[string]messages.Variable, vars map[string]string) feature.Flags {
 	if _, ok := sysVar[wire.RunnerDebug]; !ok {
 		if v, ok := vars[wire.RunnerDebug]; ok {
 			sysVar[wire.RunnerDebug] = messages.Variable{Value: v}

@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package flag
+package feature
 
 type Flags interface {
 	Flag(key string) (value string, ok bool)
