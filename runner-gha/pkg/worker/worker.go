@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"drassi.run/core/pkg/executor"
+	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/util/error"
 	"drassi.run/gha-runner/pkg/lease"
 	"drassi.run/gha-runner/pkg/log"
@@ -29,6 +30,7 @@ func New(msg *messages.PipelineAgentJobRequest) *Worker {
 
 type Worker struct {
 	msg         *messages.PipelineAgentJobRequest
+	dossier     *records.Dossier
 	lease       lease.Lease
 	logMgr      *log.Manager
 	timelineMgr *timeline.Manager
@@ -41,21 +43,30 @@ func (w *Worker) Context() context.Context {
 	return w.ctx
 }
 
-func (w *Worker) Run(ctx context.Context, scope *dig.Scope) error {
+func (w *Worker) Run(ctx context.Context, scope *dig.Scope) (err error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+
+	if err = w.initDossier(); err != nil {
+		return
+	}
+	if err = w.initFlags(scope); err != nil {
+		return
+	}
+	ctx, done := w.initOtel(ctx)
+	defer done(&err)
 	w.ctx = ctx
 
 	defer w.complete()
 
-	if err := w.setup(scope); err != nil {
-		return err
+	if err = w.setup(scope); err != nil {
+		return
 	}
 	if cancel = w.runServices(); cancel != nil {
 		defer cancel() // cancel timelineMgr.Run & lease.Renew
 	}
-	if err := scope.Invoke(w.runLogSubscribers); err != nil {
-		return err
+	if err = scope.Invoke(w.runLogSubscribers); err != nil {
+		return
 	}
 
 	return w.run(scope)

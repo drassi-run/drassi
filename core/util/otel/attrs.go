@@ -13,53 +13,53 @@ import (
 )
 
 var (
-	DrassiWorkflowKey = attribute.Key("drassi.workflow")
-	DrassiJobKey      = attribute.Key("drassi.job")
-	DrassiStepKey     = attribute.Key("drassi.step")
-	DrassiRunKey      = attribute.Key("drassi.run")
-	DrassiStageKey    = attribute.Key("drassi.stage")
+	RepoKey     = attribute.Key("drassi.repo")
+	WorkflowKey = attribute.Key("drassi.workflow")
+	JobKey      = attribute.Key("drassi.job")
+	StepKey     = attribute.Key("drassi.step")
+	RunKey      = attribute.Key("drassi.run")
 
-	ActionPathKey   = attribute.Key("drassi.action.path")
 	ActionRepoKey   = attribute.Key("drassi.action.repo")
+	ActionPathKey   = attribute.Key("drassi.action.path")
 	ActionScriptKey = attribute.Key("drassi.action.script")
 
-	DrassiCommandKey = attribute.Key("drassi.command")
+	CommandKey = attribute.Key("drassi.command")
 )
 
-func DrassiWorkflow(s string) attribute.KeyValue {
-	return DrassiWorkflowKey.String(s)
+func Repo(s string) attribute.KeyValue {
+	return RepoKey.String(s)
 }
 
-func DrassiJob(s string) attribute.KeyValue {
-	return DrassiJobKey.String(s)
+func Workflow(s string) attribute.KeyValue {
+	return WorkflowKey.String(s)
 }
 
-func DrassiStep(s string) attribute.KeyValue {
-	return DrassiStepKey.String(s)
+func Job(s string) attribute.KeyValue {
+	return JobKey.String(s)
 }
 
-func DrassiRun(s string) attribute.KeyValue {
-	return DrassiRunKey.String(s)
+func Step(s string) attribute.KeyValue {
+	return StepKey.String(s)
 }
 
-func DrassiStage[S ~string](s S) attribute.KeyValue {
-	return DrassiStageKey.String(string(s))
-}
-
-func ActionPath(s string) attribute.KeyValue {
-	return ActionPathKey.String(s)
+func Run(s string) attribute.KeyValue {
+	return RunKey.String(s)
 }
 
 func ActionRepo(s string) attribute.KeyValue {
 	return ActionRepoKey.String(s)
 }
 
+func ActionPath(s string) attribute.KeyValue {
+	return ActionPathKey.String(s)
+}
+
 func ActionScript(s string) attribute.KeyValue {
 	return ActionScriptKey.String(s)
 }
 
-func DrassiCommand(s string) attribute.KeyValue {
-	return DrassiCommandKey.String(s)
+func Command(s string) attribute.KeyValue {
+	return CommandKey.String(s)
 }
 
 func ToSlogAttrs(kv ...attribute.KeyValue) []slog.Attr {

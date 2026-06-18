@@ -70,9 +70,14 @@ func ChildLogger(ctx context.Context, attrs []slog.Attr) (context.Context, *clog
 func SetupTelemetry(ctx context.Context, method string, attrs ...attribute.KeyValue) (context.Context, func(*error)) {
 	ctx, span := StartSpan(ctx, method, trace.WithAttributes(attrs...))
 	ctx, logger := ChildLogger(ctx, ToSlogAttrs(attrs...))
-	logger.Infof("===== %s =====>", method)
+	logger.Infof("start %s...", method)
 
 	done := func(err *error) {
+		if err != nil && *err != nil {
+			logger.Errorf("end %s error: %v", method, *err)
+		} else {
+			logger.Infof("end %s", method)
+		}
 		EndSpan(span, err)
 	}
 

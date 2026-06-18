@@ -90,7 +90,7 @@ type stepExecutor struct {
 	aExec  ActionExecutor
 
 	// records
-	github records.Github
+	github *records.Github
 	step   *records.Step
 	name   string
 	inputs map[string]string
@@ -122,8 +122,8 @@ func (e *stepExecutor) ActionExecutor() ActionExecutor {
 func (e *stepExecutor) init(ctx context.Context, scope *dig.Scope) (ex error) {
 	stepId := e.spec.Id
 	ctx, done := xotel.SetupTelemetry(ctx,
-		fmt.Sprintf("StepExecutor.Initialize(%s)", stepId),
-		xotel.DrassiStep(stepId),
+		fmt.Sprintf("StepExecutor.init(%s)", stepId),
+		xotel.Step("init/"+stepId),
 	)
 	defer done(&ex)
 
@@ -141,6 +141,7 @@ func (e *stepExecutor) init(ctx context.Context, scope *dig.Scope) (ex error) {
 	if err := xdig.Populate(scope, &e.github); err != nil {
 		return fmt.Errorf("populate 'github': %w", err)
 	}
+	e.github = new(*e.github) // clone
 	e.github.Action = e.spec.Id
 	e.env = maps.Clone(e.upperEnv())
 	e.step = new(records.Step)
@@ -237,7 +238,7 @@ func (e *stepExecutor) CreateTask(stage Stage) *StepTask {
 func (e *stepExecutor) telemetry(stage Stage, run ActionRun) ActionRun {
 	return func(ctx context.Context) (err error) {
 		ctx, done := xotel.SetupTelemetry(ctx,
-			fmt.Sprintf("ActionRun(%s, %s)", e.spec.Id, stage),
+			fmt.Sprintf("ActionRun(%s/%s)", stage, e.spec.Id),
 		)
 		defer done(&err)
 
