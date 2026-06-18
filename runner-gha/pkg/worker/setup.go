@@ -328,8 +328,8 @@ func (w *Worker) secretMasker() (secret.Masker, error) {
 	return sm, nil
 }
 
-func (w *Worker) problemScanner() map[string]problem.Matcher {
-	return make(map[string]problem.Matcher)
+func (w *Worker) problemScanner() problem.Matchers {
+	return make(problem.Matchers)
 }
 
 func (w *Worker) sysEnv() (executor.EnvProvider, error) {

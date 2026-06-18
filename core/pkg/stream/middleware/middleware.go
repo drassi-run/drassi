@@ -48,7 +48,7 @@ func (mw *commandProcessor[R]) RHandle(ctx context.Context, res R, line string) 
 	return nil
 }
 
-func ScanProblem[R any](pm map[string]problem.Matcher, reporter cmdtypes.Reporter[R]) Middleware[R] {
+func ScanProblem[R any](pm problem.Matchers, reporter cmdtypes.Reporter[R]) Middleware[R] {
 	return func(handler stream.ResourceHandler[R]) stream.ResourceHandler[R] {
 		return &problemScanner[R]{
 			handler:  handler,
@@ -60,7 +60,7 @@ func ScanProblem[R any](pm map[string]problem.Matcher, reporter cmdtypes.Reporte
 
 type problemScanner[R any] struct {
 	handler  stream.ResourceHandler[R]
-	matcher  map[string]problem.Matcher
+	matcher  problem.Matchers
 	reporter cmdtypes.Reporter[R]
 }
 

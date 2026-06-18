@@ -18,6 +18,8 @@ type Problem struct {
 	FromPath string
 }
 
+type Matchers map[string]Matcher
+
 type Matcher interface {
 	Match(line string) *Problem
 	Reset()

@@ -51,7 +51,7 @@ func AddSecretMask[R any](secretMasker secret.Masker) *command.ConsoleHandler[R]
 // AddProblemMatcher create [command.ConsoleHandler] that handle "add-matcher" command
 //
 //   - https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L451
-func AddProblemMatcher[R any](m map[string]problem.Matcher, sb sandboxer.Sandbox) *command.ConsoleHandler[R] {
+func AddProblemMatcher[R any](m problem.Matchers, sb sandboxer.Sandbox) *command.ConsoleHandler[R] {
 	run := func(ctx context.Context, res R, cmd *command.Command) error {
 		file := cmd.Value
 		if file == "" {
@@ -94,7 +94,7 @@ func AddProblemMatcher[R any](m map[string]problem.Matcher, sb sandboxer.Sandbox
 // RemoveProblemMatcher create [command.ConsoleHandler] that handle "remove-matcher" command
 //
 //   - https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L498
-func RemoveProblemMatcher[R any](m map[string]problem.Matcher, sb sandboxer.Sandbox) *command.ConsoleHandler[R] {
+func RemoveProblemMatcher[R any](m problem.Matchers, sb sandboxer.Sandbox) *command.ConsoleHandler[R] {
 	run := func(ctx context.Context, res R, cmd *command.Command) error {
 		file := cmd.Value
 		owner := cmd.Params["owner"]

@@ -82,7 +82,7 @@ func (s *ScanProblemTestSuite) SetupTest() {
 	s.ctrl = gomock.NewController(s.T())
 	s.pm1 = mock_problem.NewMockMatcher(s.ctrl)
 	s.pm2 = mock_problem.NewMockMatcher(s.ctrl)
-	pm := map[string]problem.Matcher{
+	pm := problem.Matchers{
 		"first":  s.pm1,
 		"second": s.pm2,
 	}

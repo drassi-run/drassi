@@ -115,7 +115,7 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 	}
 
 	// problem.Matcher
-	pm := make(map[string]problem.Matcher)
+	pm := make(problem.Matchers)
 	if err := xdig.Supply(scope, pm); err != nil {
 		return err
 	}
