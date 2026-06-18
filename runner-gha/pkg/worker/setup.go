@@ -18,6 +18,7 @@ import (
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/expression/libraries"
+	"drassi.run/core/pkg/feature"
 	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/problem"
@@ -28,6 +29,7 @@ import (
 	"drassi.run/core/pkg/stream"
 	xcontext "drassi.run/core/util/context"
 	xdig "drassi.run/core/util/dig"
+	xotel "drassi.run/core/util/otel"
 	"drassi.run/core/wire"
 	wire_command "drassi.run/core/wire/command"
 	wire_runtime "drassi.run/core/wire/runtime"
@@ -55,7 +57,7 @@ func (w *Worker) setup(scope *dig.Scope) error {
 	if err := w.initScope(scope); err != nil {
 		return err
 	}
-	return w.initContext(scope)
+	return w.initDiary(scope)
 }
 
 func (w *Worker) initService(scope *dig.Scope) error {
@@ -186,56 +188,19 @@ func (w *Worker) initManager(scope *dig.Scope) error {
 }
 
 func (w *Worker) initScope(scope *dig.Scope) error {
-	req := w.lease.GetMessage()
-
-	// expression.Env
-	dossier := new(records.Dossier)
-	if err := model.Decode(req.ContextData, dossier); err != nil {
-		return err
+	if err := xdig.Supply(scope, w.msg); err != nil {
+		return fmt.Errorf("supply PipelineAgentJobRequest: %w", err)
 	}
-	opts := []expression.Option{
-		expression.WithCache(true),
-		expression.WithLibrary(libraries.StdLib()),
-		expression.WithVariable("secrets", dossier.Secrets),
-		expression.WithVariable("vars", dossier.Variables),
-		expression.WithVariable("needs", dossier.Needs),
-		expression.WithVariable("strategy", dossier.Strategy),
-		expression.WithVariable("matrix", dossier.Matrix),
-		expression.WithVariable("inputs", dossier.Inputs),
+	if err := xdig.Supply(scope, w.dossier); err != nil {
+		return fmt.Errorf("supply Dossier: %w", err)
 	}
-	if exprEnv, err := expression.NewEnv(opts...); err != nil {
-		return err
-	} else if err = xdig.Supply(scope, exprEnv); err != nil {
-		return err
+	if err := xdig.Supply(scope, w.dossier.Github); err != nil {
+		return fmt.Errorf("supply GitHub: %w", err)
 	}
 
 	// Env context
 	env := make(map[string]string)
 	if err := xdig.Supply(scope, env); err != nil {
-		return err
-	}
-
-	// GitHub context
-	// https://github.com/actions/runner/blob/v2.324.0/src/Runner.Worker/ExecutionContext.cs#L882-L891
-	github := dossier.Github
-	if github.Token == "" {
-		if v, ok := req.Variables["system.github.token"]; ok {
-			github.Token = v.Value
-		} else if v, ok = req.Variables["github_token"]; ok {
-			github.Token = v.Value
-		}
-	}
-	if github.Job == "" {
-		if v, ok := req.Variables["system.github.job"]; ok {
-			github.Job = v.Value
-		}
-	}
-	if err := xdig.Supply(scope, *github); err != nil {
-		return err
-	}
-
-	flags := initFlag(w.msg.Variables, dossier.Variables)
-	if err := xdig.Supply(scope, flags); err != nil {
 		return err
 	}
 
@@ -252,7 +217,7 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 	if err := wire_support.Wire(scope); err != nil {
 		return err
 	}
-	if err := scope.Provide(newContainerRuntime(w.ctx, github)); err != nil {
+	if err := scope.Provide(w.newContainerRuntime); err != nil {
 		return err
 	}
 	if err := scope.Provide(timeline.NewIssueReporter, dig.As(new(cmdtypes.Reporter[executor.Milieu]))); err != nil {
@@ -261,10 +226,13 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 	if err := scope.Provide(stream.NewDetachResourceHandler[executor.Milieu]); err != nil {
 		return err
 	}
-	if err := scope.Provide(w.secretMasker); err != nil {
+	if err := scope.Provide(secretMasker); err != nil {
 		return err
 	}
-	if err := scope.Provide(w.problemScanner); err != nil {
+	if err := scope.Provide(problemScanner); err != nil {
+		return err
+	}
+	if err := scope.Provide(expressionEnv); err != nil {
 		return err
 	}
 
@@ -278,10 +246,67 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 		return err
 	}
 
-	return scope.Provide(w.sysEnv, dig.Group(wire.EnvProvider))
+	return scope.Provide(sysEnvProvider, dig.Group(wire.EnvProvider))
 }
 
-func (w *Worker) initContext(scope *dig.Scope) error {
+func (w *Worker) initDossier() error {
+	w.dossier = new(records.Dossier)
+	if err := model.Decode(w.msg.ContextData, w.dossier); err != nil {
+		return fmt.Errorf("decode ContextData: %w", err)
+	}
+
+	// GitHub context
+	// https://github.com/actions/runner/blob/v2.324.0/src/Runner.Worker/ExecutionContext.cs#L882-L891
+	github := w.dossier.Github
+	if github.Token == "" {
+		if v, ok := w.msg.Variables["system.github.token"]; ok {
+			github.Token = v.Value
+		} else if v, ok = w.msg.Variables["github_token"]; ok {
+			github.Token = v.Value
+		}
+	}
+	if github.Job == "" {
+		if v, ok := w.msg.Variables["system.github.job"]; ok {
+			github.Job = v.Value
+		}
+	}
+
+	return nil
+}
+
+// https://github.com/actions/runner/blob/v2.335.1/src/Runner.Worker/ExecutionContext.cs#L1394-L1417
+func (w *Worker) initFlags(scope *dig.Scope) error {
+	sysVar := w.msg.Variables
+	dVar := w.dossier.Variables
+	if _, ok := sysVar[wire.RunnerDebug]; !ok {
+		if v, ok := dVar[wire.RunnerDebug]; ok {
+			sysVar[wire.RunnerDebug] = messages.Variable{Value: v}
+		}
+	}
+	if _, ok := sysVar[wire.StepDebug]; !ok {
+		if v, ok := dVar[wire.StepDebug]; ok {
+			sysVar[wire.StepDebug] = messages.Variable{Value: v}
+		}
+	}
+	var flags feature.Flags = variableFlags(sysVar)
+	if err := xdig.Supply(scope, flags); err != nil {
+		return fmt.Errorf("supply feature.Flags: %w", err)
+	}
+	return nil
+}
+
+func (w *Worker) initOtel(ctx context.Context) (context.Context, func(*error)) {
+	gh := w.dossier.Github
+	// TODO set LogLevel=Debug if RunnerDebug=true
+	return xotel.SetupTelemetry(ctx, "worker",
+		xotel.Repo(gh.Repository),
+		xotel.Workflow(gh.Workflow),
+		xotel.Run(gh.RunId+"#"+gh.RunAttempt),
+		xotel.Job(gh.Job),
+	)
+}
+
+func (w *Worker) initDiary(scope *dig.Scope) error {
 	var diary scribe.Diary
 	if err := xdig.Populate(scope, &diary); err != nil {
 		return err
@@ -291,15 +316,15 @@ func (w *Worker) initContext(scope *dig.Scope) error {
 	return nil
 }
 
-func (w *Worker) secretMasker() (secret.Masker, error) {
+func secretMasker(req *messages.PipelineAgentJobRequest) (secret.Masker, error) {
 	// https://github.com/actions/runner/blob/v2.323.0/src/Runner.Worker/Worker.cs#L140
 	sm := secret.NewMasker()
-	for _, v := range w.msg.Variables {
+	for _, v := range req.Variables {
 		if v.IsSecret {
 			sm.AddSecret(secret.NewValueSecret(v.Value))
 		}
 	}
-	for _, s := range w.msg.MaskHints {
+	for _, s := range req.MaskHints {
 		switch s.Type {
 		case messages.MaskTypeVariable:
 			sm.AddSecret(secret.NewValueSecret(s.Value))
@@ -313,13 +338,15 @@ func (w *Worker) secretMasker() (secret.Masker, error) {
 			return nil, fmt.Errorf("unknown mask type %q", s.Type)
 		}
 	}
-	if res := w.msg.Resources; res != nil {
+	if res := req.Resources; res != nil {
 		for _, ep := range res.Endpoints {
-			if authz := ep.Authorization; authz != nil {
-				for _, v := range authz.Parameters {
-					if v != "" {
-						sm.AddSecret(secret.NewValueSecret(v))
-					}
+			authz := ep.Authorization
+			if authz == nil {
+				continue
+			}
+			for _, v := range authz.Parameters {
+				if v != "" {
+					sm.AddSecret(secret.NewValueSecret(v))
 				}
 			}
 		}
@@ -328,14 +355,28 @@ func (w *Worker) secretMasker() (secret.Masker, error) {
 	return sm, nil
 }
 
-func (w *Worker) problemScanner() problem.Matchers {
+func problemScanner() problem.Matchers {
 	return make(problem.Matchers)
 }
 
-func (w *Worker) sysEnv() (executor.EnvProvider, error) {
+func expressionEnv(d *records.Dossier) (expression.Env, error) {
+	opts := []expression.Option{
+		expression.WithCache(true),
+		expression.WithLibrary(libraries.StdLib()),
+		expression.WithVariable("secrets", d.Secrets),
+		expression.WithVariable("vars", d.Variables),
+		expression.WithVariable("needs", d.Needs),
+		expression.WithVariable("strategy", d.Strategy),
+		expression.WithVariable("matrix", d.Matrix),
+		expression.WithVariable("inputs", d.Inputs),
+	}
+	return expression.NewEnv(opts...)
+}
+
+func sysEnvProvider(req *messages.PipelineAgentJobRequest) (executor.EnvProvider, error) {
 	// https://github.com/actions/runner/blob/v2.323.0/src/Runner.Worker/Handlers/NodeScriptActionHandler.cs#L53-L78
 	// https://github.com/actions/runner/blob/v2.323.0/src/Runner.Worker/Handlers/ContainerActionHandler.cs#L218-L238
-	sysCon := w.msg.ServiceEndpoint("SystemVssConnection")
+	sysCon := req.ServiceEndpoint("SystemVssConnection")
 	if sysCon == nil {
 		return nil, fmt.Errorf("service endpoint 'SystemVssConnection' not found")
 	}
@@ -350,7 +391,7 @@ func (w *Worker) sysEnv() (executor.EnvProvider, error) {
 	if url := sysCon.Data["CacheServerUrl"]; url != "" {
 		sysEnv["ACTIONS_CACHE_URL"] = url
 	}
-	if cacheV2 := w.msg.Variables["actions_uses_cache_service_v2"]; strings.ToLower(cacheV2.Value) == "true" {
+	if cacheV2 := req.Variables["actions_uses_cache_service_v2"]; strings.ToLower(cacheV2.Value) == "true" {
 		sysEnv["ACTIONS_CACHE_SERVICE_V2"] = "True" // bool.TrueString
 	}
 	if url := sysCon.Data["PipelinesServiceUrl"]; url != "" {
@@ -362,23 +403,20 @@ func (w *Worker) sysEnv() (executor.EnvProvider, error) {
 	}
 	if url := sysCon.Data["ResultsServiceUrl"]; url != "" {
 		sysEnv["ACTIONS_RESULTS_URL"] = url
-	} else if v, ok := w.msg.Variables["system.github.results_endpoint"]; ok {
+	} else if v, ok := req.Variables["system.github.results_endpoint"]; ok {
 		sysEnv["ACTIONS_RESULTS_URL"] = v.Value
 	}
 
 	return executor.StaticEnv(sysEnv), nil
 }
 
-func newContainerRuntime(ctx context.Context, gh *records.Github) func(
-	container.Engine, sandboxer.Sandbox, *records.JobInfo,
+func (w *Worker) newContainerRuntime(
+	engine container.Engine,
+	sandbox sandboxer.Sandbox,
+	info *records.JobInfo,
+	gh *records.Github,
 ) (runtime.Container, error) {
-	return func(
-		engine container.Engine,
-		sandbox sandboxer.Sandbox,
-		info *records.JobInfo,
-	) (runtime.Container, error) {
-		return wire_runtime.NewContainerRuntime(ctx, engine, sandbox, info, gh)
-	}
+	return wire_runtime.NewContainerRuntime(w.ctx, engine, sandbox, info, gh)
 }
 
 type jobRunDecoratorParam struct {

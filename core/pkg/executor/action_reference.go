@@ -50,7 +50,7 @@ func (spec *ReferenceActionSpec) CreateExecutor(
 	s := scribe.FromContext(ctx)
 
 	var (
-		github records.Github
+		github *records.Github
 		store  gitstore.Store
 	)
 

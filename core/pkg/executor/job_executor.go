@@ -72,7 +72,7 @@ type jobExecutor struct {
 	scope *dig.Scope
 
 	// records
-	github  records.Github
+	github  *records.Github
 	runner  records.Runner
 	jobInfo *records.JobInfo
 	job     *records.Job
@@ -215,6 +215,7 @@ func (e *jobExecutor) initializeJob(s *scribe.Scribe) error {
 	}
 
 	// sanitize GitHub
+	e.github = new(*e.github) // clone
 	e.github.Job = e.spec.Id
 	e.github.Action = ""
 	e.github.ActionPath = ""
@@ -228,7 +229,7 @@ func (e *jobExecutor) initializeJob(s *scribe.Scribe) error {
 
 	// setup expression.Env
 	opts := []expression.Option{
-		expression.WithVariable("github", &e.github),
+		expression.WithVariable("github", e.github),
 		expression.WithVariable("job", e.jobInfo),
 		expression.WithVariable("steps", e.steps),
 		expression.WithVariable("env", e.env),
@@ -268,7 +269,7 @@ func (e *jobExecutor) initializeSandbox(ctx context.Context, s *scribe.Scribe) e
 
 	req := &sandboxer.LaunchRequest{
 		Uid:    e.spec.Uid,
-		Github: &e.github,
+		Github: e.github,
 	}
 
 	s.Debugf("Evaluating job container")

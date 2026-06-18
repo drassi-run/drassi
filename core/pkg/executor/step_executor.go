@@ -90,7 +90,7 @@ type stepExecutor struct {
 	aExec  ActionExecutor
 
 	// records
-	github records.Github
+	github *records.Github
 	step   *records.Step
 	name   string
 	inputs map[string]string
@@ -141,6 +141,7 @@ func (e *stepExecutor) init(ctx context.Context, scope *dig.Scope) (ex error) {
 	if err := xdig.Populate(scope, &e.github); err != nil {
 		return fmt.Errorf("populate 'github': %w", err)
 	}
+	e.github = new(*e.github) // clone
 	e.github.Action = e.spec.Id
 	e.env = maps.Clone(e.upperEnv())
 	e.step = new(records.Step)
