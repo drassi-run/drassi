@@ -70,7 +70,7 @@ func (s *jobServiceLogsSubscriber) uploader(uid string) logtypes.Uploader {
 
 func (s *jobServiceLogsSubscriber) handle(e *log.Event) {
 	ctx, logger := xotel.ChildLogger(s.ctx,
-		xotel.ToSlogAttrs(xotel.DrassiStep(e.Uid)),
+		xotel.ToSlogAttrs(xotel.Step(e.Uid)),
 	)
 
 	u := s.uploader(e.Uid)

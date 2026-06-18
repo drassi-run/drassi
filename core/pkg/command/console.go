@@ -219,7 +219,7 @@ func (mgr *consoleManager[R]) parseCommandParams(params, sep string, replacer *s
 
 func (mgr *consoleManager[R]) Process(ctx context.Context, res R, line string, cmd *Command) (err error) {
 	ctx, span := xotel.StartSpan(ctx, "ConsoleCommand.Process",
-		trace.WithAttributes(xotel.DrassiCommand(cmd.Name)),
+		trace.WithAttributes(xotel.Command(cmd.Name)),
 	)
 	defer xotel.EndSpan(span, &err)
 

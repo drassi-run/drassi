@@ -79,8 +79,7 @@ func Run(ctx context.Context, spec *JobSpec, scope *dig.Scope) (job *records.Job
 func telemetryJobRun(jobId string, stage Stage, run JobRun) JobRun {
 	return func(ctx context.Context) (_ *records.Job, err error) {
 		ctx, done := xotel.SetupTelemetry(ctx,
-			fmt.Sprintf("JobRun(%s, %s)", jobId, stage),
-			xotel.DrassiStep(jobId), xotel.DrassiStage(stage),
+			fmt.Sprintf("JobRun(%s/%s)", stage, jobId),
 		)
 		defer done(&err)
 		return run(ctx)

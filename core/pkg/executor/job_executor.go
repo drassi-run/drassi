@@ -97,13 +97,6 @@ func (e *jobExecutor) JobSpec() *JobSpec {
 func (e *jobExecutor) Initialize(ctx context.Context) (job *records.Job, err error) {
 	// e.job is late initialize
 	defer func() { job = e.job }()
-
-	ctx, done := xotel.SetupTelemetry(ctx,
-		fmt.Sprintf("JobExecutor.Initialize(%s)", e.spec.Id),
-		xotel.DrassiJob(e.spec.Id),
-	)
-	defer done(&err)
-
 	s := scribe.FromContext(ctx)
 
 	// do job initialization
@@ -137,11 +130,6 @@ func (e *jobExecutor) Initialize(ctx context.Context) (job *records.Job, err err
 
 func (e *jobExecutor) RunJob(ctx context.Context) (job *records.Job, err error) {
 	job = e.job
-	ctx, done := xotel.SetupTelemetry(ctx,
-		fmt.Sprintf("JobExecutor.RunJob(%s)", e.spec.Id),
-		xotel.DrassiJob(e.spec.Id),
-	)
-	defer done(&err)
 
 	// do job run
 	e.SetStatus(records.ResultSuccess)
@@ -165,11 +153,6 @@ func (e *jobExecutor) RunJob(ctx context.Context) (job *records.Job, err error) 
 
 func (e *jobExecutor) Finalize(ctx context.Context) (job *records.Job, err error) {
 	job = e.job
-	ctx, done := xotel.SetupTelemetry(ctx,
-		fmt.Sprintf("JobExecutor.Finalize(%s)", e.spec.Id),
-		xotel.DrassiJob(e.spec.Id),
-	)
-	defer done(&err)
 
 	if hook := e.preStop; hook != nil {
 		if ex := hook.Hook(ctx, e); ex != nil {
@@ -447,8 +430,8 @@ func (e *jobExecutor) planStage(stage Stage) func(context.Context) error {
 func (e *jobExecutor) telemetry(stepId string, stage Stage, run StepRun) StepRun {
 	return func(ctx context.Context) (_ *records.Step, err error) {
 		ctx, done := xotel.SetupTelemetry(ctx,
-			fmt.Sprintf("StepRun(%s, %s)", stepId, stage),
-			xotel.DrassiStep(stepId), xotel.DrassiStage(stage),
+			fmt.Sprintf("StepRun(%s/%s)", stage, stepId),
+			xotel.Step(string(stage)+"/"+stepId),
 		)
 		defer done(&err)
 

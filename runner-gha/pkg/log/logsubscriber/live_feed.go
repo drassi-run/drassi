@@ -92,7 +92,7 @@ func (s *liveFeedSubscriber) stopCurrentBatcher() {
 
 func (s *liveFeedSubscriber) run(uid string, batcher log.Batcher) {
 	ctx, logger := xotel.ChildLogger(s.ctx,
-		xotel.ToSlogAttrs(xotel.DrassiStep(uid)),
+		xotel.ToSlogAttrs(xotel.Step(uid)),
 	)
 
 	for b := range batcher.Channel() {
