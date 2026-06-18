@@ -22,3 +22,9 @@ func (m Hooks[R]) Hook(ctx context.Context, res R) error {
 	}
 	return nil
 }
+
+type HookFunc[R any] func(context.Context, R) error
+
+func (f HookFunc[R]) Hook(ctx context.Context, r R) error {
+	return f(ctx, r)
+}

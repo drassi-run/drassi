@@ -116,7 +116,7 @@ func (e *scriptActionExecutor) executeMain(ctx context.Context) error {
 
 	// log details before fixup script
 	// https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/Handlers/ScriptHandler.cs#L27
-	scribe.GroupDetails(ctx, "script action",
+	scribe.GroupDetails(ctx, "Run script action",
 		withScript(script),
 		scribe.WithPair("shell", strings.Join(cmd, " ")),
 		scribe.WithPair("workdir", workdir),

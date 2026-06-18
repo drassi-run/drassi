@@ -250,8 +250,9 @@ func (e *stepExecutor) runAction(ctx context.Context, action *ActionTask) error 
 	s := scribe.FromContext(ctx)
 
 	maps.Copy(e.env, e.upperEnv())
-	s.Debugf("Evaluating 'env' for step: (%s)", e.spec.Id)
+	s.Debugf("Evaluating 'env'")
 	if err := evaluator.Evaluate(e.exprEnv, mergeMapExpr(e.aExec.Env(), e.spec.Env), &e.env); err != nil {
+		s.Errorf("Evaluate 'env' error: %v", err)
 		return fmt.Errorf("evaluate 'env': %w", err)
 	}
 
@@ -260,9 +261,9 @@ func (e *stepExecutor) runAction(ctx context.Context, action *ActionTask) error 
 	}
 	displayName := e.Name(action.Stage)
 
-	s.Debugf("Evaluating 'condition' for step: %q (%s)", displayName, e.spec.Id)
+	s.Debugf("Evaluating 'if'")
 	if meet, err := evaluator.Meet(e.exprEnv, action.Condition); err != nil {
-		s.Errorf("Error while evaluate 'if': %v", err)
+		s.Errorf("Evaluate 'if' error: %v", err)
 		return fmt.Errorf("evaluate 'if': %w", err)
 	} else if !meet {
 		e.SetStatus(records.ResultSkipped)
@@ -271,9 +272,9 @@ func (e *stepExecutor) runAction(ctx context.Context, action *ActionTask) error 
 	}
 
 	timeout := int64(-1)
-	s.Debugf("Evaluating 'timeout-minutes' for step: %q (%s)", displayName, e.spec.Id)
+	s.Debugf("Evaluating 'timeout-minutes'")
 	if err := evaluator.Evaluate(e.exprEnv, e.spec.TimeoutInMinutes, &timeout); err != nil {
-		s.Errorf("Error while evaluate 'timeout-minutes': %v", err)
+		s.Errorf("Evaluate 'timeout-minutes' error: %v", err)
 		return fmt.Errorf("evaluate 'timeout-minutes': %w", err)
 	} else if timeout > 0 {
 		var cancel context.CancelFunc
@@ -282,23 +283,24 @@ func (e *stepExecutor) runAction(ctx context.Context, action *ActionTask) error 
 	}
 
 	clear(e.inputs)
-	s.Debugf("Evaluating 'inputs' for step: %q (%s)", displayName, e.spec.Id)
+	s.Debugf("Evaluating 'inputs'")
 	if err := evaluator.Evaluate(e.exprEnv, mergeMapExpr(e.aExec.Inputs(), e.spec.Inputs), &e.inputs); err != nil {
+		s.Errorf("Evaluate 'inputs' error: %v", err)
 		return fmt.Errorf("evaluate 'inputs': %w", err)
 	}
 
 	err := action.Run(ctx)
 	if err != nil {
-		s.Errorf("Error while running task %q (%s): %v", displayName, e.spec.Id, err)
+		s.Errorf("Running task error: %v", err)
 		e.SetStatus(records.ResultFailure)
 	}
 
 	// NOTE: step.Outcome can be set from outside StepExecutor, e.g: CompositeAction or CommandProcessor
 	if e.step.Outcome == records.ResultFailure {
 		continueOnError := false
-		s.Debugf("Evaluating 'continue-on-error' for step: %q (%s)", displayName, e.spec.Id)
+		s.Debugf("Evaluating 'continue-on-error'")
 		if err := evaluator.Evaluate(e.exprEnv, e.spec.ContinueOnError, &continueOnError); err != nil {
-			s.Errorf("Error while evaluate 'continue-on-error': %v", err)
+			s.Errorf("Evaluate 'continue-on-error' error: %v", err)
 			return fmt.Errorf("evaluate 'continue-on-error': %w", err)
 		} else if continueOnError {
 			e.step.Conclusion = records.ResultSuccess
@@ -308,8 +310,9 @@ func (e *stepExecutor) runAction(ctx context.Context, action *ActionTask) error 
 	}
 
 	outputs := make(map[string]string)
-	s.Debugf("Evaluating 'outputs' for step: %q (%s)", displayName, e.spec.Id)
+	s.Debugf("Evaluating 'outputs'")
 	if err := evaluator.Evaluate(e.exprEnv, mergeMapExpr(e.aExec.Outputs(), e.spec.Outputs), &outputs); err != nil {
+		s.Errorf("Evaluate 'outputs' error: %v", err)
 		return fmt.Errorf("evaluate 'outputs': %w", err)
 	}
 	e.SetOutput(outputs)
@@ -327,6 +330,7 @@ func (e *stepExecutor) evaluateDisplayName(s *scribe.Scribe) error {
 
 	s.Debugf("Evaluating display name")
 	if err := evaluator.Evaluate(e.exprEnv, expr, &name); err != nil {
+		s.Errorf("Evaluate 'name' error: %v", err)
 		return fmt.Errorf("evaluate 'name': %w", err)
 	}
 

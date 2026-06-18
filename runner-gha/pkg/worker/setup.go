@@ -57,7 +57,7 @@ func (w *Worker) setup(scope *dig.Scope) error {
 	if err := w.initScope(scope); err != nil {
 		return err
 	}
-	return w.initDiary(scope)
+	return scope.Invoke(w.initDiary)
 }
 
 func (w *Worker) initService(scope *dig.Scope) error {
@@ -205,6 +205,12 @@ func (w *Worker) initScope(scope *dig.Scope) error {
 	}
 
 	// Wire scope
+	if err := scope.Provide(printSecretSource[executor.JobExecutor], dig.Group(wire.PostStart)); err != nil {
+		return err
+	}
+	if err := scope.Provide(printTokenPermissions[executor.JobExecutor], dig.Group(wire.PostStart)); err != nil {
+		return err
+	}
 	if err := xdig.Supply[xcontext.Provider](scope, w); err != nil {
 		return err
 	}
@@ -306,11 +312,9 @@ func (w *Worker) initOtel(ctx context.Context) (context.Context, func(*error)) {
 	)
 }
 
-func (w *Worker) initDiary(scope *dig.Scope) error {
-	var diary scribe.Diary
-	if err := xdig.Populate(scope, &diary); err != nil {
-		return err
-	}
+func (w *Worker) initDiary(diary scribe.Diary, flags feature.Flags) error {
+	debug := feature.Bool(flags, wire.StepDebug, false)
+	diary.SetDebug(debug)
 
 	w.ctx = scribe.ContextWithScribe(w.ctx, diary)
 	return nil

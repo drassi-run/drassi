@@ -109,7 +109,7 @@ func (e *nodeActionExecutor) execute(stage Stage) ActionRun {
 		cmd := []string{"node", scriptPath}
 		inputs := e.sExec.Inputs()
 
-		scribe.GroupDetails(ctx, e.repr(),
+		scribe.GroupDetails(ctx, "Run "+e.repr(),
 			scribe.WithMap("with", inputs),
 			scribe.WithMap("env", e.sExec.Env()),
 		)
