@@ -323,12 +323,8 @@ func (w *Worker) initOtel(ctx context.Context) (context.Context, func(*error)) {
 	)
 }
 
-func (w *Worker) initDiary(diary scribe.Diary, flags feature.Flags) error {
-	debug := feature.Bool(flags, wire.StepDebug, false)
-	diary.SetDebug(debug)
-
+func (w *Worker) initDiary(diary scribe.Diary) {
 	w.ctx = scribe.ContextWithScribe(w.ctx, diary)
-	return nil
 }
 
 func secretMasker(req *messages.PipelineAgentJobRequest) (secret.Masker, error) {

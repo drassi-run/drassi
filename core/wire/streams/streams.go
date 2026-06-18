@@ -11,10 +11,12 @@ import (
 	"slices"
 
 	exec "drassi.run/core/pkg/executor"
+	"drassi.run/core/pkg/feature"
 	"drassi.run/core/pkg/scribe"
 	"drassi.run/core/pkg/secret"
 	"drassi.run/core/pkg/stream"
 	mdw "drassi.run/core/pkg/stream/middleware"
+	"drassi.run/core/wire"
 	"go.uber.org/dig"
 )
 
@@ -28,11 +30,17 @@ func ProvideTo(scope *dig.Scope) error {
 	if err := scope.Provide(mdw.MaskSecret[exec.Milieu], dig.Name("maskSecret")); err != nil {
 		return err
 	}
-
 	if err := scope.Provide(newStreamFactory[exec.Milieu], dig.Export(true)); err != nil {
 		return err
 	}
-	if err := scope.Provide(newScribeDiary, dig.Export(true)); err != nil {
+
+	if err := scope.Decorate(maskSecretHandler); err != nil {
+		return err
+	}
+	if err := scope.Provide(scribe.NewForwardDiary, dig.Export(true)); err != nil {
+		return err
+	}
+	if err := scope.Decorate(setDiaryDebug); err != nil {
 		return err
 	}
 
@@ -60,18 +68,16 @@ func newStreamFactory[R any](p streamParams[R]) stream.Factory[R] {
 	)
 }
 
-type scribeParams struct {
-	dig.In
-	Handler      scribe.Handler
-	SecretMasker secret.Masker
-}
-
-func newScribeDiary(p scribeParams) scribe.Diary {
-	h := p.Handler
-	sm := p.SecretMasker
-	handler := func(ctx context.Context, line string) error {
+func maskSecretHandler(h scribe.Handler, sm secret.Masker) scribe.Handler {
+	return func(ctx context.Context, line string) error {
 		line = sm.Mask(line)
 		return h(ctx, line)
 	}
-	return scribe.NewForwardDiary(handler)
+}
+
+func setDiaryDebug(diary scribe.Diary, flags feature.Flags) scribe.Diary {
+	debug := feature.Bool(flags, wire.StepDebug, false)
+	diary.SetDebug(debug)
+
+	return diary
 }
