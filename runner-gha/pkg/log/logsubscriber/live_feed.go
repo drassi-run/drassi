@@ -98,9 +98,14 @@ func (s *liveFeedSubscriber) run(uid string, batcher log.Batcher, attrs []attrib
 
 	for b := range batcher.Channel() {
 		if lines, err := b.Scan(); err != nil {
-			logger.Errorf("%v", err)
-		} else if err = s.app.Append(ctx, uid, s.lineCount, lines); err != nil {
-			logger.Errorf("%v", err)
+			logger.Errorf("scan batch error: %v", err)
+		} else {
+			logger.Debugf("LiveFeed - streaming %d log lines", len(lines))
+			if err = s.app.Append(ctx, uid, s.lineCount, lines); err != nil {
+				logger.Errorf("LiveFeed - stream logs error: %v", err)
+			} else {
+				logger.Debugf("LiveFeed - streamed %d lines", len(lines))
+			}
 		}
 		s.lineCount += b.Lines()
 	}

@@ -12,6 +12,7 @@ import (
 	"io"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/blockblob"
+	"github.com/chainguard-dev/clog"
 )
 
 // Uploader used to one-shot upload a file to cloud storage
@@ -76,8 +77,11 @@ func (u *azureBlobUploader) Upload(ctx context.Context, r io.Reader, _ *Stat) er
 	if client, err := u.getClient(ctx); err != nil {
 		return err
 	} else {
-		_, err = client.UploadStream(ctx, r, nil)
-		return err
+		clog.DebugContext(ctx, "AzureBlob - upload block blob")
+		if _, err = client.UploadStream(ctx, r, nil); err != nil {
+			return fmt.Errorf("upload to azure blob: %w", err)
+		}
+		return nil
 	}
 }
 

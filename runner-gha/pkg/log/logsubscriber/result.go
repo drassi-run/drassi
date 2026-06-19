@@ -81,9 +81,9 @@ func (s *resultServiceStepLogsSubscriber) run(c logtypes.Conveyor, attrs []attri
 	)
 
 	if r, err := c.Run(ctx); err != nil {
-		logger.Errorf("%v", err)
+		logger.Errorf("ResultService - upload step logs error: %v", err)
 	} else {
-		logger.Infof("successful upload step log lines=%d, size=%d", r.Lines, r.Size)
+		logger.Debugf("ResultService - uploaded step logs: lines=%d, size=%d", r.Lines, r.Size)
 	}
 }
 

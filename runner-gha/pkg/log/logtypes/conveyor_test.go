@@ -117,7 +117,7 @@ func (s *AzureBlobConveyorTestSuite) TestRun_CreateError() {
 	s.onCreate = azureBlobError(409, "BlobAlreadyExists", "Blob already exists.")
 
 	stat, err := s.conveyor.Run(ctx)
-	s.ErrorContains(err, "failed to create azure blob")
+	s.ErrorContains(err, "create azure blob")
 	s.Nil(stat)
 }
 
@@ -133,7 +133,7 @@ func (s *AzureBlobConveyorTestSuite) TestRun_UploadError() {
 
 	stat, err := s.conveyor.Run(ctx)
 	s.Error(err)
-	s.Contains(err.Error(), "error while upload log chunk to azure blob")
+	s.Contains(err.Error(), "upload log chunk to azure blob")
 	s.Nil(stat)
 }
 
@@ -147,7 +147,7 @@ func (s *AzureBlobConveyorTestSuite) TestRun_SealError() {
 
 	stat, err := s.conveyor.Run(ctx)
 	s.Error(err)
-	s.Contains(err.Error(), "error while sealing azure blob")
+	s.Contains(err.Error(), "seal azure blob")
 	s.Nil(stat)
 }
 

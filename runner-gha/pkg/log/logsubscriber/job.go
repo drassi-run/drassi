@@ -78,14 +78,16 @@ func (s *jobServiceLogsSubscriber) handle(e *log.Event) {
 
 	f, err := os.Open(d.File)
 	if err != nil {
-		logger.Errorf("error opening file %s: %v", d.File, err)
+		logger.Errorf("error opening file=%s: %v", d.File, err)
 		return
 	}
 	defer f.Close()
 
 	stat := logtypes.NewStat(d.Line, d.Offset)
 	if err = u.Upload(ctx, f, stat); err != nil {
-		logger.Errorf("error uploading file %s: %s", d.File, err)
+		logger.Errorf("JobService - upload logs error file=%s: %v", d.File, err)
+	} else {
+		logger.Debugf("JobService - uploaded logs file=%s", d.File)
 	}
 }
 

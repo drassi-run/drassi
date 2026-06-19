@@ -9,10 +9,12 @@ package logtypes
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"slices"
 	"sync"
 
+	"github.com/chainguard-dev/clog"
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 )
@@ -49,6 +51,7 @@ func (a *wsAppender) Append(ctx context.Context, uid string, startAt int, lines 
 		return fmt.Errorf("connect to websocket: %w", err)
 	}
 
+	l := clog.FromContext(ctx)
 	// actions/runner (C#) process at most about 500 lines once
 	// https://github.com/actions/runner/blob/v2.335.1/src/Runner.Common/JobServerQueue.cs#L362
 	for chunk := range slices.Chunk(lines, 1000) {
@@ -60,6 +63,7 @@ func (a *wsAppender) Append(ctx context.Context, uid string, startAt int, lines 
 		}
 		startAt += data.Count
 
+		l.Debugf("appending chunk of size=%d to websocket", data.Count)
 		if err := wsjson.Write(ctx, a.conn, data); err != nil {
 			return fmt.Errorf("append logs to websocket: %w", err)
 		}
@@ -72,19 +76,27 @@ func (a *wsAppender) connect(ctx context.Context) error {
 		return nil
 	}
 
+	l := clog.FromContext(ctx)
 	opts := &websocket.DialOptions{
 		HTTPClient:      a.hc,
 		CompressionMode: websocket.CompressionContextTakeover,
 	}
-	if conn, resp, err := websocket.Dial(ctx, a.wsUrl, opts); err != nil {
-		return err
-	} else {
-		if body := resp.Body; body != nil {
-			defer body.Close()
+
+	l.Debugf("Dial websocket connection: %s", a.wsUrl)
+	conn, resp, err := websocket.Dial(ctx, a.wsUrl, opts)
+	if err != nil {
+		l.Errorf("websocket.Dial error: %v", err)
+		if resp != nil && resp.Body != nil {
+			defer resp.Body.Close()
+			if c, err := io.ReadAll(resp.Body); err == nil {
+				l.Errorf("websocket response body: %s", string(c))
+			}
 		}
-		a.conn = conn
-		return nil
+		return err
 	}
+
+	a.conn = conn
+	return nil
 }
 
 func (a *wsAppender) Close() error {
