@@ -311,11 +311,15 @@ func (w *Worker) initFlags(scope *dig.Scope) error {
 func (w *Worker) initOtel(ctx context.Context) (context.Context, func(*error)) {
 	gh := w.dossier.Github
 	// TODO set LogLevel=Debug if RunnerDebug=true
+	jobMatrix := ""
+	if w.msg.JobName != "__default" {
+		jobMatrix = "/" + w.msg.JobName
+	}
 	return xotel.SetupTelemetry(ctx, "worker",
 		xotel.Repo(gh.Repository),
 		xotel.Workflow(gh.Workflow),
 		xotel.Run(gh.RunId+"#"+gh.RunAttempt),
-		xotel.Job(gh.Job),
+		xotel.Job(gh.Job+jobMatrix),
 	)
 }
 
