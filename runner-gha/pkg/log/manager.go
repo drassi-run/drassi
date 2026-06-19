@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"os"
 	"sync"
+
+	"go.opentelemetry.io/otel/attribute"
 )
 
 type EventKind uint16
@@ -22,8 +24,9 @@ const (
 )
 
 type Event struct {
-	Kind EventKind
-	Uid  string // UUID of step/job
+	Uid   string // UUID of step/job
+	Kind  EventKind
+	Attrs []attribute.KeyValue
 	*Update
 }
 
@@ -46,6 +49,7 @@ type Manager struct {
 	maxSize int64
 
 	currUid   string
+	currAttrs []attribute.KeyValue
 	currSize  int64
 	currLines int
 	idx       int
@@ -89,8 +93,9 @@ func (m *Manager) Handle(line string) error {
 	}
 
 	e := &Event{
-		Uid:  m.currUid,
-		Kind: OnRecordLog,
+		Uid:   m.currUid,
+		Kind:  OnRecordLog,
+		Attrs: m.currAttrs,
 		Update: &Update{
 			File:     m.currFile(),
 			Complete: false,
@@ -147,7 +152,7 @@ func (m *Manager) notify(e *Event) {
 	}
 }
 
-func (m *Manager) Start(uid string) error {
+func (m *Manager) Start(uid string, attrs ...attribute.KeyValue) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -155,12 +160,13 @@ func (m *Manager) Start(uid string) error {
 		return fmt.Errorf("session already started")
 	}
 
-	m.currUid, m.idx = uid, 0
+	m.currUid, m.currAttrs, m.idx = uid, attrs, 0
 	m.f, m.currLines, m.currSize = nil, 0, 0
 
 	e := &Event{
-		Uid:  m.currUid,
-		Kind: OnRecordStart,
+		Uid:   m.currUid,
+		Kind:  OnRecordStart,
+		Attrs: m.currAttrs,
 	}
 	m.notify(e)
 	return nil
@@ -175,8 +181,9 @@ func (m *Manager) Stop() error {
 	}
 
 	e := &Event{
-		Uid:  m.currUid,
-		Kind: OnRecordStop,
+		Uid:   m.currUid,
+		Kind:  OnRecordStop,
+		Attrs: m.currAttrs,
 	}
 
 	if m.f != nil {

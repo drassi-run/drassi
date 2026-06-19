@@ -14,6 +14,7 @@ import (
 	"drassi.run/core/util/otel"
 	"drassi.run/gha-runner/pkg/log"
 	"drassi.run/gha-runner/pkg/log/logtypes"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 func NewLiveFeedSubscriber(app logtypes.Appender) logtypes.Subscriber {
@@ -38,7 +39,7 @@ func (s *liveFeedSubscriber) Run(ctx context.Context, ch <-chan *log.Event) {
 	defer s.wg.Done()
 
 	for e := range ch {
-		b := s.batcher(e.Uid)
+		b := s.batcher(e.Uid, e.Attrs)
 		if u := e.Update; u != nil {
 			b.Update(u)
 		}
@@ -51,7 +52,7 @@ func (s *liveFeedSubscriber) Run(ctx context.Context, ch <-chan *log.Event) {
 	s.stopCurrentBatcher()
 }
 
-func (s *liveFeedSubscriber) batcher(uid string) log.Batcher {
+func (s *liveFeedSubscriber) batcher(uid string, attrs []attribute.KeyValue) log.Batcher {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -73,7 +74,7 @@ func (s *liveFeedSubscriber) batcher(uid string) log.Batcher {
 	s.wg.Add(1)
 	go func() {
 		defer s.wg.Done()
-		s.run(uid, b)
+		s.run(uid, b, attrs)
 	}()
 	return b
 }
@@ -90,9 +91,9 @@ func (s *liveFeedSubscriber) stopCurrentBatcher() {
 	s.currUid, s.currBatcher = "", nil
 }
 
-func (s *liveFeedSubscriber) run(uid string, batcher log.Batcher) {
+func (s *liveFeedSubscriber) run(uid string, batcher log.Batcher, attrs []attribute.KeyValue) {
 	ctx, logger := xotel.ChildLogger(s.ctx,
-		xotel.ToSlogAttrs(xotel.Step(uid)),
+		xotel.ToSlogAttrs(attrs...),
 	)
 
 	for b := range batcher.Channel() {

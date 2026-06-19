@@ -12,6 +12,7 @@ import (
 
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/model/records"
+	xotel "drassi.run/core/util/otel"
 )
 
 type RecordStore interface {
@@ -51,8 +52,9 @@ func (d *Decorator) DecorateJobRun(task *executor.JobTask) executor.JobRun {
 func (d *Decorator) DecorateStepRun(task *executor.StepTask) executor.StepRun {
 	run := task.Run
 	uid := d.store.RecordUid(task.Stage, task.StepSpec().Uid)
+	attr := xotel.Step(string(task.Stage) + "/" + task.StepId())
 	return func(ctx context.Context) (*records.Step, error) {
-		if err := d.mgr.Start(uid); err != nil {
+		if err := d.mgr.Start(uid, attr); err != nil {
 			return nil, fmt.Errorf("start record log: %w", err)
 		}
 
