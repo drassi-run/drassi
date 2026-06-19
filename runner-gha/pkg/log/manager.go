@@ -199,7 +199,7 @@ func (m *Manager) Stop() error {
 		}
 	}
 
-	m.currUid, m.idx = "", 0
+	m.currUid, m.currAttrs, m.idx = "", nil, 0
 	m.notify(e)
 	return nil
 }
@@ -208,9 +208,7 @@ func (m *Manager) Close() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if m.currUid != "" {
-		return fmt.Errorf("session %q must stop before close log.Manager", m.currUid)
-	}
+	m.currUid, m.currAttrs, m.idx = "", nil, 0
 
 	for _, sub := range m.subs {
 		close(sub)

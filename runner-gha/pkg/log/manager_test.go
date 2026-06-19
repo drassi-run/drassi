@@ -279,12 +279,9 @@ func (s *ManagerTestSuite) TestClose() {
 	require.NoError(t, err)
 
 	err = s.m.Close()
-	assert.ErrorContains(t, err, "must stop before close")
-
-	err = s.m.Stop()
 	require.NoError(t, err)
-	err = s.m.Close()
-	require.NoError(t, err)
+	assert.Equal(t, "", s.m.currUid)
+	assert.Equal(t, 0, s.m.idx)
 
 	// Verify channel is closed
 	for range sub {
