@@ -30,7 +30,7 @@ func NewBatcher(threshold int, interval time.Duration) Batcher {
 	br := &batcher{
 		threshold: threshold,
 		interval:  interval,
-		ch:        make(chan Batch, 100),
+		ch:        make(chan Batch, 3),
 		stopCh:    make(chan struct{}),
 		timer:     timer,
 	}
@@ -79,12 +79,9 @@ func (br *batcher) Update(u *Update) {
 
 	if u.Complete {
 		br.stageSection(nil)
-	} else if br.total+br.section.Lines() >= br.threshold {
-		s := br.section.next()
-		br.stageSection(s)
 	}
 
-	if br.total >= br.threshold {
+	if br.total+br.section.Lines() >= br.threshold {
 		br.timer.Reset(0) // trigger emit immediately
 	}
 }
@@ -122,7 +119,10 @@ func (br *batcher) flush() sections {
 	br.mu.Lock()
 	defer br.mu.Unlock()
 
-	br.stageSection(nil)
+	if br.section != nil {
+		s := br.section.next()
+		br.stageSection(s)
+	}
 	b := br.batch
 	br.batch, br.total = nil, 0
 
