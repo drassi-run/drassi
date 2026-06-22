@@ -8,7 +8,10 @@ package logtypes
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"slices"
+	"sync"
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
@@ -19,21 +22,11 @@ type Appender interface {
 	Close() error
 }
 
-func NewWebsocketAppender(ctx context.Context, wsUrl string, hc *http.Client) (Appender, error) {
-	opts := &websocket.DialOptions{
-		HTTPClient:      hc,
-		CompressionMode: websocket.CompressionContextTakeover,
+func NewWebsocketAppender(wsUrl string, hc *http.Client) Appender {
+	return &wsAppender{
+		wsUrl: wsUrl,
+		hc:    hc,
 	}
-
-	conn, _, err := websocket.Dial(ctx, wsUrl, opts)
-	if err != nil {
-		return nil, err
-	}
-
-	a := &wsAppender{
-		conn: conn,
-	}
-	return a, nil
 }
 
 // wsAppender implement Appender that write log lines into websocket connection.
@@ -41,22 +34,70 @@ func NewWebsocketAppender(ctx context.Context, wsUrl string, hc *http.Client) (A
 // JobServer: https://github.com/actions/runner/blob/v2.332.0/src/Runner.Common/JobServer.cs#L242-L257
 // ResultServer: https://github.com/actions/runner/blob/v2.332.0/src/Runner.Common/ResultsServer.cs#L234-L255
 type wsAppender struct {
+	wsUrl string
+	hc    *http.Client
+
+	mu   sync.Mutex
 	conn *websocket.Conn
 }
 
 func (a *wsAppender) Append(ctx context.Context, uid string, startAt int, lines []string) error {
-	data := &LinesWrapper{
-		Value:     lines,
-		Count:     len(lines),
-		StepId:    uid,
-		StartLine: startAt,
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	if err := a.connect(ctx); err != nil {
+		return fmt.Errorf("connect to websocket: %w", err)
 	}
 
-	return wsjson.Write(ctx, a.conn, data)
+	// actions/runner (C#) process at most about 500 lines once
+	// https://github.com/actions/runner/blob/v2.335.1/src/Runner.Common/JobServerQueue.cs#L362
+	for chunk := range slices.Chunk(lines, 1000) {
+		data := &LinesWrapper{
+			Value:     chunk,
+			Count:     len(chunk),
+			StepId:    uid,
+			StartLine: startAt,
+		}
+		startAt += data.Count
+
+		if err := wsjson.Write(ctx, a.conn, data); err != nil {
+			return fmt.Errorf("append logs to websocket: %w", err)
+		}
+	}
+	return nil
+}
+
+func (a *wsAppender) connect(ctx context.Context) error {
+	if a.conn != nil {
+		return nil
+	}
+
+	opts := &websocket.DialOptions{
+		HTTPClient:      a.hc,
+		CompressionMode: websocket.CompressionContextTakeover,
+	}
+	if conn, resp, err := websocket.Dial(ctx, a.wsUrl, opts); err != nil {
+		return err
+	} else {
+		if body := resp.Body; body != nil {
+			defer body.Close()
+		}
+		a.conn = conn
+		return nil
+	}
 }
 
 func (a *wsAppender) Close() error {
-	return a.conn.Close(websocket.StatusNormalClosure, "bye")
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	if a.conn == nil {
+		return nil
+	}
+
+	err := a.conn.Close(websocket.StatusNormalClosure, "bye")
+	a.conn = nil
+	return err
 }
 
 type FuncAppender func(ctx context.Context, uid string, startAt int, lines []string) error
