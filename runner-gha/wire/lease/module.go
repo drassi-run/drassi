@@ -8,11 +8,11 @@ package wire_lease
 
 import (
 	"fmt"
+	"net/http"
 
 	"drassi.run/core/wire"
 	"drassi.run/gha-runner/pkg/lease"
 	"drassi.run/gha-runner/pkg/messages"
-	"drassi.run/gha-runner/wire/util"
 	"go.uber.org/dig"
 )
 
@@ -33,15 +33,10 @@ func Module(msg *messages.PipelineAgentJobRequest) *wire.Module {
 }
 
 func runLease(scope *dig.Scope, msg *messages.PipelineAgentJobRequest) error {
-	fn := func() (lease.Lease, error) {
+	fn := func(hc *http.Client) (lease.Lease, error) {
 		ep := msg.ServiceEndpoint("SystemVssConnection")
 		if ep == nil {
 			return nil, fmt.Errorf("SystemVssConnection service endpoint not available")
-		}
-
-		hc, err := util.Oauth2Client(ep)
-		if err != nil {
-			return nil, fmt.Errorf("oauth2Client: %w", err)
 		}
 
 		runSvc, err := lease.NewRunService(ep.Url, hc)
