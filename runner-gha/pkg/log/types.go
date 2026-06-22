@@ -132,10 +132,16 @@ func (s *section) Empty() bool {
 }
 
 func (s *section) Size() int64 {
+	if s == nil {
+		return 0
+	}
 	return s.endOffset - s.startOffset
 }
 
 func (s *section) Lines() int {
+	if s == nil {
+		return 0
+	}
 	return s.endLine - s.startLine
 }
 

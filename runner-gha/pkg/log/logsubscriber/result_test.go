@@ -127,15 +127,15 @@ func (s *ResultServiceStepLogsSubscriberTestSuite) TestConveyorCaching() {
 			}).AnyTimes()
 
 		s.sub.ctx = t.Context()
-		c1 := s.sub.conveyor("uid1")
+		c1 := s.sub.conveyor("uid1", nil)
 		s.Equal(c, c1)
 		s.Equal(1, callCount)
 
-		c2 := s.sub.conveyor("uid1")
+		c2 := s.sub.conveyor("uid1", nil)
 		s.Equal(c, c2)
 		s.Equal(1, callCount, "Should return cached conveyor")
 
-		c3 := s.sub.conveyor("uid2")
+		c3 := s.sub.conveyor("uid2", nil)
 		s.Equal(c, c3)
 		s.Equal(2, callCount, "Should call provider for new uid")
 	})

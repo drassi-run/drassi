@@ -12,9 +12,10 @@ import (
 )
 
 type JobSpec struct {
-	Id   string
-	Uid  string
-	Name workflows.Evaluable[string]
+	Id   string                      // job unique identifier from workflow file
+	Uid  string                      // job UUID, auto generated
+	Ref  string                      // job reference, combined from strategy.matrix or '__default'
+	Name workflows.Evaluable[string] // name of the job, which is displayed in the Web UI
 
 	Container workflows.Evaluable[*workflows.Container]
 	Services  workflows.Evaluable[map[string]*workflows.Container]

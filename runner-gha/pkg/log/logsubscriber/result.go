@@ -14,6 +14,7 @@ import (
 	"drassi.run/gha-runner/pkg/log"
 	"drassi.run/gha-runner/pkg/log/logtypes"
 	"drassi.run/gha-runner/pkg/service"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 ////////////// StepLogs Subscriber for ResultService //////////////
@@ -43,10 +44,10 @@ func (s *resultServiceStepLogsSubscriber) Run(ctx context.Context, ch <-chan *lo
 	for event := range ch {
 		switch event.Kind {
 		case log.OnRecordLog:
-			c := s.conveyor(event.Uid)
+			c := s.conveyor(event.Uid, event.Attrs)
 			c.Update(event.Update)
 		case log.OnRecordStop:
-			c := s.conveyor(event.Uid)
+			c := s.conveyor(event.Uid, event.Attrs)
 			if u := event.Update; u != nil {
 				c.Update(u)
 			}
@@ -55,7 +56,7 @@ func (s *resultServiceStepLogsSubscriber) Run(ctx context.Context, ch <-chan *lo
 	}
 }
 
-func (s *resultServiceStepLogsSubscriber) conveyor(uid string) logtypes.Conveyor {
+func (s *resultServiceStepLogsSubscriber) conveyor(uid string, attrs []attribute.KeyValue) logtypes.Conveyor {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -69,20 +70,20 @@ func (s *resultServiceStepLogsSubscriber) conveyor(uid string) logtypes.Conveyor
 	s.wg.Add(1)
 	go func() {
 		defer s.wg.Done()
-		s.run(uid, c)
+		s.run(c, attrs)
 	}()
 	return c
 }
 
-func (s *resultServiceStepLogsSubscriber) run(uid string, c logtypes.Conveyor) {
+func (s *resultServiceStepLogsSubscriber) run(c logtypes.Conveyor, attrs []attribute.KeyValue) {
 	ctx, logger := xotel.ChildLogger(s.ctx,
-		xotel.ToSlogAttrs(xotel.Step(uid)),
+		xotel.ToSlogAttrs(attrs...),
 	)
 
 	if r, err := c.Run(ctx); err != nil {
-		logger.Errorf("%v", err)
+		logger.Errorf("ResultService - upload step logs error: %v", err)
 	} else {
-		logger.Infof("successful upload step log lines=%d, size=%d", r.Lines, r.Size)
+		logger.Debugf("ResultService - uploaded step logs: lines=%d, size=%d", r.Lines, r.Size)
 	}
 }
 

@@ -121,9 +121,9 @@ func ToStepSpec(step *JobStep) (*executor.StepSpec, error) {
 	return spec, nil
 }
 
-func ToJobSpec(job *PipelineAgentJobRequest) (*executor.JobSpec, error) {
-	steps := make([]*executor.StepSpec, len(job.Steps))
-	for i, s := range job.Steps {
+func ToJobSpec(req *PipelineAgentJobRequest) (*executor.JobSpec, error) {
+	steps := make([]*executor.StepSpec, len(req.Steps))
+	for i, s := range req.Steps {
 		step, err := ToStepSpec(&s)
 		if err != nil {
 			return nil, err
@@ -132,18 +132,25 @@ func ToJobSpec(job *PipelineAgentJobRequest) (*executor.JobSpec, error) {
 	}
 
 	spec := &executor.JobSpec{
-		Uid:  job.JobId,
-		Id:   job.JobName,
-		Name: workflows.NewLiteralToken(job.JobDisplayName),
+		Uid:  req.JobId,
+		Id:   req.JobName,
+		Ref:  req.JobName,
+		Name: workflows.NewLiteralToken(req.JobDisplayName),
 
-		Container: ToToken(job.JobContainer),
-		Services:  ToToken(job.JobServiceContainers),
+		Container: ToToken(req.JobContainer),
+		Services:  ToToken(req.JobServiceContainers),
 
-		Defaults: squashTokens(job.Defaults),
-		Env:      squashTokens(job.Env),
+		Defaults: squashTokens(req.Defaults),
+		Env:      squashTokens(req.Env),
 		Steps:    steps,
-		Outputs:  ToToken(job.JobOutputs),
+		Outputs:  ToToken(req.JobOutputs),
 	}
+
+	sysVar := req.Variables
+	if v, ok := sysVar["system.github.job"]; ok {
+		spec.Id = v.Value
+	}
+
 	return spec, nil
 }
 

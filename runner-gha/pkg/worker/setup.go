@@ -38,6 +38,7 @@ import (
 	"drassi.run/gha-runner/pkg/lease"
 	"drassi.run/gha-runner/pkg/log"
 	"drassi.run/gha-runner/pkg/log/logsubscriber"
+	"drassi.run/gha-runner/pkg/log/logtypes"
 	"drassi.run/gha-runner/pkg/messages"
 	"drassi.run/gha-runner/pkg/service"
 	"drassi.run/gha-runner/pkg/timeline"
@@ -94,6 +95,16 @@ func (w *Worker) initRunnerJobRequest(ep *messages.ServiceEndpoint, hc *http.Cli
 		}
 	}
 
+	wsUrl := ep.Data["FeedStreamUrl"]
+	if wsUrl != "" {
+		app := logtypes.NewWebsocketAppender(wsUrl, hc)
+		sub := logsubscriber.NewLiveFeedSubscriber(app)
+		// TODO close appender
+		if err := xdig.Supply(scope, sub, dig.Group(LogSubscribers)); err != nil {
+			return fmt.Errorf("supply LiveFeedSubscriber: %w", err)
+		}
+	}
+
 	url := ep.Data["ResultsServiceUrl"]
 	if url == "" {
 		return nil
@@ -105,10 +116,6 @@ func (w *Worker) initRunnerJobRequest(ep *messages.ServiceEndpoint, hc *http.Cli
 	} else if err = xdig.Supply(scope, resultSvc); err != nil {
 		return err
 	}
-	// TODO: init logtypes.Appender
-	//if err := scope.Provide(logsubscriber.NewLiveFeedSubscriber, dig.Group(LogSubscribers)); err != nil {
-	//	return err
-	//}
 	if err := scope.Provide(logsubscriber.NewResultServiceStepLogsSubscriber, dig.Group(LogSubscribers)); err != nil {
 		return err
 	}
@@ -304,11 +311,15 @@ func (w *Worker) initFlags(scope *dig.Scope) error {
 func (w *Worker) initOtel(ctx context.Context) (context.Context, func(*error)) {
 	gh := w.dossier.Github
 	// TODO set LogLevel=Debug if RunnerDebug=true
+	jobMatrix := ""
+	if w.msg.JobName != "__default" {
+		jobMatrix = "/" + w.msg.JobName
+	}
 	return xotel.SetupTelemetry(ctx, "worker",
 		xotel.Repo(gh.Repository),
 		xotel.Workflow(gh.Workflow),
 		xotel.Run(gh.RunId+"#"+gh.RunAttempt),
-		xotel.Job(gh.Job),
+		xotel.Job(gh.Job+jobMatrix),
 	)
 }
 

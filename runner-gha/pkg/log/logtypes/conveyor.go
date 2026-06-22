@@ -13,6 +13,7 @@ import (
 	"drassi.run/gha-runner/pkg/log"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/appendblob"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/blob"
+	"github.com/chainguard-dev/clog"
 )
 
 // Conveyor used to continuous upload files to cloud storage by chunks
@@ -111,20 +112,20 @@ func (c *azureBlobConveyor) Close() error {
 
 func (c *azureBlobConveyor) Run(ctx context.Context) (*Stat, error) {
 	if err := c.create(ctx); err != nil {
-		return nil, fmt.Errorf("failed to create azure blob: %w", err)
+		return nil, err
 	}
 
 	s := new(Stat)
 	for chunk := range c.chunker.Channel() {
 		if err := c.upload(ctx, chunk); err != nil {
-			return nil, fmt.Errorf("error while upload log chunk to azure blob: %w", err)
+			return nil, err
 		}
 		s.Lines += chunk.Lines()
 		s.Size += chunk.Size()
 	}
 
 	if err := c.seal(ctx); err != nil {
-		return nil, fmt.Errorf("error while sealing azure blob: %w", err)
+		return nil, err
 	}
 	return s, nil
 }
@@ -139,8 +140,11 @@ func (c *azureBlobConveyor) create(ctx context.Context) error {
 	if client, err := c.getClient(ctx); err != nil {
 		return err
 	} else {
-		_, err = client.Create(ctx, o)
-		return err
+		clog.DebugContext(ctx, "AzureBlob - create append blob")
+		if _, err = client.Create(ctx, o); err != nil {
+			return fmt.Errorf("create azure blob: %w", err)
+		}
+		return nil
 	}
 }
 
@@ -155,8 +159,11 @@ func (c *azureBlobConveyor) upload(ctx context.Context, chunk log.Chunk) error {
 		return err
 	} else {
 		defer r.Close() // ensure r is closed, even AppendBlock error
-		_, err = client.AppendBlock(ctx, r, nil)
-		return err
+		clog.DebugContext(ctx, "AzureBlob - writes a stream to append blob")
+		if _, err = client.AppendBlock(ctx, r, nil); err != nil {
+			return fmt.Errorf("upload log chunk to azure blob: %w", err)
+		}
+		return nil
 	}
 }
 
@@ -164,8 +171,11 @@ func (c *azureBlobConveyor) seal(ctx context.Context) error {
 	if client, err := c.getClient(ctx); err != nil {
 		return err
 	} else {
-		_, err = client.Seal(ctx, nil)
-		return err
+		clog.DebugContext(ctx, "AzureBlob - seal append blob")
+		if _, err = client.Seal(ctx, nil); err != nil {
+			return fmt.Errorf("seal azure blob: %w", err)
+		}
+		return nil
 	}
 }
 
