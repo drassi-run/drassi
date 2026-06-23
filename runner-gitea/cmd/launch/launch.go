@@ -9,6 +9,7 @@ package launch
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync/atomic"
 	"time"
 
@@ -23,8 +24,8 @@ import (
 	"drassi.run/core/pkg/sandboxer/host"
 	"drassi.run/core/pkg/sandboxer/incus"
 	"drassi.run/core/pkg/store/repository/gitstore"
-	"drassi.run/core/util/dig"
-	"drassi.run/core/util/error"
+	xdig "drassi.run/core/util/dig"
+	"drassi.run/core/wire"
 	"drassi.run/gitea-runner/cmd/common"
 	giteav1a1 "drassi.run/gitea-runner/pkg/apis/v1alpha1"
 	"drassi.run/gitea-runner/pkg/gitea"
@@ -194,33 +195,9 @@ func (c *launcher) runTask(ctx context.Context, task *runnerv1.Task) {
 	}
 }
 
-func (c *launcher) runTaskE(ctx context.Context, task *runnerv1.Task) (err error) {
-	defer xerror.Recover(&err)
-
-	scope := dig.New().Scope("runner")
-
-	// Runner context
-	runner := records.Runner{
-		Name:        c.runnerName,
-		Os:          model.Linux,
-		Arch:        model.X64,
-		Environment: "self-hosted",
-	}
-	if err = xdig.Supply(scope, runner); err != nil {
-		return
-	}
-	if err = xdig.Supply(scope, c.runtime); err != nil {
-		return
-	}
-	if err = xdig.Supply(scope, c.store); err != nil {
-		return
-	}
-	if err = xdig.Supply(scope, c.client); err != nil {
-		return
-	}
-
+func (c *launcher) runTaskE(ctx context.Context, task *runnerv1.Task) error {
 	w := worker.New(task)
-	return w.Run(ctx, scope)
+	return w.Run(ctx, c.module())
 }
 
 func (c *launcher) loadGiteaManifest(ctx context.Context, store manifest.Store, name string) (*giteav1a1.GiteaRunner, error) {
@@ -267,4 +244,29 @@ func (c *launcher) loadSandboxer(ctx context.Context, store manifest.Store, ref 
 
 	c.runtime = sandboxer.WithTelemetry(c.runtime)
 	return
+}
+
+func (c *launcher) module() *wire.Module {
+	fn := func(scope *dig.Scope) error {
+		runner := records.Runner{
+			Name:        c.runnerName,
+			Os:          model.Linux,
+			Arch:        model.X64,
+			Environment: "self-hosted",
+		}
+		if err := xdig.Supply(scope, runner); err != nil {
+			return fmt.Errorf("provide records.Runner: %w", err)
+		}
+		if err := xdig.Supply(scope, c.runtime); err != nil {
+			return fmt.Errorf("provide sandboxer.Engine: %w", err)
+		}
+		if err := xdig.Supply(scope, c.store); err != nil {
+			return fmt.Errorf("provide gitstore.Store: %w", err)
+		}
+		if err := xdig.Supply(scope, c.client); err != nil {
+			return fmt.Errorf("provide gitea.Client: %w", err)
+		}
+		return nil
+	}
+	return wire.NewModule("gitea/launch", fn)
 }

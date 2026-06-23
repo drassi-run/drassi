@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package worker
+package wire_core
 
 import (
 	"context"

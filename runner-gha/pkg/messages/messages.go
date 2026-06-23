@@ -11,6 +11,7 @@ import (
 	"crypto/cipher"
 	"encoding/base64"
 	"fmt"
+	"net/http"
 	"time"
 
 	"drassi.run/gha-runner/pkg/types"
@@ -280,6 +281,32 @@ func (ep *ServiceEndpoint) TokenSource() (oauth2.TokenSource, error) {
 	}
 
 	return nil, nil
+}
+
+// OAuth2Client wrap given hc with TokenSource. See [oauth2.NewClient]
+func (ep *ServiceEndpoint) OAuth2Client(hc *http.Client) (*http.Client, error) {
+	if hc == nil {
+		hc = http.DefaultClient
+	}
+
+	source, err := ep.TokenSource()
+	if err != nil {
+		return nil, err
+	}
+
+	if source != nil {
+		trans := &oauth2.Transport{
+			Source: oauth2.ReuseTokenSource(nil, source),
+			Base:   hc.Transport,
+		}
+		hc = &http.Client{
+			Transport:     trans,
+			CheckRedirect: hc.CheckRedirect,
+			Jar:           hc.Jar,
+			Timeout:       hc.Timeout,
+		}
+	}
+	return hc, nil
 }
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTWebApi/WebApi/ServiceEndpointLegacy/EndpointAuthorization.cs

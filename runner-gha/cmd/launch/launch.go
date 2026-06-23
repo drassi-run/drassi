@@ -20,6 +20,7 @@ import (
 	"drassi.run/core/pkg/store/repository/gitstore"
 	"drassi.run/core/util/dig"
 	"drassi.run/core/util/oauth2/clientcredentials"
+	"drassi.run/core/wire"
 	ghav1a1 "drassi.run/gha-runner/pkg/apis/v1alpha1"
 	"drassi.run/gha-runner/pkg/lease"
 	"drassi.run/gha-runner/pkg/listener"
@@ -42,7 +43,6 @@ type launcher struct {
 	Runner       *ghav1a1.GitHubRunner
 	Key          *rsa.PrivateKey
 	Sandboxer    sandboxer.Engine
-	TokenSource  oauth2.TokenSource
 	store        gitstore.Store
 	runnerRecord records.Runner
 	hc           *http.Client
@@ -126,8 +126,8 @@ func (l *launcher) Init(ctx context.Context, opts *options) (err error) {
 		JWTExpires:       5 * time.Minute,
 		OnTokenRetrieved: fixupToken,
 	}
-	l.TokenSource = config.TokenSource(ctx)
-	l.hc = oauth2.NewClient(ctx, l.TokenSource)
+	src := config.TokenSource(ctx)
+	l.hc = oauth2.NewClient(ctx, src)
 
 	if s, err := gitstore.New(".cache"); err != nil {
 		return err
@@ -264,9 +264,8 @@ func (l *launcher) requestRunnerJob(ctx context.Context, msg *messages.RunnerJob
 			return err
 		}
 	} else {
-		url = l.Runner.Spec.ServerUrl
-		groupId := l.Runner.Spec.GroupId
-		if svc, err := lease.NewRunnerService(url, l.hc, groupId); err != nil {
+		rs := l.Runner.Spec
+		if svc, err := lease.NewRunnerService(rs.ServerUrl, l.hc, rs.GroupId); err != nil {
 			return err
 		} else if req, err = svc.AcquireJob(ctx, msg.RunnerRequestId); err != nil {
 			return err
@@ -276,24 +275,38 @@ func (l *launcher) requestRunnerJob(ctx context.Context, msg *messages.RunnerJob
 }
 
 func (l *launcher) requestPipelineAgentJob(ctx context.Context, msg *messages.PipelineAgentJobRequest) error {
-	scope := dig.New().Scope("runner")
-
-	// Runner context
-	if err := xdig.Supply(scope, l.runnerRecord); err != nil {
-		return err
-	}
-	if err := xdig.Supply(scope, l.Sandboxer); err != nil {
-		return err
-	}
-	if err := xdig.Supply(scope, l.store); err != nil {
-		return err
-	}
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	w := worker.New(msg)
-	return w.Run(ctx, scope)
+	return w.Run(ctx, l.module())
 }
 
 func (l *launcher) forceRefreshToken(ctx context.Context) error {
 	log.Printf("force refresh token")
 	return nil
+}
+
+func (l *launcher) module() *wire.Module {
+	fn := func(scope *dig.Scope) error {
+		if err := xdig.Supply(scope, l.runnerRecord); err != nil {
+			return fmt.Errorf("provide records.Runner: %w", err)
+		}
+		if err := xdig.Supply(scope, l.Sandboxer); err != nil {
+			return fmt.Errorf("provide sandboxer.Engine: %w", err)
+		}
+		if err := xdig.Supply(scope, l.store); err != nil {
+			return fmt.Errorf("provide gitstore.Store: %w", err)
+		}
+		if err := scope.Provide(l.runnerService); err != nil {
+			return fmt.Errorf("provide lease.RunnerService: %w", err)
+		}
+		return nil
+	}
+	return wire.NewModule("gha/launch", fn)
+}
+
+func (l *launcher) runnerService(hc *http.Client) (*lease.RunnerService, error) {
+	rs := l.Runner.Spec
+	return lease.NewRunnerService(rs.ServerUrl, hc, rs.GroupId)
 }

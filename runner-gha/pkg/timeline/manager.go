@@ -21,11 +21,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func NewManager(recorder Recorder) *Manager {
-	return NewManagerInterval(time.Second, recorder)
-}
-
-func NewManagerInterval(interval time.Duration, recorder Recorder) *Manager {
+func NewManager(interval time.Duration, recorder Recorder) *Manager {
 	ticker := time.NewTicker(interval)
 
 	return &Manager{

@@ -20,6 +20,10 @@ type Problem struct {
 
 type Matchers map[string]Matcher
 
+func NewMatchers() Matchers {
+	return make(Matchers)
+}
+
 type Matcher interface {
 	Match(line string) *Problem
 	Reset()

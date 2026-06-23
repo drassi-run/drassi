@@ -9,17 +9,23 @@ package worker
 import (
 	"context"
 	"fmt"
+	"io"
 	"time"
 
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/model/records"
+	"drassi.run/core/pkg/scribe"
+	"drassi.run/core/util/context"
+	"drassi.run/core/util/dig"
 	"drassi.run/core/util/error"
+	"drassi.run/core/util/otel"
+	"drassi.run/core/wire"
 	"drassi.run/gha-runner/pkg/lease"
 	"drassi.run/gha-runner/pkg/log"
 	"drassi.run/gha-runner/pkg/log/logtypes"
 	"drassi.run/gha-runner/pkg/messages"
 	"drassi.run/gha-runner/pkg/timeline"
-	"drassi.run/gha-runner/pkg/types"
+	gha_wire "drassi.run/gha-runner/wire"
 	"github.com/chainguard-dev/clog"
 	"go.uber.org/dig"
 )
@@ -29,45 +35,45 @@ func New(msg *messages.PipelineAgentJobRequest) *Worker {
 }
 
 type Worker struct {
+	ctx         context.Context
 	msg         *messages.PipelineAgentJobRequest
-	dossier     *records.Dossier
 	lease       lease.Lease
-	logMgr      *log.Manager
 	timelineMgr *timeline.Manager
-
-	ctx     context.Context
-	waiters []types.Waiter
 }
 
 func (w *Worker) Context() context.Context {
 	return w.ctx
 }
 
-func (w *Worker) Run(ctx context.Context, scope *dig.Scope) (err error) {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+func (w *Worker) Run(ctx context.Context, modules ...*wire.Module) (err error) {
+	scope := dig.New().Scope("worker")
+	if err = gha_wire.Synthetic(scope, w.msg, modules...); err != nil {
+		return
+	}
 
-	if err = w.initDossier(); err != nil {
-		return
+	if fn, ex := w.initOtel(scope); ex != nil {
+		return ex
+	} else {
+		var done func(*error)
+		ctx, done = fn(ctx)
+		defer done(&err)
 	}
-	if err = w.initFlags(scope); err != nil {
-		return
-	}
-	ctx, done := w.initOtel(ctx)
-	defer done(&err)
 	w.ctx = ctx
+
+	if err = w.inject(scope); err != nil {
+		return
+	}
 
 	defer w.complete()
 
-	if err = w.setup(scope); err != nil {
-		return
-	}
-	if cancel = w.runServices(); cancel != nil {
+	if cancel := w.runServices(); cancel != nil {
 		defer cancel() // cancel timelineMgr.Run & lease.Renew
 	}
+
 	if err = scope.Invoke(w.runLogSubscribers); err != nil {
 		return
 	}
+	defer scope.Invoke(w.closeLogSubscribers)
 
 	return w.run(scope)
 }
@@ -91,13 +97,24 @@ func (w *Worker) run(scope *dig.Scope) (err error) {
 	return err
 }
 
+func (w *Worker) inject(scope *dig.Scope) error {
+	if err := xdig.Supply[xcontext.Provider](scope, w); err != nil {
+		return fmt.Errorf("provide xcontext.Provider: %w", err)
+	}
+	if err := xdig.Populate(scope, &w.lease); err != nil {
+		return fmt.Errorf("inject lease: %w", err)
+	}
+	if err := xdig.Populate(scope, &w.timelineMgr); err != nil {
+		return fmt.Errorf("inject timeline.Manager: %w", err)
+	}
+	return scope.Invoke(w.initDiary)
+}
+
 func (w *Worker) runServices() context.CancelFunc {
 	ctx, cancel := context.WithCancel(w.ctx)
 
 	go w.lease.Renew(ctx)
-
 	go w.timelineMgr.Run(ctx)
-	w.waiters = append(w.waiters, w.timelineMgr)
 
 	return cancel
 }
@@ -113,30 +130,48 @@ func (w *Worker) runLogSubscribers(p logSubscriberParams) {
 	for _, sub := range p.Subscribers {
 		ch := p.LogManager.Subscribe()
 		go sub.Run(w.ctx, ch)
-		w.waiters = append(w.waiters, sub)
+	}
+}
+
+func (w *Worker) closeLogSubscribers(p logSubscriberParams) {
+	l := clog.FromContext(w.ctx)
+
+	if lm := p.LogManager; lm != nil {
+		// stop any current running session, e.g. because of panic
+		if err := lm.Stop(); err != nil {
+			l.Errorf("stop log.Manager failed: %v", err)
+		}
+		if err := lm.Close(); err != nil {
+			l.Errorf("close log.Manager failed: %v", err)
+		}
+	}
+
+	for _, sub := range p.Subscribers {
+		sub.Wait()
+	}
+
+	for _, sub := range p.Subscribers {
+		if closer, ok := sub.(io.Closer); ok {
+			if err := closer.Close(); err != nil {
+				l.Errorf("close log.Subscriber failed: %v", err)
+			}
+		}
+	}
+
+	// remove job's log folder
+	if lm := p.LogManager; lm != nil {
+		if err := lm.Dispose(); err != nil {
+			l.Errorf("remove job's log folder: %v", err)
+		}
 	}
 }
 
 func (w *Worker) complete() {
 	l := clog.FromContext(w.ctx)
 
-	// close log.Manager and its subscriber channels
-	if lm := w.logMgr; lm != nil {
-		if err := lm.Close(); err != nil {
-			l.Errorf("close log.Manager failed: %v", err)
-		}
-	}
-	// waiting for logtypes.Subscriber + timeline.Manager
-	w.Wait()
-	// remove job's log folder
-	if lm := w.logMgr; lm != nil {
-		if err := lm.Dispose(); err != nil {
-			l.Errorf("dispose log.Manager failed: %v", err)
-		}
-	}
-
 	var r *timeline.Record
 	if tm := w.timelineMgr; tm != nil {
+		tm.Wait()
 		r = tm.JobRecord()
 	}
 
@@ -157,8 +192,31 @@ func (w *Worker) complete() {
 	}
 }
 
-func (w *Worker) Wait() {
-	for _, waiter := range w.waiters {
-		waiter.Wait()
+func (w *Worker) initOtel(scope *dig.Scope) (func(context.Context) (context.Context, func(*error)), error) {
+	var gh *records.Github
+	if err := xdig.Populate(scope, &gh); err != nil {
+		return nil, fmt.Errorf("inject records.Github: %w", err)
 	}
+	if err := xdig.Populate(scope, &w.msg); err != nil {
+		return nil, fmt.Errorf("inject messages.PipelineAgentJobRequest: %w", err)
+	}
+
+	fn := func(ctx context.Context) (context.Context, func(*error)) {
+		// TODO set LogLevel=Debug if RunnerDebug=true
+		jobMatrix := ""
+		if w.msg.JobName != "__default" {
+			jobMatrix = "/" + w.msg.JobName
+		}
+		return xotel.SetupTelemetry(ctx, "worker",
+			xotel.Repo(gh.Repository),
+			xotel.Workflow(gh.Workflow),
+			xotel.Run(gh.RunId+"#"+gh.RunAttempt),
+			xotel.Job(gh.Job+jobMatrix),
+		)
+	}
+	return fn, nil
+}
+
+func (w *Worker) initDiary(diary scribe.Diary) {
+	w.ctx = scribe.ContextWithScribe(w.ctx, diary)
 }

@@ -11,13 +11,14 @@ import (
 
 	"drassi.run/core/pkg/command/cmdtypes"
 	"drassi.run/core/pkg/executor"
+	exec "drassi.run/core/pkg/executor"
 )
 
 type IssueReporter struct {
 	mgr *Manager
 }
 
-func NewIssueReporter(mgr *Manager) *IssueReporter {
+func NewIssueReporter(mgr *Manager) cmdtypes.Reporter[exec.Milieu] {
 	return &IssueReporter{mgr: mgr}
 }
 

@@ -20,6 +20,7 @@ import (
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/runtime"
 	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/util/context"
 	"drassi.run/core/util/string"
 	. "drassi.run/core/util/types"
 )
@@ -30,7 +31,7 @@ const (
 )
 
 func NewContainerRuntime(
-	ctx context.Context,
+	ctxProv xcontext.Provider,
 	engine container.Engine,
 	sandbox sandboxer.Sandbox,
 	info *records.JobInfo,
@@ -48,6 +49,7 @@ func NewContainerRuntime(
 	layout := sandbox.Layout()
 	var mounts []*types.Mount
 	if ctn := info.Container; ctn != nil {
+		ctx := ctxProv.Context()
 		ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 		defer cancel()
 
