@@ -1,0 +1,48 @@
+/*
+ * SPDX-FileCopyrightText: (c) 2024 The Drassi Authors
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+package wire
+
+import (
+	"fmt"
+
+	runnerv1 "code.gitea.io/actions-proto-go/runner/v1"
+	xdig "drassi.run/core/util/dig"
+	"drassi.run/core/wire"
+	wire_command "drassi.run/core/wire/command"
+	wire_common "drassi.run/core/wire/common"
+	wire_runtime "drassi.run/core/wire/runtime"
+	wire_scribe "drassi.run/core/wire/scribe"
+	wire_stream "drassi.run/core/wire/stream"
+	wire_core "drassi.run/gitea-runner/wire/core"
+	wire_reporter "drassi.run/gitea-runner/wire/reporter"
+	"go.uber.org/dig"
+)
+
+func Synthetic(scope *dig.Scope, task *runnerv1.Task, extras ...*wire.Module) error {
+	modules := make([]*wire.Module, 0, 4)
+
+	// core modules
+	modules = append(modules, wire_common.Module(
+		wire_common.ProvideDefaultExpressionEnv(false), // provided in [wire_core.expressionEnv]
+	))
+	modules = append(modules, wire_command.Module())
+	modules = append(modules, wire_runtime.Module())
+	modules = append(modules, wire_scribe.Module())
+	modules = append(modules, wire_stream.Module())
+
+	// gitea modules
+	modules = append(modules, wire_core.Module())
+	modules = append(modules, wire_reporter.Module(task))
+
+	// extras
+	modules = append(modules, extras...)
+
+	if err := xdig.Supply(scope, task); err != nil {
+		return fmt.Errorf("provide runnerv1.Task: %w", err)
+	}
+	return wire.Apply(scope, modules...)
+}
