@@ -21,20 +21,20 @@ func wireJobService(scope *dig.Scope, msg *messages.PipelineAgentJobRequest, ep 
 		return service.NewJobService(ep.Url, hc, msg)
 	}
 	if err := scope.Provide(fn); err != nil {
-		return fmt.Errorf("provide service.JobService: %w", err)
+		return fmt.Errorf("provide JobService: %w", err)
 	}
 
 	if err := scope.Decorate(service.JobService.WrapLease); err != nil {
 		return fmt.Errorf("decorate lease.Lease w/ JobService: %w", err)
 	}
 	if err := scope.Provide(service.JobService.LiveFeedAppender); err != nil {
-		return fmt.Errorf("provide 'jobService' logtypes.Appender: %w", err)
+		return fmt.Errorf("provide logtypes.Appender from 'JobService': %w", err)
 	}
 	if err := scope.Provide(service.JobService.TimelineRecorder); err != nil {
-		return fmt.Errorf("provide 'jobService' timeline.Recorder: %w", err)
+		return fmt.Errorf("provide timeline.Recorder from 'JobService': %w", err)
 	}
 	if err := scope.Provide(logsubscriber.NewJobServiceLogsSubscriber, dig.Group(LogSubscribers)); err != nil {
-		return fmt.Errorf("provide 'jobService' logtypes.Subscriber: %w", err)
+		return fmt.Errorf("provide logtypes.Subscriber from 'JobService': %w", err)
 	}
 	return nil
 }
