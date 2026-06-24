@@ -39,8 +39,6 @@ type resultServiceStepLogsSubscriber struct {
 
 func (s *resultServiceStepLogsSubscriber) Run(ctx context.Context, ch <-chan *log.Event) {
 	s.ctx = ctx
-	s.wg.Add(1)
-	defer s.wg.Done()
 
 	for event := range ch {
 		switch event.Kind {
@@ -55,6 +53,8 @@ func (s *resultServiceStepLogsSubscriber) Run(ctx context.Context, ch <-chan *lo
 			_ = c.Close()
 		}
 	}
+
+	s.wg.Wait()
 }
 
 func (s *resultServiceStepLogsSubscriber) conveyor(uid string, attrs []attribute.KeyValue) logtypes.Conveyor {
@@ -88,10 +88,6 @@ func (s *resultServiceStepLogsSubscriber) run(c logtypes.Conveyor, attrs []attri
 	}
 }
 
-func (s *resultServiceStepLogsSubscriber) Wait() {
-	s.wg.Wait()
-}
-
 ////////////// JobLogs Subscriber for ResultService //////////////
 
 func NewResultServiceJobLogsSubscriber(svc service.ResultService) logtypes.Subscriber {
@@ -107,8 +103,6 @@ type resultServiceJobLogsSubscriber struct {
 }
 
 func (s *resultServiceJobLogsSubscriber) Run(ctx context.Context, ch <-chan *log.Event) {
-	s.wg.Add(1)
-	defer s.wg.Done()
 	s.ctx = ctx
 	s.con = s.svc.JobLogsConveyor()
 	s.wg.Go(s.run)
@@ -120,6 +114,7 @@ func (s *resultServiceJobLogsSubscriber) Run(ctx context.Context, ch <-chan *log
 	}
 
 	_ = s.con.Close()
+	s.wg.Wait()
 }
 
 func (s *resultServiceJobLogsSubscriber) run() {
@@ -130,8 +125,4 @@ func (s *resultServiceJobLogsSubscriber) run() {
 	} else {
 		logger.Debugf("ResultService - uploaded job logs: lines=%d, size=%d", r.Lines, r.Size)
 	}
-}
-
-func (s *resultServiceJobLogsSubscriber) Wait() {
-	s.wg.Wait()
 }

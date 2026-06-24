@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"sync"
 	"time"
 
 	"drassi.run/core/pkg/executor"
@@ -35,10 +36,13 @@ func New(msg *messages.PipelineAgentJobRequest) *Worker {
 }
 
 type Worker struct {
-	ctx         context.Context
 	msg         *messages.PipelineAgentJobRequest
 	lease       lease.Lease
 	timelineMgr *timeline.Manager
+
+	ctx   context.Context
+	wgLog sync.WaitGroup
+	wgSvc sync.WaitGroup
 }
 
 func (w *Worker) Context() context.Context {
@@ -113,8 +117,19 @@ func (w *Worker) inject(scope *dig.Scope) error {
 func (w *Worker) runServices() context.CancelFunc {
 	ctx, cancel := context.WithCancel(w.ctx)
 
-	go w.lease.Renew(ctx)
-	go w.timelineMgr.Run(ctx)
+	// Run lease.Renew
+	w.wgSvc.Add(1)
+	go func() {
+		w.lease.Renew(ctx)
+		w.wgSvc.Done()
+	}()
+
+	// Run timelineMgr
+	w.wgSvc.Add(1)
+	go func() {
+		w.timelineMgr.Run(ctx)
+		w.wgSvc.Done()
+	}()
 
 	return cancel
 }
@@ -129,7 +144,11 @@ type logSubscriberParams struct {
 func (w *Worker) runLogSubscribers(p logSubscriberParams) {
 	for _, sub := range p.Subscribers {
 		ch := p.LogManager.Subscribe()
-		go sub.Run(w.ctx, ch)
+		w.wgLog.Add(1)
+		go func() {
+			sub.Run(w.ctx, ch)
+			w.wgLog.Done()
+		}()
 	}
 }
 
@@ -146,9 +165,7 @@ func (w *Worker) closeLogSubscribers(p logSubscriberParams) {
 		}
 	}
 
-	for _, sub := range p.Subscribers {
-		sub.Wait()
-	}
+	w.wgLog.Wait()
 
 	for _, sub := range p.Subscribers {
 		if closer, ok := sub.(io.Closer); ok {
@@ -168,10 +185,10 @@ func (w *Worker) closeLogSubscribers(p logSubscriberParams) {
 
 func (w *Worker) complete() {
 	l := clog.FromContext(w.ctx)
+	w.wgSvc.Wait()
 
 	var r *timeline.Record
 	if tm := w.timelineMgr; tm != nil {
-		tm.Wait()
 		r = tm.JobRecord()
 	}
 
@@ -196,9 +213,6 @@ func (w *Worker) initOtel(scope *dig.Scope) (func(context.Context) (context.Cont
 	var gh *records.Github
 	if err := xdig.Populate(scope, &gh); err != nil {
 		return nil, fmt.Errorf("inject records.Github: %w", err)
-	}
-	if err := xdig.Populate(scope, &w.msg); err != nil {
-		return nil, fmt.Errorf("inject messages.PipelineAgentJobRequest: %w", err)
 	}
 
 	fn := func(ctx context.Context) (context.Context, func(*error)) {

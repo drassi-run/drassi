@@ -34,7 +34,6 @@ func NewManager(interval time.Duration, recorder Recorder) *Manager {
 
 type Manager struct {
 	mu       sync.Mutex
-	wg       sync.WaitGroup
 	ticker   *time.Ticker
 	recorder Recorder
 
@@ -176,8 +175,6 @@ func (m *Manager) AddIssue(stage executor.Stage, stepUid string, iss *cmdtypes.I
 
 func (m *Manager) Run(ctx context.Context) {
 	l := clog.FromContext(ctx)
-	m.wg.Add(1)
-	defer m.wg.Done()
 
 	for {
 		select {
@@ -197,10 +194,6 @@ func (m *Manager) Run(ctx context.Context) {
 			return
 		}
 	}
-}
-
-func (m *Manager) Wait() {
-	m.wg.Wait()
 }
 
 func (m *Manager) newRecord(uid string, obj any) *Record {

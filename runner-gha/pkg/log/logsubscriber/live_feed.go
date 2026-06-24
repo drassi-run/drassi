@@ -35,8 +35,6 @@ type liveFeedSubscriber struct {
 
 func (s *liveFeedSubscriber) Run(ctx context.Context, ch <-chan *log.Event) {
 	s.ctx = ctx
-	s.wg.Add(1)
-	defer s.wg.Done()
 
 	for e := range ch {
 		b := s.batcher(e.Uid, e.Attrs)
@@ -50,6 +48,7 @@ func (s *liveFeedSubscriber) Run(ctx context.Context, ch <-chan *log.Event) {
 
 	// for any reason, OnRecordStop is not received before channel close
 	s.stopCurrentBatcher()
+	s.wg.Wait()
 }
 
 func (s *liveFeedSubscriber) batcher(uid string, attrs []attribute.KeyValue) log.Batcher {
@@ -111,11 +110,6 @@ func (s *liveFeedSubscriber) run(uid string, batcher log.Batcher, attrs []attrib
 	}
 }
 
-func (s *liveFeedSubscriber) Wait() {
-	s.wg.Wait()
-}
-
 func (s *liveFeedSubscriber) Close() error {
-	s.Wait()
 	return s.app.Close()
 }

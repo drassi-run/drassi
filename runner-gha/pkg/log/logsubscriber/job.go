@@ -38,8 +38,6 @@ type jobServiceLogsSubscriber struct {
 
 func (s *jobServiceLogsSubscriber) Run(ctx context.Context, ch <-chan *log.Event) {
 	s.ctx = ctx
-	s.wg.Add(1)
-	defer s.wg.Done()
 
 	for e := range ch {
 		if e.Update == nil || !e.Update.Complete || e.Update.Offset == 0 {
@@ -53,6 +51,8 @@ func (s *jobServiceLogsSubscriber) Run(ctx context.Context, ch <-chan *log.Event
 			s.handle(e)
 		}()
 	}
+
+	s.wg.Wait()
 }
 
 func (s *jobServiceLogsSubscriber) uploader(uid string) logtypes.Uploader {
@@ -89,8 +89,4 @@ func (s *jobServiceLogsSubscriber) handle(e *log.Event) {
 	} else {
 		logger.Debugf("JobService - uploaded logs file=%s", d.File)
 	}
-}
-
-func (s *jobServiceLogsSubscriber) Wait() {
-	s.wg.Wait()
 }

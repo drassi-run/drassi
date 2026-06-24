@@ -45,7 +45,11 @@ func (s *LiveFeedSubscriberTestSuite) TearDownTest() {
 func (s *LiveFeedSubscriberTestSuite) TestRun() {
 	synctest.Test(s.T(), func(t *testing.T) {
 		ch := make(chan *log.Event)
-		go s.sub.Run(t.Context(), ch)
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			s.sub.Run(t.Context(), ch)
+		}()
 
 		uid := "test-uid"
 		content := "line 1\nline 2\n"
@@ -76,7 +80,7 @@ func (s *LiveFeedSubscriberTestSuite) TestRun() {
 		synctest.Wait()
 
 		close(ch)
-		s.sub.Wait()
+		<-done
 
 		s.Assert().Equal(2, s.sub.lineCount)
 	})
@@ -85,7 +89,11 @@ func (s *LiveFeedSubscriberTestSuite) TestRun() {
 func (s *LiveFeedSubscriberTestSuite) TestBatchingByTimeout() {
 	synctest.Test(s.T(), func(t *testing.T) {
 		ch := make(chan *log.Event)
-		go s.sub.Run(t.Context(), ch)
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			s.sub.Run(t.Context(), ch)
+		}()
 
 		uid := "test-uid"
 		content := "line 1\n"
@@ -109,7 +117,7 @@ func (s *LiveFeedSubscriberTestSuite) TestBatchingByTimeout() {
 		time.Sleep(1100 * time.Millisecond)
 
 		close(ch)
-		s.sub.Wait()
+		<-done
 		s.Assert().Equal(1, s.sub.lineCount)
 	})
 }
@@ -117,7 +125,11 @@ func (s *LiveFeedSubscriberTestSuite) TestBatchingByTimeout() {
 func (s *LiveFeedSubscriberTestSuite) TestSwitchUid() {
 	synctest.Test(s.T(), func(t *testing.T) {
 		ch := make(chan *log.Event)
-		go s.sub.Run(t.Context(), ch)
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			s.sub.Run(t.Context(), ch)
+		}()
 
 		// UID 1
 		uid1 := "uid-1"
@@ -165,7 +177,7 @@ func (s *LiveFeedSubscriberTestSuite) TestSwitchUid() {
 		synctest.Wait()
 
 		close(ch)
-		s.sub.Wait()
+		<-done
 		s.Assert().Equal(2, s.sub.lineCount)
 	})
 }

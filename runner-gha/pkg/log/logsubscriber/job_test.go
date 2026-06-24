@@ -85,7 +85,11 @@ func (s *JobServiceLogsSubscriberTestSuite) TestRun() {
 			AnyTimes()
 
 		ch := make(chan *log.Event)
-		go s.sub.Run(t.Context(), ch)
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			s.sub.Run(t.Context(), ch)
+		}()
 
 		ch <- &log.Event{
 			Uid: uid,
@@ -98,7 +102,7 @@ func (s *JobServiceLogsSubscriberTestSuite) TestRun() {
 		}
 
 		close(ch)
-		s.sub.Wait()
+		<-done
 	})
 }
 
@@ -192,11 +196,15 @@ func (s *JobServiceLogsSubscriberTestSuite) TestIntegrationWithService() {
 		},
 	}
 
-	go sub.Run(s.T().Context(), ch)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		sub.Run(s.T().Context(), ch)
+	}()
 	ch <- event
 	close(ch)
 
-	sub.Wait()
+	<-done
 	s.True(contentUploaded)
 }
 

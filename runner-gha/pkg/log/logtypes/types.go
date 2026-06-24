@@ -14,7 +14,6 @@ import (
 
 type Subscriber interface {
 	Run(ctx context.Context, ch <-chan *log.Event)
-	Wait()
 }
 
 type SignedUrlResponse interface {

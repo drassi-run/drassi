@@ -68,7 +68,11 @@ func (s *ResultServiceStepLogsSubscriberTestSuite) TestRun() {
 			Return(logtypes.NewStat(1, int64(len(content))), nil)
 
 		ch := make(chan *log.Event)
-		go s.sub.Run(t.Context(), ch)
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			s.sub.Run(t.Context(), ch)
+		}()
 
 		// Record Start
 		event := &log.Event{
@@ -113,7 +117,7 @@ func (s *ResultServiceStepLogsSubscriberTestSuite) TestRun() {
 		}
 
 		close(ch)
-		s.sub.Wait()
+		<-done
 	})
 }
 
@@ -190,7 +194,11 @@ func (s *ResultServiceJobLogsSubscriberTestSuite) TestRun() {
 			})
 
 		ch := make(chan *log.Event)
-		go s.sub.Run(t.Context(), ch)
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			s.sub.Run(t.Context(), ch)
+		}()
 
 		ch <- &log.Event{
 			Kind: log.OnRecordStart,
@@ -228,7 +236,7 @@ func (s *ResultServiceJobLogsSubscriberTestSuite) TestRun() {
 			})
 
 		close(ch)
-		s.sub.Wait()
+		<-done
 	})
 }
 
