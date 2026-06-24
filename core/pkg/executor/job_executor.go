@@ -41,6 +41,7 @@ type JobExecutor interface {
 	Sandbox() sandboxer.Sandbox
 	ExprEnv() expression.Env
 
+	Github() *records.Github
 	Status() records.Result // inherit libraries.StatusProvider
 	SetStatus(status records.Result)
 	AddPath(paths []string)
@@ -458,6 +459,10 @@ func (e *jobExecutor) Sandbox() sandboxer.Sandbox {
 
 func (e *jobExecutor) ExprEnv() expression.Env {
 	return e.exprEnv
+}
+
+func (e *jobExecutor) Github() *records.Github {
+	return e.github
 }
 
 // Status return current job's Result

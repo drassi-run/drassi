@@ -39,6 +39,7 @@ type StepExecutor interface {
 	Streams(ctx context.Context, stage Stage) *stream.Streams
 
 	Name(stage Stage) string
+	Github() *records.Github
 	Status() records.Result // inherit libraries.StatusProvider
 	SetStatus(status records.Result)
 	Inputs() map[string]string
@@ -373,6 +374,10 @@ func (e *stepExecutor) Name(stage Stage) string {
 	default:
 		return e.name
 	}
+}
+
+func (e *stepExecutor) Github() *records.Github {
+	return e.github
 }
 
 // Status return current step's Outcome
