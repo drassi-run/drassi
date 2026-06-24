@@ -9,7 +9,7 @@ package cmdhandler
 import (
 	"archive/tar"
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
 	"fmt"
 	"io"
 	"strings"
@@ -29,17 +29,17 @@ import (
 // AddSecretMask create [command.ConsoleHandler] that handle "add-mask" command
 //
 //   - https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L384
-func AddSecretMask[R any](secretMasker secret.Masker) *command.ConsoleHandler[R] {
+func AddSecretMask[R any](sm secret.Masker) *command.ConsoleHandler[R] {
 	run := func(ctx context.Context, _ R, cmd *command.Command) error {
 		if cmd.Value == "" {
 			return fmt.Errorf("%w %q: empty value", command.ErrInvalidCommand, "add-mask")
 		}
 		s := secret.NewValueSecret(cmd.Value)
-		secretMasker.AddSecret(s)
+		sm.AddSecret(s)
 		for mask := range splitLine(cmd.Value) {
 			if mask != cmd.Value {
 				s = secret.NewValueSecret(mask)
-				secretMasker.AddSecret(s)
+				sm.AddSecret(s)
 			}
 		}
 		scribe.Debugf(ctx, "Added secret mask")
@@ -152,7 +152,7 @@ func readProblemMatcherFile(ctx context.Context, sb sandboxer.Sandbox, file stri
 			return fmt.Errorf("%w: un-expected multiple files", ErrInvalidFile)
 		}
 		found = true
-		return json.NewDecoder(tr).Decode(conf)
+		return json.UnmarshalRead(tr, conf)
 	})
 	return conf, err
 }
