@@ -8,11 +8,13 @@ package logtypes
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"slices"
 	"sync"
+	"time"
 
 	"github.com/chainguard-dev/clog"
 	"github.com/coder/websocket"
@@ -119,6 +121,53 @@ func (f FuncAppender) Append(ctx context.Context, uid string, startAt int, lines
 }
 
 func (f FuncAppender) Close() error { return nil }
+
+func NewFallbackAppender(main Appender, fallback Appender, retryDelay time.Duration) Appender {
+	return &fallbackAppender{
+		main:       main,
+		fallback:   fallback,
+		retryDelay: retryDelay,
+	}
+}
+
+type fallbackAppender struct {
+	main     Appender
+	fallback Appender
+
+	fbWhen     *time.Time
+	retryDelay time.Duration
+}
+
+func (a *fallbackAppender) Append(ctx context.Context, uid string, startAt int, lines []string) error {
+	usingFb := false
+	if when := a.fbWhen; when != nil {
+		if time.Since(*when) >= a.retryDelay {
+			a.fbWhen = nil // reset
+		} else {
+			usingFb = true
+		}
+	}
+	if usingFb {
+		return a.fallback.Append(ctx, uid, startAt, lines)
+	}
+
+	if err := a.main.Append(ctx, uid, startAt, lines); err == nil {
+		return nil // main success
+	} else {
+		clog.ErrorContextf(ctx, "main appender failed, switching to fallback: %v", err)
+	}
+
+	// main error => using fallback
+	a.fbWhen = new(time.Now())
+	return a.fallback.Append(ctx, uid, startAt, lines)
+}
+
+func (a *fallbackAppender) Close() error {
+	errs := make([]error, 2)
+	errs[0] = a.main.Close()
+	errs[1] = a.fallback.Close()
+	return errors.Join(errs...)
+}
 
 type LinesWrapper struct {
 	Value     []string `json:"value"`

@@ -8,6 +8,7 @@ package logtypes
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -18,6 +19,8 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -130,4 +133,124 @@ func (s *WebsocketAppenderTestSuite) TestClose_WithoutConnection() {
 	err := appender.Close()
 	s.Require().NoError(err)
 	s.Zero(s.accepted.Load())
+}
+
+func TestFallbackAppender(t *testing.T) {
+	t.Run("uses-main-when-main-succeeds", func(t *testing.T) {
+		mainCalls := 0
+		fallbackCalls := 0
+		lines := []string{"line 1"}
+		main := FuncAppender(func(ctx context.Context, uid string, startAt int, got []string) error {
+			mainCalls++
+			assert.Equal(t, "step-1", uid)
+			assert.Equal(t, 10, startAt)
+			assert.Equal(t, lines, got)
+			return nil
+		})
+		fallback := FuncAppender(func(ctx context.Context, uid string, startAt int, got []string) error {
+			fallbackCalls++
+			return nil
+		})
+		appender := NewFallbackAppender(main, fallback, time.Minute)
+
+		err := appender.Append(t.Context(), "step-1", 10, lines)
+		require.NoError(t, err)
+		assert.Equal(t, 1, mainCalls)
+		assert.Zero(t, fallbackCalls)
+	})
+
+	t.Run("fallback-after-main-error", func(t *testing.T) {
+		mainCalls := 0
+		fallbackCalls := 0
+		lines := []string{"line 1"}
+		main := FuncAppender(func(ctx context.Context, uid string, startAt int, got []string) error {
+			mainCalls++
+			assert.Equal(t, "step-1", uid)
+			assert.Equal(t, 10, startAt)
+			assert.Equal(t, lines, got)
+			return errors.New("main failed")
+		})
+		fallback := FuncAppender(func(ctx context.Context, uid string, startAt int, got []string) error {
+			fallbackCalls++
+			assert.Equal(t, "step-1", uid)
+			assert.Equal(t, 10, startAt)
+			assert.Equal(t, lines, got)
+			return nil
+		})
+		appender := NewFallbackAppender(main, fallback, time.Minute)
+
+		err := appender.Append(t.Context(), "step-1", 10, lines)
+		require.NoError(t, err)
+		assert.Equal(t, 1, mainCalls)
+		assert.Equal(t, 1, fallbackCalls)
+	})
+
+	t.Run("uses-fallback-until-retry-delay-elapses", func(t *testing.T) {
+		mainCalls := 0
+		fallbackCalls := 0
+		main := FuncAppender(func(ctx context.Context, uid string, startAt int, lines []string) error {
+			mainCalls++
+			if mainCalls == 1 {
+				assert.Equal(t, "step-1", uid)
+				assert.Equal(t, 0, startAt)
+				assert.Equal(t, []string{"first"}, lines)
+				return errors.New("main failed")
+			}
+			assert.Equal(t, "step-1", uid)
+			assert.Equal(t, 2, startAt)
+			assert.Equal(t, []string{"third"}, lines)
+			return nil
+		})
+		fallback := FuncAppender(func(ctx context.Context, uid string, startAt int, lines []string) error {
+			fallbackCalls++
+			assert.Equal(t, "step-1", uid)
+			if fallbackCalls == 1 {
+				assert.Equal(t, 0, startAt)
+				assert.Equal(t, []string{"first"}, lines)
+			} else {
+				assert.Equal(t, 1, startAt)
+				assert.Equal(t, []string{"second"}, lines)
+			}
+			return nil
+		})
+		appender := NewFallbackAppender(main, fallback, time.Hour).(*fallbackAppender)
+
+		err := appender.Append(t.Context(), "step-1", 0, []string{"first"})
+		require.NoError(t, err)
+
+		err = appender.Append(t.Context(), "step-1", 1, []string{"second"})
+		require.NoError(t, err)
+		assert.Equal(t, 1, mainCalls)
+		assert.Equal(t, 2, fallbackCalls)
+
+		old := time.Now().Add(-2 * time.Hour)
+		appender.fbWhen = &old
+		err = appender.Append(t.Context(), "step-1", 2, []string{"third"})
+		require.NoError(t, err)
+		assert.Equal(t, 2, mainCalls)
+		assert.Equal(t, 2, fallbackCalls)
+		assert.Nil(t, appender.fbWhen)
+	})
+
+	t.Run("returns-fallback-error", func(t *testing.T) {
+		fallbackErr := errors.New("fallback failed")
+		main := FuncAppender(func(context.Context, string, int, []string) error {
+			return errors.New("main failed")
+		})
+		fallback := FuncAppender(func(context.Context, string, int, []string) error {
+			return fallbackErr
+		})
+		appender := NewFallbackAppender(main, fallback, time.Minute)
+
+		err := appender.Append(t.Context(), "step-1", 0, []string{"line"})
+		assert.ErrorIs(t, err, fallbackErr)
+	})
+
+	t.Run("close-succeeds-with-func-appenders", func(t *testing.T) {
+		main := FuncAppender(func(context.Context, string, int, []string) error { return nil })
+		fallback := FuncAppender(func(context.Context, string, int, []string) error { return nil })
+		appender := NewFallbackAppender(main, fallback, time.Minute)
+
+		assert.NoError(t, appender.Close())
+	})
 }
