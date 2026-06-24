@@ -14,6 +14,7 @@ import (
 	"drassi.run/gha-runner/pkg/log"
 	"drassi.run/gha-runner/pkg/log/logtypes"
 	"drassi.run/gha-runner/pkg/service"
+	"github.com/chainguard-dev/clog"
 	"go.opentelemetry.io/otel/attribute"
 )
 
@@ -88,5 +89,49 @@ func (s *resultServiceStepLogsSubscriber) run(c logtypes.Conveyor, attrs []attri
 }
 
 func (s *resultServiceStepLogsSubscriber) Wait() {
+	s.wg.Wait()
+}
+
+////////////// JobLogs Subscriber for ResultService //////////////
+
+func NewResultServiceJobLogsSubscriber(svc service.ResultService) logtypes.Subscriber {
+	return &resultServiceJobLogsSubscriber{svc: svc}
+}
+
+type resultServiceJobLogsSubscriber struct {
+	svc service.ResultService
+	ctx context.Context
+
+	wg  sync.WaitGroup
+	con logtypes.Conveyor
+}
+
+func (s *resultServiceJobLogsSubscriber) Run(ctx context.Context, ch <-chan *log.Event) {
+	s.wg.Add(1)
+	defer s.wg.Done()
+	s.ctx = ctx
+	s.con = s.svc.JobLogsConveyor()
+	s.wg.Go(s.run)
+
+	for event := range ch {
+		if u := event.Update; u != nil {
+			s.con.Update(event.Update)
+		}
+	}
+
+	_ = s.con.Close()
+}
+
+func (s *resultServiceJobLogsSubscriber) run() {
+	logger := clog.FromContext(s.ctx)
+
+	if r, err := s.con.Run(s.ctx); err != nil {
+		logger.Errorf("ResultService - upload job logs error: %v", err)
+	} else {
+		logger.Debugf("ResultService - uploaded job logs: lines=%d, size=%d", r.Lines, r.Size)
+	}
+}
+
+func (s *resultServiceJobLogsSubscriber) Wait() {
 	s.wg.Wait()
 }

@@ -7,6 +7,7 @@
 package logsubscriber
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -22,6 +23,10 @@ import (
 
 func TestResultServiceStepLogsSubscriberSuite(t *testing.T) {
 	suite.Run(t, new(ResultServiceStepLogsSubscriberTestSuite))
+}
+
+func TestResultServiceJobLogsSubscriberSuite(t *testing.T) {
+	suite.Run(t, new(ResultServiceJobLogsSubscriberTestSuite))
 }
 
 type ResultServiceStepLogsSubscriberTestSuite struct {
@@ -142,6 +147,92 @@ func (s *ResultServiceStepLogsSubscriberTestSuite) TestConveyorCaching() {
 }
 
 func (s *ResultServiceStepLogsSubscriberTestSuite) tempFile(name, content string) string {
+	f := filepath.Join(s.tmpDir, name)
+	err := os.WriteFile(f, []byte(content), 0644)
+	s.Require().NoError(err)
+	return f
+}
+
+type ResultServiceJobLogsSubscriberTestSuite struct {
+	suite.Suite
+	ctrl *gomock.Controller
+	svc  *mock_service.MockResultService
+	sub  *resultServiceJobLogsSubscriber
+
+	tmpDir string
+}
+
+func (s *ResultServiceJobLogsSubscriberTestSuite) SetupTest() {
+	s.ctrl = gomock.NewController(s.T())
+
+	s.svc = mock_service.NewMockResultService(s.ctrl)
+	s.sub = NewResultServiceJobLogsSubscriber(s.svc).(*resultServiceJobLogsSubscriber)
+	s.tmpDir = s.T().TempDir()
+}
+
+func (s *ResultServiceJobLogsSubscriberTestSuite) TearDownTest() {
+	s.ctrl.Finish()
+}
+
+func (s *ResultServiceJobLogsSubscriberTestSuite) TestRun() {
+	synctest.Test(s.T(), func(t *testing.T) {
+		content := "job log line\n"
+		logFile := s.tempFile("job.log", content)
+
+		c := mock_logtypes.NewMockConveyor(s.ctrl)
+		closed := make(chan struct{})
+
+		s.svc.EXPECT().JobLogsConveyor().Return(c)
+		c.EXPECT().Run(gomock.Any()).
+			DoAndReturn(func(ctx context.Context) (*logtypes.Stat, error) {
+				<-closed
+				return logtypes.NewStat(1, int64(len(content))), nil
+			})
+
+		ch := make(chan *log.Event)
+		go s.sub.Run(t.Context(), ch)
+
+		ch <- &log.Event{
+			Kind: log.OnRecordStart,
+		}
+
+		event := &log.Event{
+			Uid:  "step-uid",
+			Kind: log.OnRecordLog,
+			Update: &log.Update{
+				File:   logFile,
+				Line:   1,
+				Offset: int64(len(content)),
+			},
+		}
+		c.EXPECT().Update(event.Update).Times(1)
+		ch <- event
+
+		event = &log.Event{
+			Uid:  "step-uid",
+			Kind: log.OnRecordStop,
+			Update: &log.Update{
+				File:     logFile,
+				Line:     1,
+				Offset:   int64(len(content)),
+				Complete: true,
+			},
+		}
+		c.EXPECT().Update(event.Update).Times(1)
+		ch <- event
+
+		c.EXPECT().Close().
+			DoAndReturn(func() error {
+				close(closed)
+				return nil
+			})
+
+		close(ch)
+		s.sub.Wait()
+	})
+}
+
+func (s *ResultServiceJobLogsSubscriberTestSuite) tempFile(name, content string) string {
 	f := filepath.Join(s.tmpDir, name)
 	err := os.WriteFile(f, []byte(content), 0644)
 	s.Require().NoError(err)

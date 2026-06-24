@@ -22,13 +22,16 @@ func wireResultService(scope *dig.Scope, msg *messages.PipelineAgentJobRequest, 
 		return service.NewResultService(url, hc, msg)
 	}
 	if err := scope.Provide(fn); err != nil {
-		return fmt.Errorf("provide service.ResultService: %w", err)
+		return fmt.Errorf("provide ResultService: %w", err)
 	}
 	if err := scope.Provide(service.ResultService.TimelineRecorder); err != nil {
-		return fmt.Errorf("provide 'resultService' timeline.Recorder: %w", err)
+		return fmt.Errorf("provide timeline.Recorder from 'ResultService': %w", err)
 	}
 	if err := scope.Provide(logsubscriber.NewResultServiceStepLogsSubscriber, dig.Group(LogSubscribers)); err != nil {
-		return fmt.Errorf("provide 'resultService' logtypes.Subscriber: %w", err)
+		return fmt.Errorf("provide 'steps-logs' logtypes.Subscriber from 'ResultService': %w", err)
+	}
+	if err := scope.Provide(logsubscriber.NewResultServiceJobLogsSubscriber, dig.Group(LogSubscribers)); err != nil {
+		return fmt.Errorf("provide 'job-logs' logtypes.Subscriber from 'ResultService': %w", err)
 	}
 	return nil
 }
