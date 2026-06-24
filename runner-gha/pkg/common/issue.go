@@ -4,25 +4,25 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package timeline
+package common
 
 import (
 	"context"
 
 	"drassi.run/core/pkg/command/cmdtypes"
-	"drassi.run/core/pkg/executor"
 	exec "drassi.run/core/pkg/executor"
+	"drassi.run/gha-runner/pkg/timeline"
 )
 
 type IssueReporter struct {
-	mgr *Manager
+	mgr *timeline.Manager
 }
 
-func NewIssueReporter(mgr *Manager) cmdtypes.Reporter[exec.Milieu] {
+func NewIssueReporter(mgr *timeline.Manager) cmdtypes.Reporter[exec.Milieu] {
 	return &IssueReporter{mgr: mgr}
 }
 
-func (r *IssueReporter) AddIssue(_ context.Context, res executor.Milieu, issue *cmdtypes.Issue) error {
+func (r *IssueReporter) AddIssue(_ context.Context, res exec.Milieu, issue *cmdtypes.Issue) error {
 	stepId := res.StepSpec().Uid
 	r.mgr.AddIssue(res.Stage(), stepId, issue)
 	return nil

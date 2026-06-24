@@ -9,11 +9,12 @@ package types
 import (
 	"time"
 
+	"drassi.run/core/pkg/executor"
 	"drassi.run/gha-runner/pkg/dotnet"
 )
 
-type Waiter interface {
-	Wait()
+type RecordStore interface {
+	RecordUid(stage executor.Stage, uid string) string
 }
 
 func NewList[T any](value []T) *List[T] {

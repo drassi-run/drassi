@@ -12,8 +12,9 @@ import (
 
 	exec "drassi.run/core/pkg/executor"
 	"drassi.run/core/wire"
-	"drassi.run/gha-runner/pkg/log"
+	"drassi.run/gha-runner/pkg/common"
 	"drassi.run/gha-runner/pkg/timeline"
+	"drassi.run/gha-runner/pkg/types"
 	"go.uber.org/dig"
 )
 
@@ -41,19 +42,19 @@ func Module(opts ...Option) *wire.Module {
 			return fmt.Errorf("provide timeline.Manager: %w", err)
 		}
 
-		if err := scope.Provide(iden, dig.As(new(log.RecordStore))); err != nil {
-			return fmt.Errorf("provide timeline.Manager as log.RecordStore: %w", err)
+		if err := scope.Provide(ident, dig.As(new(types.RecordStore))); err != nil {
+			return fmt.Errorf("provide timeline.Manager as RecordStore: %w", err)
 		}
 
-		if err := scope.Provide(iden,
+		if err := scope.Provide(ident,
 			dig.As(new(exec.JobRunDecorator), new(exec.StepRunDecorator)),
 			dig.Name("timeline"),
 		); err != nil {
 			return fmt.Errorf("provide timeline.Manager as %q JobRunDecorator & StepRunDecorator: %w", "timeline", err)
 		}
 
-		if err := scope.Provide(timeline.NewIssueReporter); err != nil {
-			return fmt.Errorf("provide timeline.Manager as cmdtypes.Reporter: %w", err)
+		if err := scope.Provide(common.NewIssueReporter); err != nil {
+			return fmt.Errorf("provide cmdtypes.Reporter: %w", err)
 		}
 
 		return nil
@@ -65,6 +66,6 @@ func (o *options) newTimelineManager(rec timeline.Recorder) *timeline.Manager {
 	return timeline.NewManager(o.interval, rec)
 }
 
-func iden(mgr *timeline.Manager) *timeline.Manager {
+func ident(mgr *timeline.Manager) *timeline.Manager {
 	return mgr
 }
