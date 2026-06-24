@@ -8,6 +8,7 @@
 //go:generate mockgen -typed -destination=command/file.go -source=../pkg/command/file.go
 //go:generate mockgen -typed -destination=command/cmdtypes/types.go -source=../pkg/command/cmdtypes/types.go
 //go:generate mockgen -typed -destination=command/cmdtypes/issue.go -source=../pkg/command/cmdtypes/issue.go
+//go:generate mockgen -typed -destination=command/cmdtypes/attach.go -source=../pkg/command/cmdtypes/attach.go
 //go:generate mockgen -typed -destination=problem/matcher.go -source=../pkg/problem/matcher.go
 //go:generate mockgen -typed -destination=secret/masker.go -source=../pkg/secret/masker.go
 //go:generate mockgen -typed -destination=executor/job_executor.go -source=../pkg/executor/job_executor.go

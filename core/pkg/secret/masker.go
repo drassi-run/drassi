@@ -7,6 +7,8 @@
 package secret
 
 import (
+	"bufio"
+	"io"
 	"slices"
 	"strings"
 )
@@ -71,4 +73,42 @@ func (m *masker) Mask(input string) string {
 	builder.WriteString(input[idx:])
 
 	return builder.String()
+}
+
+func MaskReader(m Masker, r io.Reader) io.Reader {
+	return &maskReader{
+		br:     bufio.NewReader(r),
+		masker: m,
+	}
+}
+
+type maskReader struct {
+	br     *bufio.Reader
+	masker Masker
+
+	buf strings.Reader
+	err error
+}
+
+func (r *maskReader) Read(p []byte) (int, error) {
+	// buf empty -> read next line
+	for r.buf.Len() == 0 {
+		if r.err != nil {
+			return 0, r.err
+		}
+
+		line, err := r.br.ReadString('\n')
+		if len(line) > 0 {
+			line = r.masker.Mask(line)
+			r.buf.Reset(line)
+		}
+
+		r.err = err
+	}
+
+	n, err := r.buf.Read(p)
+	if err == io.EOF { // all buf read
+		err = r.err
+	}
+	return n, err
 }

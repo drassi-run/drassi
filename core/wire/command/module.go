@@ -25,12 +25,19 @@ const (
 
 type Option func(o *options)
 type options struct {
-	defaultIssueReporter bool // use cmdtypes.Discard as cmdtypes.Reporter
+	defaultIssueReporter      bool // use cmdtypes.Discard as cmdtypes.Reporter
+	defaultAttachmentUploader bool // use cmdtypes.BlackHole as cmdtypes.Attacher
 }
 
 func UseDiscardIssueReporter(b bool) Option {
 	return func(o *options) {
 		o.defaultIssueReporter = b
+	}
+}
+
+func UseBlackHoleAttachmentUploader(b bool) Option {
+	return func(o *options) {
+		o.defaultAttachmentUploader = b
 	}
 }
 
@@ -73,6 +80,12 @@ func Module(opts ...Option) *wire.Module {
 		if o.defaultIssueReporter {
 			if err := scope.Provide(cmdtypes.Discard[exec.Milieu]); err != nil {
 				return fmt.Errorf("provide 'discard' cmdtypes.Reporter: %w", err)
+			}
+		}
+
+		if o.defaultAttachmentUploader {
+			if err := scope.Provide(cmdtypes.BlackHole[exec.Milieu]); err != nil {
+				return fmt.Errorf("provide 'blackhole' cmdtypes.Attacher: %w", err)
 			}
 		}
 

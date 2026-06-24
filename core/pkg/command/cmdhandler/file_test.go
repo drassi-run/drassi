@@ -7,11 +7,14 @@
 package cmdhandler
 
 import (
+	"context"
+	"io"
 	"strings"
 	"testing"
 
 	mock_cmdtypes "drassi.run/core/mock/command/cmdtypes"
 	"drassi.run/core/pkg/command/cmdtypes"
+	"drassi.run/core/pkg/secret"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 )
@@ -111,14 +114,26 @@ func TestFileSetOutput(t *testing.T) {
 }
 
 func TestCreateStepSummary(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
 	t.Run("success", func(t *testing.T) {
-		content := "THIS IS A CreateStepSummary"
-		r := strings.NewReader(content)
+		ctrl := gomock.NewController(t)
 
-		h := CreateStepSummary[any]()
+		sm := secret.NewMasker()
+		sm.AddSecret(secret.NewValueSecret("secret-token"))
+		r := strings.NewReader("THIS IS A secret-token CreateStepSummary")
+
+		attacher := mock_cmdtypes.NewMockAttacher[any](ctrl)
+		attacher.EXPECT().
+			Upload(gomock.Any(), nil, gomock.Any()).
+			DoAndReturn(func(ctx context.Context, res any, att *cmdtypes.Attachment) error {
+				assert.Equal(t, cmdtypes.STEP_SUMMARY, att.Type)
+
+				data, err := io.ReadAll(att.Reader)
+				assert.NoError(t, err)
+				assert.Equal(t, "THIS IS A *** CreateStepSummary", string(data))
+				return nil
+			})
+
+		h := CreateStepSummary[any](sm, attacher)
 		err := h.Run(t.Context(), nil, r)
 		assert.NoError(t, err)
 	})
