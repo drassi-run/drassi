@@ -248,7 +248,7 @@ func (c *launcher) loadSandboxer(ctx context.Context, store manifest.Store, ref 
 
 func (c *launcher) module() *wire.Module {
 	fn := func(scope *dig.Scope) error {
-		runner := records.Runner{
+		runner := &records.Runner{
 			Name:        c.runnerName,
 			Os:          model.Linux,
 			Arch:        model.X64,

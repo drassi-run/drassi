@@ -10,7 +10,6 @@ import (
 	"context"
 	"fmt"
 	"maps"
-	"strconv"
 	"strings"
 	"time"
 
@@ -417,42 +416,6 @@ func (e *stepExecutor) SystemEnv() map[string]string {
 
 	jEnv := e.jExec.SystemEnv()
 	maps.Copy(m, jEnv)
-
-	// set GITHUB_* env
-	ghEnv := map[string]string{
-		"GITHUB_ACTION":              e.github.Action,
-		"GITHUB_ACTION_REF":          e.github.ActionRef,
-		"GITHUB_ACTION_REPOSITORY":   e.github.ActionRepository,
-		"GITHUB_ACTOR":               e.github.Actor,
-		"GITHUB_ACTOR_ID":            e.github.ActorId,
-		"GITHUB_API_URL":             e.github.ApiUrl,
-		"GITHUB_BASE_REF":            e.github.BaseRef,
-		"GITHUB_EVENT_NAME":          e.github.EventName,
-		"GITHUB_EVENT_PATH":          e.github.EventPath,
-		"GITHUB_GRAPHQL_URL":         e.github.GraphqlUrl,
-		"GITHUB_HEAD_REF":            e.github.HeadRef,
-		"GITHUB_JOB":                 e.github.Job,
-		"GITHUB_REF":                 e.github.Ref,
-		"GITHUB_REF_NAME":            e.github.RefName,
-		"GITHUB_REF_PROTECTED":       strconv.FormatBool(e.github.RefProtected),
-		"GITHUB_REF_TYPE":            string(e.github.RefType),
-		"GITHUB_REPOSITORY":          e.github.Repository,
-		"GITHUB_REPOSITORY_ID":       e.github.RepositoryId,
-		"GITHUB_REPOSITORY_OWNER":    e.github.RepositoryOwner,
-		"GITHUB_REPOSITORY_OWNER_ID": e.github.RepositoryOwnerId,
-		"GITHUB_RETENTION_DAYS":      e.github.RetentionDays,
-		"GITHUB_RUN_ATTEMPT":         e.github.RunAttempt,
-		"GITHUB_RUN_ID":              e.github.RunId,
-		"GITHUB_RUN_NUMBER":          e.github.RunNumber,
-		"GITHUB_SERVER_URL":          e.github.ServerUrl,
-		"GITHUB_SHA":                 e.github.Sha,
-		"GITHUB_TRIGGERING_ACTOR":    e.github.TriggeringActor,
-		"GITHUB_WORKFLOW":            e.github.Workflow,
-		"GITHUB_WORKFLOW_REF":        e.github.WorkflowRef,
-		"GITHUB_WORKFLOW_SHA":        e.github.WorkflowSha,
-		"GITHUB_WORKSPACE":           e.github.Workspace,
-	}
-	maps.Copy(m, ghEnv)
 
 	// set STATE_* env
 	// https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#sending-values-to-the-pre-and-post-actions

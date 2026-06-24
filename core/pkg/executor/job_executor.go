@@ -73,7 +73,6 @@ type jobExecutor struct {
 
 	// records
 	github  *records.Github
-	runner  records.Runner
 	jobInfo *records.JobInfo
 	job     *records.Job
 	steps   map[string]*records.Step
@@ -211,9 +210,6 @@ func (e *jobExecutor) initializeJob(s *scribe.Scribe) error {
 	if err := xdig.Populate(e.scope, &e.env); err != nil {
 		return fmt.Errorf("populate 'env': %w", err)
 	}
-	if err := xdig.Populate(e.scope, &e.runner); err != nil {
-		return fmt.Errorf("populate 'runner': %w", err)
-	}
 	if err := xdig.Populate(e.scope, &e.github); err != nil {
 		return fmt.Errorf("populate 'github': %w", err)
 	}
@@ -305,9 +301,6 @@ func (e *jobExecutor) initializeSandbox(ctx context.Context, s *scribe.Scribe) e
 
 		layout := e.sandbox.Layout()
 		e.github.Workspace = layout.Workspace
-		e.runner.Workspace = layout.Workspace
-		e.runner.ToolCache = layout.Tools
-		e.runner.Temp = layout.Temp
 
 		if err = xdig.Supply(e.scope, resp.ContainerEngine, dig.Export(true)); err != nil {
 			return fmt.Errorf("supply 'container.Engine': %w", err)
@@ -340,6 +333,9 @@ func (e *jobExecutor) initializeSandbox(ctx context.Context, s *scribe.Scribe) e
 
 func (e *jobExecutor) initializeScope() error {
 	// Provide scope values
+	if err := e.scope.Invoke(e.configureRunner); err != nil {
+		return fmt.Errorf("configure records.Runner: %w", err)
+	}
 	if err := xdig.Supply(e.scope, e.exprEnv); err != nil {
 		return fmt.Errorf("supply 'exprEnv': %w", err)
 	}
@@ -354,6 +350,13 @@ func (e *jobExecutor) initializeScope() error {
 	}
 
 	return nil
+}
+
+func (e *jobExecutor) configureRunner(runner *records.Runner) {
+	layout := e.sandbox.Layout()
+	runner.Workspace = layout.Workspace
+	runner.ToolCache = layout.Tools
+	runner.Temp = layout.Temp
 }
 
 func (e *jobExecutor) initializeSteps(ctx context.Context, s *scribe.Scribe) error {
@@ -517,24 +520,7 @@ func (e *jobExecutor) Env() map[string]string {
 }
 
 func (e *jobExecutor) SystemEnv() map[string]string {
-	m := make(map[string]string)
-	// TODO provided env
-
-	runnerEnv := map[string]string{
-		"RUNNER_NAME":        e.runner.Name,
-		"RUNNER_ARCH":        string(e.runner.Arch),
-		"RUNNER_OS":          string(e.runner.Os),
-		"RUNNER_ENVIRONMENT": e.runner.Environment,
-		"RUNNER_TEMP":        e.runner.Temp,
-		"RUNNER_TOOL_CACHE":  e.runner.ToolCache,
-		"RUNNER_WORKSPACE":   e.runner.Workspace,
-	}
-	if e.runner.Debug == "1" {
-		runnerEnv["RUNNER_DEBUG"] = "1"
-	}
-	maps.Copy(m, runnerEnv)
-
-	return m
+	return nil
 }
 
 // SetEnv make an environment variable available to any subsequent steps in a workflow job.
@@ -546,16 +532,17 @@ func (e *jobExecutor) SetEnv(env map[string]string) {
 }
 
 func (e *jobExecutor) setupEventFile(ctx context.Context) (string, error) {
+	tmp := e.sandbox.Layout().Temp
 	files := map[string]any{"workflow/event.json": e.github.Event}
 	r, err := xtar.JsonObjectReader(files, false)
 	if err != nil {
 		return "", err
 	}
 
-	if err = e.sandbox.CopyIn(ctx, r, e.runner.Temp); err != nil {
+	if err = e.sandbox.CopyIn(ctx, r, tmp); err != nil {
 		return "", fmt.Errorf("copy event file to sandbox: %w", err)
 	}
 
-	location := path.Join(e.runner.Temp, "workflow", "event.json")
+	location := path.Join(tmp, "workflow", "event.json")
 	return location, nil
 }
