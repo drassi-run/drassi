@@ -16,6 +16,7 @@ import (
 	wire_common "drassi.run/core/wire/common"
 	wire_runtime "drassi.run/core/wire/runtime"
 	wire_scribe "drassi.run/core/wire/scribe"
+	wire_secret "drassi.run/core/wire/secret"
 	wire_stream "drassi.run/core/wire/stream"
 	wire_core "drassi.run/gitea-runner/wire/core"
 	wire_reporter "drassi.run/gitea-runner/wire/reporter"
@@ -32,6 +33,7 @@ func Synthetic(scope *dig.Scope, task *runnerv1.Task, extras ...*wire.Module) er
 	modules = append(modules, wire_command.Module())
 	modules = append(modules, wire_runtime.Module())
 	modules = append(modules, wire_scribe.Module())
+	modules = append(modules, wire_secret.Module())
 	modules = append(modules, wire_stream.Module())
 
 	// gitea modules

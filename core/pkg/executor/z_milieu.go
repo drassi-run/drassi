@@ -7,6 +7,7 @@
 package executor
 
 import (
+	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/runtime"
 	xtypes "drassi.run/core/util/types"
 )
@@ -14,6 +15,7 @@ import (
 type Milieu interface {
 	Stage() Stage
 	StepSpec() *StepSpec
+	Github() *records.Github
 
 	AddPath(paths []string)
 	SetEnv(env map[string]string)
@@ -40,6 +42,10 @@ func (s *milieu) Stage() Stage {
 
 func (s *milieu) StepSpec() *StepSpec {
 	return s.exec.StepSpec()
+}
+
+func (s *milieu) Github() *records.Github {
+	return s.exec.Github()
 }
 
 func (s *milieu) AddPath(paths []string) {

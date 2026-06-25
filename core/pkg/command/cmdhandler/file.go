@@ -14,7 +14,6 @@ import (
 	"drassi.run/core/pkg/command"
 	"drassi.run/core/pkg/command/cmdtypes"
 	"drassi.run/core/pkg/scribe"
-	"drassi.run/core/pkg/secret"
 )
 
 // FileAddPath create [command.FileHandler] that handle "GITHUB_PATH" command
@@ -108,11 +107,11 @@ func FileSetOutput[R cmdtypes.SupportSetOutput]() *command.FileHandler[R] {
 // CreateStepSummary create [command.FileHandler] that handle "GITHUB_STEP_SUMMARY" command
 //
 //   - https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L186
-func CreateStepSummary[R any](sm secret.Masker, attacher cmdtypes.Attacher[R]) *command.FileHandler[R] {
+func CreateStepSummary[R any](attacher cmdtypes.Attacher[R]) *command.FileHandler[R] {
 	run := func(ctx context.Context, res R, r io.Reader) error {
 		att := &cmdtypes.Attachment{
 			Type:   cmdtypes.STEP_SUMMARY,
-			Reader: secret.MaskReader(sm, r),
+			Reader: r,
 		}
 		return attacher.Upload(ctx, res, att)
 	}

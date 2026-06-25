@@ -6,7 +6,10 @@
 
 package cmdtypes
 
-import "drassi.run/core/pkg/runtime"
+import (
+	"drassi.run/core/pkg/model/records"
+	"drassi.run/core/pkg/runtime"
+)
 
 type SupportAddPath interface {
 	AddPath(paths []string)
@@ -26,4 +29,8 @@ type SupportSaveState interface {
 
 type SupportPathTranslator interface {
 	PathTranslator() runtime.PathTranslator
+}
+
+type HasGithub interface {
+	Github() *records.Github
 }

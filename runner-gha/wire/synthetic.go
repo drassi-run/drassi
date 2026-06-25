@@ -16,6 +16,7 @@ import (
 	wire_common "drassi.run/core/wire/common"
 	wire_runtime "drassi.run/core/wire/runtime"
 	wire_scribe "drassi.run/core/wire/scribe"
+	wire_secret "drassi.run/core/wire/secret"
 	wire_stream "drassi.run/core/wire/stream"
 	"drassi.run/gha-runner/pkg/messages"
 	wire_core "drassi.run/gha-runner/wire/core"
@@ -41,6 +42,7 @@ func Synthetic(scope *dig.Scope, msg *messages.PipelineAgentJobRequest, extras .
 	))
 	modules = append(modules, wire_runtime.Module())
 	modules = append(modules, wire_scribe.Module())
+	modules = append(modules, wire_secret.Module())
 	modules = append(modules, wire_stream.Module())
 
 	// gha modules

@@ -9,9 +9,11 @@ package cmdhandler
 import (
 	"archive/tar"
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
 	"fmt"
 	"io"
+	"maps"
+	"path/filepath"
 	"strings"
 
 	"drassi.run/core/pkg/command"
@@ -22,6 +24,7 @@ import (
 	"drassi.run/core/pkg/scribe"
 	"drassi.run/core/pkg/secret"
 	"drassi.run/core/util/path"
+	"drassi.run/core/util/string"
 	"drassi.run/core/util/tar"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -29,17 +32,17 @@ import (
 // AddSecretMask create [command.ConsoleHandler] that handle "add-mask" command
 //
 //   - https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L384
-func AddSecretMask[R any](secretMasker secret.Masker) *command.ConsoleHandler[R] {
+func AddSecretMask[R any](sm secret.Masker) *command.ConsoleHandler[R] {
 	run := func(ctx context.Context, _ R, cmd *command.Command) error {
 		if cmd.Value == "" {
 			return fmt.Errorf("%w %q: empty value", command.ErrInvalidCommand, "add-mask")
 		}
 		s := secret.NewValueSecret(cmd.Value)
-		secretMasker.AddSecret(s)
+		sm.AddSecret(s)
 		for mask := range splitLine(cmd.Value) {
 			if mask != cmd.Value {
 				s = secret.NewValueSecret(mask)
-				secretMasker.AddSecret(s)
+				sm.AddSecret(s)
 			}
 		}
 		scribe.Debugf(ctx, "Added secret mask")
@@ -152,7 +155,7 @@ func readProblemMatcherFile(ctx context.Context, sb sandboxer.Sandbox, file stri
 			return fmt.Errorf("%w: un-expected multiple files", ErrInvalidFile)
 		}
 		found = true
-		return json.NewDecoder(tr).Decode(conf)
+		return json.UnmarshalRead(tr, conf)
 	})
 	return conf, err
 }
@@ -193,10 +196,59 @@ func DebugMessage[R any]() *command.ConsoleHandler[R] {
 // LogMessage create [command.ConsoleHandler] that handle "notice", "warning", "error" commands
 //
 //   - https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L600
-func LogMessage[R any]() []*command.ConsoleHandler[R] {
-	run := func(ctx context.Context, _ R, cmd *command.Command) error {
+func LogMessage[R any](reporter cmdtypes.Reporter[R]) []*command.ConsoleHandler[R] {
+	run := func(ctx context.Context, res R, cmd *command.Command) error {
 		scribe.Log(ctx, cmd.Name, cmd.Value)
-		return nil
+
+		iss := &cmdtypes.Issue{
+			Category: "General",
+			Message:  cmd.Value,
+			Data:     maps.Clone(cmd.Params),
+		}
+
+		switch cmd.Name {
+		case "notice":
+			iss.Type = cmdtypes.IssueTypeNotice
+		case "warning":
+			iss.Type = cmdtypes.IssueTypeWarning
+		case "error":
+			iss.Type = cmdtypes.IssueTypeError
+		}
+
+		delete(iss.Data, "_internal_telemetry")
+		if file := cmd.Params["file"]; file != "" {
+			iss.Category = "Code"
+			file = filepath.Clean(file)
+
+			// translate path if is in container
+			if spt, ok := any(res).(cmdtypes.SupportPathTranslator); ok {
+				if pt := spt.PathTranslator(); pt != nil {
+					if f, ok := pt.TranslatePath(file); ok {
+						file = f
+					}
+				}
+			}
+
+			// convert file to workspace relative path & inject repo info
+			if hgh, ok := any(res).(cmdtypes.HasGithub); ok {
+				gh := hgh.Github()
+				ws := xstring.EnsureSuffix(gh.Workspace, "/")
+
+				// convert absolute path into workspace relative path if possible
+				if f, ok := strings.CutPrefix(file, ws); ok {
+					file = f
+				}
+
+				// file is in workspace
+				if filepath.IsLocal(file) && !strings.HasPrefix(filepath.Dir(file), "~") {
+					iss.Data["repo"] = gh.Repository
+				}
+			}
+
+			iss.Data["file"] = file
+		}
+
+		return reporter.AddIssue(ctx, res, iss)
 	}
 	return []*command.ConsoleHandler[R]{
 		command.NewConsoleHandler("notice", false, run),
