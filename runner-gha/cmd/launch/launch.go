@@ -40,12 +40,11 @@ type options struct {
 }
 
 type launcher struct {
-	Runner       *ghav1a1.GitHubRunner
-	Key          *rsa.PrivateKey
-	Sandboxer    sandboxer.Engine
-	store        gitstore.Store
-	runnerRecord records.Runner
-	hc           *http.Client
+	Runner    *ghav1a1.GitHubRunner
+	Key       *rsa.PrivateKey
+	Sandboxer sandboxer.Engine
+	store     gitstore.Store
+	hc        *http.Client
 }
 
 func New() *cobra.Command {
@@ -90,12 +89,6 @@ func (l *launcher) Init(ctx context.Context, opts *options) (err error) {
 		return err
 	} else {
 		l.Runner = runner
-		l.runnerRecord = records.Runner{
-			Name:        runner.Status.RunnerName,
-			Os:          model.Linux,
-			Arch:        model.X64,
-			Environment: "self-hosted",
-		}
 	}
 
 	spec := l.Runner.Spec
@@ -289,7 +282,13 @@ func (l *launcher) forceRefreshToken(ctx context.Context) error {
 
 func (l *launcher) module() *wire.Module {
 	fn := func(scope *dig.Scope) error {
-		if err := xdig.Supply(scope, l.runnerRecord); err != nil {
+		runner := &records.Runner{
+			Name:        l.Runner.Status.RunnerName,
+			Os:          model.Linux,
+			Arch:        model.X64,
+			Environment: "self-hosted",
+		}
+		if err := xdig.Supply(scope, runner); err != nil {
 			return fmt.Errorf("provide records.Runner: %w", err)
 		}
 		if err := xdig.Supply(scope, l.Sandboxer); err != nil {

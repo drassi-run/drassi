@@ -14,21 +14,20 @@ import (
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/expression/libraries"
+	"drassi.run/core/pkg/feature"
 	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/secret"
 	"drassi.run/core/wire"
+	"drassi.run/gha-runner/pkg/common"
 	"drassi.run/gha-runner/pkg/messages"
 	"go.uber.org/dig"
 )
 
 func Module() *wire.Module {
 	fn := func(scope *dig.Scope) error {
-		if err := scope.Provide(newSysVarFlags); err != nil {
-			return fmt.Errorf("configure feature.Flags: %w", err)
-		}
-		if err := scope.Provide(newDossier); err != nil {
-			return fmt.Errorf("provide records.Dossier: %w", err)
+		if err := scope.Provide(newDossierAndFlags); err != nil {
+			return fmt.Errorf("provide records.Dossier and feature.Flags: %w", err)
 		}
 		if err := scope.Provide(sysEnvProvider, dig.Group(wire.EnvProvider)); err != nil {
 			return fmt.Errorf("provide 'sysEnv' records.Dossier: %w", err)
@@ -141,10 +140,10 @@ func sysEnvProvider(req *messages.PipelineAgentJobRequest) (executor.EnvProvider
 	return executor.StaticEnv(sysEnv), nil
 }
 
-func newDossier(req *messages.PipelineAgentJobRequest) (*records.Dossier, error) {
+func newDossierAndFlags(req *messages.PipelineAgentJobRequest, runner *records.Runner) (*records.Dossier, feature.Flags, error) {
 	dossier := new(records.Dossier)
 	if err := model.Decode(req.ContextData, dossier); err != nil {
-		return nil, fmt.Errorf("decode ContextData: %w", err)
+		return nil, nil, fmt.Errorf("decode ContextData: %w", err)
 	}
 
 	if dossier.Github == nil {
@@ -153,6 +152,7 @@ func newDossier(req *messages.PipelineAgentJobRequest) (*records.Dossier, error)
 	if dossier.Env == nil {
 		dossier.Env = make(map[string]string)
 	}
+	dossier.Runner = runner
 
 	// GitHub context
 	// https://github.com/actions/runner/blob/v2.324.0/src/Runner.Worker/ExecutionContext.cs#L882-L891
@@ -170,5 +170,25 @@ func newDossier(req *messages.PipelineAgentJobRequest) (*records.Dossier, error)
 		}
 	}
 
-	return dossier, nil
+	// Sets debug using vars context in case debug variables are not present.
+	// https://github.com/actions/runner/blob/v2.335.1/src/Runner.Worker/ExecutionContext.cs#L1394-L1417
+	sysVar := req.Variables
+	dVar := dossier.Variables
+	if _, ok := sysVar[wire.RunnerDebug]; !ok {
+		if v, ok := dVar[wire.RunnerDebug]; ok {
+			sysVar[wire.RunnerDebug] = messages.Variable{Value: v}
+		}
+	}
+	if _, ok := sysVar[wire.StepDebug]; !ok {
+		if v, ok := dVar[wire.StepDebug]; ok {
+			sysVar[wire.StepDebug] = messages.Variable{Value: v}
+		}
+	}
+	flags := common.NewSysVarFlags(req.Variables)
+
+	if feature.Bool(flags, wire.RunnerDebug, false) {
+		runner.Debug = "1"
+	}
+
+	return dossier, flags, nil
 }

@@ -8,6 +8,7 @@ package wire_common
 
 import (
 	"fmt"
+	"strconv"
 
 	exec "drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/expression"
@@ -58,6 +59,12 @@ func Module(opts ...Option) *wire.Module {
 		if err := xdig.Supply(scope, exec.CIEnv, dig.Group(wire.EnvProvider)); err != nil {
 			return fmt.Errorf("provide CIEnv: %w", err)
 		}
+		if err := xdig.Supply[exec.EnvProvider](scope, new(githubEnv), dig.Group(wire.EnvProvider)); err != nil {
+			return fmt.Errorf("provide 'github' EnvProvider: %w", err)
+		}
+		if err := scope.Provide(runnerEnv, dig.Group(wire.EnvProvider)); err != nil {
+			return fmt.Errorf("provide 'runner' EnvProvider: %w", err)
+		}
 
 		if err := scope.Provide(problem.NewMatchers); err != nil {
 			return fmt.Errorf("provide problem.Matchers: %w", err)
@@ -104,10 +111,11 @@ func Module(opts ...Option) *wire.Module {
 	return wire.NewModule("core/common", fn)
 }
 
-func newDossier() *records.Dossier {
+func newDossier(runner *records.Runner) *records.Dossier {
 	d := new(records.Dossier)
 	d.Github = new(records.Github)
 	d.Env = make(map[string]string)
+	d.Runner = runner
 	return d
 }
 
@@ -117,4 +125,61 @@ func getGitHub(d *records.Dossier) *records.Github {
 
 func getEnv(d *records.Dossier) map[string]string {
 	return d.Env
+}
+
+type githubEnv struct{}
+
+func (g *githubEnv) Env(e exec.StepExecutor) map[string]string {
+	gh := e.Github()
+
+	// set GITHUB_* env
+	return map[string]string{
+		"GITHUB_ACTION":              gh.Action,
+		"GITHUB_ACTION_REF":          gh.ActionRef,
+		"GITHUB_ACTION_REPOSITORY":   gh.ActionRepository,
+		"GITHUB_ACTOR":               gh.Actor,
+		"GITHUB_ACTOR_ID":            gh.ActorId,
+		"GITHUB_API_URL":             gh.ApiUrl,
+		"GITHUB_BASE_REF":            gh.BaseRef,
+		"GITHUB_EVENT_NAME":          gh.EventName,
+		"GITHUB_EVENT_PATH":          gh.EventPath,
+		"GITHUB_GRAPHQL_URL":         gh.GraphqlUrl,
+		"GITHUB_HEAD_REF":            gh.HeadRef,
+		"GITHUB_JOB":                 gh.Job,
+		"GITHUB_REF":                 gh.Ref,
+		"GITHUB_REF_NAME":            gh.RefName,
+		"GITHUB_REF_PROTECTED":       strconv.FormatBool(gh.RefProtected),
+		"GITHUB_REF_TYPE":            string(gh.RefType),
+		"GITHUB_REPOSITORY":          gh.Repository,
+		"GITHUB_REPOSITORY_ID":       gh.RepositoryId,
+		"GITHUB_REPOSITORY_OWNER":    gh.RepositoryOwner,
+		"GITHUB_REPOSITORY_OWNER_ID": gh.RepositoryOwnerId,
+		"GITHUB_RETENTION_DAYS":      gh.RetentionDays,
+		"GITHUB_RUN_ATTEMPT":         gh.RunAttempt,
+		"GITHUB_RUN_ID":              gh.RunId,
+		"GITHUB_RUN_NUMBER":          gh.RunNumber,
+		"GITHUB_SERVER_URL":          gh.ServerUrl,
+		"GITHUB_SHA":                 gh.Sha,
+		"GITHUB_TRIGGERING_ACTOR":    gh.TriggeringActor,
+		"GITHUB_WORKFLOW":            gh.Workflow,
+		"GITHUB_WORKFLOW_REF":        gh.WorkflowRef,
+		"GITHUB_WORKFLOW_SHA":        gh.WorkflowSha,
+		"GITHUB_WORKSPACE":           gh.Workspace,
+	}
+}
+
+func runnerEnv(runner *records.Runner) exec.EnvProvider {
+	m := map[string]string{
+		"RUNNER_NAME":        runner.Name,
+		"RUNNER_ARCH":        string(runner.Arch),
+		"RUNNER_OS":          string(runner.Os),
+		"RUNNER_ENVIRONMENT": runner.Environment,
+		"RUNNER_TEMP":        runner.Temp,
+		"RUNNER_TOOL_CACHE":  runner.ToolCache,
+		"RUNNER_WORKSPACE":   runner.Workspace,
+	}
+	if runner.Debug == "1" {
+		m["RUNNER_DEBUG"] = "1"
+	}
+	return exec.StaticEnv(m)
 }
