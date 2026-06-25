@@ -10,6 +10,7 @@ import (
 	"fmt"
 
 	runnerv1 "code.gitea.io/actions-proto-go/runner/v1"
+	"drassi.run/core/pkg/expression"
 	xdig "drassi.run/core/util/dig"
 	"drassi.run/core/wire"
 	wire_command "drassi.run/core/wire/command"
@@ -28,7 +29,9 @@ func Synthetic(scope *dig.Scope, task *runnerv1.Task, extras ...*wire.Module) er
 
 	// core modules
 	modules = append(modules, wire_common.Module(
-		wire_common.ProvideDefaultExpressionEnv(false), // provided in [wire_core.expressionEnv]
+		wire_common.AddExpressionOption(
+			expression.WithAlias("gitea", "github"), // make `gitea` variable alias to `github`
+		),
 	))
 	modules = append(modules, wire_command.Module())
 	modules = append(modules, wire_runtime.Module())

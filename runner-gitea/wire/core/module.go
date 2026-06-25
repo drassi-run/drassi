@@ -12,8 +12,6 @@ import (
 
 	runnerv1 "code.gitea.io/actions-proto-go/runner/v1"
 	"drassi.run/core/pkg/executor"
-	"drassi.run/core/pkg/expression"
-	"drassi.run/core/pkg/expression/libraries"
 	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/secret"
@@ -29,8 +27,6 @@ func Module() *wire.Module {
 		}
 		if err := scope.Decorate(configureSecretMasker); err != nil {
 			return fmt.Errorf("configure secret.Masker: %w", err)
-		}
-		if err := scope.Provide(expressionEnv); err != nil {
 		}
 		if err := scope.Provide(endpointEnv, dig.Group(wire.EnvProvider)); err != nil {
 			return fmt.Errorf("provide EnvProvider: %w", err)
@@ -62,21 +58,6 @@ func configureSecretMasker(task *runnerv1.Task, sm secret.Masker) secret.Masker 
 		sm.AddSecret(secret.NewValueSecret(v))
 	}
 	return sm
-}
-
-func expressionEnv(d *records.Dossier) (expression.Env, error) {
-	opts := []expression.Option{
-		expression.WithCache(true),
-		expression.WithLibrary(libraries.StdLib()),
-		expression.WithVariable("secrets", d.Secrets),
-		expression.WithVariable("vars", d.Variables),
-		expression.WithVariable("needs", d.Needs),
-		expression.WithAlias("gitea", "github"), // make `gitea` variable alias to `github`
-		expression.WithVariable("strategy", new(records.Strategy)),
-		expression.WithVariable("matrix", make(map[string]string)),
-		expression.WithVariable("inputs", make(map[string]any)),
-	}
-	return expression.NewEnv(opts...)
 }
 
 func endpointEnv(client gitea.Client, task *runnerv1.Task, gh *records.Github) executor.EnvProvider {

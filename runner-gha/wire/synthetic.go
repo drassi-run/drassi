@@ -32,9 +32,8 @@ func Synthetic(scope *dig.Scope, msg *messages.PipelineAgentJobRequest, extras .
 
 	// core modules
 	modules = append(modules, wire_common.Module(
-		wire_common.UseEmptyFeatureFlags(false),        // use [wire_core.sysVarFlags] instead
-		wire_common.ProvideDefaultDossier(false),       // provided in [wire_coer.newDossier]
-		wire_common.ProvideDefaultExpressionEnv(false), // provided in [wire_core.expressionEnv]
+		wire_common.UseEmptyFeatureFlags(false),  // use [wire_core.sysVarFlags] instead
+		wire_common.ProvideDefaultDossier(false), // provided in [wire_coer.newDossier]
 	))
 	modules = append(modules, wire_command.Module(
 		wire_command.UseDiscardIssueReporter(false),        // use [command.IssueReporter] instead
