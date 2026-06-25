@@ -22,8 +22,8 @@ func NewIssueReporter(mgr *timeline.Manager) cmdtypes.Reporter[exec.Milieu] {
 	return &IssueReporter{mgr: mgr}
 }
 
-func (r *IssueReporter) AddIssue(_ context.Context, res exec.Milieu, issue *cmdtypes.Issue) error {
-	stepId := res.StepSpec().Uid
-	r.mgr.AddIssue(res.Stage(), stepId, issue)
+func (r *IssueReporter) AddIssue(_ context.Context, res exec.Milieu, iss *cmdtypes.Issue) error {
+	spec := res.StepSpec()
+	r.mgr.AddIssue(res.Stage(), spec.Uid, iss)
 	return nil
 }

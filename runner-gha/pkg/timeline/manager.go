@@ -10,6 +10,7 @@ import (
 	"context"
 	"maps"
 	"slices"
+	"strconv"
 	"sync"
 	"time"
 
@@ -68,6 +69,7 @@ func (m *Manager) InitJob(spec *executor.JobSpec) {
 
 	r.StartedAt = new(time.Now())
 	r.State = StateInProgress
+	r.Children = make(map[string]*Record)
 
 	m.jobRecord = r
 }
@@ -168,8 +170,19 @@ func (m *Manager) DecorateStepRun(task *executor.StepTask) executor.StepRun {
 }
 
 func (m *Manager) AddIssue(stage executor.Stage, stepUid string, iss *cmdtypes.Issue) {
-	uid := m.RecordUid(stage, stepUid)
-	r := m.records[uid]
+	if stepUid != "" {
+		uid := m.RecordUid(stage, stepUid)
+		r := m.jobRecord.Children[uid]
+		iss.Data["stepNumber"] = strconv.Itoa(r.Order)
+		// TODO: add logFileLineNumber
+		// https://github.com/actions/runner/blob/v2.335.1/src/Runner.Worker/ExecutionContext.cs#L852-L857
+		r.Issues = append(r.Issues, iss)
+		m.push(r)
+		return
+	}
+
+	// job-level issue
+	r := m.jobRecord
 	r.Issues = append(r.Issues, iss)
 }
 
@@ -214,7 +227,7 @@ func (m *Manager) push(r *Record) {
 }
 
 func (m *Manager) addToJob(r *Record) {
-	m.jobRecord.Children = append(m.jobRecord.Children, r)
+	m.jobRecord.Children[r.Uid] = r
 }
 
 func (m *Manager) flush(ctx context.Context, l *clog.Logger) {

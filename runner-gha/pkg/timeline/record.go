@@ -27,7 +27,7 @@ type Record struct {
 
 	Order    int
 	Object   any
-	Children []*Record
+	Children map[string]*Record
 
 	State       State
 	Result      Result

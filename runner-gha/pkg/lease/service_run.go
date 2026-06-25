@@ -195,6 +195,7 @@ func (l *runLease) toAnnotations(issues []*cmdtypes.Issue) []*Annotation {
 }
 
 // https://github.com/actions/runner/blob/v2.324.0/src/Sdk/RSWebApi/Contracts/IssueExtensions.cs#L7
+// https://github.com/actions/runner/blob/v2.335.1/src/Runner.Worker/ActionCommandManager.cs#L716
 func (l *runLease) toAnnotation(iss *cmdtypes.Issue) *Annotation {
 	var msg string
 	if m := iss.Message; m != "" {
@@ -217,26 +218,47 @@ func (l *runLease) toAnnotation(iss *cmdtypes.Issue) *Annotation {
 	if title := iss.Data["title"]; title != "" {
 		a.Title = title
 	}
+
+	// parse & validate "line"/"endLine"
 	if s := iss.Data["line"]; s != "" {
 		if i, err := strconv.ParseInt(s, 10, 64); err == nil {
 			a.StartLine = i
+			a.EndLine = i
 		}
 	}
 	if s := iss.Data["endLine"]; s != "" {
 		if i, err := strconv.ParseInt(s, 10, 64); err == nil {
 			a.EndLine = i
+			if a.StartLine == 0 { // WARN: missing StartLine, assume StartLine=EndLine
+				a.StartLine = i
+			}
 		}
 	}
-	if s := iss.Data["col"]; s != "" {
-		if i, err := strconv.ParseInt(s, 10, 64); err == nil {
-			a.StartColumn = i
+	if a.StartLine > a.EndLine { // invalid value -> reset to 0
+		a.StartLine, a.EndLine = 0, 0
+	}
+
+	// parse & validate "col"/"endColumn"
+	if a.StartLine != 0 {
+		if s := iss.Data["col"]; s != "" {
+			if i, err := strconv.ParseInt(s, 10, 64); err == nil {
+				a.StartColumn = i
+				a.EndColumn = i
+			}
+		}
+		if s := iss.Data["endColumn"]; s != "" {
+			if i, err := strconv.ParseInt(s, 10, 64); err == nil {
+				a.EndColumn = i
+				if a.StartColumn == 0 { // WARN: missing StartColumn, assume StartColumn=EndColumn
+					a.StartColumn = i
+				}
+			}
+		}
+		if a.StartColumn > a.EndColumn {
+			a.StartColumn, a.EndColumn = 0, 0 // invalid value -> reset to 0
 		}
 	}
-	if s := iss.Data["endColumn"]; s != "" {
-		if i, err := strconv.ParseInt(s, 10, 64); err == nil {
-			a.EndColumn = i
-		}
-	}
+
 	if s := iss.Data["stepNumber"]; s != "" {
 		if i, err := strconv.ParseInt(s, 10, 64); err == nil {
 			a.StepNumber = i
@@ -253,7 +275,7 @@ func (l *runLease) toAnnotation(iss *cmdtypes.Issue) *Annotation {
 	return a
 }
 
-func (l *runLease) toStepResults(records []*timeline.Record) ([]*StepResult, error) {
+func (l *runLease) toStepResults(records map[string]*timeline.Record) ([]*StepResult, error) {
 	results := make([]*StepResult, 0, len(records))
 
 	for _, r := range records {
