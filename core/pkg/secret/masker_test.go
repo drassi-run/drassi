@@ -7,9 +7,15 @@
 package secret
 
 import (
+	"errors"
+	"io"
+	"strings"
 	"testing"
 
+	mock_io "drassi.run/core/mock/sdk/io"
+	xtypes "drassi.run/core/util/types"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 )
 
 type dummySecret struct {
@@ -90,4 +96,59 @@ func TestSecretMask(t *testing.T) {
 		out = m.Mask(in)
 		assert.Equal(tt, "0***901***0123456789", out)
 	})
+}
+
+func TestMaskReader(t *testing.T) {
+	tests := map[string]xtypes.Pair[string, string]{
+		"normal": {
+			Key:   "first secret-token\nsecond password\nthird clean\n",
+			Value: "first ***\nsecond ***\nthird clean\n",
+		},
+		"no-trailing-newline": {
+			Key:   "secret-token",
+			Value: "***",
+		},
+		"empty-line": {
+			Key:   "first\n\nsecond password\n   \t\nthird clean\n",
+			Value: "first\n\nsecond ***\n   \t\nthird clean\n",
+		},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			m := NewMasker()
+			m.AddSecret(NewValueSecret("secret-token"))
+			m.AddSecret(NewValueSecret("password"))
+
+			in := strings.NewReader(tc.Key)
+			out := MaskReader(m, in)
+			scrubbed, err := io.ReadAll(out)
+			assert.NoError(t, err)
+			assert.Equal(t, tc.Value, string(scrubbed))
+		})
+	}
+}
+
+func TestMaskReader_ReadError(t *testing.T) {
+	m := NewMasker()
+	m.AddSecret(NewValueSecret("secret-token"))
+
+	ctrl := gomock.NewController(t)
+	in := mock_io.NewMockReader(ctrl)
+	readErr := errors.New("read failed")
+	gomock.InOrder(
+		in.EXPECT().Read(gomock.Any()).
+			DoAndReturn(func(p []byte) (int, error) {
+				return copy(p, "The secret-token "), nil
+			}),
+		in.EXPECT().Read(gomock.Any()).
+			DoAndReturn(func(p []byte) (int, error) {
+				return copy(p, "will be masked"), readErr
+			}),
+	)
+
+	r := MaskReader(m, in)
+
+	out, err := io.ReadAll(r)
+	assert.ErrorIs(t, err, readErr)
+	assert.Equal(t, "The *** will be masked", string(out))
 }

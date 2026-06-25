@@ -13,18 +13,15 @@ import (
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/model/records"
 	xotel "drassi.run/core/util/otel"
+	"drassi.run/gha-runner/pkg/types"
 )
-
-type RecordStore interface {
-	RecordUid(stage executor.Stage, uid string) string
-}
 
 type Decorator struct {
 	mgr   *Manager
-	store RecordStore
+	store types.RecordStore
 }
 
-func NewDecorator(mgr *Manager, store RecordStore) *Decorator {
+func NewDecorator(mgr *Manager, store types.RecordStore) *Decorator {
 	return &Decorator{mgr: mgr, store: store}
 }
 

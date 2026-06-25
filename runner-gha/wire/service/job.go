@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"time"
 
+	"drassi.run/gha-runner/pkg/common"
 	"drassi.run/gha-runner/pkg/log/logsubscriber"
 	"drassi.run/gha-runner/pkg/log/logtypes"
 	"drassi.run/gha-runner/pkg/messages"
@@ -40,6 +41,9 @@ func wireJobService(scope *dig.Scope, msg *messages.PipelineAgentJobRequest, ep 
 	}
 	if err := scope.Provide(logsubscriber.NewJobServiceLogsSubscriber, dig.Group(LogSubscribers)); err != nil {
 		return fmt.Errorf("provide logtypes.Subscriber from 'JobService': %w", err)
+	}
+	if err := scope.Provide(common.NewJobServiceAttacher); err != nil {
+		return fmt.Errorf("provide cmdtypes.Attacher from 'JobService': %w", err)
 	}
 	return nil
 }

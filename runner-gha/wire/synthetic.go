@@ -36,7 +36,8 @@ func Synthetic(scope *dig.Scope, msg *messages.PipelineAgentJobRequest, extras .
 		wire_common.ProvideDefaultExpressionEnv(false), // provided in [wire_core.expressionEnv]
 	))
 	modules = append(modules, wire_command.Module(
-		wire_command.UseDiscardIssueReporter(false), // use [timeline.IssueReporter] instead
+		wire_command.UseDiscardIssueReporter(false),        // use [command.IssueReporter] instead
+		wire_command.UseBlackHoleAttachmentUploader(false), // use [command.xServiceAttacher] instead
 	))
 	modules = append(modules, wire_runtime.Module())
 	modules = append(modules, wire_scribe.Module())
