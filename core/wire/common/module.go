@@ -14,7 +14,6 @@ import (
 	"drassi.run/core/pkg/feature"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/problem"
-	"drassi.run/core/pkg/secret"
 	xdig "drassi.run/core/util/dig"
 	"drassi.run/core/wire"
 	"go.uber.org/dig"
@@ -58,10 +57,6 @@ func Module(opts ...Option) *wire.Module {
 	fn := func(scope *dig.Scope) error {
 		if err := xdig.Supply(scope, exec.CIEnv, dig.Group(wire.EnvProvider)); err != nil {
 			return fmt.Errorf("provide CIEnv: %w", err)
-		}
-
-		if err := scope.Provide(secret.NewMasker); err != nil {
-			return fmt.Errorf("provide secret.NewMasker: %w", err)
 		}
 
 		if err := scope.Provide(problem.NewMatchers); err != nil {

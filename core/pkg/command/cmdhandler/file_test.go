@@ -14,7 +14,6 @@ import (
 
 	mock_cmdtypes "drassi.run/core/mock/command/cmdtypes"
 	"drassi.run/core/pkg/command/cmdtypes"
-	"drassi.run/core/pkg/secret"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 )
@@ -117,9 +116,7 @@ func TestCreateStepSummary(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 
-		sm := secret.NewMasker()
-		sm.AddSecret(secret.NewValueSecret("secret-token"))
-		r := strings.NewReader("THIS IS A secret-token CreateStepSummary")
+		r := strings.NewReader("THIS IS A CreateStepSummary")
 
 		attacher := mock_cmdtypes.NewMockAttacher[any](ctrl)
 		attacher.EXPECT().
@@ -129,11 +126,11 @@ func TestCreateStepSummary(t *testing.T) {
 
 				data, err := io.ReadAll(att.Reader)
 				assert.NoError(t, err)
-				assert.Equal(t, "THIS IS A *** CreateStepSummary", string(data))
+				assert.Equal(t, "THIS IS A CreateStepSummary", string(data))
 				return nil
 			})
 
-		h := CreateStepSummary[any](sm, attacher)
+		h := CreateStepSummary[any](attacher)
 		err := h.Run(t.Context(), nil, r)
 		assert.NoError(t, err)
 	})
