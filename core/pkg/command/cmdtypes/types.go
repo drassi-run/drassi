@@ -27,7 +27,7 @@ type SupportSaveState interface {
 	SaveState(state map[string]string)
 }
 
-type SupportPathTranslator interface {
+type HasPathTranslator interface {
 	PathTranslator() runtime.PathTranslator
 }
 

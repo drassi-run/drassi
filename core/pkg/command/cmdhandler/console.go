@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"io"
 	"maps"
-	"path/filepath"
 	"strings"
 
 	"drassi.run/core/pkg/command"
@@ -24,7 +23,6 @@ import (
 	"drassi.run/core/pkg/scribe"
 	"drassi.run/core/pkg/secret"
 	"drassi.run/core/util/path"
-	"drassi.run/core/util/string"
 	"drassi.run/core/util/tar"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -216,36 +214,9 @@ func LogMessage[R any](reporter cmdtypes.Reporter[R]) []*command.ConsoleHandler[
 		}
 
 		delete(iss.Data, "_internal_telemetry")
-		if file := cmd.Params["file"]; file != "" {
+		// NOTE: "file" will be refined later by [wire_command.refinePathReporter]
+		if iss.Data["file"] != "" {
 			iss.Category = "Code"
-			file = filepath.Clean(file)
-
-			// translate path if is in container
-			if spt, ok := any(res).(cmdtypes.SupportPathTranslator); ok {
-				if pt := spt.PathTranslator(); pt != nil {
-					if f, ok := pt.TranslatePath(file); ok {
-						file = f
-					}
-				}
-			}
-
-			// convert file to workspace relative path & inject repo info
-			if hgh, ok := any(res).(cmdtypes.HasGithub); ok {
-				gh := hgh.Github()
-				ws := xstring.EnsureSuffix(gh.Workspace, "/")
-
-				// convert absolute path into workspace relative path if possible
-				if f, ok := strings.CutPrefix(file, ws); ok {
-					file = f
-				}
-
-				// file is in workspace
-				if filepath.IsLocal(file) && !strings.HasPrefix(filepath.Dir(file), "~") {
-					iss.Data["repo"] = gh.Repository
-				}
-			}
-
-			iss.Data["file"] = file
 		}
 
 		return reporter.AddIssue(ctx, res, iss)

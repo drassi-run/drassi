@@ -83,6 +83,10 @@ func Module(opts ...Option) *wire.Module {
 			}
 		}
 
+		if err := scope.Decorate(RefineIssueFileProp); err != nil {
+			return fmt.Errorf("decorate cmdtypes.Reporter by refine 'file' prop: %w", err)
+		}
+
 		if o.defaultAttachmentUploader {
 			if err := scope.Provide(cmdtypes.BlackHole[exec.Milieu]); err != nil {
 				return fmt.Errorf("provide 'blackhole' cmdtypes.Attacher: %w", err)

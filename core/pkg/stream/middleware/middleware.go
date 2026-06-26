@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -151,7 +152,14 @@ func (mw *problemScanner[R]) toIssuer(pbl *problem.Problem) (*cmdtypes.Issue, er
 		iss.Data["code"] = code
 	}
 
-	iss.Data["file"] = pbl.File // TODO
+	file := pbl.File
+	if file != "" {
+		if pbl.FromPath != "" && !filepath.IsAbs(file) {
+			file = filepath.Join(pbl.FromPath, file)
+		}
+		// NOTE: "file" will be refined later by [wire_command.refinePathReporter]
+		iss.Data["file"] = file
+	}
 
 	return iss, nil
 }
