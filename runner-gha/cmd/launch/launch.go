@@ -45,6 +45,8 @@ type launcher struct {
 	Sandboxer sandboxer.Engine
 	store     gitstore.Store
 	hc        *http.Client
+
+	wm *worker.Manager
 }
 
 func New() *cobra.Command {
@@ -121,6 +123,7 @@ func (l *launcher) Init(ctx context.Context, opts *options) (err error) {
 	}
 	src := config.TokenSource(ctx)
 	l.hc = oauth2.NewClient(ctx, src)
+	l.wm = worker.NewManager()
 
 	if s, err := gitstore.New(".cache"); err != nil {
 		return err
@@ -243,14 +246,19 @@ func (l *launcher) refreshRunnerConfig(ctx context.Context, msg *messages.Runner
 }
 
 func (l *launcher) cancelJob(ctx context.Context, msg *messages.JobCancel) error {
-	log.Printf("%#v", msg)
+	logger := clog.FromContext(ctx)
+	logger.Warnf("received %q request from server job=%q", messages.TypeJobCancellation, msg.JobId)
+	l.wm.Cancel(ctx, msg.JobId, "server cancel")
 	return nil
 }
 
 // https://github.com/actions/runner/blob/v2.323.0/src/Runner.Listener/Runner.cs#L559-L613
 func (l *launcher) requestRunnerJob(ctx context.Context, msg *messages.RunnerJobRequest) error {
+	logger := clog.FromContext(ctx)
+	logger.Infof("received %q request reqId=%q", messages.TypeRunnerJobRequest, msg.RunnerRequestId)
 	var req *messages.PipelineAgentJobRequest = nil
 	if url := msg.RunServiceUrl; url != "" {
+		logger.Infof("acquiring job from RunService...")
 		if svc, err := lease.NewRunService(url, l.hc); err != nil {
 			return err
 		} else if req, err = svc.AcquireJob(ctx, msg.RunnerRequestId, msg.BillingOwnerId); err != nil {
@@ -258,6 +266,7 @@ func (l *launcher) requestRunnerJob(ctx context.Context, msg *messages.RunnerJob
 		}
 	} else {
 		rs := l.Runner.Spec
+		logger.Infof("acquiring job from legacy RunnerService...")
 		if svc, err := lease.NewRunnerService(rs.ServerUrl, l.hc, rs.GroupId); err != nil {
 			return err
 		} else if req, err = svc.AcquireJob(ctx, msg.RunnerRequestId); err != nil {
@@ -268,11 +277,11 @@ func (l *launcher) requestRunnerJob(ctx context.Context, msg *messages.RunnerJob
 }
 
 func (l *launcher) requestPipelineAgentJob(ctx context.Context, msg *messages.PipelineAgentJobRequest) error {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	w := worker.New(msg)
-	return w.Run(ctx, l.module())
+	logger := clog.FromContext(ctx)
+	logger.Infof("received %q request job=%q type=%q", messages.TypePipelineAgentJobRequest, msg.JobId, msg.MessageType)
+	l.wm.Submit(ctx, msg, l.module())
+	logger.Infof("submitted job=%q to Worker", msg.JobId)
+	return nil
 }
 
 func (l *launcher) forceRefreshToken(ctx context.Context) error {

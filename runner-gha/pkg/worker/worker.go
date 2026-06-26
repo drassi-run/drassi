@@ -31,7 +31,7 @@ import (
 	"go.uber.org/dig"
 )
 
-func New(msg *messages.PipelineAgentJobRequest) *Worker {
+func NewWorker(msg *messages.PipelineAgentJobRequest) *Worker {
 	return &Worker{msg: msg}
 }
 
@@ -120,15 +120,15 @@ func (w *Worker) runServices() context.CancelFunc {
 	// Run lease.Renew
 	w.wgSvc.Add(1)
 	go func() {
+		defer w.wgSvc.Done()
 		w.lease.Renew(ctx)
-		w.wgSvc.Done()
 	}()
 
 	// Run timelineMgr
 	w.wgSvc.Add(1)
 	go func() {
+		defer w.wgSvc.Done()
 		w.timelineMgr.Run(ctx)
-		w.wgSvc.Done()
 	}()
 
 	return cancel
@@ -146,8 +146,8 @@ func (w *Worker) runLogSubscribers(p logSubscriberParams) {
 		ch := p.LogManager.Subscribe()
 		w.wgLog.Add(1)
 		go func() {
+			defer w.wgLog.Done()
 			sub.Run(w.ctx, ch)
-			w.wgLog.Done()
 		}()
 	}
 }

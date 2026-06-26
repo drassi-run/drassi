@@ -12,8 +12,6 @@ import (
 	"strings"
 
 	"drassi.run/core/pkg/executor"
-	"drassi.run/core/pkg/expression"
-	"drassi.run/core/pkg/expression/libraries"
 	"drassi.run/core/pkg/feature"
 	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/records"
@@ -32,9 +30,6 @@ func Module() *wire.Module {
 		if err := scope.Provide(sysEnvProvider, dig.Group(wire.EnvProvider)); err != nil {
 			return fmt.Errorf("provide 'sysEnv' records.Dossier: %w", err)
 		}
-		if err := scope.Provide(expressionEnv); err != nil {
-			return fmt.Errorf("provide expression.Env: %w", err)
-		}
 		if err := scope.Decorate(configureSecretMasker); err != nil {
 			return fmt.Errorf("configure secret.Masker: %w", err)
 		}
@@ -49,20 +44,6 @@ func Module() *wire.Module {
 		return collectDecorators(scope)
 	}
 	return wire.NewModule("gha/core", fn)
-}
-
-func expressionEnv(d *records.Dossier) (expression.Env, error) {
-	opts := []expression.Option{
-		expression.WithCache(true),
-		expression.WithLibrary(libraries.StdLib()),
-		expression.WithVariable("secrets", d.Secrets),
-		expression.WithVariable("vars", d.Variables),
-		expression.WithVariable("needs", d.Needs),
-		expression.WithVariable("strategy", d.Strategy),
-		expression.WithVariable("matrix", d.Matrix),
-		expression.WithVariable("inputs", d.Inputs),
-	}
-	return expression.NewEnv(opts...)
 }
 
 func configureSecretMasker(req *messages.PipelineAgentJobRequest, sm secret.Masker) (secret.Masker, error) {

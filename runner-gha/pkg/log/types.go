@@ -88,8 +88,8 @@ func (b sections) Scan() ([]string, error) {
 	wg.Add(l)
 	for i, s := range b {
 		go func(sec *section) {
+			defer wg.Done()
 			pages[i], errs[i] = sec.Scan()
-			wg.Done()
 		}(s)
 	}
 

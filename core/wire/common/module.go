@@ -11,7 +11,8 @@ import (
 	"strconv"
 
 	exec "drassi.run/core/pkg/executor"
-	"drassi.run/core/pkg/expression"
+	expr "drassi.run/core/pkg/expression"
+	libs "drassi.run/core/pkg/expression/libraries"
 	"drassi.run/core/pkg/feature"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/problem"
@@ -22,21 +23,9 @@ import (
 
 type Option func(o *options)
 type options struct {
-	defaultFeatureFlags  bool // use feature.Empty as feature.Flags
-	defaultExpressionEnv bool // create empty expression.Env
-	defaultDossier       bool // create default records.Dossier
-}
-
-func UseEmptyFeatureFlags(b bool) Option {
-	return func(o *options) {
-		o.defaultFeatureFlags = b
-	}
-}
-
-func ProvideDefaultExpressionEnv(b bool) Option {
-	return func(o *options) {
-		o.defaultExpressionEnv = b
-	}
+	defaultDossier      bool          // create default records.Dossier
+	defaultFeatureFlags bool          // use feature.Empty as feature.Flags
+	expressionOptions   []expr.Option // additional expression.Option
 }
 
 func ProvideDefaultDossier(b bool) Option {
@@ -45,11 +34,22 @@ func ProvideDefaultDossier(b bool) Option {
 	}
 }
 
+func UseEmptyFeatureFlags(b bool) Option {
+	return func(o *options) {
+		o.defaultFeatureFlags = b
+	}
+}
+
+func AddExpressionOption(opts ...expr.Option) Option {
+	return func(o *options) {
+		o.expressionOptions = append(o.expressionOptions, opts...)
+	}
+}
+
 func Module(opts ...Option) *wire.Module {
 	o := &options{
-		defaultFeatureFlags:  true,
-		defaultExpressionEnv: true,
-		defaultDossier:       true,
+		defaultDossier:      true,
+		defaultFeatureFlags: true,
 	}
 	for _, opt := range opts {
 		opt(o)
@@ -84,10 +84,8 @@ func Module(opts ...Option) *wire.Module {
 			return fmt.Errorf("provide Env: %w", err)
 		}
 
-		if o.defaultExpressionEnv {
-			if err := scope.Provide(expression.NewEnv); err != nil {
-				return fmt.Errorf("provide default expression.Env: %w", err)
-			}
+		if err := scope.Provide(o.expressionEnv); err != nil {
+			return fmt.Errorf("provide default expression.Env: %w", err)
 		}
 
 		if o.defaultFeatureFlags {
@@ -109,6 +107,21 @@ func Module(opts ...Option) *wire.Module {
 		return nil
 	}
 	return wire.NewModule("core/common", fn)
+}
+
+func (o *options) expressionEnv(d *records.Dossier) (expr.Env, error) {
+	opts := []expr.Option{
+		expr.WithCache(true),
+		expr.WithLibrary(libs.StdLib()),
+		expr.WithVariable("secrets", d.Secrets),
+		expr.WithVariable("vars", d.Variables),
+		expr.WithVariable("needs", d.Needs),
+		expr.WithVariable("strategy", d.Strategy),
+		expr.WithVariable("matrix", d.Matrix),
+		expr.WithVariable("inputs", d.Inputs),
+	}
+	opts = append(opts, o.expressionOptions...)
+	return expr.NewEnv(opts...)
 }
 
 func newDossier(runner *records.Runner) *records.Dossier {
