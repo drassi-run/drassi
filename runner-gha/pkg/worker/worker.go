@@ -115,7 +115,8 @@ func (w *Worker) inject(scope *dig.Scope) error {
 }
 
 func (w *Worker) runServices() context.CancelFunc {
-	ctx, cancel := context.WithCancel(w.ctx)
+	ctx := context.WithoutCancel(w.ctx)
+	ctx, cancel := context.WithCancel(ctx)
 
 	// Run lease.Renew
 	w.wgSvc.Add(1)
@@ -142,12 +143,14 @@ type logSubscriberParams struct {
 }
 
 func (w *Worker) runLogSubscribers(p logSubscriberParams) {
+	ctx := context.WithoutCancel(w.ctx)
+
 	for _, sub := range p.Subscribers {
 		ch := p.LogManager.Subscribe()
 		w.wgLog.Add(1)
 		go func() {
 			defer w.wgLog.Done()
-			sub.Run(w.ctx, ch)
+			sub.Run(ctx, ch)
 		}()
 	}
 }
