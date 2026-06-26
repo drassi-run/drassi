@@ -134,7 +134,7 @@ func getPathTranslator(res any) runtime.PathTranslator {
 	if res == nil {
 		return nil
 	}
-	if prov, ok := res.(cmdtypes.SupportPathTranslator); ok {
+	if prov, ok := res.(cmdtypes.HasPathTranslator); ok {
 		return prov.PathTranslator()
 	}
 	return nil
