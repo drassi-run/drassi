@@ -37,3 +37,25 @@ func Replace[V any](scope *dig.Scope, value V, opts ...dig.DecorateOption) error
 	}
 	return scope.Decorate(decorator, opts...)
 }
+
+// Decorator used to bypass uber/dig limit: only allow one decorator for a type
+type Decorator[T any] func(T) T
+
+func Decorate[T any](scope *dig.Scope, opts ...dig.DecorateOption) error {
+	return scope.Decorate(decorate[T], opts...)
+}
+
+func decorate[T any](p decorateParams[T]) T {
+	t := p.Main
+	for _, dec := range p.Decorators {
+		t = dec(t)
+	}
+	return t
+}
+
+type decorateParams[T any] struct {
+	dig.In
+
+	Main       T
+	Decorators []Decorator[T] `group:"decorator"`
+}

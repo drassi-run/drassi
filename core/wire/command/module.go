@@ -83,8 +83,11 @@ func Module(opts ...Option) *wire.Module {
 			}
 		}
 
-		if err := scope.Decorate(RefineIssueFileProp); err != nil {
+		if err := scope.Provide(refineIssueFileProp, dig.Group("decorator")); err != nil {
 			return fmt.Errorf("decorate cmdtypes.Reporter by refine 'file' prop: %w", err)
+		}
+		if err := xdig.Decorate[cmdtypes.Reporter[exec.Milieu]](scope); err != nil {
+			return fmt.Errorf("decorate cmdtypes.Reporter: %w", err)
 		}
 
 		if o.defaultAttachmentUploader {

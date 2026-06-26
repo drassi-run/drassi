@@ -12,6 +12,7 @@ import (
 	"drassi.run/core/pkg/command/cmdtypes"
 	"drassi.run/core/pkg/scribe"
 	"drassi.run/core/pkg/secret"
+	"drassi.run/core/util/dig"
 )
 
 func maskAttachmentUploader[R any](a cmdtypes.Attacher[R], sm secret.Masker) cmdtypes.Attacher[R] {
@@ -31,10 +32,12 @@ func (a *maskAttacher[R]) Upload(ctx context.Context, res R, att *cmdtypes.Attac
 	return a.Attacher.Upload(ctx, res, att)
 }
 
-func maskIssueReporter[R any](r cmdtypes.Reporter[R], sm secret.Masker) cmdtypes.Reporter[R] {
-	return &maskReporter[R]{
-		Reporter: r,
-		sm:       sm,
+func maskIssueReporter[R any](sm secret.Masker) xdig.Decorator[cmdtypes.Reporter[R]] {
+	return func(r cmdtypes.Reporter[R]) cmdtypes.Reporter[R] {
+		return &maskReporter[R]{
+			Reporter: r,
+			sm:       sm,
+		}
 	}
 }
 

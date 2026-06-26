@@ -14,6 +14,7 @@ import (
 	cmd "drassi.run/core/pkg/command"
 	"drassi.run/core/pkg/command/cmdtypes"
 	exec "drassi.run/core/pkg/executor"
+	"drassi.run/core/util/dig"
 	xstring "drassi.run/core/util/string"
 )
 
@@ -39,10 +40,12 @@ func (c *commandDecorator) DecorateActionRun(task *exec.ActionTask) exec.ActionR
 	}
 }
 
-// RefineIssueFileProp convert "file" property in issue into workspace relative path if possible.
+// convert "file" property in issue into workspace relative path if possible.
 // used by [middleware.ScanProblem] and [cmdhandler.LogMessage]
-func RefineIssueFileProp(rep cmdtypes.Reporter[exec.Milieu]) cmdtypes.Reporter[exec.Milieu] {
-	return &refinePathReporter{Reporter: rep}
+func refineIssueFileProp() xdig.Decorator[cmdtypes.Reporter[exec.Milieu]] {
+	return func(rep cmdtypes.Reporter[exec.Milieu]) cmdtypes.Reporter[exec.Milieu] {
+		return &refinePathReporter{Reporter: rep}
+	}
 }
 
 type refinePathReporter struct {

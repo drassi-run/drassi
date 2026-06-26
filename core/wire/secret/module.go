@@ -24,7 +24,7 @@ func Module() *wire.Module {
 		if err := scope.Decorate(maskAttachmentUploader[exec.Milieu]); err != nil {
 			return fmt.Errorf("decorate cmdtypes.Attacher with secret.Masker: %w", err)
 		}
-		if err := scope.Decorate(maskIssueReporter[exec.Milieu]); err != nil {
+		if err := scope.Provide(maskIssueReporter[exec.Milieu], dig.Group("decorator")); err != nil {
 			return fmt.Errorf("decorate cmdtypes.Reporter with secret.Masker: %w", err)
 		}
 		if err := scope.Decorate(maskScribeHandler); err != nil {
