@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"drassi.run/core/pkg/model/actions"
+	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/store/repository"
 	"github.com/google/uuid"
@@ -215,4 +216,19 @@ func composeEnv(exec StepExecutor) map[string]string {
 	env := exec.SystemEnv()
 	maps.Copy(env, exec.Env())
 	return env
+}
+
+func weight(r records.Result) int {
+	switch r {
+	case records.ResultSkipped:
+		return 0
+	case records.ResultSuccess:
+		return 1
+	case records.ResultCancelled:
+		return 2
+	case records.ResultFailure:
+		return 3
+	default:
+		return 0
+	}
 }

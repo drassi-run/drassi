@@ -26,7 +26,6 @@ import (
 	"drassi.run/core/util/dig"
 	"drassi.run/core/util/otel"
 	"drassi.run/core/util/tar"
-	"github.com/chainguard-dev/clog"
 	"go.uber.org/dig"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -432,9 +431,10 @@ func (e *jobExecutor) planStage(stage Stage) func(context.Context) error {
 			if stage == StageMain && !strings.HasPrefix(id, "__") {
 				e.steps[id] = res
 			}
-			if res != nil && res.Conclusion == records.ResultFailure {
-				clog.WarnContextf(ctx, "set job.Result='failure' because of step %s failed", id)
-				e.SetStatus(records.ResultFailure)
+			if res != nil {
+				if con := res.Conclusion; weight(con) > weight(e.job.Result) {
+					e.SetStatus(con)
+				}
 			}
 			if err != nil {
 				errs = append(errs, fmt.Errorf("run step %q (%s): %w", id, stage, err))
