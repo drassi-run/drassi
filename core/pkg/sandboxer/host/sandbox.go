@@ -15,6 +15,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/stream"
@@ -83,6 +84,24 @@ func (sb *sandbox) Execute(ctx context.Context, cmd, path []string, env map[stri
 	// TODO lookup entrypoint under custom PATH
 	c := exec.CommandContext(ctx, cmd[0], cmd[1:]...)
 
+	// By default, CommandContext kills the direct process. If the command spawns its own child processes,
+	// Go will kill the parent, but the sub-processes might become orphaned and keep running.
+	// By assign the command to a new Process Group ID (SysProcAttr), entire process tree can be killed
+	// by via manual invoke os SIGKILL.
+	c.SysProcAttr = &syscall.SysProcAttr{
+		Setpgid: true,
+	}
+
+	// Override the default context cancellation behavior.
+	// By default, Go calls `cmd.Process.Kill()`. Replacing it with a function
+	// that targets the process group instead.
+	c.Cancel = func() error {
+		pgid := c.Process.Pid
+		// The negative sign (-) before the PID targets the entire process group
+		// rather than just the single parent process.
+		return syscall.Kill(-pgid, syscall.SIGKILL)
+	}
+
 	// env
 	c.Env = os.Environ()
 	for k, v := range env {
@@ -107,7 +126,14 @@ func (sb *sandbox) Execute(ctx context.Context, cmd, path []string, env map[stri
 
 	// streams
 	c.Stdin, c.Stdout, c.Stderr = streams.In, streams.Out, streams.Err
-	return c.Run()
+
+	err := c.Run()
+	if err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err() // process failed by ctx cancel/timeout
+		}
+	}
+	return err
 }
 
 func (sb *sandbox) Terminate(context.Context) error {

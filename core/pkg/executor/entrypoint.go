@@ -48,7 +48,7 @@ func Run(ctx context.Context, spec *JobSpec, scope *dig.Scope) (job *records.Job
 	// register completeTask to ensure it always be run
 	defer func() {
 		// create new ctx w/ timeout 30s to clean up resources
-		ctx = context.WithoutCancel(ctx)
+		ctx := context.WithoutCancel(ctx)
 		ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 		defer cancel()
 

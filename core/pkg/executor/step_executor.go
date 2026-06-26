@@ -8,6 +8,7 @@ package executor
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"strings"
@@ -291,8 +292,17 @@ func (e *stepExecutor) runAction(ctx context.Context, action *ActionTask) error 
 
 	err := action.Run(ctx)
 	if err != nil {
-		s.Errorf("Running task error: %v", err)
-		e.SetStatus(records.ResultFailure)
+		if errors.Is(err, context.Canceled) {
+			if cause := context.Cause(ctx); cause != nil {
+				s.Errorf("The operation was canceled: %v", cause)
+			} else {
+				s.Errorf("The operation was canceled")
+			}
+			e.SetStatus(records.ResultCancelled)
+		} else {
+			s.Errorf("Running task error: %v", err)
+			e.SetStatus(records.ResultFailure)
+		}
 	}
 
 	// NOTE: step.Outcome can be set from outside StepExecutor, e.g: CompositeAction or CommandProcessor

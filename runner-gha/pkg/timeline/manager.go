@@ -8,6 +8,7 @@ package timeline
 
 import (
 	"context"
+	"errors"
 	"maps"
 	"slices"
 	"strconv"
@@ -122,11 +123,19 @@ func (m *Manager) DecorateJobRun(task *executor.JobTask) executor.JobRun {
 
 		r.State = StateCompleted
 		r.CompletedAt = new(time.Now())
+		r.Result = ResultSucceeded
 		if err != nil {
-			r.Result = ResultFailed
-		} else {
-			r.Result = ToResult(rec.Result)
-			o.Outputs = maps.Clone(rec.Outputs)
+			if errors.Is(err, context.Canceled) {
+				r.Result = ResultCanceled
+			} else {
+				r.Result = ResultFailed
+			}
+		}
+		if rec != nil {
+			jr := m.jobRecord
+			jr.Result = ToResult(rec.Result)
+			jo := jr.Object.(*JobObject)
+			jo.Outputs = maps.Clone(rec.Outputs)
 		}
 		m.push(r)
 		return rec, err
@@ -158,11 +167,13 @@ func (m *Manager) DecorateStepRun(task *executor.StepTask) executor.StepRun {
 		r.State = StateCompleted
 		r.CompletedAt = new(time.Now())
 		r.Name = task.Executor.Name(task.Stage)
-		if err != nil {
-			r.Result = ResultFailed
-		} else {
+		if rec != nil {
 			r.Result = ToResult(rec.Conclusion)
 			o.Outputs = maps.Clone(rec.Outputs)
+		} else if err != nil {
+			r.Result = ResultFailed
+		} else {
+			r.Result = ResultSucceeded
 		}
 		m.push(r)
 		return rec, err
@@ -189,24 +200,24 @@ func (m *Manager) AddIssue(stage executor.Stage, stepUid string, iss *cmdtypes.I
 func (m *Manager) Run(ctx context.Context) {
 	l := clog.FromContext(ctx)
 
+loop:
 	for {
 		select {
 		case <-m.ticker.C:
 			m.flush(ctx, l)
 		case <-ctx.Done():
 			m.ticker.Stop()
-
-			// New 30s timeout context for flush remaining records
-			var cancel context.CancelFunc
-			ctx = context.WithoutCancel(ctx)
-			ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
-			//goland:noinspection GoDeferInLoop
-			defer cancel()
-
-			m.flush(ctx, l)
-			return
+			break loop
 		}
 	}
+
+	// New 30s timeout context for flush remaining records
+	var cancel context.CancelFunc
+	ctx = context.WithoutCancel(ctx)
+	ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	m.flush(ctx, l)
 }
 
 func (m *Manager) newRecord(uid string, obj any) *Record {
