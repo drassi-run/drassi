@@ -82,7 +82,7 @@ func (t *StepTask) JobSpec() *JobSpec {
 	return t.Executor.JobExecutor().JobSpec()
 }
 
-type StepRun func(context.Context) (*records.Step, error)
+type StepRun func(context.Context) (*records.StepResult, error)
 
 type stepExecutor struct {
 	spec   *StepSpec
@@ -92,7 +92,7 @@ type stepExecutor struct {
 
 	// records
 	github *records.Github
-	step   *records.Step
+	step   *records.StepResult
 	name   string
 	inputs map[string]string
 	env    map[string]string
@@ -145,7 +145,7 @@ func (e *stepExecutor) init(ctx context.Context, scope *dig.Scope) (ex error) {
 	e.github = new(*e.github) // clone
 	e.github.Action = e.spec.Id
 	e.env = maps.Clone(e.upperEnv())
-	e.step = new(records.Step)
+	e.step = new(records.StepResult)
 	e.step.Outputs = make(map[string]string)
 	e.state = make(map[string]string)
 
@@ -215,7 +215,7 @@ func (e *stepExecutor) CreateTask(stage Stage) *StepTask {
 	task.Run = e.decorator.DecorateActionRun(task)
 	task.Run = e.telemetry(stage, task.Run)
 
-	run := func(ctx context.Context) (*records.Step, error) {
+	run := func(ctx context.Context) (*records.StepResult, error) {
 		err := e.runAction(ctx, task)
 		if e.step.Outcome == "" {
 			if err != nil {

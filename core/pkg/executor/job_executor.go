@@ -33,9 +33,9 @@ import (
 type JobExecutor interface {
 	JobSpec() *JobSpec
 
-	Initialize(ctx context.Context) (*records.Job, error)
-	RunJob(ctx context.Context) (*records.Job, error)
-	Finalize(ctx context.Context) (*records.Job, error)
+	Initialize(ctx context.Context) (*records.JobResult, error)
+	RunJob(ctx context.Context) (*records.JobResult, error)
+	Finalize(ctx context.Context) (*records.JobResult, error)
 
 	Sandbox() sandboxer.Sandbox
 	ExprEnv() expression.Env
@@ -64,7 +64,7 @@ func (t *JobTask) JobSpec() *JobSpec {
 	return t.Executor.JobSpec()
 }
 
-type JobRun func(context.Context) (*records.Job, error)
+type JobRun func(context.Context) (*records.JobResult, error)
 
 type jobExecutor struct {
 	spec  *JobSpec
@@ -73,8 +73,8 @@ type jobExecutor struct {
 	// records
 	github  *records.Github
 	jobInfo *records.JobInfo
-	job     *records.Job
-	steps   map[string]*records.Step
+	job     *records.JobResult
+	steps   map[string]*records.StepResult
 	env     map[string]string
 	paths   []string
 
@@ -92,7 +92,7 @@ func (e *jobExecutor) JobSpec() *JobSpec {
 	return e.spec
 }
 
-func (e *jobExecutor) Initialize(ctx context.Context) (job *records.Job, err error) {
+func (e *jobExecutor) Initialize(ctx context.Context) (job *records.JobResult, err error) {
 	// e.job is late initialize
 	defer func() { job = e.job }()
 	s := scribe.FromContext(ctx)
@@ -128,7 +128,7 @@ func (e *jobExecutor) Initialize(ctx context.Context) (job *records.Job, err err
 	return
 }
 
-func (e *jobExecutor) RunJob(ctx context.Context) (*records.Job, error) {
+func (e *jobExecutor) RunJob(ctx context.Context) (*records.JobResult, error) {
 	errs := make([]error, 3)
 	for i, stage := range []Stage{StagePre, StageMain, StagePost} {
 		if run := e.stageRuns[stage]; run != nil {
@@ -139,7 +139,7 @@ func (e *jobExecutor) RunJob(ctx context.Context) (*records.Job, error) {
 	return e.job, errors.Join(errs...)
 }
 
-func (e *jobExecutor) Finalize(ctx context.Context) (job *records.Job, err error) {
+func (e *jobExecutor) Finalize(ctx context.Context) (job *records.JobResult, err error) {
 	errs := make([]error, 0, 3)
 	defer func() {
 		job = e.job
@@ -222,8 +222,8 @@ func (e *jobExecutor) initializeJob(s *scribe.Scribe) error {
 	e.github.ActionRepository = ""
 	e.github.ActionStatus = ""
 	e.jobInfo = new(records.JobInfo)
-	e.job = new(records.Job)
-	e.steps = make(map[string]*records.Step, len(e.spec.Steps))
+	e.job = new(records.JobResult)
+	e.steps = make(map[string]*records.StepResult, len(e.spec.Steps))
 	e.SetStatus(records.ResultSuccess)
 
 	// setup expression.Env
@@ -445,7 +445,7 @@ func (e *jobExecutor) planStage(stage Stage) func(context.Context) error {
 }
 
 func (e *jobExecutor) telemetry(stepId string, stage Stage, run StepRun) StepRun {
-	return func(ctx context.Context) (_ *records.Step, err error) {
+	return func(ctx context.Context) (_ *records.StepResult, err error) {
 		ctx, done := xotel.SetupTelemetry(ctx,
 			fmt.Sprintf("StepRun(%s/%s)", stage, stepId),
 			xotel.Step(string(stage)+"/"+stepId),

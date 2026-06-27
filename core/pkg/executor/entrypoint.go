@@ -18,7 +18,7 @@ import (
 	"go.uber.org/dig"
 )
 
-func Run(ctx context.Context, spec *JobSpec, scope *dig.Scope) (job *records.Job, err error) {
+func Run(ctx context.Context, spec *JobSpec, scope *dig.Scope) (job *records.JobResult, err error) {
 	var decorator JobRunDecorator
 	if err = xdig.Populate(scope, &decorator); err != nil {
 		return nil, err
@@ -83,7 +83,7 @@ func Run(ctx context.Context, spec *JobSpec, scope *dig.Scope) (job *records.Job
 }
 
 func telemetryJobRun(jobId string, stage Stage, run JobRun) JobRun {
-	return func(ctx context.Context) (_ *records.Job, err error) {
+	return func(ctx context.Context) (_ *records.JobResult, err error) {
 		ctx, done := xotel.SetupTelemetry(ctx,
 			fmt.Sprintf("JobRun(%s/%s)", stage, jobId),
 		)

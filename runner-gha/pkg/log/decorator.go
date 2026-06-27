@@ -32,7 +32,7 @@ func (d *Decorator) DecorateJobRun(task *executor.JobTask) executor.JobRun {
 
 	run := task.Run
 	uid := d.store.RecordUid(task.Stage, task.JobSpec().Uid)
-	return func(ctx context.Context) (*records.Job, error) {
+	return func(ctx context.Context) (*records.JobResult, error) {
 		if err := d.mgr.Start(uid); err != nil {
 			return nil, fmt.Errorf("start record log: %w", err)
 		}
@@ -50,7 +50,7 @@ func (d *Decorator) DecorateStepRun(task *executor.StepTask) executor.StepRun {
 	run := task.Run
 	uid := d.store.RecordUid(task.Stage, task.StepSpec().Uid)
 	attr := xotel.Step(string(task.Stage) + "/" + task.StepId())
-	return func(ctx context.Context) (*records.Step, error) {
+	return func(ctx context.Context) (*records.StepResult, error) {
 		if err := d.mgr.Start(uid, attr); err != nil {
 			return nil, fmt.Errorf("start record log: %w", err)
 		}

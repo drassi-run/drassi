@@ -81,16 +81,16 @@ func endpointEnv(client gitea.Client, task *runnerv1.Task, gh *records.Github) e
 	return executor.StaticEnv(m)
 }
 
-func convertJobNeeds(taskNeeds map[string]*runnerv1.TaskNeed) map[string]*records.Need {
+func convertJobNeeds(taskNeeds map[string]*runnerv1.TaskNeed) map[string]*records.JobResult {
 	if len(taskNeeds) == 0 {
 		return nil
 	}
 
-	needs := make(map[string]*records.Need, len(taskNeeds))
+	needs := make(map[string]*records.JobResult, len(taskNeeds))
 	for k, n := range taskNeeds {
-		needs[k] = &records.Need{
-			Outputs: n.Outputs,
+		needs[k] = &records.JobResult{
 			Result:  resultMap[n.Result],
+			Outputs: n.Outputs,
 		}
 	}
 	return needs

@@ -29,11 +29,11 @@ type Dossier struct {
 
 	// The `jobs` context is only available in reusable workflows, and can only be used to set outputs for a reusable workflow.
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#jobs-context
-	Jobs map[string]*Job `json:"jobs" yaml:"jobs" actions:"jobs"`
+	Jobs map[string]*JobResult `json:"jobs" yaml:"jobs" actions:"jobs"`
 
 	// The `steps` context contains information about the steps in the current job that have an `id` specified and have already run.
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#steps-context
-	Steps map[string]*Step `json:"steps" yaml:"steps" actions:"steps"`
+	Steps map[string]*StepResult `json:"steps" yaml:"steps" actions:"steps"`
 
 	// The `runner` context contains information about the runner that is executing the current job.
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#runner-context
@@ -56,7 +56,7 @@ type Dossier struct {
 	// The needs context contains outputs from all jobs that are defined as a direct dependency of the current job.
 	// Note that this doesn't include implicitly dependent jobs (for example, dependent jobs of a dependent job).
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#needs-context
-	Needs map[string]*Need `json:"needs" yaml:"needs" actions:"needs"`
+	Needs map[string]*JobResult `json:"needs" yaml:"needs" actions:"needs"`
 
 	// The inputs context contains input properties passed to an action, to a reusable workflow, or to a manually triggered workflow.
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#inputs-context
@@ -70,12 +70,4 @@ type Strategy struct {
 	JobIndex    int64 `json:"job-index" yaml:"job-index" actions:"job-index"`
 	JobTotal    int64 `json:"job-total" yaml:"job-total" actions:"job-total"`
 	MaxParallel int64 `json:"max-parallel" yaml:"max-parallel" actions:"max-parallel"`
-}
-
-// The needs context contains outputs from all jobs that are defined as a direct dependency of the current job.
-// Note that this doesn't include implicitly dependent jobs (for example, dependent jobs of a dependent job).
-// https://docs.github.com/en/actions/learn-github-actions/contexts#needs-context
-type Need struct {
-	Outputs map[string]string `json:"outputs" yaml:"outputs" actions:"outputs"`
-	Result  Result            `json:"result" yaml:"result" actions:"result"`
 }

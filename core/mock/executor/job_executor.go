@@ -157,10 +157,10 @@ func (c *MockJobExecutorExprEnvCall) DoAndReturn(f func() expression.Env) *MockJ
 }
 
 // Finalize mocks base method.
-func (m *MockJobExecutor) Finalize(ctx context.Context) (*records.Job, error) {
+func (m *MockJobExecutor) Finalize(ctx context.Context) (*records.JobResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Finalize", ctx)
-	ret0, _ := ret[0].(*records.Job)
+	ret0, _ := ret[0].(*records.JobResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -178,28 +178,66 @@ type MockJobExecutorFinalizeCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockJobExecutorFinalizeCall) Return(arg0 *records.Job, arg1 error) *MockJobExecutorFinalizeCall {
+func (c *MockJobExecutorFinalizeCall) Return(arg0 *records.JobResult, arg1 error) *MockJobExecutorFinalizeCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockJobExecutorFinalizeCall) Do(f func(context.Context) (*records.Job, error)) *MockJobExecutorFinalizeCall {
+func (c *MockJobExecutorFinalizeCall) Do(f func(context.Context) (*records.JobResult, error)) *MockJobExecutorFinalizeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockJobExecutorFinalizeCall) DoAndReturn(f func(context.Context) (*records.Job, error)) *MockJobExecutorFinalizeCall {
+func (c *MockJobExecutorFinalizeCall) DoAndReturn(f func(context.Context) (*records.JobResult, error)) *MockJobExecutorFinalizeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// Github mocks base method.
+func (m *MockJobExecutor) Github() *records.Github {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Github")
+	ret0, _ := ret[0].(*records.Github)
+	return ret0
+}
+
+// Github indicates an expected call of Github.
+func (mr *MockJobExecutorMockRecorder) Github() *MockJobExecutorGithubCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Github", reflect.TypeOf((*MockJobExecutor)(nil).Github))
+	return &MockJobExecutorGithubCall{Call: call}
+}
+
+// MockJobExecutorGithubCall wrap *gomock.Call
+type MockJobExecutorGithubCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockJobExecutorGithubCall) Return(arg0 *records.Github) *MockJobExecutorGithubCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockJobExecutorGithubCall) Do(f func() *records.Github) *MockJobExecutorGithubCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockJobExecutorGithubCall) DoAndReturn(f func() *records.Github) *MockJobExecutorGithubCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // Initialize mocks base method.
-func (m *MockJobExecutor) Initialize(ctx context.Context) (*records.Job, error) {
+func (m *MockJobExecutor) Initialize(ctx context.Context) (*records.JobResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Initialize", ctx)
-	ret0, _ := ret[0].(*records.Job)
+	ret0, _ := ret[0].(*records.JobResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -217,19 +255,19 @@ type MockJobExecutorInitializeCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockJobExecutorInitializeCall) Return(arg0 *records.Job, arg1 error) *MockJobExecutorInitializeCall {
+func (c *MockJobExecutorInitializeCall) Return(arg0 *records.JobResult, arg1 error) *MockJobExecutorInitializeCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockJobExecutorInitializeCall) Do(f func(context.Context) (*records.Job, error)) *MockJobExecutorInitializeCall {
+func (c *MockJobExecutorInitializeCall) Do(f func(context.Context) (*records.JobResult, error)) *MockJobExecutorInitializeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockJobExecutorInitializeCall) DoAndReturn(f func(context.Context) (*records.Job, error)) *MockJobExecutorInitializeCall {
+func (c *MockJobExecutorInitializeCall) DoAndReturn(f func(context.Context) (*records.JobResult, error)) *MockJobExecutorInitializeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -273,10 +311,10 @@ func (c *MockJobExecutorJobSpecCall) DoAndReturn(f func() *executor.JobSpec) *Mo
 }
 
 // RunJob mocks base method.
-func (m *MockJobExecutor) RunJob(ctx context.Context) (*records.Job, error) {
+func (m *MockJobExecutor) RunJob(ctx context.Context) (*records.JobResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RunJob", ctx)
-	ret0, _ := ret[0].(*records.Job)
+	ret0, _ := ret[0].(*records.JobResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -294,19 +332,19 @@ type MockJobExecutorRunJobCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockJobExecutorRunJobCall) Return(arg0 *records.Job, arg1 error) *MockJobExecutorRunJobCall {
+func (c *MockJobExecutorRunJobCall) Return(arg0 *records.JobResult, arg1 error) *MockJobExecutorRunJobCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockJobExecutorRunJobCall) Do(f func(context.Context) (*records.Job, error)) *MockJobExecutorRunJobCall {
+func (c *MockJobExecutorRunJobCall) Do(f func(context.Context) (*records.JobResult, error)) *MockJobExecutorRunJobCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockJobExecutorRunJobCall) DoAndReturn(f func(context.Context) (*records.Job, error)) *MockJobExecutorRunJobCall {
+func (c *MockJobExecutorRunJobCall) DoAndReturn(f func(context.Context) (*records.JobResult, error)) *MockJobExecutorRunJobCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

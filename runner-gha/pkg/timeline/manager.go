@@ -75,7 +75,7 @@ func (m *Manager) InitJob(spec *executor.JobSpec) {
 	m.jobRecord = r
 }
 
-func (m *Manager) FinishJob(rec *records.Job) {
+func (m *Manager) FinishJob(rec *records.JobResult) {
 	r := m.jobRecord
 	o := r.Object.(*JobObject)
 
@@ -114,7 +114,7 @@ func (m *Manager) DecorateJobRun(task *executor.JobTask) executor.JobRun {
 	m.addToJob(r)
 
 	run := task.Run
-	return func(ctx context.Context) (*records.Job, error) {
+	return func(ctx context.Context) (*records.JobResult, error) {
 		r.StartedAt = new(time.Now())
 		r.State = StateInProgress
 		m.push(r)
@@ -156,7 +156,7 @@ func (m *Manager) DecorateStepRun(task *executor.StepTask) executor.StepRun {
 	m.addToJob(r)
 
 	run := task.Run
-	return func(ctx context.Context) (*records.Step, error) {
+	return func(ctx context.Context) (*records.StepResult, error) {
 		r.StartedAt = new(time.Now())
 		r.State = StateInProgress
 		r.Name = task.Executor.Name(task.Stage)

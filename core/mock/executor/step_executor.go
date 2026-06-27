@@ -197,6 +197,44 @@ func (c *MockStepExecutorExprEnvCall) DoAndReturn(f func() expression.Env) *Mock
 	return c
 }
 
+// Github mocks base method.
+func (m *MockStepExecutor) Github() *records.Github {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Github")
+	ret0, _ := ret[0].(*records.Github)
+	return ret0
+}
+
+// Github indicates an expected call of Github.
+func (mr *MockStepExecutorMockRecorder) Github() *MockStepExecutorGithubCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Github", reflect.TypeOf((*MockStepExecutor)(nil).Github))
+	return &MockStepExecutorGithubCall{Call: call}
+}
+
+// MockStepExecutorGithubCall wrap *gomock.Call
+type MockStepExecutorGithubCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStepExecutorGithubCall) Return(arg0 *records.Github) *MockStepExecutorGithubCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStepExecutorGithubCall) Do(f func() *records.Github) *MockStepExecutorGithubCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStepExecutorGithubCall) DoAndReturn(f func() *records.Github) *MockStepExecutorGithubCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // Inputs mocks base method.
 func (m *MockStepExecutor) Inputs() map[string]string {
 	m.ctrl.T.Helper()

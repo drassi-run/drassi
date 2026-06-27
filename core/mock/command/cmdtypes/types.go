@@ -12,6 +12,7 @@ package mock_cmdtypes
 import (
 	reflect "reflect"
 
+	records "drassi.run/core/pkg/model/records"
 	runtime "drassi.run/core/pkg/runtime"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -256,32 +257,32 @@ func (c *MockSupportSaveStateSaveStateCall) DoAndReturn(f func(map[string]string
 	return c
 }
 
-// MockSupportPathTranslator is a mock of SupportPathTranslator interface.
-type MockSupportPathTranslator struct {
+// MockHasPathTranslator is a mock of HasPathTranslator interface.
+type MockHasPathTranslator struct {
 	ctrl     *gomock.Controller
-	recorder *MockSupportPathTranslatorMockRecorder
+	recorder *MockHasPathTranslatorMockRecorder
 	isgomock struct{}
 }
 
-// MockSupportPathTranslatorMockRecorder is the mock recorder for MockSupportPathTranslator.
-type MockSupportPathTranslatorMockRecorder struct {
-	mock *MockSupportPathTranslator
+// MockHasPathTranslatorMockRecorder is the mock recorder for MockHasPathTranslator.
+type MockHasPathTranslatorMockRecorder struct {
+	mock *MockHasPathTranslator
 }
 
-// NewMockSupportPathTranslator creates a new mock instance.
-func NewMockSupportPathTranslator(ctrl *gomock.Controller) *MockSupportPathTranslator {
-	mock := &MockSupportPathTranslator{ctrl: ctrl}
-	mock.recorder = &MockSupportPathTranslatorMockRecorder{mock}
+// NewMockHasPathTranslator creates a new mock instance.
+func NewMockHasPathTranslator(ctrl *gomock.Controller) *MockHasPathTranslator {
+	mock := &MockHasPathTranslator{ctrl: ctrl}
+	mock.recorder = &MockHasPathTranslatorMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockSupportPathTranslator) EXPECT() *MockSupportPathTranslatorMockRecorder {
+func (m *MockHasPathTranslator) EXPECT() *MockHasPathTranslatorMockRecorder {
 	return m.recorder
 }
 
 // PathTranslator mocks base method.
-func (m *MockSupportPathTranslator) PathTranslator() runtime.PathTranslator {
+func (m *MockHasPathTranslator) PathTranslator() runtime.PathTranslator {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PathTranslator")
 	ret0, _ := ret[0].(runtime.PathTranslator)
@@ -289,31 +290,93 @@ func (m *MockSupportPathTranslator) PathTranslator() runtime.PathTranslator {
 }
 
 // PathTranslator indicates an expected call of PathTranslator.
-func (mr *MockSupportPathTranslatorMockRecorder) PathTranslator() *MockSupportPathTranslatorPathTranslatorCall {
+func (mr *MockHasPathTranslatorMockRecorder) PathTranslator() *MockHasPathTranslatorPathTranslatorCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PathTranslator", reflect.TypeOf((*MockSupportPathTranslator)(nil).PathTranslator))
-	return &MockSupportPathTranslatorPathTranslatorCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PathTranslator", reflect.TypeOf((*MockHasPathTranslator)(nil).PathTranslator))
+	return &MockHasPathTranslatorPathTranslatorCall{Call: call}
 }
 
-// MockSupportPathTranslatorPathTranslatorCall wrap *gomock.Call
-type MockSupportPathTranslatorPathTranslatorCall struct {
+// MockHasPathTranslatorPathTranslatorCall wrap *gomock.Call
+type MockHasPathTranslatorPathTranslatorCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockSupportPathTranslatorPathTranslatorCall) Return(arg0 runtime.PathTranslator) *MockSupportPathTranslatorPathTranslatorCall {
+func (c *MockHasPathTranslatorPathTranslatorCall) Return(arg0 runtime.PathTranslator) *MockHasPathTranslatorPathTranslatorCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockSupportPathTranslatorPathTranslatorCall) Do(f func() runtime.PathTranslator) *MockSupportPathTranslatorPathTranslatorCall {
+func (c *MockHasPathTranslatorPathTranslatorCall) Do(f func() runtime.PathTranslator) *MockHasPathTranslatorPathTranslatorCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSupportPathTranslatorPathTranslatorCall) DoAndReturn(f func() runtime.PathTranslator) *MockSupportPathTranslatorPathTranslatorCall {
+func (c *MockHasPathTranslatorPathTranslatorCall) DoAndReturn(f func() runtime.PathTranslator) *MockHasPathTranslatorPathTranslatorCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// MockHasGithub is a mock of HasGithub interface.
+type MockHasGithub struct {
+	ctrl     *gomock.Controller
+	recorder *MockHasGithubMockRecorder
+	isgomock struct{}
+}
+
+// MockHasGithubMockRecorder is the mock recorder for MockHasGithub.
+type MockHasGithubMockRecorder struct {
+	mock *MockHasGithub
+}
+
+// NewMockHasGithub creates a new mock instance.
+func NewMockHasGithub(ctrl *gomock.Controller) *MockHasGithub {
+	mock := &MockHasGithub{ctrl: ctrl}
+	mock.recorder = &MockHasGithubMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockHasGithub) EXPECT() *MockHasGithubMockRecorder {
+	return m.recorder
+}
+
+// Github mocks base method.
+func (m *MockHasGithub) Github() *records.Github {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Github")
+	ret0, _ := ret[0].(*records.Github)
+	return ret0
+}
+
+// Github indicates an expected call of Github.
+func (mr *MockHasGithubMockRecorder) Github() *MockHasGithubGithubCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Github", reflect.TypeOf((*MockHasGithub)(nil).Github))
+	return &MockHasGithubGithubCall{Call: call}
+}
+
+// MockHasGithubGithubCall wrap *gomock.Call
+type MockHasGithubGithubCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockHasGithubGithubCall) Return(arg0 *records.Github) *MockHasGithubGithubCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockHasGithubGithubCall) Do(f func() *records.Github) *MockHasGithubGithubCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockHasGithubGithubCall) DoAndReturn(f func() *records.Github) *MockHasGithubGithubCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

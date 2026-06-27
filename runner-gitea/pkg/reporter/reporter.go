@@ -94,7 +94,7 @@ func (r *Reporter) DecorateJobRun(task *executor.JobTask) executor.JobRun {
 		return run
 	}
 
-	return func(ctx context.Context) (*records.Job, error) {
+	return func(ctx context.Context) (*records.JobResult, error) {
 		r.jobState.StartedAt = timestamppb.Now()
 		r.flush()
 
@@ -116,7 +116,7 @@ func (r *Reporter) DecorateStepRun(task *executor.StepTask) executor.StepRun {
 
 	run := task.Run
 	stepState := r.stepStates[task.StepId()]
-	return func(ctx context.Context) (*records.Step, error) {
+	return func(ctx context.Context) (*records.StepResult, error) {
 		stepState.StartedAt = timestamppb.Now()
 		stepState.LogIndex = r.logStreamer.Offset()
 		r.flush()
