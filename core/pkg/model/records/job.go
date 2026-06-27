@@ -10,12 +10,12 @@ package records
 // https://docs.github.com/en/actions/learn-github-actions/contexts#job-context
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/JobContext.cs
 type JobInfo struct {
-	Container *Container            `json:"container" yaml:"container" actions:"container"`
-	Services  map[string]*Container `json:"services" yaml:"services" actions:"services"`
-	Status    Result                `json:"status" yaml:"status" actions:"status"`
+	Container *ContainerInfo            `json:"container" yaml:"container" actions:"container"`
+	Services  map[string]*ContainerInfo `json:"services" yaml:"services" actions:"services"`
+	Status    Result                    `json:"status" yaml:"status" actions:"status"`
 }
 
-type Container struct {
+type ContainerInfo struct {
 	Id      string            `json:"id" yaml:"id" actions:"id"`
 	Network string            `json:"network" yaml:"network" actions:"network"`
 	Ports   map[string]string `json:"ports" yaml:"ports" actions:"ports"`

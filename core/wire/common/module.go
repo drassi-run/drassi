@@ -124,7 +124,7 @@ func (o *options) expressionEnv(d *records.Dossier) (expr.Env, error) {
 	return expr.NewEnv(opts...)
 }
 
-func newDossier(runner *records.Runner) *records.Dossier {
+func newDossier(runner *records.RunnerInfo) *records.Dossier {
 	d := new(records.Dossier)
 	d.Github = new(records.Github)
 	d.Env = make(map[string]string)
@@ -181,7 +181,7 @@ func (g *githubEnv) Env(e exec.StepExecutor) map[string]string {
 	}
 }
 
-func runnerEnv(runner *records.Runner) exec.EnvProvider {
+func runnerEnv(runner *records.RunnerInfo) exec.EnvProvider {
 	m := map[string]string{
 		"RUNNER_NAME":        runner.Name,
 		"RUNNER_ARCH":        string(runner.Arch),

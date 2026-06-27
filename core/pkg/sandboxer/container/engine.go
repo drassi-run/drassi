@@ -88,7 +88,7 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*san
 		return nil, err
 	}
 	if containerId != "" {
-		resp.JobContainer = &records.Container{
+		resp.JobContainer = &records.ContainerInfo{
 			Id: containerId,
 		}
 	}
@@ -141,7 +141,7 @@ func (e *engine) Bootstrap(ctx context.Context, sb sandboxer.Sandbox, req *sandb
 		if err != nil {
 			return nil, err
 		}
-		resp.JobContainer = &records.Container{
+		resp.JobContainer = &records.ContainerInfo{
 			Id:      containerId,
 			Network: networkId,
 		}
@@ -173,7 +173,7 @@ func (e *engine) Bootstrap(ctx context.Context, sb sandboxer.Sandbox, req *sandb
 				} else if portMap, err := e.getPortsMap(ctx, containerId); err != nil {
 					return err
 				} else {
-					resp.ServiceContainers[name] = &records.Container{
+					resp.ServiceContainers[name] = &records.ContainerInfo{
 						Id:      containerId,
 						Network: networkId,
 						Ports:   portMap,

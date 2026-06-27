@@ -121,7 +121,7 @@ func sysEnvProvider(req *messages.PipelineAgentJobRequest) (executor.EnvProvider
 	return executor.StaticEnv(sysEnv), nil
 }
 
-func newDossierAndFlags(req *messages.PipelineAgentJobRequest, runner *records.Runner) (*records.Dossier, feature.Flags, error) {
+func newDossierAndFlags(req *messages.PipelineAgentJobRequest, runner *records.RunnerInfo) (*records.Dossier, feature.Flags, error) {
 	dossier := new(records.Dossier)
 	if err := model.Decode(req.ContextData, dossier); err != nil {
 		return nil, nil, fmt.Errorf("decode ContextData: %w", err)

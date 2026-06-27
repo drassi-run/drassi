@@ -351,7 +351,7 @@ func (e *jobExecutor) initializeScope() error {
 	return nil
 }
 
-func (e *jobExecutor) configureRunner(runner *records.Runner) {
+func (e *jobExecutor) configureRunner(runner *records.RunnerInfo) {
 	layout := e.sandbox.Layout()
 	runner.Workspace = layout.Workspace
 	runner.ToolCache = layout.Tools

@@ -37,7 +37,7 @@ type Dossier struct {
 
 	// The `runner` context contains information about the runner that is executing the current job.
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#runner-context
-	Runner *Runner `json:"runner" yaml:"runner" actions:"runner"`
+	Runner *RunnerInfo `json:"runner" yaml:"runner" actions:"runner"`
 
 	// The secrets context contains the names and values of secrets that are available to a workflow run.
 	// The secrets context is not available for composite actions due to security reasons.

@@ -291,7 +291,7 @@ func (l *launcher) forceRefreshToken(ctx context.Context) error {
 
 func (l *launcher) module() *wire.Module {
 	fn := func(scope *dig.Scope) error {
-		runner := &records.Runner{
+		runner := &records.RunnerInfo{
 			Name:        l.Runner.Status.RunnerName,
 			Os:          model.Linux,
 			Arch:        model.X64,
