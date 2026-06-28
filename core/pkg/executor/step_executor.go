@@ -216,7 +216,13 @@ func (e *stepExecutor) CreateTask(stage Stage) *StepTask {
 	task.Run = e.telemetry(stage, task.Run)
 
 	run := func(ctx context.Context) (*records.StepResult, error) {
-		err := e.runAction(ctx, task)
+		clear(e.inputs)
+		res := &records.StepResult{
+			Outcome: records.ResultSuccess,
+			Outputs: make(map[string]string),
+		}
+
+		err := e.runAction(ctx, task, res)
 		if e.step.Outcome == "" {
 			if err != nil {
 				e.SetStatus(records.ResultFailure)
@@ -237,7 +243,7 @@ func (e *stepExecutor) CreateTask(stage Stage) *StepTask {
 }
 
 func (e *stepExecutor) telemetry(stage Stage, run ActionRun) ActionRun {
-	return func(ctx context.Context) (err error) {
+	return func(ctx context.Context) (_ records.Result, err error) {
 		ctx, done := xotel.SetupTelemetry(ctx,
 			fmt.Sprintf("ActionRun(%s/%s)", stage, e.spec.Id),
 		)
@@ -247,7 +253,7 @@ func (e *stepExecutor) telemetry(stage Stage, run ActionRun) ActionRun {
 	}
 }
 
-func (e *stepExecutor) runAction(ctx context.Context, action *ActionTask) error {
+func (e *stepExecutor) runAction(ctx context.Context, action *ActionTask, sr *records.StepResult) error {
 	s := scribe.FromContext(ctx)
 
 	maps.Copy(e.env, e.upperEnv())
@@ -290,7 +296,7 @@ func (e *stepExecutor) runAction(ctx context.Context, action *ActionTask) error 
 		return fmt.Errorf("evaluate 'inputs': %w", err)
 	}
 
-	err := action.Run(ctx)
+	res, err := action.Run(ctx)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			if cause := context.Cause(ctx); cause != nil {
@@ -298,12 +304,11 @@ func (e *stepExecutor) runAction(ctx context.Context, action *ActionTask) error 
 			} else {
 				s.Errorf("The operation was canceled")
 			}
-			e.SetStatus(records.ResultCancelled)
 		} else {
 			s.Errorf("Running task error: %v", err)
-			e.SetStatus(records.ResultFailure)
 		}
 	}
+	sr.Outcome = res
 
 	// NOTE: step.Outcome can be set from outside StepExecutor, e.g: CompositeAction or CommandProcessor
 	if e.step.Outcome == records.ResultFailure {

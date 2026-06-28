@@ -84,7 +84,7 @@ func (e *scriptActionExecutor) CreateTask(stage Stage) *ActionTask {
 		return nil
 	}
 	return &ActionTask{
-		Run:      e.executeMain,
+		Run:      runActionE(e.executeMain),
 		Stage:    stage,
 		Executor: e,
 	}
@@ -133,7 +133,7 @@ func (e *scriptActionExecutor) executeMain(ctx context.Context) error {
 	}
 
 	env := composeEnv(e.sExec)
-	paths := e.sExec.JobExecutor().SystemPaths()
+	paths := e.sExec.JobExecutor().Path()
 	streams := e.sExec.Streams(ctx, StageMain)
 	defer streams.Close()
 	return sandbox.Execute(ctx, cmd, paths, env, workdir, streams)

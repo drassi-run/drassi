@@ -8,12 +8,15 @@ package wire_command
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"strings"
 
 	cmd "drassi.run/core/pkg/command"
 	"drassi.run/core/pkg/command/cmdtypes"
 	exec "drassi.run/core/pkg/executor"
+	"drassi.run/core/pkg/model/records"
+	"drassi.run/core/pkg/scribe"
 	"drassi.run/core/util/dig"
 	xstring "drassi.run/core/util/string"
 )
@@ -29,14 +32,24 @@ type commandDecorator struct {
 func (c *commandDecorator) DecorateActionRun(task *exec.ActionTask) exec.ActionRun {
 	run := task.Run
 	res := exec.NewMilieu(task.Stage, task.Executor.StepExecutor())
-	return func(ctx context.Context) error {
-		if err := c.fileMgr.Initialize(ctx, res); err != nil {
-			return err
+	return func(ctx context.Context) (rec records.Result, err error) {
+		if err = c.fileMgr.Initialize(ctx, res); err != nil {
+			rec = records.ResultFailure
+			return
 		}
-		if err := run(ctx); err != nil {
-			return err
+
+		rec, err = run(ctx)
+
+		if ex := c.fileMgr.Process(ctx, res); ex != nil {
+			scribe.Errorf(ctx, "process file commands fail: %v", ex)
+			if rec == records.ResultSuccess {
+				rec = records.ResultFailure
+			}
+			if rec == records.ResultFailure && err == nil {
+				err = fmt.Errorf("process file commands fail: %w", ex)
+			}
 		}
-		return c.fileMgr.Process(ctx, res)
+		return
 	}
 }
 

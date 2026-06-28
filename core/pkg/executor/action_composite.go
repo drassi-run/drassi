@@ -8,14 +8,16 @@ package executor
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 
+	"drassi.run/core/pkg/expression"
+	"drassi.run/core/pkg/expression/libraries"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/store/repository"
 	"drassi.run/core/util/dig"
-	"github.com/chainguard-dev/clog"
 	"go.uber.org/dig"
 )
 
@@ -43,6 +45,7 @@ type compositeActionExecutor struct {
 
 	decorator StepRunDecorator
 	children  map[string]StepExecutor
+	status    records.Result
 }
 
 func (e *compositeActionExecutor) init(ctx context.Context, scope *dig.Scope) error {
@@ -50,17 +53,10 @@ func (e *compositeActionExecutor) init(ctx context.Context, scope *dig.Scope) er
 		return err
 	}
 
-	// TODO: concurrent version of Initialize is temporary disable because of concurrent map writes in scope
-	//g, ctx := errgroup.WithContext(exec.Context())
-	//for _, step := range sr.StepRuns {
-	//	cExec := exec.NewChildExecutor(step)
-	//	cScope := scope.Scope(fmt.Sprintf("step(%s)", exec.StepId()))
-	//	g.Go(func() error {
-	//		cExec.SetContext(ctx)
-	//		return cExec.Initialize(cScope)
-	//	})
-	//}
-	//return g.Wait()
+	e.status = records.ResultSuccess
+	if err := scope.Decorate(e.overrideExpressionEnv); err != nil {
+		return fmt.Errorf("override StatusLib in expression.Env: %w", err)
+	}
 
 	e.children = make(map[string]StepExecutor, len(e.spec.Steps))
 	for _, step := range e.spec.Steps {
@@ -73,6 +69,11 @@ func (e *compositeActionExecutor) init(ctx context.Context, scope *dig.Scope) er
 		}
 	}
 	return nil
+}
+
+func (e *compositeActionExecutor) overrideExpressionEnv(exprEnv expression.Env) (expression.Env, error) {
+	opt := expression.WithLibrary(libraries.StatusLib(e))
+	return exprEnv.New(opt)
 }
 
 func (e *compositeActionExecutor) ActionSpec() ActionSpec {
@@ -101,7 +102,6 @@ func (e *compositeActionExecutor) Outputs() workflows.Evaluable[map[string]strin
 }
 
 func (e *compositeActionExecutor) CreateTask(stage Stage) *ActionTask {
-	// 1. Plan the execution
 	ids := make([]string, len(e.spec.Steps))
 	for i, step := range e.spec.Steps {
 		ids[i] = step.Id
@@ -109,39 +109,18 @@ func (e *compositeActionExecutor) CreateTask(stage Stage) *ActionTask {
 	if stage == StagePost {
 		slices.Reverse(ids) // in-place reverse
 	}
-	tasks := make([]*StepTask, len(ids))
-	for i, id := range ids {
+
+	tasks := make([]*StepTask, 0)
+	for _, id := range ids {
 		cExec := e.children[id]
 		task := cExec.CreateTask(stage)
 		if task != nil {
 			task.Run = e.decorator.DecorateStepRun(task)
 		}
-		tasks[i] = task
+		tasks = append(tasks, task)
 	}
 
-	// all runs are nil
-	if !slices.ContainsFunc(tasks, func(t *StepTask) bool { return t != nil }) {
-		return nil
-	}
-
-	// 2. Execute the plan
-	run := func(ctx context.Context) error {
-		for i, task := range tasks {
-			if task == nil {
-				continue
-			}
-
-			id := ids[i]
-			res, err := task.Run(ctx)
-			if res != nil && res.Conclusion == records.ResultFailure {
-				clog.WarnContextf(ctx, "set step.Outcome='failure' because of step %s failed", id)
-				e.sExec.SetStatus(records.ResultFailure)
-			}
-			if err != nil {
-				return fmt.Errorf("run step %q (%s): %w", id, stage, err)
-			}
-		}
-
+	if len(tasks) == 0 {
 		return nil
 	}
 
@@ -152,9 +131,56 @@ func (e *compositeActionExecutor) CreateTask(stage Stage) *ActionTask {
 	}
 
 	return &ActionTask{
-		Run:       run,
+		Run:       e.runStage(stage, tasks),
 		Stage:     stage,
 		Executor:  e,
 		Condition: condition,
 	}
+}
+
+func (e *compositeActionExecutor) runStage(stage Stage, tasks []*StepTask) ActionRun {
+	return func(ctx context.Context) (records.Result, error) {
+		gh := e.sExec.Github()
+		errs := make([]error, 0)
+		cause := error(nil)
+		e.status = records.ResultSuccess
+
+		for _, task := range tasks {
+			gh.ActionStatus = e.status
+
+			res, err := task.Run(ctx)
+			if con := res.Conclusion; level(e.status) < level(con) {
+				e.status = con
+			}
+
+			if err != nil {
+				stepId := task.StepId()
+				switch e.status {
+				case records.ResultFailure:
+					err = fmt.Errorf("step %s/%s fail: %w", stage, stepId, err)
+					errs = append(errs, err)
+				case records.ResultCancelled:
+					if cause == nil {
+						// only record first cause
+						cause = fmt.Errorf("step %s/%s canceled: %w", stage, stepId, err)
+					}
+				}
+			}
+		}
+
+		switch result := e.status; result {
+		case records.ResultFailure:
+			return result, errors.Join(errs...)
+		case records.ResultCancelled:
+			return result, cause
+		default:
+			return result, nil
+		}
+	}
+}
+
+// Status return current step's Outcome
+// its implement [libraries.StatusProvider]
+func (e *compositeActionExecutor) Status() records.Result {
+	return e.status
 }

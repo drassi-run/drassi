@@ -74,10 +74,6 @@ func (e *dockerActionExecutor) init(ctx context.Context, scope *dig.Scope) error
 	}
 	defer e.addSpanAttrs(ctx)
 
-	//if err := d.evaluateDisplayName(ctx, d.exprEnv, d.Image); err != nil {
-	//	return nil, err
-	//}
-
 	if image, ok := strings.CutPrefix(e.spec.Image, "docker://"); ok {
 		e.resolvedImage = image
 		return e.runtime.Pull(ctx, image, nil)
@@ -143,7 +139,7 @@ func (e *dockerActionExecutor) CreateTask(stage Stage) *ActionTask {
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/Handlers/ContainerActionHandler.cs#L22
 func (e *dockerActionExecutor) execute(stage Stage) ActionRun {
-	return func(ctx context.Context) error {
+	fn := func(ctx context.Context) error {
 		e.addSpanAttrs(ctx)
 
 		inputs := e.sExec.Inputs()
@@ -173,6 +169,7 @@ func (e *dockerActionExecutor) execute(stage Stage) ActionRun {
 		defer streams.Close()
 		return e.runtime.Run(ctx, e.resolvedImage, entrypoint, args, env, streams)
 	}
+	return runActionE(fn)
 }
 
 func (e *dockerActionExecutor) computeEntrypoint(stage Stage, inputs map[string]string) ([]string, error) {

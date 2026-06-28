@@ -74,11 +74,6 @@ func (spec *ReferenceActionSpec) CreateExecutor(
 		token = ""
 	}
 
-	// evaluating before loadAction so it DisplayName can be push-down into child StepRun
-	//if err := sr.evaluateDisplayName(ctx, exprEnv, repository.Location(sr.Repo)); err != nil {
-	//	return err
-	//}
-
 	if rev, err := store.Fetch(ctx, spec.Repo, token); err != nil {
 		return nil, err
 	} else {
