@@ -47,6 +47,7 @@ type StepExecutor interface {
 	Env() map[string]string
 	SystemEnv() map[string]string
 	SetEnv(env map[string]string)
+	State() map[string]string
 	SaveState(state map[string]string)
 }
 
@@ -448,6 +449,11 @@ func (e *stepExecutor) SystemEnv() map[string]string {
 // https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#setting-an-environment-variable
 func (e *stepExecutor) SetEnv(env map[string]string) {
 	maps.Copy(e.env, env)
+}
+
+// State return intra action state
+func (e *stepExecutor) State() map[string]string {
+	return e.state
 }
 
 // SaveState used to create environment variables for sharing pre: or post: action state.

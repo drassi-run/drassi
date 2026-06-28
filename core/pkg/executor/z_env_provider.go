@@ -32,3 +32,9 @@ func (prov MultiEnvProvider) Env(exec StepExecutor) map[string]string {
 	}
 	return env
 }
+
+type EnvProviderFunc func(StepExecutor) map[string]string
+
+func (prov EnvProviderFunc) Env(exec StepExecutor) map[string]string {
+	return prov(exec)
+}

@@ -59,11 +59,14 @@ func Module(opts ...Option) *wire.Module {
 		if err := xdig.Supply(scope, exec.CIEnv, dig.Group(wire.EnvProvider)); err != nil {
 			return fmt.Errorf("provide CIEnv: %w", err)
 		}
-		if err := xdig.Supply[exec.EnvProvider](scope, new(githubEnv), dig.Group(wire.EnvProvider)); err != nil {
-			return fmt.Errorf("provide 'github' EnvProvider: %w", err)
+		if err := scope.Provide(StateEnv, dig.Group(wire.EnvProvider)); err != nil {
+			return fmt.Errorf("provide 'STATE_' EnvProvider: %w", err)
 		}
-		if err := scope.Provide(runnerEnv, dig.Group(wire.EnvProvider)); err != nil {
-			return fmt.Errorf("provide 'runner' EnvProvider: %w", err)
+		if err := scope.Provide(GitHubEnv, dig.Group(wire.EnvProvider)); err != nil {
+			return fmt.Errorf("provide 'GITHUB_' EnvProvider: %w", err)
+		}
+		if err := scope.Provide(RunnerEnv, dig.Group(wire.EnvProvider)); err != nil {
+			return fmt.Errorf("provide 'RUNNER_' EnvProvider: %w", err)
 		}
 
 		if err := scope.Provide(problem.NewMatchers); err != nil {
@@ -140,59 +143,78 @@ func getEnv(d *records.Dossier) map[string]string {
 	return d.Env
 }
 
-type githubEnv struct{}
+func StateEnv() exec.EnvProvider {
+	fn := func(e exec.StepExecutor) map[string]string {
+		m := make(map[string]string)
 
-func (g *githubEnv) Env(e exec.StepExecutor) map[string]string {
-	gh := e.Github()
-
-	// set GITHUB_* env
-	return map[string]string{
-		"GITHUB_ACTION":              gh.Action,
-		"GITHUB_ACTION_REF":          gh.ActionRef,
-		"GITHUB_ACTION_REPOSITORY":   gh.ActionRepository,
-		"GITHUB_ACTOR":               gh.Actor,
-		"GITHUB_ACTOR_ID":            gh.ActorId,
-		"GITHUB_API_URL":             gh.ApiUrl,
-		"GITHUB_BASE_REF":            gh.BaseRef,
-		"GITHUB_EVENT_NAME":          gh.EventName,
-		"GITHUB_EVENT_PATH":          gh.EventPath,
-		"GITHUB_GRAPHQL_URL":         gh.GraphqlUrl,
-		"GITHUB_HEAD_REF":            gh.HeadRef,
-		"GITHUB_JOB":                 gh.Job,
-		"GITHUB_REF":                 gh.Ref,
-		"GITHUB_REF_NAME":            gh.RefName,
-		"GITHUB_REF_PROTECTED":       strconv.FormatBool(gh.RefProtected),
-		"GITHUB_REF_TYPE":            string(gh.RefType),
-		"GITHUB_REPOSITORY":          gh.Repository,
-		"GITHUB_REPOSITORY_ID":       gh.RepositoryId,
-		"GITHUB_REPOSITORY_OWNER":    gh.RepositoryOwner,
-		"GITHUB_REPOSITORY_OWNER_ID": gh.RepositoryOwnerId,
-		"GITHUB_RETENTION_DAYS":      gh.RetentionDays,
-		"GITHUB_RUN_ATTEMPT":         gh.RunAttempt,
-		"GITHUB_RUN_ID":              gh.RunId,
-		"GITHUB_RUN_NUMBER":          gh.RunNumber,
-		"GITHUB_SERVER_URL":          gh.ServerUrl,
-		"GITHUB_SHA":                 gh.Sha,
-		"GITHUB_TRIGGERING_ACTOR":    gh.TriggeringActor,
-		"GITHUB_WORKFLOW":            gh.Workflow,
-		"GITHUB_WORKFLOW_REF":        gh.WorkflowRef,
-		"GITHUB_WORKFLOW_SHA":        gh.WorkflowSha,
-		"GITHUB_WORKSPACE":           gh.Workspace,
+		// set STATE_* env
+		// https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#sending-values-to-the-pre-and-post-actions
+		for k, v := range e.State() {
+			k = "STATE_" + k
+			m[k] = v
+		}
+		return m
 	}
+	return exec.EnvProviderFunc(fn)
 }
 
-func runnerEnv(runner *records.RunnerInfo) exec.EnvProvider {
-	m := map[string]string{
-		"RUNNER_NAME":        runner.Name,
-		"RUNNER_ARCH":        string(runner.Arch),
-		"RUNNER_OS":          string(runner.Os),
-		"RUNNER_ENVIRONMENT": runner.Environment,
-		"RUNNER_TEMP":        runner.Temp,
-		"RUNNER_TOOL_CACHE":  runner.ToolCache,
-		"RUNNER_WORKSPACE":   runner.Workspace,
+func GitHubEnv() exec.EnvProvider {
+	fn := func(e exec.StepExecutor) map[string]string {
+		gh := e.Github()
+
+		// set GITHUB_* env
+		return map[string]string{
+			"GITHUB_ACTION":              gh.Action,
+			"GITHUB_ACTION_REF":          gh.ActionRef,
+			"GITHUB_ACTION_REPOSITORY":   gh.ActionRepository,
+			"GITHUB_ACTOR":               gh.Actor,
+			"GITHUB_ACTOR_ID":            gh.ActorId,
+			"GITHUB_API_URL":             gh.ApiUrl,
+			"GITHUB_BASE_REF":            gh.BaseRef,
+			"GITHUB_EVENT_NAME":          gh.EventName,
+			"GITHUB_EVENT_PATH":          gh.EventPath,
+			"GITHUB_GRAPHQL_URL":         gh.GraphqlUrl,
+			"GITHUB_HEAD_REF":            gh.HeadRef,
+			"GITHUB_JOB":                 gh.Job,
+			"GITHUB_REF":                 gh.Ref,
+			"GITHUB_REF_NAME":            gh.RefName,
+			"GITHUB_REF_PROTECTED":       strconv.FormatBool(gh.RefProtected),
+			"GITHUB_REF_TYPE":            string(gh.RefType),
+			"GITHUB_REPOSITORY":          gh.Repository,
+			"GITHUB_REPOSITORY_ID":       gh.RepositoryId,
+			"GITHUB_REPOSITORY_OWNER":    gh.RepositoryOwner,
+			"GITHUB_REPOSITORY_OWNER_ID": gh.RepositoryOwnerId,
+			"GITHUB_RETENTION_DAYS":      gh.RetentionDays,
+			"GITHUB_RUN_ATTEMPT":         gh.RunAttempt,
+			"GITHUB_RUN_ID":              gh.RunId,
+			"GITHUB_RUN_NUMBER":          gh.RunNumber,
+			"GITHUB_SERVER_URL":          gh.ServerUrl,
+			"GITHUB_SHA":                 gh.Sha,
+			"GITHUB_TRIGGERING_ACTOR":    gh.TriggeringActor,
+			"GITHUB_WORKFLOW":            gh.Workflow,
+			"GITHUB_WORKFLOW_REF":        gh.WorkflowRef,
+			"GITHUB_WORKFLOW_SHA":        gh.WorkflowSha,
+			"GITHUB_WORKSPACE":           gh.Workspace,
+		}
 	}
-	if runner.Debug == "1" {
-		m["RUNNER_DEBUG"] = "1"
+	return exec.EnvProviderFunc(fn)
+}
+
+func RunnerEnv(runner *records.RunnerInfo) exec.EnvProvider {
+	fn := func(e exec.StepExecutor) map[string]string {
+		m := map[string]string{
+			"RUNNER_NAME":        runner.Name,
+			"RUNNER_ARCH":        string(runner.Arch),
+			"RUNNER_OS":          string(runner.Os),
+			"RUNNER_ENVIRONMENT": runner.Environment,
+			"RUNNER_TEMP":        runner.Temp,
+			"RUNNER_TOOL_CACHE":  runner.ToolCache,
+			"RUNNER_WORKSPACE":   runner.Workspace,
+		}
+		if runner.Debug == "1" {
+			m["RUNNER_DEBUG"] = "1"
+		}
+		return m
 	}
-	return exec.StaticEnv(m)
+	return exec.EnvProviderFunc(fn)
 }
