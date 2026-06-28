@@ -30,10 +30,14 @@ type jobRunDecoratorParam struct {
 	dig.In
 
 	Reporter executor.JobRunDecorator `name:"reporter"`
+	Masker   executor.JobRunDecorator `name:"masker"`
 }
 
 func collectJobRunDecorators(p jobRunDecoratorParam) executor.JobRunDecorator {
-	return p.Reporter
+	return executor.MultiJobRunDecorator{
+		p.Reporter,
+		p.Masker,
+	}
 }
 
 type stepRunDecoratorParam struct {

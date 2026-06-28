@@ -76,6 +76,44 @@ func (c *MockMaskerAddSecretCall) DoAndReturn(f func(secret.Secret)) *MockMasker
 	return c
 }
 
+// IsClean mocks base method.
+func (m *MockMasker) IsClean(input string) bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsClean", input)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// IsClean indicates an expected call of IsClean.
+func (mr *MockMaskerMockRecorder) IsClean(input any) *MockMaskerIsCleanCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsClean", reflect.TypeOf((*MockMasker)(nil).IsClean), input)
+	return &MockMaskerIsCleanCall{Call: call}
+}
+
+// MockMaskerIsCleanCall wrap *gomock.Call
+type MockMaskerIsCleanCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockMaskerIsCleanCall) Return(arg0 bool) *MockMaskerIsCleanCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockMaskerIsCleanCall) Do(f func(string) bool) *MockMaskerIsCleanCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockMaskerIsCleanCall) DoAndReturn(f func(string) bool) *MockMaskerIsCleanCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // Mask mocks base method.
 func (m *MockMasker) Mask(input string) string {
 	m.ctrl.T.Helper()

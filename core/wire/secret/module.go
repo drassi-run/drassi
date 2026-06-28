@@ -30,6 +30,9 @@ func Module() *wire.Module {
 		if err := scope.Decorate(maskScribeHandler); err != nil {
 			return fmt.Errorf("decorate scribe.Handler with secret.Masker: %w", err)
 		}
+		if err := scope.Provide(maskJobRunDecorator, dig.Name("masker")); err != nil {
+			return fmt.Errorf("provide 'maskJobOutputs' JobRunDecorator: %w", err)
+		}
 		return nil
 	}
 	return wire.NewModule("core/secret", fn)

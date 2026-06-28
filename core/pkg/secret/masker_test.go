@@ -22,6 +22,10 @@ type dummySecret struct {
 	pos []*Position
 }
 
+func (d *dummySecret) In(input string) bool {
+	return len(d.pos) > 0
+}
+
 func (d *dummySecret) At(input string) []*Position {
 	return d.pos
 }

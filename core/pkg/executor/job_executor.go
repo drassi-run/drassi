@@ -140,21 +140,21 @@ func (e *jobExecutor) RunJob(ctx context.Context) (*records.JobResult, error) {
 }
 
 func (e *jobExecutor) Finalize(ctx context.Context) (job *records.JobResult, err error) {
+	s := scribe.FromContext(ctx)
 	errs := make([]error, 0, 3)
 	defer func() {
 		job = e.job
 		err = errors.Join(errs...)
 	}()
 
-	s := scribe.FromContext(ctx)
-	if e.job.Result == records.ResultSuccess {
-		s.Debugf("Evaluating job 'outputs'")
-		if ex := evaluator.Evaluate(e.exprEnv, e.spec.Outputs, &e.job.Outputs); ex != nil {
-			e.SetStatus(records.ResultFailure)
-			s.Errorf("Evaluate job 'outputs' error: %v", ex)
-			ex = fmt.Errorf("evaluate job 'output': %w", ex)
-			errs = append(errs, ex)
-		}
+	// https://github.com/actions/runner/blob/v2.335.1/src/Runner.Worker/JobExtension.cs#L751
+	// NOTE: any job.Outputs contains secret will be removed later by [wire_secret.maskJobOutputs]
+	s.Debugf("Evaluating job 'outputs'")
+	if ex := evaluator.Evaluate(e.exprEnv, e.spec.Outputs, &e.job.Outputs); ex != nil {
+		e.SetStatus(records.ResultFailure)
+		s.Errorf("Evaluate job 'outputs' error: %v", ex)
+		ex = fmt.Errorf("evaluate job 'output': %w", ex)
+		errs = append(errs, ex)
 	}
 
 	if hook := e.preStop; hook != nil {

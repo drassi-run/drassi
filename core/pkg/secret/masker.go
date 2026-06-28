@@ -15,6 +15,7 @@ import (
 
 type Masker interface {
 	AddSecret(secret Secret)
+	IsClean(input string) bool
 	Mask(input string) string
 }
 
@@ -28,6 +29,15 @@ type masker struct {
 
 func (m *masker) AddSecret(secret Secret) {
 	m.secrets = append(m.secrets, secret)
+}
+
+func (m *masker) IsClean(input string) bool {
+	for _, secret := range m.secrets {
+		if secret.In(input) {
+			return false
+		}
+	}
+	return true
 }
 
 func (m *masker) Mask(input string) string {

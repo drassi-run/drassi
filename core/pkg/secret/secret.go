@@ -18,6 +18,7 @@ type Position struct {
 }
 
 type Secret interface {
+	In(input string) bool
 	At(input string) []*Position
 }
 
@@ -28,6 +29,10 @@ type valueSecret struct {
 
 func NewValueSecret(val string) Secret {
 	return &valueSecret{val}
+}
+
+func (s *valueSecret) In(input string) bool {
+	return strings.Contains(input, s.val)
 }
 
 func (s *valueSecret) At(input string) []*Position {
@@ -58,6 +63,10 @@ type regexSecret struct {
 
 func NewRegexSecret(re *regexp.Regexp) Secret {
 	return &regexSecret{re}
+}
+
+func (s *regexSecret) In(input string) bool {
+	return s.re.MatchString(input)
 }
 
 func (s *regexSecret) At(input string) []*Position {
