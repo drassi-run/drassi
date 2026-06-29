@@ -218,15 +218,18 @@ func composeEnv(exec StepExecutor) map[string]string {
 	return env
 }
 
-func weight(r records.Result) int {
+// level used to merge 2 records.Result by worst result.
+//
+//	succeeded -> failed -> canceled/skipped
+//
+// TaskResultUtil: https://github.com/actions/runner/blob/v2.335.1/src/Runner.Common/Util/TaskResultUtil.cs#L40
+func level(r records.Result) int {
 	switch r {
-	case records.ResultSkipped:
-		return 0
 	case records.ResultSuccess:
 		return 1
-	case records.ResultCancelled:
-		return 2
 	case records.ResultFailure:
+		return 2
+	case records.ResultCancelled, records.ResultSkipped:
 		return 3
 	default:
 		return 0

@@ -310,6 +310,44 @@ func (c *MockJobExecutorJobSpecCall) DoAndReturn(f func() *executor.JobSpec) *Mo
 	return c
 }
 
+// Path mocks base method.
+func (m *MockJobExecutor) Path() []string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Path")
+	ret0, _ := ret[0].([]string)
+	return ret0
+}
+
+// Path indicates an expected call of Path.
+func (mr *MockJobExecutorMockRecorder) Path() *MockJobExecutorPathCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Path", reflect.TypeOf((*MockJobExecutor)(nil).Path))
+	return &MockJobExecutorPathCall{Call: call}
+}
+
+// MockJobExecutorPathCall wrap *gomock.Call
+type MockJobExecutorPathCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockJobExecutorPathCall) Return(arg0 []string) *MockJobExecutorPathCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockJobExecutorPathCall) Do(f func() []string) *MockJobExecutorPathCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockJobExecutorPathCall) DoAndReturn(f func() []string) *MockJobExecutorPathCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // RunJob mocks base method.
 func (m *MockJobExecutor) RunJob(ctx context.Context) (*records.JobResult, error) {
 	m.ctrl.T.Helper()
@@ -419,156 +457,6 @@ func (c *MockJobExecutorSetEnvCall) Do(f func(map[string]string)) *MockJobExecut
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockJobExecutorSetEnvCall) DoAndReturn(f func(map[string]string)) *MockJobExecutorSetEnvCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// SetStatus mocks base method.
-func (m *MockJobExecutor) SetStatus(status records.Result) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SetStatus", status)
-}
-
-// SetStatus indicates an expected call of SetStatus.
-func (mr *MockJobExecutorMockRecorder) SetStatus(status any) *MockJobExecutorSetStatusCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetStatus", reflect.TypeOf((*MockJobExecutor)(nil).SetStatus), status)
-	return &MockJobExecutorSetStatusCall{Call: call}
-}
-
-// MockJobExecutorSetStatusCall wrap *gomock.Call
-type MockJobExecutorSetStatusCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockJobExecutorSetStatusCall) Return() *MockJobExecutorSetStatusCall {
-	c.Call = c.Call.Return()
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockJobExecutorSetStatusCall) Do(f func(records.Result)) *MockJobExecutorSetStatusCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockJobExecutorSetStatusCall) DoAndReturn(f func(records.Result)) *MockJobExecutorSetStatusCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// Status mocks base method.
-func (m *MockJobExecutor) Status() records.Result {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Status")
-	ret0, _ := ret[0].(records.Result)
-	return ret0
-}
-
-// Status indicates an expected call of Status.
-func (mr *MockJobExecutorMockRecorder) Status() *MockJobExecutorStatusCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Status", reflect.TypeOf((*MockJobExecutor)(nil).Status))
-	return &MockJobExecutorStatusCall{Call: call}
-}
-
-// MockJobExecutorStatusCall wrap *gomock.Call
-type MockJobExecutorStatusCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockJobExecutorStatusCall) Return(arg0 records.Result) *MockJobExecutorStatusCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockJobExecutorStatusCall) Do(f func() records.Result) *MockJobExecutorStatusCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockJobExecutorStatusCall) DoAndReturn(f func() records.Result) *MockJobExecutorStatusCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// SystemEnv mocks base method.
-func (m *MockJobExecutor) SystemEnv() map[string]string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SystemEnv")
-	ret0, _ := ret[0].(map[string]string)
-	return ret0
-}
-
-// SystemEnv indicates an expected call of SystemEnv.
-func (mr *MockJobExecutorMockRecorder) SystemEnv() *MockJobExecutorSystemEnvCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SystemEnv", reflect.TypeOf((*MockJobExecutor)(nil).SystemEnv))
-	return &MockJobExecutorSystemEnvCall{Call: call}
-}
-
-// MockJobExecutorSystemEnvCall wrap *gomock.Call
-type MockJobExecutorSystemEnvCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockJobExecutorSystemEnvCall) Return(arg0 map[string]string) *MockJobExecutorSystemEnvCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockJobExecutorSystemEnvCall) Do(f func() map[string]string) *MockJobExecutorSystemEnvCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockJobExecutorSystemEnvCall) DoAndReturn(f func() map[string]string) *MockJobExecutorSystemEnvCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// SystemPaths mocks base method.
-func (m *MockJobExecutor) SystemPaths() []string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SystemPaths")
-	ret0, _ := ret[0].([]string)
-	return ret0
-}
-
-// SystemPaths indicates an expected call of SystemPaths.
-func (mr *MockJobExecutorMockRecorder) SystemPaths() *MockJobExecutorSystemPathsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SystemPaths", reflect.TypeOf((*MockJobExecutor)(nil).SystemPaths))
-	return &MockJobExecutorSystemPathsCall{Call: call}
-}
-
-// MockJobExecutorSystemPathsCall wrap *gomock.Call
-type MockJobExecutorSystemPathsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockJobExecutorSystemPathsCall) Return(arg0 []string) *MockJobExecutorSystemPathsCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockJobExecutorSystemPathsCall) Do(f func() []string) *MockJobExecutorSystemPathsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockJobExecutorSystemPathsCall) DoAndReturn(f func() []string) *MockJobExecutorSystemPathsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

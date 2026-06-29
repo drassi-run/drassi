@@ -18,6 +18,7 @@ import (
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/store/repository"
 	"drassi.run/core/util/dig"
+	"drassi.run/core/util/otel"
 	"go.uber.org/dig"
 )
 
@@ -114,9 +115,11 @@ func (e *compositeActionExecutor) CreateTask(stage Stage) *ActionTask {
 	for _, id := range ids {
 		cExec := e.children[id]
 		task := cExec.CreateTask(stage)
-		if task != nil {
-			task.Run = e.decorator.DecorateStepRun(task)
+		if task == nil {
+			continue
 		}
+		task.Run = e.decorator.DecorateStepRun(task)
+		task.Run = e.telemetry(stage, id, task.Run)
 		tasks = append(tasks, task)
 	}
 
@@ -176,6 +179,18 @@ func (e *compositeActionExecutor) runStage(stage Stage, tasks []*StepTask) Actio
 		default:
 			return result, nil
 		}
+	}
+}
+
+func (e *compositeActionExecutor) telemetry(stage Stage, stepId string, run StepRun) StepRun {
+	return func(ctx context.Context) (_ *records.StepResult, err error) {
+		ctx, done := xotel.SetupTelemetry(ctx,
+			fmt.Sprintf("StepRun(%s/%s)", stage, stepId),
+			xotel.Step(string(stage)+"/"+stepId),
+		)
+		defer done(&err)
+
+		return run(ctx)
 	}
 }
 

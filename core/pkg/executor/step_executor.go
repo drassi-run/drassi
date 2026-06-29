@@ -8,7 +8,6 @@ package executor
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"maps"
 	"strings"
@@ -16,7 +15,6 @@ import (
 
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/expression/evaluator"
-	"drassi.run/core/pkg/expression/libraries"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/scribe"
@@ -40,15 +38,14 @@ type StepExecutor interface {
 
 	Name(stage Stage) string
 	Github() *records.Github
-	Status() records.Result // inherit libraries.StatusProvider
-	SetStatus(status records.Result)
 	Inputs() map[string]string
 	SetOutput(output map[string]string)
 	Env() map[string]string
-	SystemEnv() map[string]string
 	SetEnv(env map[string]string)
 	State() map[string]string
 	SaveState(state map[string]string)
+
+	SystemEnv() map[string]string
 }
 
 func Root(exec StepExecutor) StepExecutor {
@@ -93,11 +90,12 @@ type stepExecutor struct {
 
 	// records
 	github *records.Github
-	step   *records.StepResult
-	name   string
-	inputs map[string]string
-	env    map[string]string
-	state  map[string]string // Intra action state
+
+	name    string
+	inputs  map[string]string
+	outputs map[string]string
+	env     map[string]string
+	state   map[string]string // Intra action state
 
 	decorator ActionRunDecorator
 	envProv   EnvProvider
@@ -145,9 +143,9 @@ func (e *stepExecutor) init(ctx context.Context, scope *dig.Scope) (ex error) {
 	}
 	e.github = new(*e.github) // clone
 	e.github.Action = e.spec.Id
+	e.inputs = make(map[string]string)
+	e.outputs = make(map[string]string)
 	e.env = maps.Clone(e.upperEnv())
-	e.step = new(records.StepResult)
-	e.step.Outputs = make(map[string]string)
 	e.state = make(map[string]string)
 
 	// setup expression.Env
@@ -162,7 +160,6 @@ func (e *stepExecutor) init(ctx context.Context, scope *dig.Scope) (ex error) {
 		opts = append(opts,
 			// inputs from upper layers will NOT be passed to child steps
 			expression.WithVariable("inputs", e.inputs),
-			expression.WithLibrary(libraries.StatusLib(e.parent)),
 		)
 	}
 	if exprEnv, err := e.exprEnv.New(opts...); err != nil {
@@ -187,9 +184,7 @@ func (e *stepExecutor) init(ctx context.Context, scope *dig.Scope) (ex error) {
 
 	// initialize displayName
 	s := scribe.FromContext(ctx)
-	if err := e.evaluateDisplayName(s); err != nil {
-		return err
-	}
+	e.tryUpdateDisplayName(s)
 
 	// Provide scope values
 	if err := xdig.Supply(scope, e.exprEnv); err != nil {
@@ -218,24 +213,40 @@ func (e *stepExecutor) CreateTask(stage Stage) *StepTask {
 
 	run := func(ctx context.Context) (*records.StepResult, error) {
 		clear(e.inputs)
+		clear(e.outputs)
 		res := &records.StepResult{
 			Outcome: records.ResultSuccess,
 			Outputs: make(map[string]string),
 		}
 
 		err := e.runAction(ctx, task, res)
-		if e.step.Outcome == "" {
+
+		if res.Outcome == "" {
 			if err != nil {
-				e.SetStatus(records.ResultFailure)
+				res.Outcome = records.ResultFailure
 			} else {
-				e.SetStatus(records.ResultSuccess)
+				res.Outcome = records.ResultSuccess
 			}
 		}
-		if e.step.Conclusion == "" {
-			e.step.Conclusion = e.step.Outcome
+
+		res.Conclusion = res.Outcome
+		if res.Outcome == records.ResultFailure {
+			continueOnError := false
+			s := scribe.FromContext(ctx)
+			s.Debugf("Evaluating 'continue-on-error'")
+			if err := evaluator.Evaluate(e.exprEnv, e.spec.ContinueOnError, &continueOnError); err != nil {
+				s.Errorf("Evaluate 'continue-on-error' error: %v", err)
+			}
+			if continueOnError {
+				s.Warningf("Step failed but continue next step")
+				res.Conclusion = records.ResultSuccess
+			}
 		}
-		return e.step, err
+
+		maps.Copy(res.Outputs, e.outputs)
+		return res, err
 	}
+
 	return &StepTask{
 		Run:      run,
 		Stage:    stage,
@@ -264,17 +275,16 @@ func (e *stepExecutor) runAction(ctx context.Context, action *ActionTask, sr *re
 		return fmt.Errorf("evaluate 'env': %w", err)
 	}
 
-	if err := e.evaluateDisplayName(s); err != nil {
-		return err
-	}
+	e.tryUpdateDisplayName(s)
 	displayName := e.Name(action.Stage)
 
 	s.Debugf("Evaluating 'if'")
 	if meet, err := evaluator.Meet(e.exprEnv, action.Condition); err != nil {
+		// condition fail also bypass `continue-on-error`
 		s.Errorf("Evaluate 'if' error: %v", err)
 		return fmt.Errorf("evaluate 'if': %w", err)
 	} else if !meet {
-		e.SetStatus(records.ResultSkipped)
+		sr.Outcome = records.ResultSkipped
 		s.Writef("Skipped step %q (%s)", displayName, e.spec.Id)
 		return nil
 	}
@@ -282,8 +292,8 @@ func (e *stepExecutor) runAction(ctx context.Context, action *ActionTask, sr *re
 	timeout := int64(-1)
 	s.Debugf("Evaluating 'timeout-minutes'")
 	if err := evaluator.Evaluate(e.exprEnv, e.spec.TimeoutInMinutes, &timeout); err != nil {
+		// the error is logged but the step continues with no timeout set.
 		s.Errorf("Evaluate 'timeout-minutes' error: %v", err)
-		return fmt.Errorf("evaluate 'timeout-minutes': %w", err)
 	} else if timeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, time.Duration(timeout)*time.Minute)
@@ -298,45 +308,31 @@ func (e *stepExecutor) runAction(ctx context.Context, action *ActionTask, sr *re
 	}
 
 	res, err := action.Run(ctx)
-	if err != nil {
-		if errors.Is(err, context.Canceled) {
-			if cause := context.Cause(ctx); cause != nil {
-				s.Errorf("The operation was canceled: %v", cause)
-			} else {
-				s.Errorf("The operation was canceled")
-			}
+	switch res {
+	case records.ResultCancelled:
+		if err != nil {
+			s.Errorf("The operation was canceled: %v", err)
 		} else {
-			s.Errorf("Running task error: %v", err)
+			s.Errorf("The operation was canceled")
 		}
+	case records.ResultFailure:
+		s.Errorf("Running task error: %v", err)
 	}
 	sr.Outcome = res
-
-	// NOTE: step.Outcome can be set from outside StepExecutor, e.g: CompositeAction or CommandProcessor
-	if e.step.Outcome == records.ResultFailure {
-		continueOnError := false
-		s.Debugf("Evaluating 'continue-on-error'")
-		if err := evaluator.Evaluate(e.exprEnv, e.spec.ContinueOnError, &continueOnError); err != nil {
-			s.Errorf("Evaluate 'continue-on-error' error: %v", err)
-			return fmt.Errorf("evaluate 'continue-on-error': %w", err)
-		} else if continueOnError {
-			e.step.Conclusion = records.ResultSuccess
-			s.Warningf("Step failed but continue next step")
-			return nil
-		}
-	}
 
 	outputs := make(map[string]string)
 	s.Debugf("Evaluating 'outputs'")
 	if err := evaluator.Evaluate(e.exprEnv, mergeMapExpr(e.aExec.Outputs(), e.spec.Outputs), &outputs); err != nil {
+		sr.Outcome = records.ResultFailure
 		s.Errorf("Evaluate 'outputs' error: %v", err)
 		return fmt.Errorf("evaluate 'outputs': %w", err)
 	}
-	e.SetOutput(outputs)
+	maps.Copy(sr.Outputs, outputs)
 
 	return err
 }
 
-func (e *stepExecutor) evaluateDisplayName(s *scribe.Scribe) error {
+func (e *stepExecutor) tryUpdateDisplayName(s *scribe.Scribe) {
 	name, prefix := "", ""
 	expr := e.spec.Name
 	if expr == nil {
@@ -347,7 +343,7 @@ func (e *stepExecutor) evaluateDisplayName(s *scribe.Scribe) error {
 	s.Debugf("Evaluating display name")
 	if err := evaluator.Evaluate(e.exprEnv, expr, &name); err != nil {
 		s.Errorf("Evaluate 'name' error: %v", err)
-		return fmt.Errorf("evaluate 'name': %w", err)
+		return
 	}
 
 	name = strings.TrimLeft(name, " \t\r\n")
@@ -357,7 +353,6 @@ func (e *stepExecutor) evaluateDisplayName(s *scribe.Scribe) error {
 
 	s.Debugf("Set step %q display name to: %q", e.spec.Id, name)
 	e.name = name
-	return nil
 }
 
 func (e *stepExecutor) upperEnv() map[string]string {
@@ -395,20 +390,6 @@ func (e *stepExecutor) Github() *records.Github {
 	return e.github
 }
 
-// Status return current step's Outcome
-// its implement [libraries.StatusProvider]
-func (e *stepExecutor) Status() records.Result {
-	if e.step != nil {
-		return e.step.Outcome
-	}
-	return records.ResultSuccess
-}
-
-func (e *stepExecutor) SetStatus(status records.Result) {
-	e.github.ActionStatus = status
-	e.step.Outcome = status
-}
-
 // Inputs return evaluated inputs
 func (e *stepExecutor) Inputs() map[string]string {
 	return e.inputs
@@ -419,7 +400,7 @@ func (e *stepExecutor) Inputs() map[string]string {
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/FileCommandManager.cs#L293
 // https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#setting-an-output-parameter
 func (e *stepExecutor) SetOutput(output map[string]string) {
-	maps.Copy(e.step.Outputs, output)
+	maps.Copy(e.outputs, output)
 }
 
 // Env return environment variable
@@ -429,9 +410,6 @@ func (e *stepExecutor) Env() map[string]string {
 
 func (e *stepExecutor) SystemEnv() map[string]string {
 	m := e.envProv.Env(e)
-
-	jEnv := e.jExec.SystemEnv()
-	maps.Copy(m, jEnv)
 
 	// set STATE_* env
 	// https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#sending-values-to-the-pre-and-post-actions

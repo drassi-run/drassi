@@ -533,76 +533,40 @@ func (c *MockStepExecutorSetOutputCall) DoAndReturn(f func(map[string]string)) *
 	return c
 }
 
-// SetStatus mocks base method.
-func (m *MockStepExecutor) SetStatus(status records.Result) {
+// State mocks base method.
+func (m *MockStepExecutor) State() map[string]string {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SetStatus", status)
-}
-
-// SetStatus indicates an expected call of SetStatus.
-func (mr *MockStepExecutorMockRecorder) SetStatus(status any) *MockStepExecutorSetStatusCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetStatus", reflect.TypeOf((*MockStepExecutor)(nil).SetStatus), status)
-	return &MockStepExecutorSetStatusCall{Call: call}
-}
-
-// MockStepExecutorSetStatusCall wrap *gomock.Call
-type MockStepExecutorSetStatusCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStepExecutorSetStatusCall) Return() *MockStepExecutorSetStatusCall {
-	c.Call = c.Call.Return()
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStepExecutorSetStatusCall) Do(f func(records.Result)) *MockStepExecutorSetStatusCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStepExecutorSetStatusCall) DoAndReturn(f func(records.Result)) *MockStepExecutorSetStatusCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// Status mocks base method.
-func (m *MockStepExecutor) Status() records.Result {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Status")
-	ret0, _ := ret[0].(records.Result)
+	ret := m.ctrl.Call(m, "State")
+	ret0, _ := ret[0].(map[string]string)
 	return ret0
 }
 
-// Status indicates an expected call of Status.
-func (mr *MockStepExecutorMockRecorder) Status() *MockStepExecutorStatusCall {
+// State indicates an expected call of State.
+func (mr *MockStepExecutorMockRecorder) State() *MockStepExecutorStateCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Status", reflect.TypeOf((*MockStepExecutor)(nil).Status))
-	return &MockStepExecutorStatusCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockStepExecutor)(nil).State))
+	return &MockStepExecutorStateCall{Call: call}
 }
 
-// MockStepExecutorStatusCall wrap *gomock.Call
-type MockStepExecutorStatusCall struct {
+// MockStepExecutorStateCall wrap *gomock.Call
+type MockStepExecutorStateCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStepExecutorStatusCall) Return(arg0 records.Result) *MockStepExecutorStatusCall {
+func (c *MockStepExecutorStateCall) Return(arg0 map[string]string) *MockStepExecutorStateCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStepExecutorStatusCall) Do(f func() records.Result) *MockStepExecutorStatusCall {
+func (c *MockStepExecutorStateCall) Do(f func() map[string]string) *MockStepExecutorStateCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStepExecutorStatusCall) DoAndReturn(f func() records.Result) *MockStepExecutorStatusCall {
+func (c *MockStepExecutorStateCall) DoAndReturn(f func() map[string]string) *MockStepExecutorStateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
