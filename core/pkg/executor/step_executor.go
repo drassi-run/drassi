@@ -96,6 +96,7 @@ type stepExecutor struct {
 	outputs map[string]string
 	env     map[string]string
 	state   map[string]string // Intra action state
+	ran     bool
 
 	decorator ActionRunDecorator
 	envProv   EnvProvider
@@ -212,6 +213,16 @@ func (e *stepExecutor) CreateTask(stage Stage) *StepTask {
 	task.Run = e.telemetry(stage, task.Run)
 
 	run := func(ctx context.Context) (*records.StepResult, error) {
+		// Skip post stage when previous stages (pre & main) are not start.
+		// https://github.com/actions/runner/blob/v2.335.1/src/Runner.Worker/ActionRunner.cs#L113-L137
+		if task.Stage == StagePost && !e.ran {
+			res := &records.StepResult{
+				Outcome:    records.ResultSkipped,
+				Conclusion: records.ResultSkipped,
+			}
+			return res, nil
+		}
+
 		clear(e.inputs)
 		clear(e.outputs)
 		res := &records.StepResult{
@@ -307,6 +318,7 @@ func (e *stepExecutor) runAction(ctx context.Context, action *ActionTask, sr *re
 		return fmt.Errorf("evaluate 'inputs': %w", err)
 	}
 
+	e.ran = true
 	res, err := action.Run(ctx)
 	switch res {
 	case records.ResultCancelled:
