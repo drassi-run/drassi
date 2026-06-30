@@ -83,6 +83,44 @@ func (c *MockStepExecutorActionExecutorCall) DoAndReturn(f func() executor.Actio
 	return c
 }
 
+// ComposeEnv mocks base method.
+func (m *MockStepExecutor) ComposeEnv() map[string]string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ComposeEnv")
+	ret0, _ := ret[0].(map[string]string)
+	return ret0
+}
+
+// ComposeEnv indicates an expected call of ComposeEnv.
+func (mr *MockStepExecutorMockRecorder) ComposeEnv() *MockStepExecutorComposeEnvCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ComposeEnv", reflect.TypeOf((*MockStepExecutor)(nil).ComposeEnv))
+	return &MockStepExecutorComposeEnvCall{Call: call}
+}
+
+// MockStepExecutorComposeEnvCall wrap *gomock.Call
+type MockStepExecutorComposeEnvCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStepExecutorComposeEnvCall) Return(arg0 map[string]string) *MockStepExecutorComposeEnvCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStepExecutorComposeEnvCall) Do(f func() map[string]string) *MockStepExecutorComposeEnvCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStepExecutorComposeEnvCall) DoAndReturn(f func() map[string]string) *MockStepExecutorComposeEnvCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // CreateTask mocks base method.
 func (m *MockStepExecutor) CreateTask(stage executor.Stage) *executor.StepTask {
 	m.ctrl.T.Helper()
@@ -643,44 +681,6 @@ func (c *MockStepExecutorStreamsCall) Do(f func(context.Context, executor.Stage)
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStepExecutorStreamsCall) DoAndReturn(f func(context.Context, executor.Stage) *stream.Streams) *MockStepExecutorStreamsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// SystemEnv mocks base method.
-func (m *MockStepExecutor) SystemEnv() map[string]string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SystemEnv")
-	ret0, _ := ret[0].(map[string]string)
-	return ret0
-}
-
-// SystemEnv indicates an expected call of SystemEnv.
-func (mr *MockStepExecutorMockRecorder) SystemEnv() *MockStepExecutorSystemEnvCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SystemEnv", reflect.TypeOf((*MockStepExecutor)(nil).SystemEnv))
-	return &MockStepExecutorSystemEnvCall{Call: call}
-}
-
-// MockStepExecutorSystemEnvCall wrap *gomock.Call
-type MockStepExecutorSystemEnvCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStepExecutorSystemEnvCall) Return(arg0 map[string]string) *MockStepExecutorSystemEnvCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStepExecutorSystemEnvCall) Do(f func() map[string]string) *MockStepExecutorSystemEnvCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStepExecutorSystemEnvCall) DoAndReturn(f func() map[string]string) *MockStepExecutorSystemEnvCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

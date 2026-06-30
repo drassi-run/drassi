@@ -132,7 +132,7 @@ func (e *scriptActionExecutor) executeMain(ctx context.Context) error {
 		return nil
 	}
 
-	env := composeEnv(e.sExec)
+	env := e.sExec.ComposeEnv()
 	paths := e.sExec.JobExecutor().Path()
 	streams := e.sExec.Streams(ctx, StageMain)
 	defer streams.Close()

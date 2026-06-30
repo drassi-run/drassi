@@ -114,7 +114,7 @@ func (e *nodeActionExecutor) execute(stage Stage) ActionRun {
 			scribe.WithMap("env", e.sExec.Env()),
 		)
 
-		env := composeEnv(e.sExec)
+		env := e.sExec.ComposeEnv()
 		for k, v := range inputs {
 			k = strings.ToUpper(k)
 			env["INPUT_"+k] = v

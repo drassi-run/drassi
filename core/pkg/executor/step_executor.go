@@ -45,7 +45,7 @@ type StepExecutor interface {
 	State() map[string]string
 	SaveState(state map[string]string)
 
-	SystemEnv() map[string]string
+	ComposeEnv() map[string]string
 }
 
 func Root(exec StepExecutor) StepExecutor {
@@ -408,18 +408,6 @@ func (e *stepExecutor) Env() map[string]string {
 	return e.env
 }
 
-func (e *stepExecutor) SystemEnv() map[string]string {
-	m := e.envProv.Env(e)
-
-	// set STATE_* env
-	// https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#sending-values-to-the-pre-and-post-actions
-	for k, v := range e.state {
-		k = "STATE_" + k
-		m[k] = v
-	}
-	return m
-}
-
 // SetEnv make an environment variable available to any subsequent steps in a workflow job.
 // Environment variables should be applied to all StepExecutor in the Stack as well as the JobExecutor.
 //
@@ -427,6 +415,12 @@ func (e *stepExecutor) SystemEnv() map[string]string {
 // https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#setting-an-environment-variable
 func (e *stepExecutor) SetEnv(env map[string]string) {
 	maps.Copy(e.env, env)
+}
+
+func (e *stepExecutor) ComposeEnv() map[string]string {
+	m := e.envProv.Env(e)
+	maps.Copy(m, e.Env())
+	return m
 }
 
 // State return intra action state

@@ -8,7 +8,6 @@ package executor
 
 import (
 	"fmt"
-	"maps"
 	"strconv"
 	"strings"
 
@@ -210,12 +209,6 @@ func normalizeReplacer(r rune) rune {
 		return r
 	}
 	return '_'
-}
-
-func composeEnv(exec StepExecutor) map[string]string {
-	env := exec.SystemEnv()
-	maps.Copy(env, exec.Env())
-	return env
 }
 
 // level used to merge 2 records.Result by worst result.
