@@ -8,18 +8,22 @@ package executor
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
+	"slices"
 	"strings"
 	"time"
 
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/expression/evaluator"
 	"drassi.run/core/pkg/model/records"
+	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/scribe"
 	"drassi.run/core/pkg/store/repository"
 	"drassi.run/core/pkg/stream"
+	"drassi.run/core/util/context"
 	"drassi.run/core/util/dig"
 	"drassi.run/core/util/otel"
 	"go.uber.org/dig"
@@ -249,7 +253,7 @@ func (e *stepExecutor) CreateTask(stage Stage) *StepTask {
 				s.Errorf("Evaluate 'continue-on-error' error: %v", err)
 			}
 			if continueOnError {
-				s.Warningf("Step failed but continue next step")
+				s.Warningf("Step failed, but continuing to the next step")
 				res.Conclusion = records.ResultSuccess
 			}
 		}
@@ -276,6 +280,127 @@ func (e *stepExecutor) telemetry(stage Stage, run ActionRun) ActionRun {
 	}
 }
 
+var (
+	ErrServerCanceled   = errors.New("server canceled")
+	ErrRunnerTerminated = errors.New("runner terminated")
+)
+
+func (e *stepExecutor) actionContext(ctx context.Context, condition workflows.Conditional) (context.Context, context.CancelFunc) {
+	s := scribe.FromContext(ctx)
+
+	timeout := int64(-1)
+	s.Debugf("Evaluating 'timeout-minutes'")
+	if err := evaluator.Evaluate(e.exprEnv, e.spec.TimeoutInMinutes, &timeout); err != nil {
+		// the error is logged but the step continues with no timeout set.
+		s.Errorf("Evaluate 'timeout-minutes' error: %v", err)
+	}
+
+	aCtx := context.WithoutCancel(ctx)
+	aCancel := context.CancelFunc(nil)
+	if timeout > 0 {
+		aCtx, aCancel = context.WithTimeout(aCtx, time.Duration(timeout)*time.Minute)
+	}
+
+	// parent context already canceled
+	if ctx.Err() != nil {
+		eCtx, eCancel := xcontext.ExpandContext(aCtx, context.Cause(ctx))
+		cancel := e.mergeCancel(aCancel, eCancel)
+		return eCtx, cancel
+	}
+
+	if timeout <= 0 {
+		aCtx, aCancel = context.WithCancel(aCtx)
+	}
+
+	go func() {
+		select {
+		case <-aCtx.Done():
+			// action complete normally
+			return
+		case <-ctx.Done():
+			// parent context cancel/timeout, going to *recovery* mode
+		}
+
+		s.Noticef("Received cancellation request: %v", context.Cause(ctx))
+		s.Debugf("Re-evaluating step condition")
+		if !e.meetCondition(ctx, condition) {
+			// cancel action immediately
+			s.Debugf("Step condition was not met; stopping immediately")
+			aCancel()
+			return
+		}
+
+		eCtx := context.WithoutCancel(ctx)
+		eCtx, eCancel := xcontext.ExpandContext(eCtx, context.Cause(ctx))
+		defer eCancel()
+
+		if dl, ok := eCtx.Deadline(); ok {
+			if d := time.Until(dl); d > 0 {
+				s.Noticef("Extending context by %s to complete the job", d)
+			}
+		}
+
+		select {
+		case <-aCtx.Done():
+			// action complete in-time
+		case <-eCtx.Done():
+			// action miss the deadline
+			s.Warningf("Grace period deadline exceeded")
+			aCancel()
+		}
+	}()
+
+	return aCtx, aCancel
+}
+
+func (e *stepExecutor) mergeCancel(cancels ...context.CancelFunc) context.CancelFunc {
+	// remove all nil elements
+	cancels = slices.DeleteFunc(cancels, func(fn context.CancelFunc) bool {
+		return fn == nil
+	})
+
+	switch len(cancels) {
+	case 0:
+		return func() {}
+	case 1:
+		return cancels[0]
+	default:
+		return func() {
+			for _, cancel := range cancels {
+				cancel()
+			}
+		}
+	}
+}
+
+func (e *stepExecutor) meetCondition(ctx context.Context, condition workflows.Conditional) bool {
+	if err := ctx.Err(); err != nil {
+		// err is Canceled or DeadlineExceeded
+		cause := context.Cause(ctx)
+		if errors.Is(cause, ErrRunnerTerminated) {
+			// when runner terminated, stop execution immediately,
+			// otherwise (include server request cancellation, job timeout,...),
+			// continue running for an expanded time.
+			return false
+		}
+	}
+
+	s := scribe.FromContext(ctx)
+	s.Debugf("Evaluating 'if'")
+	if meet, err := evaluator.Meet(e.exprEnv, condition); err != nil {
+		s.Errorf("Evaluating 'if' error: %v", err)
+		return false
+	} else {
+		return meet
+	}
+}
+
+func (e *stepExecutor) runActionCtx(ctx context.Context, action *ActionTask) (records.Result, error) {
+	ctx, cancel := e.actionContext(ctx, action.Condition)
+	defer cancel()
+	return action.Run(ctx)
+}
+
 func (e *stepExecutor) runAction(ctx context.Context, action *ActionTask, sr *records.StepResult) error {
 	s := scribe.FromContext(ctx)
 
@@ -289,26 +414,10 @@ func (e *stepExecutor) runAction(ctx context.Context, action *ActionTask, sr *re
 	e.tryUpdateDisplayName(s)
 	displayName := e.Name(action.Stage)
 
-	s.Debugf("Evaluating 'if'")
-	if meet, err := evaluator.Meet(e.exprEnv, action.Condition); err != nil {
-		// condition fail also bypass `continue-on-error`
-		s.Errorf("Evaluate 'if' error: %v", err)
-		return fmt.Errorf("evaluate 'if': %w", err)
-	} else if !meet {
+	if !e.meetCondition(ctx, action.Condition) {
 		sr.Outcome = records.ResultSkipped
 		s.Writef("Skipped step %q (%s)", displayName, e.spec.Id)
 		return nil
-	}
-
-	timeout := int64(-1)
-	s.Debugf("Evaluating 'timeout-minutes'")
-	if err := evaluator.Evaluate(e.exprEnv, e.spec.TimeoutInMinutes, &timeout); err != nil {
-		// the error is logged but the step continues with no timeout set.
-		s.Errorf("Evaluate 'timeout-minutes' error: %v", err)
-	} else if timeout > 0 {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, time.Duration(timeout)*time.Minute)
-		defer cancel()
 	}
 
 	clear(e.inputs)
@@ -319,7 +428,8 @@ func (e *stepExecutor) runAction(ctx context.Context, action *ActionTask, sr *re
 	}
 
 	e.ran = true
-	res, err := action.Run(ctx)
+	res, err := e.runActionCtx(ctx, action)
+	sr.Outcome = res
 	switch res {
 	case records.ResultCancelled:
 		if err != nil {
@@ -330,7 +440,6 @@ func (e *stepExecutor) runAction(ctx context.Context, action *ActionTask, sr *re
 	case records.ResultFailure:
 		s.Errorf("Running task error: %v", err)
 	}
-	sr.Outcome = res
 
 	outputs := make(map[string]string)
 	s.Debugf("Evaluating 'outputs'")
