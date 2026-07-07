@@ -30,14 +30,12 @@ type jobRunDecoratorParam struct {
 	dig.In
 
 	Timeline executor.JobRunDecorator `name:"timeline"`
-	Log      executor.JobRunDecorator `name:"log"`
 	Masker   executor.JobRunDecorator `name:"masker"`
 }
 
 func collectJobRunDecorators(p jobRunDecoratorParam) executor.JobRunDecorator {
 	return executor.MultiJobRunDecorator{
 		p.Timeline,
-		p.Log,
 		p.Masker,
 	}
 }

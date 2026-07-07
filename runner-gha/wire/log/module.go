@@ -9,7 +9,6 @@ package wire_log
 import (
 	"fmt"
 
-	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/scribe"
 	"drassi.run/core/pkg/stream"
 	"drassi.run/core/wire"
@@ -54,11 +53,8 @@ func Module(opts ...Option) *wire.Module {
 		if err := scope.Provide(scribeHandler); err != nil {
 			return fmt.Errorf("provide scribe.Handler from log.Manager.ContextHandle(...): %w", err)
 		}
-		if err := scope.Provide(log.NewDecorator,
-			dig.As(new(executor.JobRunDecorator), new(executor.StepRunDecorator)),
-			dig.Name("log"),
-		); err != nil {
-			return fmt.Errorf("provide log.Decorator as %q JobRunDecorator & StepRunDecorator: %w", "log", err)
+		if err := scope.Provide(log.NewDecorator, dig.Name("log")); err != nil {
+			return fmt.Errorf("provide log.Decorator as %q StepRunDecorator: %w", "log", err)
 		}
 		return nil
 	}

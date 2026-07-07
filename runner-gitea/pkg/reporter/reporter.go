@@ -16,6 +16,7 @@ import (
 	"connectrpc.com/connect"
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/model/records"
+	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/util/context"
 	"drassi.run/core/util/reactive"
 	"github.com/chainguard-dev/clog"
@@ -84,7 +85,18 @@ func (r *Reporter) init(spec *executor.JobSpec) {
 	}
 }
 
-func (r *Reporter) DecorateJobRun(task *executor.JobTask) executor.JobRun {
+func (r *Reporter) DecorateStepRun(task *executor.StepTask) executor.StepRun {
+	switch task.Kind {
+	case workflows.StepKindJob:
+		return r.decorateJobStepRun(task)
+	case workflows.StepKindAction:
+		return r.decorateActionStepRun(task)
+	default:
+		return task.Run
+	}
+}
+
+func (r *Reporter) decorateJobStepRun(task *executor.StepTask) executor.StepRun {
 	if task.Stage == executor.StagePre {
 		r.init(task.JobSpec())
 	}
@@ -94,14 +106,14 @@ func (r *Reporter) DecorateJobRun(task *executor.JobTask) executor.JobRun {
 		return run
 	}
 
-	return func(ctx context.Context) (*records.JobResult, error) {
+	return func(ctx context.Context) (*records.StepResult, error) {
 		r.jobState.StartedAt = timestamppb.Now()
 		r.flush()
 
 		rec, err := run(ctx)
 
 		r.jobState.StoppedAt = timestamppb.Now()
-		r.jobState.Result = resultMap[rec.Result]
+		r.jobState.Result = resultMap[rec.Conclusion]
 		r.jobOutputs = rec.Outputs
 		r.flush()
 
@@ -109,7 +121,7 @@ func (r *Reporter) DecorateJobRun(task *executor.JobTask) executor.JobRun {
 	}
 }
 
-func (r *Reporter) DecorateStepRun(task *executor.StepTask) executor.StepRun {
+func (r *Reporter) decorateActionStepRun(task *executor.StepTask) executor.StepRun {
 	if task.Stage != executor.StageMain {
 		return task.Run
 	}

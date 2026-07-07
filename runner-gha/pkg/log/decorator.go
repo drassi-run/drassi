@@ -12,54 +12,44 @@ import (
 
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/model/records"
-	xotel "drassi.run/core/util/otel"
+	"drassi.run/core/pkg/model/workflows"
+	"drassi.run/core/util/otel"
 	"drassi.run/gha-runner/pkg/types"
 )
 
-type Decorator struct {
+type decorator struct {
 	mgr   *Manager
 	store types.RecordStore
 }
 
-func NewDecorator(mgr *Manager, store types.RecordStore) *Decorator {
-	return &Decorator{mgr: mgr, store: store}
+func NewDecorator(mgr *Manager, store types.RecordStore) executor.StepRunDecorator {
+	return &decorator{mgr: mgr, store: store}
 }
 
-func (d *Decorator) DecorateJobRun(task *executor.JobTask) executor.JobRun {
-	if task.Stage == executor.StageMain {
-		return task.Run
+func (d *decorator) DecorateStepRun(task *executor.StepTask) executor.StepRun {
+	var id, uid string
+	if task.Kind == workflows.StepKindJob {
+		id, uid = task.JobId(), task.JobSpec().Uid
+	} else {
+		id, uid = task.StepId(), task.StepSpec().Uid
 	}
-
+	uid = d.store.RecordUid(task.Stage, uid)
+	attr := xotel.Step(string(task.Stage) + "/" + id)
 	run := task.Run
-	uid := d.store.RecordUid(task.Stage, task.JobSpec().Uid)
-	return func(ctx context.Context) (*records.JobResult, error) {
-		if err := d.mgr.Start(uid); err != nil {
+
+	return func(ctx context.Context) (rec *records.StepResult, err error) {
+		if err = d.mgr.Start(uid, attr); err != nil {
 			return nil, fmt.Errorf("start record log: %w", err)
 		}
 
-		rec, err := run(ctx)
+		defer func() {
+			if ex := d.mgr.Stop(); ex == nil {
+				return
+			} else if err == nil {
+				err = fmt.Errorf("stop record log: %w", ex)
+			}
+		}()
 
-		if ex := d.mgr.Stop(); ex != nil {
-			return nil, fmt.Errorf("stop record log: %w", ex)
-		}
-		return rec, err
-	}
-}
-
-func (d *Decorator) DecorateStepRun(task *executor.StepTask) executor.StepRun {
-	run := task.Run
-	uid := d.store.RecordUid(task.Stage, task.StepSpec().Uid)
-	attr := xotel.Step(string(task.Stage) + "/" + task.StepId())
-	return func(ctx context.Context) (*records.StepResult, error) {
-		if err := d.mgr.Start(uid, attr); err != nil {
-			return nil, fmt.Errorf("start record log: %w", err)
-		}
-
-		rec, err := run(ctx)
-
-		if ex := d.mgr.Stop(); ex != nil {
-			return nil, fmt.Errorf("stop record log: %w", ex)
-		}
-		return rec, err
+		return run(ctx)
 	}
 }

@@ -8,7 +8,6 @@ package timeline
 
 import (
 	"context"
-	"errors"
 	"maps"
 	"slices"
 	"strconv"
@@ -64,119 +63,104 @@ func (m *Manager) JobRecord() *Record {
 	return m.jobRecord
 }
 
-func (m *Manager) InitJob(spec *executor.JobSpec) {
+func (m *Manager) DecorateJobRun(task *executor.JobTask) executor.JobRun {
+	spec := task.JobSpec()
 	o := &JobObject{JobSpec: spec}
 	r := m.newRecord(spec.Uid, o)
-
-	r.StartedAt = new(time.Now())
-	r.State = StateInProgress
 	r.Children = make(map[string]*Record)
-
 	m.jobRecord = r
-}
-
-func (m *Manager) FinishJob(rec *records.JobResult) {
-	r := m.jobRecord
-	o := r.Object.(*JobObject)
-
-	r.State = StateCompleted
-	r.CompletedAt = new(time.Now())
-	if rec != nil {
-		r.Result = ToResult(rec.Result)
-		o.Outputs = maps.Clone(rec.Outputs)
-	} else {
-		r.Result = ResultFailed
-	}
-}
-
-func (m *Manager) DecorateJobRun(task *executor.JobTask) executor.JobRun {
-	if task.Stage == executor.StageMain {
-		return task.Run
-	}
-
-	// planning for Setup job & Complete job step
-	uid := m.RecordUid(task.Stage, task.JobSpec().Uid)
-	var o *StepObject
-	switch task.Stage {
-	case executor.StagePre:
-		o = setupJobObject(uid)
-	case executor.StagePost:
-		o = completeJobObject(uid)
-	}
-	r := m.newRecord(uid, o)
-	switch task.Stage {
-	case executor.StagePre:
-		r.Name = "Set up job"
-	case executor.StagePost:
-		r.Name = "Complete job"
-	}
-	m.push(r)
-	m.addToJob(r)
 
 	run := task.Run
-	return func(ctx context.Context) (*records.JobResult, error) {
-		r.StartedAt = new(time.Now())
-		r.State = StateInProgress
-		m.push(r)
+	return func(ctx context.Context) (res *records.JobResult, err error) {
+		// before JobRun
+		{
+			r.StartedAt = new(time.Now())
+			r.State = StateInProgress
+		}
 
-		rec, err := run(ctx)
-
-		r.State = StateCompleted
-		r.CompletedAt = new(time.Now())
-		r.Result = ResultSucceeded
-		if err != nil {
-			if errors.Is(err, context.Canceled) {
-				r.Result = ResultCanceled
+		// after JobRun
+		defer func() {
+			r.State = StateCompleted
+			r.CompletedAt = new(time.Now())
+			if res != nil {
+				r.Result = ToResult(res.Result)
+				o.Outputs = maps.Clone(res.Outputs)
 			} else {
 				r.Result = ResultFailed
 			}
-		}
-		if rec != nil {
-			jr := m.jobRecord
-			jr.Result = ToResult(rec.Result)
-			jo := jr.Object.(*JobObject)
-			jo.Outputs = maps.Clone(rec.Outputs)
-		}
-		m.push(r)
-		return rec, err
+		}()
+
+		return run(ctx)
 	}
 }
 
 func (m *Manager) DecorateStepRun(task *executor.StepTask) executor.StepRun {
 	// not record embedded step (inside composite action)
-	if executor.Depth(task.Executor) > 1 {
+	if exec := task.Executor; exec != nil && executor.Depth(exec) > 1 {
 		return task.Run
 	}
 
-	uid := m.RecordUid(task.Stage, task.StepSpec().Uid)
-	o := &StepObject{StepSpec: task.StepSpec()}
-	r := m.newRecord(uid, o)
-	r.Name = task.Executor.Name(task.Stage)
+	var (
+		uid string
+		o   *StepObject
+		r   *Record
+	)
+
+	if task.Kind == workflows.StepKindJob {
+		uid = m.RecordUid(task.Stage, task.JobSpec().Uid)
+		switch task.Stage {
+		case executor.StagePre:
+			o = setupJobObject(uid)
+			r = m.newRecord(uid, o)
+			r.Name = "Set up job"
+		case executor.StagePost:
+			o = completeJobObject(uid)
+			r = m.newRecord(uid, o)
+			r.Name = "Complete job"
+		default:
+			return task.Run
+		}
+	} else {
+		uid = m.RecordUid(task.Stage, task.StepSpec().Uid)
+		o = &StepObject{StepSpec: task.StepSpec()}
+		r = m.newRecord(uid, o)
+		r.Name = task.Executor.Name(task.Stage)
+	}
+
 	m.push(r)
 	m.addToJob(r)
 
 	run := task.Run
-	return func(ctx context.Context) (*records.StepResult, error) {
-		r.StartedAt = new(time.Now())
-		r.State = StateInProgress
-		r.Name = task.Executor.Name(task.Stage)
-		m.push(r)
-
-		rec, err := run(ctx)
-
-		r.State = StateCompleted
-		r.CompletedAt = new(time.Now())
-		r.Name = task.Executor.Name(task.Stage)
-		if rec != nil {
-			r.Result = ToResult(rec.Conclusion)
-			o.Outputs = maps.Clone(rec.Outputs)
-		} else if err != nil {
-			r.Result = ResultFailed
-		} else {
-			r.Result = ResultSucceeded
+	return func(ctx context.Context) (rec *records.StepResult, err error) {
+		// before StepRun
+		{
+			r.StartedAt = new(time.Now())
+			r.State = StateInProgress
+			if task.Kind == workflows.StepKindAction {
+				r.Name = task.Executor.Name(task.Stage)
+			}
+			m.push(r)
 		}
-		m.push(r)
-		return rec, err
+
+		// after StepRun
+		defer func() {
+			r.State = StateCompleted
+			r.CompletedAt = new(time.Now())
+			if task.Kind == workflows.StepKindAction {
+				r.Name = task.Executor.Name(task.Stage)
+			}
+			if rec != nil {
+				r.Result = ToResult(rec.Conclusion)
+				o.Outputs = maps.Clone(rec.Outputs)
+			} else if err != nil {
+				r.Result = ResultFailed
+			} else {
+				r.Result = ResultSucceeded
+			}
+			m.push(r)
+		}()
+
+		return run(ctx)
 	}
 }
 

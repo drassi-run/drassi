@@ -43,7 +43,7 @@ func Module(task *runnerv1.Task) *wire.Module {
 			return fmt.Errorf("provide reporter.LogStreamer: %w", err)
 		}
 		if err := scope.Provide(ident[*reporter.Reporter],
-			dig.As(new(exec.JobRunDecorator), new(exec.StepRunDecorator)),
+			dig.As(new(exec.StepRunDecorator)),
 			dig.Name("reporter"),
 		); err != nil {
 			return fmt.Errorf("provide reporter.LogStreamer: %w", err)
