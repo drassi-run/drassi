@@ -70,6 +70,8 @@ type StepTask struct {
 	Run      StepRun
 	Stage    Stage
 	Executor StepExecutor
+	Kind     workflows.StepKind
+	jobSpec  *JobSpec // temporary workaround here before refactor
 }
 
 func (t *StepTask) StepId() string {
@@ -80,11 +82,29 @@ func (t *StepTask) StepSpec() *StepSpec {
 	return t.Executor.StepSpec()
 }
 
+func (t *StepTask) JobId() string {
+	return t.JobSpec().Id
+}
+
 func (t *StepTask) JobSpec() *JobSpec {
+	if t.jobSpec != nil {
+		return t.jobSpec
+	}
 	return t.Executor.JobExecutor().JobSpec()
 }
 
 type StepRun func(context.Context) (*records.StepResult, error)
+
+func runStepE(fn ActionRun) StepRun {
+	return func(ctx context.Context) (*records.StepResult, error) {
+		res, err := fn(ctx)
+		r := &records.StepResult{
+			Outcome:    res,
+			Conclusion: res,
+		}
+		return r, err
+	}
+}
 
 type stepExecutor struct {
 	spec   *StepSpec
@@ -266,6 +286,7 @@ func (e *stepExecutor) CreateTask(stage Stage) *StepTask {
 		Run:      run,
 		Stage:    stage,
 		Executor: e,
+		Kind:     workflows.StepKindAction,
 	}
 }
 

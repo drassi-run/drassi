@@ -14,6 +14,7 @@ import (
 	"path"
 	"slices"
 	"strings"
+	"time"
 
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/expression/evaluator"
@@ -32,10 +33,7 @@ import (
 
 type JobExecutor interface {
 	JobSpec() *JobSpec
-
-	Initialize(ctx context.Context) (*records.JobResult, error)
-	RunJob(ctx context.Context) (*records.JobResult, error)
-	Finalize(ctx context.Context) (*records.JobResult, error)
+	CreateTask() *JobTask
 
 	Sandbox() sandboxer.Sandbox
 	ExprEnv() expression.Env
@@ -49,7 +47,6 @@ type JobExecutor interface {
 
 type JobTask struct {
 	Run      JobRun
-	Stage    Stage
 	Executor JobExecutor
 }
 
@@ -89,44 +86,48 @@ func (e *jobExecutor) JobSpec() *JobSpec {
 	return e.spec
 }
 
-func (e *jobExecutor) Initialize(ctx context.Context) (*records.JobResult, error) {
-	e.resetJobResult()
-	err := e.initialize(ctx)
+func (e *jobExecutor) CreateTask() *JobTask {
+	run := func(ctx context.Context) (*records.JobResult, error) {
+		e.job = &records.JobResult{
+			Result:  records.ResultSuccess,
+			Outputs: make(map[string]string),
+		}
 
-	if err != nil {
-		e.job.Result = records.ResultFailure
+		errs := e.run(ctx)
+		err := errors.Join(errs...)
+		return e.job, err
 	}
-	return e.job, err
+
+	return &JobTask{
+		Run:      run,
+		Executor: e,
+	}
 }
 
-func (e *jobExecutor) initialize(ctx context.Context) error {
-	s := scribe.FromContext(ctx)
+func (e *jobExecutor) run(ctx context.Context) (errs []error) {
+	errs = make([]error, 0, 5)
 
-	// do job initialization
-	if err := e.initializeJob(s); err != nil {
-		return fmt.Errorf("initialize job: %w", err)
+	err := e.runInitialize(ctx)
+	if err != nil {
+		errs = append(errs, err)
 	}
 
-	if err := e.initializeSandbox(ctx, s); err != nil {
-		return fmt.Errorf("initialize sandbox: %w", err)
-	}
+	defer func() {
+		err = e.runFinalize(ctx)
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}()
 
-	if err := e.initializeScope(); err != nil {
-		return fmt.Errorf("initialize scope: %w", err)
-	}
-
-	if err := e.initializeSteps(ctx, s); err != nil {
-		return fmt.Errorf("initialize steps: %w", err)
-	}
-
-	if hook := e.postStart; hook != nil {
-		if err := hook.Hook(ctx, e); err != nil {
-			return fmt.Errorf("postStart hook: %w", err)
+	for _, stage := range []Stage{StagePre, StageMain, StagePost} {
+		for _, task := range e.stageRuns[stage] {
+			if err = e.runStep(ctx, task); err != nil {
+				errs = append(errs, err)
+			}
 		}
 	}
 
-	s.Writef("Setup job done")
-	return nil
+	return
 }
 
 type paramHooks struct {
@@ -141,8 +142,9 @@ func (e *jobExecutor) populateHooks(p paramHooks) {
 	e.preStop = p.PreStop
 }
 
-func (e *jobExecutor) initializeJob(s *scribe.Scribe) error {
-	// inject dependencies
+func (e *jobExecutor) injectDeps(ctx context.Context) error {
+	s := scribe.FromContext(ctx)
+
 	// workaround because dig not support pass dig.Name() into Invoke func
 	if err := e.scope.Invoke(e.populateHooks); err != nil {
 		return fmt.Errorf("populate 'hooks': %w", err)
@@ -204,6 +206,53 @@ func (e *jobExecutor) initializeJob(s *scribe.Scribe) error {
 		return fmt.Errorf("supply 'defaults': %w", err)
 	}
 
+	return nil
+}
+
+func (e *jobExecutor) runInitialize(ctx context.Context) error {
+	task := &StepTask{
+		Run:     runStepE(runActionE(e.initialize)),
+		Stage:   StagePre,
+		Kind:    workflows.StepKindJob,
+		jobSpec: e.spec,
+	}
+	task.Run = e.decorator.DecorateStepRun(task)
+	task.Run = e.telemetry(StagePre, "__init", task.Run)
+
+	res, err := task.Run(ctx)
+	if res != nil {
+		if con := res.Conclusion; level(e.job.Result) < level(con) {
+			e.job.Result = con
+		}
+	}
+	if err != nil {
+		err = fmt.Errorf("initialize job: %w", err)
+	}
+	return err
+}
+
+func (e *jobExecutor) initialize(ctx context.Context) error {
+	s := scribe.FromContext(ctx)
+
+	if err := e.initializeSandbox(ctx, s); err != nil {
+		return fmt.Errorf("initialize sandbox: %w", err)
+	}
+
+	if err := e.initializeScope(); err != nil {
+		return fmt.Errorf("initialize scope: %w", err)
+	}
+
+	if err := e.initializeSteps(ctx, s); err != nil {
+		return fmt.Errorf("initialize steps: %w", err)
+	}
+
+	if hook := e.postStart; hook != nil {
+		if err := hook.Hook(ctx, e); err != nil {
+			return fmt.Errorf("postStart hook: %w", err)
+		}
+	}
+
+	s.Writef("Setup job done")
 	return nil
 }
 
@@ -349,34 +398,6 @@ func (e *jobExecutor) planStage(s *scribe.Scribe, stage Stage) {
 	e.stageRuns[stage] = tasks
 }
 
-func (e *jobExecutor) telemetry(stage Stage, stepId string, run StepRun) StepRun {
-	return func(ctx context.Context) (_ *records.StepResult, err error) {
-		ctx, done := xotel.SetupTelemetry(ctx,
-			fmt.Sprintf("StepRun(%s/%s)", stage, stepId),
-			xotel.Step(string(stage)+"/"+stepId),
-		)
-		defer done(&err)
-
-		return run(ctx)
-	}
-}
-
-func (e *jobExecutor) RunJob(ctx context.Context) (*records.JobResult, error) {
-	e.resetJobResult()
-
-	errs := make([]error, 3)
-	for _, stage := range []Stage{StagePre, StageMain, StagePost} {
-		for _, task := range e.stageRuns[stage] {
-			if err := e.runStep(ctx, task); err != nil {
-				errs = append(errs, err)
-			}
-		}
-	}
-
-	err := errors.Join(errs...)
-	return e.job, err
-}
-
 func (e *jobExecutor) runStep(ctx context.Context, task *StepTask) error {
 	stage := task.Stage
 	stepId := task.StepId()
@@ -405,17 +426,35 @@ func (e *jobExecutor) runStep(ctx context.Context, task *StepTask) error {
 	return err
 }
 
-func (e *jobExecutor) Finalize(ctx context.Context) (*records.JobResult, error) {
-	e.resetJobResult()
-
-	errs := e.finalize(ctx)
-	err := errors.Join(errs...)
-
-	if err != nil {
-		e.job.Result = records.ResultFailure
+func (e *jobExecutor) runFinalize(ctx context.Context) error {
+	run := func(ctx context.Context) error {
+		errs := e.finalize(ctx)
+		return errors.Join(errs...)
 	}
+	task := &StepTask{
+		Run:     runStepE(runActionE(run)),
+		Stage:   StagePost,
+		Kind:    workflows.StepKindJob,
+		jobSpec: e.spec,
+	}
+	task.Run = e.decorator.DecorateStepRun(task)
+	task.Run = e.telemetry(StagePost, "__complete", task.Run)
 
-	return e.job, err
+	// create new ctx w/ timeout 30s to clean up resources
+	ctx = context.WithoutCancel(ctx)
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	res, err := task.Run(ctx)
+	if res != nil {
+		if con := res.Conclusion; level(e.job.Result) < level(con) {
+			e.job.Result = con
+		}
+	}
+	if err != nil {
+		err = fmt.Errorf("complete job: %w", err)
+	}
+	return err
 }
 
 func (e *jobExecutor) finalize(ctx context.Context) (errs []error) {
@@ -523,16 +562,6 @@ func (e *jobExecutor) SetEnv(env map[string]string) {
 	maps.Copy(e.env, env)
 }
 
-func (e *jobExecutor) resetJobResult() {
-	if e.job == nil {
-		e.job = new(records.JobResult)
-	}
-	*e.job = records.JobResult{
-		Result:  records.ResultSuccess,
-		Outputs: make(map[string]string),
-	}
-}
-
 func (e *jobExecutor) setupEventFile(ctx context.Context) (string, error) {
 	tmp := e.sandbox.Layout().Temp
 	files := map[string]any{"workflow/event.json": e.github.Event}
@@ -547,4 +576,16 @@ func (e *jobExecutor) setupEventFile(ctx context.Context) (string, error) {
 
 	location := path.Join(tmp, "workflow", "event.json")
 	return location, nil
+}
+
+func (e *jobExecutor) telemetry(stage Stage, stepId string, run StepRun) StepRun {
+	return func(ctx context.Context) (_ *records.StepResult, err error) {
+		ctx, done := xotel.SetupTelemetry(ctx,
+			fmt.Sprintf("StepRun(%s/%s)", stage, stepId),
+			xotel.Step(string(stage)+"/"+stepId),
+		)
+		defer done(&err)
+
+		return run(ctx)
+	}
 }
