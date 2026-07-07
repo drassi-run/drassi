@@ -101,7 +101,7 @@ func (e *nodeActionExecutor) CreateTask(stage Stage) *ActionTask {
 }
 
 func (e *nodeActionExecutor) execute(stage Stage) ActionRun {
-	return func(ctx context.Context) error {
+	fn := func(ctx context.Context) error {
 		e.addSpanAttrs(ctx, stage)
 
 		sandbox := e.sExec.Sandbox()
@@ -114,17 +114,18 @@ func (e *nodeActionExecutor) execute(stage Stage) ActionRun {
 			scribe.WithMap("env", e.sExec.Env()),
 		)
 
-		env := composeEnv(e.sExec)
+		env := e.sExec.ComposeEnv()
 		for k, v := range inputs {
 			k = strings.ToUpper(k)
 			env["INPUT_"+k] = v
 		}
 
-		paths := e.sExec.JobExecutor().SystemPaths()
+		paths := e.sExec.JobExecutor().Path()
 		streams := e.sExec.Streams(ctx, stage)
 		defer streams.Close()
 		return sandbox.Execute(ctx, cmd, paths, env, "", streams)
 	}
+	return runActionE(fn)
 }
 
 func (e *nodeActionExecutor) computeScriptPath(layout *sandboxer.Layout, stage Stage) string {

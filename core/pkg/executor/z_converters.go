@@ -8,7 +8,6 @@ package executor
 
 import (
 	"fmt"
-	"maps"
 	"strconv"
 	"strings"
 
@@ -71,7 +70,7 @@ func fromSteps(steps []workflows.Step) []*StepSpec {
 }
 
 func ToStepSpec(step workflows.Step) *StepSpec {
-	b := step.Base()
+	b := step.ActionBase()
 	uid, _ := uuid.NewRandom()
 	spec := &StepSpec{
 		Id:               b.Id,
@@ -83,13 +82,13 @@ func ToStepSpec(step workflows.Step) *StepSpec {
 		Env:              b.Env,
 	}
 	switch s := step.(type) {
-	case *workflows.RunStep:
+	case *workflows.RunActionStep:
 		spec.Action = &ScriptActionSpec{
 			Run:        s.Run,
 			Shell:      s.Shell,
 			WorkingDir: s.WorkingDir,
 		}
-	case *workflows.UsesStep:
+	case *workflows.UsesActionStep:
 		spec.Inputs = s.With
 		if strings.HasPrefix(s.Uses, "docker://") {
 			spec.Action = &DockerActionSpec{
@@ -212,21 +211,18 @@ func normalizeReplacer(r rune) rune {
 	return '_'
 }
 
-func composeEnv(exec StepExecutor) map[string]string {
-	env := exec.SystemEnv()
-	maps.Copy(env, exec.Env())
-	return env
-}
-
-func weight(r records.Result) int {
+// level used to merge 2 records.Result by worst result.
+//
+//	succeeded -> failed -> canceled/skipped
+//
+// TaskResultUtil: https://github.com/actions/runner/blob/v2.335.1/src/Runner.Common/Util/TaskResultUtil.cs#L40
+func level(r records.Result) int {
 	switch r {
-	case records.ResultSkipped:
-		return 0
 	case records.ResultSuccess:
 		return 1
-	case records.ResultCancelled:
-		return 2
 	case records.ResultFailure:
+		return 2
+	case records.ResultCancelled, records.ResultSkipped:
 		return 3
 	default:
 		return 0

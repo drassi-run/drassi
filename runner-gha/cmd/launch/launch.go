@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"time"
 
+	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/sandboxer"
@@ -149,6 +150,9 @@ func (l *launcher) Run(ctx context.Context) error {
 	}
 	defer cancel()
 
+	go l.propagateTermination(ctx)
+	defer l.wm.Wait()
+
 	// fetchInterval = 1s
 	limiter := rate.NewLimiter(rate.Every(time.Second), 1)
 
@@ -248,7 +252,7 @@ func (l *launcher) refreshRunnerConfig(ctx context.Context, msg *messages.Runner
 func (l *launcher) cancelJob(ctx context.Context, msg *messages.JobCancel) error {
 	logger := clog.FromContext(ctx)
 	logger.Warnf("received %q request from server job=%q", messages.TypeJobCancellation, msg.JobId)
-	l.wm.Cancel(ctx, msg.JobId, "server cancel")
+	l.wm.Cancel(msg.JobId, msg.Timeout, executor.ErrServerCanceled)
 	return nil
 }
 
@@ -279,7 +283,7 @@ func (l *launcher) requestRunnerJob(ctx context.Context, msg *messages.RunnerJob
 func (l *launcher) requestPipelineAgentJob(ctx context.Context, msg *messages.PipelineAgentJobRequest) error {
 	logger := clog.FromContext(ctx)
 	logger.Infof("received %q request job=%q type=%q", messages.TypePipelineAgentJobRequest, msg.JobId, msg.MessageType)
-	l.wm.Submit(ctx, msg, l.module())
+	l.wm.Submit(msg, l.module())
 	logger.Infof("submitted job=%q to Worker", msg.JobId)
 	return nil
 }
@@ -289,9 +293,19 @@ func (l *launcher) forceRefreshToken(ctx context.Context) error {
 	return nil
 }
 
+func (l *launcher) propagateTermination(ctx context.Context) {
+	<-ctx.Done()
+	timeout := 30 * time.Second
+	for reqId := range l.wm.Inflight() {
+		go func() {
+			l.wm.Cancel(reqId, timeout, executor.ErrRunnerTerminated)
+		}()
+	}
+}
+
 func (l *launcher) module() *wire.Module {
 	fn := func(scope *dig.Scope) error {
-		runner := &records.Runner{
+		runner := &records.RunnerInfo{
 			Name:        l.Runner.Status.RunnerName,
 			Os:          model.Linux,
 			Arch:        model.X64,

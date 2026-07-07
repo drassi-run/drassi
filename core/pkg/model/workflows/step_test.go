@@ -7,12 +7,13 @@
 package workflows
 
 import (
-	"drassi.run/core/pkg/model"
 	"fmt"
-	"github.com/go-viper/mapstructure/v2"
-	"gotest.tools/v3/assert"
 	"reflect"
 	"testing"
+
+	"drassi.run/core/pkg/model"
+	"github.com/go-viper/mapstructure/v2"
+	"gotest.tools/v3/assert"
 )
 
 type stepTestStruct struct {
@@ -33,13 +34,13 @@ func TestDecodeStep(t *testing.T) {
 	}
 
 	t.Run("run", func(tt *testing.T) {
-		step := &RunStep{
+		step := &RunActionStep{
 			Run: NewLiteralToken("echo hello world"),
 		}
 		testDecodeStep(tt, runInput, step)
 	})
 	t.Run("uses", func(tt *testing.T) {
-		step := &UsesStep{
+		step := &UsesActionStep{
 			Uses: "action/pass@v0",
 		}
 		testDecodeStep(tt, usesInput, step)
@@ -47,7 +48,7 @@ func TestDecodeStep(t *testing.T) {
 
 	t.Run("conflict/empty", func(tt *testing.T) {
 		input := map[string]any{}
-		var step Step = &RunStep{}
+		var step Step = &RunActionStep{}
 		err := model.Decode(input, &step)
 
 		assert.ErrorContains(tt, err, "map MUST be contains either `run` or `uses`")
@@ -58,21 +59,21 @@ func TestDecodeStep(t *testing.T) {
 			"run":  "echo hello world",
 			"uses": "action/pass@v0",
 		}
-		var step Step = &RunStep{}
+		var step Step = &RunActionStep{}
 		err := model.Decode(input, &step)
 
 		assert.ErrorContains(tt, err, "map MUST be contains either `run` or `uses`")
 	})
 
 	t.Run("conflict/run-to-UsesStep", func(tt *testing.T) {
-		var step Step = &UsesStep{}
+		var step Step = &UsesActionStep{}
 		err := model.Decode(runInput, &step)
 
 		assert.ErrorContains(tt, err, fmt.Sprintf("map contains `run` CAN'T be decode to %T", step))
 	})
 
 	t.Run("conflict/uses-to-RunStep", func(tt *testing.T) {
-		var step Step = &RunStep{}
+		var step Step = &RunActionStep{}
 		err := model.Decode(usesInput, &step)
 
 		assert.ErrorContains(tt, err, fmt.Sprintf("map contains `uses` CAN'T be decode to %T", step))
@@ -127,7 +128,7 @@ func TestDecodeStep(t *testing.T) {
 		input := map[string]any{
 			"run": "true",
 		}
-		step := new(RunStep)
+		step := new(RunActionStep)
 		err := model.DecodeWithOptions(input, &step, opt)
 		assert.NilError(tt, err)
 	})

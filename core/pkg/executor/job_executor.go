@@ -14,6 +14,7 @@ import (
 	"path"
 	"slices"
 	"strings"
+	"time"
 
 	"drassi.run/core/pkg/expression"
 	"drassi.run/core/pkg/expression/evaluator"
@@ -32,27 +33,20 @@ import (
 
 type JobExecutor interface {
 	JobSpec() *JobSpec
-
-	Initialize(ctx context.Context) (*records.Job, error)
-	RunJob(ctx context.Context) (*records.Job, error)
-	Finalize(ctx context.Context) (*records.Job, error)
+	CreateTask() *JobTask
 
 	Sandbox() sandboxer.Sandbox
 	ExprEnv() expression.Env
 
 	Github() *records.Github
-	Status() records.Result // inherit libraries.StatusProvider
-	SetStatus(status records.Result)
+	Path() []string
 	AddPath(paths []string)
-	SystemPaths() []string
 	Env() map[string]string
-	SystemEnv() map[string]string
 	SetEnv(env map[string]string)
 }
 
 type JobTask struct {
 	Run      JobRun
-	Stage    Stage
 	Executor JobExecutor
 }
 
@@ -64,7 +58,7 @@ func (t *JobTask) JobSpec() *JobSpec {
 	return t.Executor.JobSpec()
 }
 
-type JobRun func(context.Context) (*records.Job, error)
+type JobRun func(context.Context) (*records.JobResult, error)
 
 type jobExecutor struct {
 	spec  *JobSpec
@@ -73,8 +67,8 @@ type jobExecutor struct {
 	// records
 	github  *records.Github
 	jobInfo *records.JobInfo
-	job     *records.Job
-	steps   map[string]*records.Step
+	job     *records.JobResult
+	steps   map[string]*records.StepResult
 	env     map[string]string
 	paths   []string
 
@@ -85,100 +79,54 @@ type jobExecutor struct {
 	sandbox   sandboxer.Sandbox
 
 	children  map[string]StepExecutor
-	stageRuns map[Stage]func(context.Context) error
+	stageRuns map[Stage][]*StepTask
 }
 
 func (e *jobExecutor) JobSpec() *JobSpec {
 	return e.spec
 }
 
-func (e *jobExecutor) Initialize(ctx context.Context) (job *records.Job, err error) {
-	// e.job is late initialize
-	defer func() { job = e.job }()
-	s := scribe.FromContext(ctx)
-
-	// do job initialization
-	if ex := e.initializeJob(s); ex != nil {
-		err = fmt.Errorf("initialize job: %w", ex)
-		return
-	}
-
-	if ex := e.initializeSandbox(ctx, s); ex != nil {
-		err = fmt.Errorf("initialize sandbox: %w", ex)
-		return
-	}
-
-	if ex := e.initializeScope(); ex != nil {
-		err = fmt.Errorf("initialize scope: %w", ex)
-		return
-	}
-
-	if ex := e.initializeSteps(ctx, s); ex != nil {
-		err = fmt.Errorf("initialize steps: %w", ex)
-		return
-	}
-
-	if hook := e.postStart; hook != nil {
-		if ex := hook.Hook(ctx, e); ex != nil {
-			err = fmt.Errorf("postStart hook: %w", ex)
+func (e *jobExecutor) CreateTask() *JobTask {
+	run := func(ctx context.Context) (*records.JobResult, error) {
+		e.job = &records.JobResult{
+			Result:  records.ResultSuccess,
+			Outputs: make(map[string]string),
 		}
+
+		errs := e.run(ctx)
+		err := errors.Join(errs...)
+		return e.job, err
 	}
 
-	s.Writef("Setup job done")
-	return
+	return &JobTask{
+		Run:      run,
+		Executor: e,
+	}
 }
 
-func (e *jobExecutor) RunJob(ctx context.Context) (*records.Job, error) {
-	errs := make([]error, 3)
-	for i, stage := range []Stage{StagePre, StageMain, StagePost} {
-		if run := e.stageRuns[stage]; run != nil {
-			errs[i] = run(ctx)
-		}
+func (e *jobExecutor) run(ctx context.Context) (errs []error) {
+	errs = make([]error, 0, 5)
+
+	err := e.runInitialize(ctx)
+	if err != nil {
+		errs = append(errs, err)
 	}
 
-	return e.job, errors.Join(errs...)
-}
-
-func (e *jobExecutor) Finalize(ctx context.Context) (job *records.Job, err error) {
-	errs := make([]error, 0, 3)
 	defer func() {
-		job = e.job
-		err = errors.Join(errs...)
+		err = e.runFinalize(ctx)
+		if err != nil {
+			errs = append(errs, err)
+		}
 	}()
 
-	s := scribe.FromContext(ctx)
-	if e.job.Result == records.ResultSuccess {
-		s.Debugf("Evaluating job 'outputs'")
-		if ex := evaluator.Evaluate(e.exprEnv, e.spec.Outputs, &e.job.Outputs); ex != nil {
-			e.SetStatus(records.ResultFailure)
-			s.Errorf("Evaluate job 'outputs' error: %v", ex)
-			ex = fmt.Errorf("evaluate job 'output': %w", ex)
-			errs = append(errs, ex)
+	for _, stage := range []Stage{StagePre, StageMain, StagePost} {
+		for _, task := range e.stageRuns[stage] {
+			if err = e.runStep(ctx, task); err != nil {
+				errs = append(errs, err)
+			}
 		}
 	}
 
-	if hook := e.preStop; hook != nil {
-		if ex := hook.Hook(ctx, e); ex != nil {
-			ex = fmt.Errorf("preStop hook: %w", ex)
-			s.Errorf("preStop hook error: %v", ex)
-			errs = append(errs, ex)
-		}
-	}
-
-	if e.sandbox == nil {
-		return
-	}
-
-	s.Writef("Terminating sandbox...")
-	if ex := e.sandbox.Terminate(ctx); ex != nil {
-		s.Errorf("Sandbox terminate error: %v", err)
-		ex = fmt.Errorf("terminate sandbox: %w", err)
-		errs = append(errs, ex)
-	} else {
-		s.Writef("Sandbox terminated")
-	}
-
-	s.Writef("Teardown job done")
 	return
 }
 
@@ -194,8 +142,9 @@ func (e *jobExecutor) populateHooks(p paramHooks) {
 	e.preStop = p.PreStop
 }
 
-func (e *jobExecutor) initializeJob(s *scribe.Scribe) error {
-	// inject dependencies
+func (e *jobExecutor) injectDeps(ctx context.Context) error {
+	s := scribe.FromContext(ctx)
+
 	// workaround because dig not support pass dig.Name() into Invoke func
 	if err := e.scope.Invoke(e.populateHooks); err != nil {
 		return fmt.Errorf("populate 'hooks': %w", err)
@@ -222,9 +171,7 @@ func (e *jobExecutor) initializeJob(s *scribe.Scribe) error {
 	e.github.ActionRepository = ""
 	e.github.ActionStatus = ""
 	e.jobInfo = new(records.JobInfo)
-	e.job = new(records.Job)
-	e.steps = make(map[string]*records.Step, len(e.spec.Steps))
-	e.SetStatus(records.ResultSuccess)
+	e.steps = make(map[string]*records.StepResult, len(e.spec.Steps))
 
 	// setup expression.Env
 	opts := []expression.Option{
@@ -259,6 +206,53 @@ func (e *jobExecutor) initializeJob(s *scribe.Scribe) error {
 		return fmt.Errorf("supply 'defaults': %w", err)
 	}
 
+	return nil
+}
+
+func (e *jobExecutor) runInitialize(ctx context.Context) error {
+	task := &StepTask{
+		Run:     runStepE(runActionE(e.initialize)),
+		Stage:   StagePre,
+		Kind:    workflows.StepKindJob,
+		jobSpec: e.spec,
+	}
+	task.Run = e.decorator.DecorateStepRun(task)
+	task.Run = e.telemetry(StagePre, "__init", task.Run)
+
+	res, err := task.Run(ctx)
+	if res != nil {
+		if con := res.Conclusion; level(e.job.Result) < level(con) {
+			e.job.Result = con
+		}
+	}
+	if err != nil {
+		err = fmt.Errorf("initialize job: %w", err)
+	}
+	return err
+}
+
+func (e *jobExecutor) initialize(ctx context.Context) error {
+	s := scribe.FromContext(ctx)
+
+	if err := e.initializeSandbox(ctx, s); err != nil {
+		return fmt.Errorf("initialize sandbox: %w", err)
+	}
+
+	if err := e.initializeScope(); err != nil {
+		return fmt.Errorf("initialize scope: %w", err)
+	}
+
+	if err := e.initializeSteps(ctx, s); err != nil {
+		return fmt.Errorf("initialize steps: %w", err)
+	}
+
+	if hook := e.postStart; hook != nil {
+		if err := hook.Hook(ctx, e); err != nil {
+			return fmt.Errorf("postStart hook: %w", err)
+		}
+	}
+
+	s.Writef("Setup job done")
 	return nil
 }
 
@@ -351,7 +345,7 @@ func (e *jobExecutor) initializeScope() error {
 	return nil
 }
 
-func (e *jobExecutor) configureRunner(runner *records.Runner) {
+func (e *jobExecutor) configureRunner(runner *records.RunnerInfo) {
 	layout := e.sandbox.Layout()
 	runner.Workspace = layout.Workspace
 	runner.ToolCache = layout.Tools
@@ -359,20 +353,8 @@ func (e *jobExecutor) configureRunner(runner *records.Runner) {
 }
 
 func (e *jobExecutor) initializeSteps(ctx context.Context, s *scribe.Scribe) error {
-	e.children = make(map[string]StepExecutor, len(e.spec.Steps))
-
-	// TODO: concurrent version of Initialize is temporary disable because of concurrent map writes in scope
-	//g, ctx := errgroup.WithContext(ctx)
-	//for _, step := range e.jobRun.Steps {
-	//	exec := e.NewStepExecutor(step)
-	//	s := scope.Scope(fmt.Sprintf("step(%s)", exec.StepId()))
-	//	g.Go(func() error {
-	//		return exec.Initialize(s)
-	//	})
-	//}
-	//return g.Wait()
-
 	s.Writef("Initialize steps...")
+	e.children = make(map[string]StepExecutor, len(e.spec.Steps))
 	for _, step := range e.spec.Steps {
 		scope := e.scope.Scope(fmt.Sprintf("step(%s)", step.Id))
 		if exec, err := step.CreateExecutor(ctx, scope, e, nil); err != nil {
@@ -384,16 +366,15 @@ func (e *jobExecutor) initializeSteps(ctx context.Context, s *scribe.Scribe) err
 	s.Writef("Steps initialized")
 
 	s.Writef("Planing steps execution...")
-	e.stageRuns = make(map[Stage]func(context.Context) error, 3)
-	e.stageRuns[StagePre] = e.planStage(StagePre)
-	e.stageRuns[StageMain] = e.planStage(StageMain)
-	e.stageRuns[StagePost] = e.planStage(StagePost)
+	e.stageRuns = make(map[Stage][]*StepTask, 3)
+	for _, stage := range []Stage{StagePre, StageMain, StagePost} {
+		e.planStage(s, stage)
+	}
 	s.Writef("Steps execution planed")
 	return nil
 }
 
-func (e *jobExecutor) planStage(stage Stage) func(context.Context) error {
-	// 1. Plan the execution
+func (e *jobExecutor) planStage(s *scribe.Scribe, stage Stage) {
 	ids := make([]string, len(e.spec.Steps))
 	for i, step := range e.spec.Steps {
 		ids[i] = step.Id
@@ -401,59 +382,118 @@ func (e *jobExecutor) planStage(stage Stage) func(context.Context) error {
 	if stage == StagePost {
 		slices.Reverse(ids) // in-place reverse
 	}
-	tasks := make([]*StepTask, len(ids))
-	for i, id := range ids {
+
+	tasks := make([]*StepTask, 0)
+	for _, id := range ids {
 		cExec := e.children[id]
 		task := cExec.CreateTask(stage)
-		if task != nil {
-			task.Run = e.decorator.DecorateStepRun(task)
-			task.Run = e.telemetry(id, stage, task.Run)
+		if task == nil {
+			continue
 		}
-		tasks[i] = task
+		task.Run = e.decorator.DecorateStepRun(task)
+		task.Run = e.telemetry(stage, id, task.Run)
+		s.Debugf("Queue step %s/%s", stage, id)
+		tasks = append(tasks, task)
 	}
-
-	// all runs are nil
-	if !slices.ContainsFunc(tasks, func(t *StepTask) bool { return t != nil }) {
-		return nil
-	}
-
-	// 2. Execute the plan
-	return func(ctx context.Context) error {
-		errs := make([]error, 0)
-		for i, task := range tasks {
-			if task == nil {
-				continue
-			}
-
-			id := ids[i]
-			res, err := task.Run(ctx)
-			// Only set `steps` records in `main` stage & `id` is user specified
-			if stage == StageMain && !strings.HasPrefix(id, "__") {
-				e.steps[id] = res
-			}
-			if res != nil {
-				if con := res.Conclusion; weight(con) > weight(e.job.Result) {
-					e.SetStatus(con)
-				}
-			}
-			if err != nil {
-				errs = append(errs, fmt.Errorf("run step %q (%s): %w", id, stage, err))
-			}
-		}
-		return errors.Join(errs...)
-	}
+	e.stageRuns[stage] = tasks
 }
 
-func (e *jobExecutor) telemetry(stepId string, stage Stage, run StepRun) StepRun {
-	return func(ctx context.Context) (_ *records.Step, err error) {
-		ctx, done := xotel.SetupTelemetry(ctx,
-			fmt.Sprintf("StepRun(%s/%s)", stage, stepId),
-			xotel.Step(string(stage)+"/"+stepId),
-		)
-		defer done(&err)
+func (e *jobExecutor) runStep(ctx context.Context, task *StepTask) error {
+	stage := task.Stage
+	stepId := task.StepId()
+	e.jobInfo.Status = e.job.Result
 
-		return run(ctx)
+	res, err := task.Run(ctx)
+
+	if res != nil {
+		if con := res.Conclusion; level(e.job.Result) < level(con) {
+			e.job.Result = con
+		}
+		// Only set `steps` records in `main` stage & `id` is user specified
+		if stage == StageMain && !strings.HasPrefix(stepId, "__") {
+			e.steps[stepId] = res
+		}
 	}
+
+	if err != nil {
+		switch e.job.Result {
+		case records.ResultFailure:
+			err = fmt.Errorf("step %s/%s fail: %w", stage, stepId, err)
+		case records.ResultCancelled:
+			err = fmt.Errorf("step %s/%s canceled: %w", stage, stepId, err)
+		}
+	}
+	return err
+}
+
+func (e *jobExecutor) runFinalize(ctx context.Context) error {
+	run := func(ctx context.Context) error {
+		errs := e.finalize(ctx)
+		return errors.Join(errs...)
+	}
+	task := &StepTask{
+		Run:     runStepE(runActionE(run)),
+		Stage:   StagePost,
+		Kind:    workflows.StepKindJob,
+		jobSpec: e.spec,
+	}
+	task.Run = e.decorator.DecorateStepRun(task)
+	task.Run = e.telemetry(StagePost, "__complete", task.Run)
+
+	// create new ctx w/ timeout 30s to clean up resources
+	ctx = context.WithoutCancel(ctx)
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	res, err := task.Run(ctx)
+	if res != nil {
+		if con := res.Conclusion; level(e.job.Result) < level(con) {
+			e.job.Result = con
+		}
+	}
+	if err != nil {
+		err = fmt.Errorf("complete job: %w", err)
+	}
+	return err
+}
+
+func (e *jobExecutor) finalize(ctx context.Context) (errs []error) {
+	s := scribe.FromContext(ctx)
+
+	// https://github.com/actions/runner/blob/v2.335.1/src/Runner.Worker/JobExtension.cs#L751
+	// NOTE: any job.Outputs contains secret will be removed later by [wire_secret.maskJobOutputs]
+	s.Debugf("Evaluating job 'outputs'")
+	if err := evaluator.Evaluate(e.exprEnv, e.spec.Outputs, &e.job.Outputs); err != nil {
+		s.Errorf("Evaluate job 'outputs' error: %v", err)
+		err = fmt.Errorf("evaluate job 'output': %w", err)
+		errs = append(errs, err)
+	}
+
+	// TODO: Evaluate environment data
+
+	if hook := e.preStop; hook != nil {
+		if err := hook.Hook(ctx, e); err != nil {
+			s.Errorf("preStop hook error: %v", err)
+			err = fmt.Errorf("preStop hook: %w", err)
+			errs = append(errs, err)
+		}
+	}
+
+	if e.sandbox == nil {
+		return
+	}
+
+	s.Writef("Terminating sandbox...")
+	if err := e.sandbox.Terminate(ctx); err != nil {
+		s.Errorf("Sandbox terminate error: %v", err)
+		err = fmt.Errorf("terminate sandbox: %w", err)
+		errs = append(errs, err)
+	} else {
+		s.Writef("Sandbox terminated")
+	}
+
+	s.Writef("Teardown job done")
+	return
 }
 
 func (e *jobExecutor) Sandbox() sandboxer.Sandbox {
@@ -477,9 +517,8 @@ func (e *jobExecutor) Status() records.Result {
 	return records.ResultSuccess
 }
 
-func (e *jobExecutor) SetStatus(status records.Result) {
-	e.job.Result = status
-	e.jobInfo.Status = status
+func (e *jobExecutor) Path() []string {
+	return e.paths
 }
 
 // AddPath prepending a directory to the system PATH variable (and remove duplicates).
@@ -511,16 +550,8 @@ func (e *jobExecutor) AddPath(paths []string) {
 	e.paths = newPaths
 }
 
-func (e *jobExecutor) SystemPaths() []string {
-	return e.paths
-}
-
 func (e *jobExecutor) Env() map[string]string {
 	return e.env
-}
-
-func (e *jobExecutor) SystemEnv() map[string]string {
-	return nil
 }
 
 // SetEnv make an environment variable available to any subsequent steps in a workflow job.
@@ -545,4 +576,16 @@ func (e *jobExecutor) setupEventFile(ctx context.Context) (string, error) {
 
 	location := path.Join(tmp, "workflow", "event.json")
 	return location, nil
+}
+
+func (e *jobExecutor) telemetry(stage Stage, stepId string, run StepRun) StepRun {
+	return func(ctx context.Context) (_ *records.StepResult, err error) {
+		ctx, done := xotel.SetupTelemetry(ctx,
+			fmt.Sprintf("StepRun(%s/%s)", stage, stepId),
+			xotel.Step(string(stage)+"/"+stepId),
+		)
+		defer done(&err)
+
+		return run(ctx)
+	}
 }

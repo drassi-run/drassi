@@ -437,7 +437,7 @@ func (e *engine) waitFinish(ctx context.Context, id string, autoRemove bool, fn 
 					errC <- fmt.Errorf("container exited with status code: %d", result.StatusCode)
 				}
 			case err := <-waitErrC:
-				ctx, cancel := xcontext.ExpandTimeout(ctx)
+				ctx, cancel := xcontext.ExpandContext(ctx, err)
 				defer cancel()
 				_ = e.client.ContainerKill(ctx, id, "SIGKILL")
 

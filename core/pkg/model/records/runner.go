@@ -10,7 +10,7 @@ import "drassi.run/core/pkg/model"
 
 // The `runner` context contains information about the runner that is executing the current job.
 // https://docs.github.com/en/actions/learn-github-actions/contexts#runner-context
-type Runner struct {
+type RunnerInfo struct {
 	Name        string             `json:"name" yaml:"name" actions:"name"`
 	Os          model.Machine      `json:"os" yaml:"os" actions:"os"`
 	Arch        model.Architecture `json:"arch" yaml:"arch" actions:"arch"`

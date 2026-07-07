@@ -6,17 +6,26 @@
 
 package workflows
 
+type StepKind string
+
+const (
+	StepKindJob     StepKind = "JobStep"     // job setup & complete meta-step
+	StepKindAction  StepKind = "ActionStep"  // for uses/run step
+	StepKindControl StepKind = "ControlStep" // for wait/cancel/parallel step
+)
+
 type Step interface {
-	Base() *BaseStep
+	Kind() StepKind
+	ActionBase() *ActionStep
 }
 
 // ensure Step implementations
 var (
-	_ Step = (*UsesStep)(nil)
-	_ Step = (*RunStep)(nil)
+	_ Step = (*UsesActionStep)(nil)
+	_ Step = (*RunActionStep)(nil)
 )
 
-type BaseStep struct {
+type ActionStep struct {
 	// A unique identifier for the step. You can use the id to reference the step in contexts.
 	// For more information, see https://help.github.com/en/articles/contexts-and-expression-syntax-for-github-actions.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsid
@@ -70,12 +79,16 @@ type BaseStep struct {
 	TimeoutInMinutes Evaluable[int64] `json:"timeout-minutes,omitempty" yaml:"timeout-minutes,omitempty" actions:"timeout-minutes,omitempty"`
 }
 
-func (s *BaseStep) Base() *BaseStep {
+func (s *ActionStep) Kind() StepKind {
+	return StepKindAction
+}
+
+func (s *ActionStep) ActionBase() *ActionStep {
 	return s
 }
 
-type UsesStep struct {
-	BaseStep `json:",inline" yaml:",inline" actions:",squash"`
+type UsesActionStep struct {
+	ActionStep `json:",inline" yaml:",inline" actions:",squash"`
 
 	// Selects an action to run as part of a step in your job. An action is a reusable unit of code.
 	// You can use an action defined in the same repository as the workflow, a public repository, or in a published Docker container image (https://hub.docker.com/).
@@ -101,8 +114,8 @@ type UsesStep struct {
 	With Evaluable[map[string]string] `json:"with,omitempty" yaml:"with,omitempty" actions:"with,omitempty"`
 }
 
-type RunStep struct {
-	BaseStep `json:",inline" yaml:",inline" actions:",squash"`
+type RunActionStep struct {
+	ActionStep `json:",inline" yaml:",inline" actions:",squash"`
 
 	// Runs command-line programs using the operating system's shell. If you do not provide a name, the step name will default to the text specified in the run command.
 	// Commands run using non-login shells by default. You can choose a different shell and customize the shell used to run commands.

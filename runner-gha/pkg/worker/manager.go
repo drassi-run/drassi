@@ -8,19 +8,23 @@ package worker
 
 import (
 	"context"
-	"errors"
+	"iter"
+	"maps"
 	"sync"
+	"time"
 
+	"drassi.run/core/util/context"
 	"drassi.run/core/wire"
 	"drassi.run/gha-runner/pkg/messages"
 	"github.com/chainguard-dev/clog"
 )
 
 type flight struct {
-	JobId  string
-	Worker *Worker
-	Cancel context.CancelCauseFunc
-	DoneCh chan struct{}
+	JobId   string
+	Worker  *Worker
+	Context context.Context
+	Cancel  context.CancelCauseFunc
+	DoneCh  chan struct{}
 }
 
 func NewManager() *Manager {
@@ -36,31 +40,34 @@ type Manager struct {
 	inflight map[string]*flight
 }
 
-func (m *Manager) Submit(ctx context.Context, req *messages.PipelineAgentJobRequest, modules ...*wire.Module) {
+func (m *Manager) Submit(req *messages.PipelineAgentJobRequest, modules ...*wire.Module) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	ctx := xcontext.WithExpander(context.Background())
 	ctx, cancel := context.WithCancelCause(ctx)
 	f := &flight{
-		JobId:  req.JobId,
-		Worker: NewWorker(req),
-		Cancel: cancel,
-		DoneCh: make(chan struct{}),
+		JobId:   req.JobId,
+		Worker:  NewWorker(req),
+		Cancel:  cancel,
+		Context: ctx,
+		DoneCh:  make(chan struct{}),
 	}
 	m.inflight[req.JobId] = f
 
 	m.wg.Add(1)
-	go m.takeoff(ctx, f, modules...)
+	go m.takeoff(f, modules...)
 }
 
-func (m *Manager) takeoff(ctx context.Context, f *flight, modules ...*wire.Module) {
+func (m *Manager) takeoff(f *flight, modules ...*wire.Module) {
 	var err error
-	defer m.landing(ctx, f, &err)
-	err = f.Worker.Run(ctx, modules...)
+	defer m.landing(f, &err)
+	err = f.Worker.Run(f.Context, modules...)
 }
 
-func (m *Manager) landing(ctx context.Context, f *flight, e *error) {
+func (m *Manager) landing(f *flight, e *error) {
 	var err error
+	ctx := f.Context
 	if ex := ctx.Err(); ex != nil {
 		// external error: server canceled, process interrupt,...
 		err = ex
@@ -87,13 +94,20 @@ func (m *Manager) landing(ctx context.Context, f *flight, e *error) {
 	m.wg.Done()
 }
 
-func (m *Manager) Cancel(ctx context.Context, reqId, msg string) {
+func (m *Manager) Cancel(reqId string, timeout time.Duration, err error) {
 	if f, ok := m.inflight[reqId]; ok {
-		err := errors.New(msg)
+		ctx := f.Context
+		if ex := xcontext.Expand(ctx, timeout); ex != nil {
+			clog.ErrorContextf(ctx, "job=%q: %v", reqId, ex)
+		}
 		f.Cancel(err)
 		<-f.DoneCh
 		clog.WarnContextf(ctx, "job=%q canceled: %v", reqId, err)
 	}
+}
+
+func (m *Manager) Inflight() iter.Seq[string] {
+	return maps.Keys(m.inflight)
 }
 
 func (m *Manager) Wait() {

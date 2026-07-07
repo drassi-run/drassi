@@ -10,6 +10,8 @@ import (
 	"context"
 
 	"drassi.run/core/pkg/command/cmdtypes"
+	"drassi.run/core/pkg/executor"
+	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/scribe"
 	"drassi.run/core/pkg/secret"
 	"drassi.run/core/util/dig"
@@ -61,5 +63,30 @@ func maskScribeHandler(h scribe.Handler, sm secret.Masker) scribe.Handler {
 	return func(ctx context.Context, line string) error {
 		line = sm.Mask(line)
 		return h(ctx, line)
+	}
+}
+
+func maskJobRunDecorator(sm secret.Masker) executor.JobRunDecorator {
+	return &maskJobOutputs{sm: sm}
+}
+
+type maskJobOutputs struct {
+	sm secret.Masker
+}
+
+func (m *maskJobOutputs) DecorateJobRun(task *executor.JobTask) executor.JobRun {
+	run := task.Run
+	return func(ctx context.Context) (*records.JobResult, error) {
+		s := scribe.FromContext(ctx)
+		res, err := run(ctx)
+
+		for k, v := range res.Outputs {
+			if !m.sm.IsClean(v) {
+				s.Warningf("Skip output %q since it may contain secret.", k)
+				delete(res.Outputs, k)
+			}
+		}
+
+		return res, err
 	}
 }

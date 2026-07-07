@@ -83,6 +83,44 @@ func (c *MockStepExecutorActionExecutorCall) DoAndReturn(f func() executor.Actio
 	return c
 }
 
+// ComposeEnv mocks base method.
+func (m *MockStepExecutor) ComposeEnv() map[string]string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ComposeEnv")
+	ret0, _ := ret[0].(map[string]string)
+	return ret0
+}
+
+// ComposeEnv indicates an expected call of ComposeEnv.
+func (mr *MockStepExecutorMockRecorder) ComposeEnv() *MockStepExecutorComposeEnvCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ComposeEnv", reflect.TypeOf((*MockStepExecutor)(nil).ComposeEnv))
+	return &MockStepExecutorComposeEnvCall{Call: call}
+}
+
+// MockStepExecutorComposeEnvCall wrap *gomock.Call
+type MockStepExecutorComposeEnvCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStepExecutorComposeEnvCall) Return(arg0 map[string]string) *MockStepExecutorComposeEnvCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStepExecutorComposeEnvCall) Do(f func() map[string]string) *MockStepExecutorComposeEnvCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStepExecutorComposeEnvCall) DoAndReturn(f func() map[string]string) *MockStepExecutorComposeEnvCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // CreateTask mocks base method.
 func (m *MockStepExecutor) CreateTask(stage executor.Stage) *executor.StepTask {
 	m.ctrl.T.Helper()
@@ -193,6 +231,44 @@ func (c *MockStepExecutorExprEnvCall) Do(f func() expression.Env) *MockStepExecu
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStepExecutorExprEnvCall) DoAndReturn(f func() expression.Env) *MockStepExecutorExprEnvCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// Github mocks base method.
+func (m *MockStepExecutor) Github() *records.Github {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Github")
+	ret0, _ := ret[0].(*records.Github)
+	return ret0
+}
+
+// Github indicates an expected call of Github.
+func (mr *MockStepExecutorMockRecorder) Github() *MockStepExecutorGithubCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Github", reflect.TypeOf((*MockStepExecutor)(nil).Github))
+	return &MockStepExecutorGithubCall{Call: call}
+}
+
+// MockStepExecutorGithubCall wrap *gomock.Call
+type MockStepExecutorGithubCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStepExecutorGithubCall) Return(arg0 *records.Github) *MockStepExecutorGithubCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStepExecutorGithubCall) Do(f func() *records.Github) *MockStepExecutorGithubCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStepExecutorGithubCall) DoAndReturn(f func() *records.Github) *MockStepExecutorGithubCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -495,76 +571,40 @@ func (c *MockStepExecutorSetOutputCall) DoAndReturn(f func(map[string]string)) *
 	return c
 }
 
-// SetStatus mocks base method.
-func (m *MockStepExecutor) SetStatus(status records.Result) {
+// State mocks base method.
+func (m *MockStepExecutor) State() map[string]string {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SetStatus", status)
-}
-
-// SetStatus indicates an expected call of SetStatus.
-func (mr *MockStepExecutorMockRecorder) SetStatus(status any) *MockStepExecutorSetStatusCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetStatus", reflect.TypeOf((*MockStepExecutor)(nil).SetStatus), status)
-	return &MockStepExecutorSetStatusCall{Call: call}
-}
-
-// MockStepExecutorSetStatusCall wrap *gomock.Call
-type MockStepExecutorSetStatusCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStepExecutorSetStatusCall) Return() *MockStepExecutorSetStatusCall {
-	c.Call = c.Call.Return()
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStepExecutorSetStatusCall) Do(f func(records.Result)) *MockStepExecutorSetStatusCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStepExecutorSetStatusCall) DoAndReturn(f func(records.Result)) *MockStepExecutorSetStatusCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// Status mocks base method.
-func (m *MockStepExecutor) Status() records.Result {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Status")
-	ret0, _ := ret[0].(records.Result)
+	ret := m.ctrl.Call(m, "State")
+	ret0, _ := ret[0].(map[string]string)
 	return ret0
 }
 
-// Status indicates an expected call of Status.
-func (mr *MockStepExecutorMockRecorder) Status() *MockStepExecutorStatusCall {
+// State indicates an expected call of State.
+func (mr *MockStepExecutorMockRecorder) State() *MockStepExecutorStateCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Status", reflect.TypeOf((*MockStepExecutor)(nil).Status))
-	return &MockStepExecutorStatusCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockStepExecutor)(nil).State))
+	return &MockStepExecutorStateCall{Call: call}
 }
 
-// MockStepExecutorStatusCall wrap *gomock.Call
-type MockStepExecutorStatusCall struct {
+// MockStepExecutorStateCall wrap *gomock.Call
+type MockStepExecutorStateCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStepExecutorStatusCall) Return(arg0 records.Result) *MockStepExecutorStatusCall {
+func (c *MockStepExecutorStateCall) Return(arg0 map[string]string) *MockStepExecutorStateCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStepExecutorStatusCall) Do(f func() records.Result) *MockStepExecutorStatusCall {
+func (c *MockStepExecutorStateCall) Do(f func() map[string]string) *MockStepExecutorStateCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStepExecutorStatusCall) DoAndReturn(f func() records.Result) *MockStepExecutorStatusCall {
+func (c *MockStepExecutorStateCall) DoAndReturn(f func() map[string]string) *MockStepExecutorStateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -641,44 +681,6 @@ func (c *MockStepExecutorStreamsCall) Do(f func(context.Context, executor.Stage)
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStepExecutorStreamsCall) DoAndReturn(f func(context.Context, executor.Stage) *stream.Streams) *MockStepExecutorStreamsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// SystemEnv mocks base method.
-func (m *MockStepExecutor) SystemEnv() map[string]string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SystemEnv")
-	ret0, _ := ret[0].(map[string]string)
-	return ret0
-}
-
-// SystemEnv indicates an expected call of SystemEnv.
-func (mr *MockStepExecutorMockRecorder) SystemEnv() *MockStepExecutorSystemEnvCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SystemEnv", reflect.TypeOf((*MockStepExecutor)(nil).SystemEnv))
-	return &MockStepExecutorSystemEnvCall{Call: call}
-}
-
-// MockStepExecutorSystemEnvCall wrap *gomock.Call
-type MockStepExecutorSystemEnvCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStepExecutorSystemEnvCall) Return(arg0 map[string]string) *MockStepExecutorSystemEnvCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStepExecutorSystemEnvCall) Do(f func() map[string]string) *MockStepExecutorSystemEnvCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStepExecutorSystemEnvCall) DoAndReturn(f func() map[string]string) *MockStepExecutorSystemEnvCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

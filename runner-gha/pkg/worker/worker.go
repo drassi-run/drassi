@@ -94,10 +94,7 @@ func (w *Worker) run(scope *dig.Scope) (err error) {
 	scope = scope.Scope(fmt.Sprintf("job(%s)", spec.Id))
 
 	l.Infof("running job %s", spec.Id)
-	w.timelineMgr.InitJob(spec)
-	job, err := executor.Run(w.ctx, spec, scope)
-	w.timelineMgr.FinishJob(job)
-
+	_, err = executor.Run(w.ctx, spec, scope)
 	return err
 }
 

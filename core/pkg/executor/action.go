@@ -8,7 +8,9 @@ package executor
 
 import (
 	"context"
+	"errors"
 
+	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/model/workflows"
 	"go.uber.org/dig"
 )
@@ -59,4 +61,18 @@ const (
 	StagePost Stage = "post"
 )
 
-type ActionRun func(context.Context) error
+type ActionRun func(context.Context) (records.Result, error)
+
+func runActionE(fn func(context.Context) error) ActionRun {
+	return func(ctx context.Context) (records.Result, error) {
+		err := fn(ctx)
+		if err == nil {
+			return records.ResultSuccess, nil
+		}
+		if errors.Is(err, context.Canceled) {
+			cause := context.Cause(ctx)
+			return records.ResultCancelled, cause
+		}
+		return records.ResultFailure, err
+	}
+}
