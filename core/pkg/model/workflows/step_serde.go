@@ -35,15 +35,15 @@ func DecodeStepHook(from reflect.Value, to reflect.Value) (any, error) {
 	t := to.Interface()
 	if containsRun {
 		if t == nil {
-			to.Set(reflect.ValueOf(&RunStep{}))
-		} else if _, ok := t.(*RunStep); !ok {
+			to.Set(reflect.ValueOf(&RunActionStep{}))
+		} else if _, ok := t.(*RunActionStep); !ok {
 			return nil, fmt.Errorf("map contains `run` CAN'T be decode to %T", t)
 		}
 	}
 	if containsUses {
 		if t == nil {
-			to.Set(reflect.ValueOf(&UsesStep{}))
-		} else if _, ok := t.(*UsesStep); !ok {
+			to.Set(reflect.ValueOf(&UsesActionStep{}))
+		} else if _, ok := t.(*UsesActionStep); !ok {
 			return nil, fmt.Errorf("map contains `uses` CAN'T be decode to %T", t)
 		}
 	}

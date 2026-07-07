@@ -70,7 +70,7 @@ func fromSteps(steps []workflows.Step) []*StepSpec {
 }
 
 func ToStepSpec(step workflows.Step) *StepSpec {
-	b := step.Base()
+	b := step.ActionBase()
 	uid, _ := uuid.NewRandom()
 	spec := &StepSpec{
 		Id:               b.Id,
@@ -82,13 +82,13 @@ func ToStepSpec(step workflows.Step) *StepSpec {
 		Env:              b.Env,
 	}
 	switch s := step.(type) {
-	case *workflows.RunStep:
+	case *workflows.RunActionStep:
 		spec.Action = &ScriptActionSpec{
 			Run:        s.Run,
 			Shell:      s.Shell,
 			WorkingDir: s.WorkingDir,
 		}
-	case *workflows.UsesStep:
+	case *workflows.UsesActionStep:
 		spec.Inputs = s.With
 		if strings.HasPrefix(s.Uses, "docker://") {
 			spec.Action = &DockerActionSpec{
