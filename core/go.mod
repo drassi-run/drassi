@@ -23,6 +23,7 @@ require (
 	github.com/lxc/incus/v6 v6.6.0
 	github.com/mitchellh/copystructure v1.2.0
 	github.com/opencontainers/image-spec v1.1.0
+	github.com/pelletier/go-toml/v2 v2.4.3
 	github.com/pkg/sftp v1.13.6
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.10.0

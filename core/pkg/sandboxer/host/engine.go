@@ -16,29 +16,40 @@ import (
 	c "drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/container/docker"
 	"drassi.run/core/pkg/sandboxer"
-	"drassi.run/core/pkg/sandboxer/apis/v1alpha1"
 	"drassi.run/core/pkg/sandboxer/container"
 	"drassi.run/core/util/fs"
 	"drassi.run/core/util/path"
 	"drassi.run/core/util/string"
 )
 
-type engine struct {
-	spec *v1alpha1.HostSandboxerSpec
+type Config struct {
+	RootDir    string `toml:"root_dir" json:"rootDir"`
+	RuntimeDir string `toml:"runtime_dir,omitempty" json:"runtimeDir,omitempty"`
 }
 
-func New(spec *v1alpha1.HostSandboxerSpec) (sandboxer.Engine, error) {
-	if d, err := xpath.ResolveDir(spec.RootDir); err != nil {
+func DefaultConfig() *Config {
+	return &Config{
+		RootDir:    "/tmp",
+		RuntimeDir: "/opt/drassi",
+	}
+}
+
+type engine struct {
+	Config
+}
+
+func New(config *Config) (sandboxer.Engine, error) {
+	if d, err := xpath.ResolveDir(config.RootDir); err != nil {
 		return nil, err
 	} else {
-		spec.RootDir = d
+		config.RootDir = d
 	}
 
-	if err := os.MkdirAll(spec.RootDir, xfs.DirPerm); err != nil {
+	if err := os.MkdirAll(config.RootDir, xfs.DirPerm); err != nil {
 		return nil, err
 	}
 
-	return &engine{spec: spec}, nil
+	return &engine{Config: *config}, nil
 }
 
 func (e *engine) Close() error {
@@ -47,13 +58,13 @@ func (e *engine) Close() error {
 
 func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*sandboxer.LaunchResponse, error) {
 	sandboxDir := e.sandboxDir(req)
-	sandboxDir = filepath.Join(e.spec.RootDir, sandboxDir)
+	sandboxDir = filepath.Join(e.RootDir, sandboxDir)
 
 	sb, err := newSandbox(sandboxDir)
 	if err != nil {
 		return nil, err
 	}
-	sb.layout.Runtimes = e.spec.RuntimeDir
+	sb.layout.Runtimes = e.RuntimeDir
 
 	client, err := docker.New()
 	if err != nil {

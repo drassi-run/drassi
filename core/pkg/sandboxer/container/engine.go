@@ -20,9 +20,9 @@ import (
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
-	"drassi.run/core/pkg/sandboxer/apis/v1alpha1"
 	"drassi.run/core/pkg/stream"
 	"drassi.run/core/util/string"
+	dockerclient "github.com/docker/docker/client"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -30,13 +30,36 @@ type Bootstrapper interface {
 	Bootstrap(ctx context.Context, sb sandboxer.Sandbox, req *sandboxer.LaunchRequest) (*sandboxer.LaunchResponse, error)
 }
 
+type Config struct {
+	Implementation string `toml:"implementation" json:"implementation"`
+	Endpoint       string `toml:"endpoint" json:"endpoint,omitempty"`
+	Image          string `toml:"image" json:"image,omitempty"`
+}
+
+func DefaultConfig() *Config {
+	return &Config{
+		Implementation: "docker",
+		Image:          "ghcr.io/drassi-run/ubuntu:26.04",
+	}
+}
+
 type engine struct {
 	client       container.Engine
 	defaultImage string
 }
 
-func New(spec *v1alpha1.ContainerSandboxerSpec) (sandboxer.Engine, error) {
-	client, err := docker.New()
+func New(config *Config) (sandboxer.Engine, error) {
+	if config.Implementation != "docker" {
+		return nil, fmt.Errorf("unsupported container implementation: %s", config.Implementation)
+	}
+
+	opts := make([]dockerclient.Opt, 0)
+	if ep := config.Endpoint; ep != "" {
+		opt := dockerclient.WithHost(ep)
+		opts = append(opts, opt)
+	}
+
+	client, err := docker.New(opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +67,7 @@ func New(spec *v1alpha1.ContainerSandboxerSpec) (sandboxer.Engine, error) {
 
 	e := &engine{
 		client:       client,
-		defaultImage: spec.Image,
+		defaultImage: config.Image,
 	}
 	return e, nil
 }
