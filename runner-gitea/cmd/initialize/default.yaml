@@ -1,7 +1,0 @@
----
-apiVersion: sandboxer.drassi.run/v1alpha1
-kind: HostSandboxer
-metadata:
-  name: host
-spec:
-  rootDir: /tmp
