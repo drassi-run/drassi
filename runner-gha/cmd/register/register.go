@@ -12,24 +12,22 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/pem"
 	"fmt"
 	"net/url"
 	"os"
 	"strings"
 
-	sandboxerv1a1 "drassi.run/core/pkg/sandboxer/apis/v1alpha1"
 	"drassi.run/core/util/http"
-	ghav1a1 "drassi.run/gha-runner/pkg/apis/v1alpha1"
+	ghaconfig "drassi.run/gha-runner/config"
 	"drassi.run/gha-runner/pkg/dotnet"
 	"drassi.run/gha-runner/pkg/types"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/huh/spinner"
+	"github.com/pelletier/go-toml/v2"
 	"github.com/spf13/cobra"
 	"golang.org/x/oauth2"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/yaml"
 )
 
 const (
@@ -45,12 +43,11 @@ type actionsAuth struct {
 }
 
 type options struct {
-	Url           string
-	Token         string
-	Group         string
-	Name          string
-	SandboxerKind string
-	SandboxerName string
+	Url       string
+	Token     string
+	Group     string
+	Name      string
+	Sandboxer string
 }
 
 var UserAgent types.UserAgentInfo
@@ -84,8 +81,7 @@ func New() *cobra.Command {
 	flags.StringVar(&opts.Token, "token", "", "Actions registration Token")
 	flags.StringVar(&opts.Group, "group", "", "GitHub Actions RunnerReference Group")
 	flags.StringVar(&opts.Name, "name", "", "GitHub Actions RunnerReference Name")
-	flags.StringVar(&opts.SandboxerKind, "sandboxer-kind", "", "Sandboxer kind")
-	flags.StringVar(&opts.SandboxerName, "sandboxer-name", "", "Sandboxer name")
+	flags.StringVar(&opts.Sandboxer, "sandboxer", "", "Sandboxer name to used")
 
 	return cmd
 }
@@ -313,29 +309,17 @@ func (r *register) provideRunnerName(ctx context.Context) error {
 }
 
 func (r *register) selectSandboxer(_ context.Context) error {
-	if r.SandboxerKind == "" {
-		inquiry := huh.NewInput().
-			Title("What is your sandboxer kind?").
-			Value(&r.SandboxerKind).
-			Validate(IsNotEmpty)
-
-		if err := inquiry.Run(); err != nil {
-			return err
-		} else {
-			fmt.Printf("SandboxerKind: %s\n", r.SandboxerKind)
-		}
-	}
-	if r.SandboxerName == "" {
+	if r.Sandboxer == "" {
 		inquiry := huh.NewInput().
 			Title("What is your sandboxer name?").
-			Value(&r.SandboxerName).
+			Value(&r.Sandboxer).
 			Validate(IsNotEmpty)
 
 		if err := inquiry.Run(); err != nil {
 			return err
-		} else {
-			fmt.Printf("SandboxerName: %s\n", r.SandboxerName)
 		}
+
+		fmt.Printf("Sandboxer: %s\n", r.Sandboxer)
 	}
 	return nil
 }
@@ -376,7 +360,7 @@ func (r *register) registerRunner(ctx context.Context) error {
 }
 
 func (r *register) saveRunner(_ context.Context) error {
-	secret, err := r.encodeKey()
+	privateKey, err := r.encodeKey()
 	if err != nil {
 		return err
 	}
@@ -386,50 +370,28 @@ func (r *register) saveRunner(_ context.Context) error {
 		labels[i] = l.Name
 	}
 
-	runner := &ghav1a1.GitHubRunner{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: ghav1a1.SchemeGroupVersion.String(),
-			Kind:       "GitHubRunner",
+	runner := &ghaconfig.Runner{
+		RunnerId:        r.runner.Id,
+		GroupId:         r.group.Id,
+		RunnerName:      r.runner.Name,
+		GroupName:       r.group.Name,
+		Labels:          labels,
+		ServerUrl:       r.auth.TenantUrl,
+		RegistrationUrl: r.Url,
+		Authorization: ghaconfig.RunnerAuthorization{
+			Url:        r.runner.Authorization.AuthorizationUrl,
+			ClientId:   r.runner.Authorization.ClientId,
+			PrivateKey: privateKey,
 		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:              strings.ToLower(r.Name),
-			CreationTimestamp: metav1.NewTime(*r.runner.CreatedOn),
-		},
-		Spec: ghav1a1.GitHubRunnerSpec{
-			RunnerId:        r.runner.Id,
-			GroupId:         r.group.Id,
-			ServerUrl:       r.auth.TenantUrl,
-			RegistrationUrl: r.Url,
-			Authorization: ghav1a1.GitHubRunnerAuthorization{
-				Url:      r.runner.Authorization.AuthorizationUrl,
-				ClientId: r.runner.Authorization.ClientId,
-				SecretRef: corev1.LocalObjectReference{
-					Name: secret.Name,
-				},
-			},
-			SandboxerRef: corev1.TypedLocalObjectReference{
-				APIGroup: new(sandboxerv1a1.SchemeGroupVersion.String()),
-				Kind:     r.SandboxerKind,
-				Name:     r.SandboxerName,
-			},
-		},
-		Status: ghav1a1.GitHubRunnerStatus{
-			RunnerName: r.runner.Name,
-			GroupName:  r.group.Name,
-			Labels:     labels,
-		},
+	}
+
+	config := &ghaconfig.Config{
+		Runner:       runner,
+		UseSandboxer: r.Sandboxer,
 	}
 
 	var buf bytes.Buffer
-	if b, err := yaml.Marshal(runner); err != nil {
-		return err
-	} else {
-		buf.Write(b)
-	}
-
-	buf.WriteString("---\n")
-
-	if b, err := yaml.Marshal(secret); err != nil {
+	if b, err := toml.Marshal(config); err != nil {
 		return err
 	} else {
 		buf.Write(b)
@@ -473,32 +435,11 @@ func (r *register) saveRunner(_ context.Context) error {
 	return err
 }
 
-func (r *register) encodeKey() (*corev1.Secret, error) {
-	pub := x509.MarshalPKCS1PublicKey(&r.key.PublicKey)
-	pubKey := pem.EncodeToMemory(&pem.Block{
-		Type:  "RSA PUBLIC KEY",
-		Bytes: pub,
-	})
-
+func (r *register) encodeKey() (string, error) {
 	pri := x509.MarshalPKCS1PrivateKey(r.key)
 	priKey := pem.EncodeToMemory(&pem.Block{
 		Type:  "RSA PRIVATE KEY",
 		Bytes: pri,
 	})
-
-	secret := corev1.Secret{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: corev1.SchemeGroupVersion.String(),
-			Kind:       "Secret",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: strings.ToLower(r.Name) + "-secret",
-		},
-		Type: corev1.SecretTypeOpaque,
-		StringData: map[string]string{
-			"public.key":  string(pubKey),
-			"private.key": string(priKey),
-		},
-	}
-	return &secret, nil
+	return base64.StdEncoding.EncodeToString(priKey), nil
 }

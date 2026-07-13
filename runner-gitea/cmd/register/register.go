@@ -15,14 +15,11 @@ import (
 	pingv1 "code.gitea.io/actions-proto-go/ping/v1"
 	runnerv1 "code.gitea.io/actions-proto-go/runner/v1"
 	"connectrpc.com/connect"
-	sandboxerv1a1 "drassi.run/core/pkg/sandboxer/apis/v1alpha1"
-	giteav1a1 "drassi.run/gitea-runner/pkg/apis/v1alpha1"
+	giteaconfig "drassi.run/gitea-runner/config"
 	"drassi.run/gitea-runner/pkg/gitea"
 	"github.com/charmbracelet/huh"
+	"github.com/pelletier/go-toml/v2"
 	"github.com/spf13/cobra"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/yaml"
 )
 
 type options struct {
@@ -31,8 +28,7 @@ type options struct {
 	name                  string
 	labels                []string
 	insecureSkipTLSVerify bool
-	sandboxerKind         string
-	sandboxerName         string
+	sandboxer             string
 }
 
 type register struct {
@@ -60,8 +56,7 @@ func New() *cobra.Command {
 	flags.StringVar(&opts.token, "token", "", "Runner registration token")
 	flags.StringVar(&opts.name, "name", "", "Runner name")
 	flags.StringSliceVar(&opts.labels, "labels", nil, "Runner tags, comma separated")
-	flags.StringVar(&opts.sandboxerKind, "sandboxer-kind", "", "Sandboxer kind")
-	flags.StringVar(&opts.sandboxerName, "sandboxer-name", "", "Sandboxer name")
+	flags.StringVar(&opts.sandboxer, "sandboxer", "", "Sandboxer name to used")
 
 	return cmd
 }
@@ -75,9 +70,9 @@ func (c *register) Run(ctx context.Context) error {
 			Validate(IsNotEmpty)
 		if err := inquiry.Run(); err != nil {
 			return err
-		} else {
-			fmt.Printf("Gitea instance URL: %s\n", c.url)
 		}
+
+		fmt.Printf("Gitea instance URL: %s\n", c.url)
 	}
 	if strings.HasPrefix(c.url, "https://") {
 		inquiry := huh.NewConfirm().
@@ -85,9 +80,9 @@ func (c *register) Run(ctx context.Context) error {
 			Value(&c.insecureSkipTLSVerify)
 		if err := inquiry.Run(); err != nil {
 			return err
-		} else {
-			fmt.Printf("Skip verify server TLS: %s\n", c.url)
 		}
+
+		fmt.Printf("Skip verify server TLS: %s\n", c.url)
 	}
 	if c.token == "" {
 		inquiry := huh.NewInput().
@@ -97,9 +92,9 @@ func (c *register) Run(ctx context.Context) error {
 			Validate(IsNotEmpty)
 		if err := inquiry.Run(); err != nil {
 			return err
-		} else {
-			fmt.Printf("Runner registration token: %s\n", c.token)
 		}
+
+		fmt.Printf("Runner registration token: %s\n", c.token)
 	}
 	if c.name == "" {
 		inquiry := huh.NewInput().
@@ -108,46 +103,34 @@ func (c *register) Run(ctx context.Context) error {
 			Validate(IsNotEmpty)
 		if err := inquiry.Run(); err != nil {
 			return err
-		} else {
-			fmt.Printf("Runner name: %s\n", c.name)
 		}
+
+		fmt.Printf("Runner name: %s\n", c.name)
 	}
 
 	// TODO: prompt
 	c.labels = []string{"ubuntu-latest", "ubuntu-22.04"}
 
-	if c.sandboxerKind == "" {
-		inquiry := huh.NewInput().
-			Title("Sandboxer Kind?").
-			Value(&c.sandboxerKind).
-			Validate(IsNotEmpty)
-		if err := inquiry.Run(); err != nil {
-			return err
-		} else {
-			fmt.Printf("Sandboxer Kind: %s\n", c.sandboxerKind)
-		}
-	}
-
-	if c.sandboxerName == "" {
+	if c.sandboxer == "" {
 		inquiry := huh.NewInput().
 			Title("Sandboxer Name?").
-			Value(&c.sandboxerName).
+			Value(&c.sandboxer).
 			Validate(IsNotEmpty)
 		if err := inquiry.Run(); err != nil {
 			return err
-		} else {
-			fmt.Printf("Sandboxer Name: %s\n", c.sandboxerName)
 		}
+
+		fmt.Printf("Sandboxer Name: %s\n", c.sandboxer)
 	}
 
 	if runner, err := c.doRegister(ctx); err != nil {
 		return err
 	} else {
-		return c.saveManifest(runner)
+		return c.saveConfig(runner)
 	}
 }
 
-func (c *register) doRegister(ctx context.Context) (*giteav1a1.GiteaRunner, error) {
+func (c *register) doRegister(ctx context.Context) (*giteaconfig.Runner, error) {
 	client := gitea.NewClient(c.url, c.insecureSkipTLSVerify, "", "")
 
 	for {
@@ -170,33 +153,24 @@ func (c *register) doRegister(ctx context.Context) (*giteav1a1.GiteaRunner, erro
 		return nil, err
 	}
 
-	runner := giteav1a1.GiteaRunner{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: giteav1a1.SchemeGroupVersion.String(),
-			Kind:       "GiteaRunner",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: resp.Msg.Runner.Name,
-		},
-		Spec: giteav1a1.GiteaRunnerSpec{
-			UUID:                  resp.Msg.Runner.Uuid,
-			Token:                 resp.Msg.Runner.Token,
-			Address:               c.url,
-			InsecureSkipTLSVerify: c.insecureSkipTLSVerify,
-			RunnerLabels:          resp.Msg.Runner.Labels,
-			SandboxerRef: corev1.TypedLocalObjectReference{
-				APIGroup: new(sandboxerv1a1.SchemeGroupVersion.String()),
-				Kind:     c.sandboxerKind,
-				Name:     c.sandboxerName,
-			},
-		},
+	runner := giteaconfig.Runner{
+		Name:                  resp.Msg.Runner.Name,
+		UUID:                  resp.Msg.Runner.Uuid,
+		Token:                 resp.Msg.Runner.Token,
+		Address:               c.url,
+		InsecureSkipTLSVerify: c.insecureSkipTLSVerify,
+		RunnerLabels:          resp.Msg.Runner.Labels,
 	}
 
 	return &runner, nil
 }
 
-func (c *register) saveManifest(runner *giteav1a1.GiteaRunner) error {
-	b, err := yaml.Marshal(runner)
+func (c *register) saveConfig(runner *giteaconfig.Runner) error {
+	config := &giteaconfig.Config{
+		Runner:       runner,
+		UseSandboxer: c.sandboxer,
+	}
+	b, err := toml.Marshal(config)
 	if err != nil {
 		return err
 	}

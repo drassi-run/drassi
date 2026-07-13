@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"time"
 
+	coreconfig "drassi.run/core/config"
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/records"
@@ -22,7 +23,7 @@ import (
 	"drassi.run/core/util/dig"
 	"drassi.run/core/util/oauth2/clientcredentials"
 	"drassi.run/core/wire"
-	ghav1a1 "drassi.run/gha-runner/pkg/apis/v1alpha1"
+	ghaconfig "drassi.run/gha-runner/config"
 	"drassi.run/gha-runner/pkg/lease"
 	"drassi.run/gha-runner/pkg/listener"
 	"drassi.run/gha-runner/pkg/messages"
@@ -35,13 +36,11 @@ import (
 )
 
 type options struct {
-	Store     string
-	ConfigDir string
-	Name      string
+	Config string
 }
 
 type launcher struct {
-	Runner    *ghav1a1.GitHubRunner
+	Runner    *ghaconfig.Runner
 	Key       *rsa.PrivateKey
 	Sandboxer sandboxer.Engine
 	store     gitstore.Store
@@ -69,13 +68,9 @@ func New() *cobra.Command {
 	}
 
 	flags := cmd.Flags()
-	flags.StringVar(&opts.Store, "store", "local", "Manifest store")
-
-	flags.StringVar(&opts.ConfigDir, "config-dir", "", "Configuration directory")
-	_ = cobra.MarkFlagDirname(flags, "config-dir")
-
-	flags.StringVar(&opts.Name, "name", "", "GHA Runner instance name")
-	_ = cobra.MarkFlagRequired(flags, "name")
+	flags.StringVar(&opts.Config, "config", "", "TOML configuration file")
+	_ = cobra.MarkFlagFilename(flags, "config", "toml")
+	_ = cobra.MarkFlagRequired(flags, "config")
 
 	return cmd
 }
@@ -83,34 +78,27 @@ func New() *cobra.Command {
 func (l *launcher) Init(ctx context.Context, opts *options) (err error) {
 	clog.InfoContextf(ctx, "initializing gha-runner")
 
-	store, err := manifestStore(opts)
+	cfg, err := loadConfig(opts.Config)
 	if err != nil {
 		return err
 	}
+	l.Runner = cfg.Runner
 
-	if runner, err := loadRunnerManifest(ctx, store, opts.Name); err != nil {
-		return err
-	} else {
-		l.Runner = runner
-	}
-
-	spec := l.Runner.Spec
-	secretName := spec.Authorization.SecretRef.Name
-	if secret, err := loadSecretManifest(ctx, store, secretName); err != nil {
-		return err
-	} else if key, err := decodeKey(secret); err != nil {
+	if key, err := decodeKey(cfg.Runner.Authorization, opts.Config); err != nil {
 		return err
 	} else {
 		l.Key = key
 	}
 
-	if sb, err := loadSandboxer(ctx, store, spec.SandboxerRef); err != nil {
+	if sbConfig, ok := cfg.Sandboxers[cfg.UseSandboxer]; !ok {
+		return fmt.Errorf("sandboxer %q not configured", cfg.UseSandboxer)
+	} else if sb, err := coreconfig.NewSandboxerEngine(sbConfig); err != nil {
 		return err
 	} else {
 		l.Sandboxer = sb
 	}
 
-	authz := spec.Authorization
+	authz := cfg.Runner.Authorization
 	config := clientcredentials.Config{
 		TokenURL:   authz.Url,
 		ClientID:   authz.ClientId,
@@ -143,7 +131,7 @@ func (l *launcher) Run(ctx context.Context) error {
 		return err
 	}
 
-	spec := l.Runner.Spec
+	spec := l.Runner
 	cancel, err := lis.Connect(ctx, spec.RunnerId, spec.GroupId)
 	if err != nil {
 		return err
@@ -170,7 +158,7 @@ func (l *launcher) Run(ctx context.Context) error {
 }
 
 func (l *launcher) createListener() (listener.Listener, error) {
-	url := l.Runner.Spec.ServerUrl
+	url := l.Runner.ServerUrl
 	return listener.NewMigratableListener(url, l.hc, l.Key)
 }
 
@@ -269,9 +257,9 @@ func (l *launcher) requestRunnerJob(ctx context.Context, msg *messages.RunnerJob
 			return err
 		}
 	} else {
-		rs := l.Runner.Spec
+		runner := l.Runner
 		logger.Infof("acquiring job from legacy RunnerService...")
-		if svc, err := lease.NewRunnerService(rs.ServerUrl, l.hc, rs.GroupId); err != nil {
+		if svc, err := lease.NewRunnerService(runner.ServerUrl, l.hc, runner.GroupId); err != nil {
 			return err
 		} else if req, err = svc.AcquireJob(ctx, msg.RunnerRequestId); err != nil {
 			return err
@@ -306,7 +294,7 @@ func (l *launcher) propagateTermination(ctx context.Context) {
 func (l *launcher) module() *wire.Module {
 	fn := func(scope *dig.Scope) error {
 		runner := &records.RunnerInfo{
-			Name:        l.Runner.Status.RunnerName,
+			Name:        l.Runner.RunnerName,
 			Os:          model.Linux,
 			Arch:        model.X64,
 			Environment: "self-hosted",
@@ -329,6 +317,6 @@ func (l *launcher) module() *wire.Module {
 }
 
 func (l *launcher) runnerService(hc *http.Client) (*lease.RunnerService, error) {
-	rs := l.Runner.Spec
-	return lease.NewRunnerService(rs.ServerUrl, hc, rs.GroupId)
+	runner := l.Runner
+	return lease.NewRunnerService(runner.ServerUrl, hc, runner.GroupId)
 }
