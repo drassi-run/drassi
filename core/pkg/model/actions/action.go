@@ -6,8 +6,6 @@
 
 package actions
 
-import "drassi.run/core/pkg/model/workflows"
-
 type Action struct {
 	// The name of your action. GitHub displays the `name` in the Actions tab to help visually identify actions in each job.
 	// https://docs.github.com/en/actions/creating-actions/metadata-syntax-for-github-actions#name
@@ -25,11 +23,11 @@ type Action struct {
 	// GitHub stores input parameters as environment variables.
 	// Input ids with uppercase letters are converted to lowercase during runtime. We recommended using lowercase input ids.
 	// https://docs.github.com/en/actions/creating-actions/metadata-syntax-for-github-actions#inputs
-	Inputs map[string]workflows.Input `json:"inputs,omitempty" yaml:"inputs,omitempty" actions:"inputs,omitempty"`
+	Inputs map[string]Input `json:"inputs,omitempty" yaml:"inputs,omitempty" actions:"inputs,omitempty"`
 
 	// Output parameters allow you to declare data that an action sets.
 	// Actions that run later in a workflow can use the output data set in previously run actions.
-	Outputs map[string]workflows.Output `json:"outputs,omitempty" yaml:"outputs,omitempty" actions:"outputs,omitempty"`
+	Outputs map[string]Output `json:"outputs,omitempty" yaml:"outputs,omitempty" actions:"outputs,omitempty"`
 
 	// Specifies whether this is a JavaScript action, a composite action, or a Docker container action and how the action is executed.
 	// https://docs.github.com/en/actions/creating-actions/metadata-syntax-for-github-actions#runs

@@ -15,7 +15,8 @@ import (
 )
 
 func init() {
-	model.RegisterUnmarshalInterface(discriminateJob)
+	u := model.UnmarshalInterface(discriminateJob)
+	unmarshalers = append(unmarshalers, u)
 }
 
 func discriminateJob(raw jsontext.Value) (Job, error) {

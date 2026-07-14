@@ -10,34 +10,9 @@ import (
 	"math"
 	"reflect"
 	"strconv"
-)
 
-func WeaklyString(from reflect.Type, to reflect.Type, data any) (any, error) {
-	//goland:noinspection GoSwitchMissingCasesForIotaConsts
-	switch to.Kind() {
-	// Convert primitive values (bool, number) to string
-	// https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTObjectTemplating/ObjectTemplating/TemplateEvaluator.cs#L370-L380
-	case reflect.String:
-		if s, ok := Stringify(data); ok {
-			return s, nil
-		}
-	// Struct and Map of string also have weakly key
-	// https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTObjectTemplating/ObjectTemplating/TemplateEvaluator.cs#L207-L211
-	// https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTObjectTemplating/ObjectTemplating/TemplateEvaluator.cs#L325-L329
-	case reflect.Struct:
-		if m, ok := StructStringify(data); ok {
-			return m, nil
-		}
-	case reflect.Map:
-		if to.Key().Kind() != reflect.String {
-			break
-		}
-		if m, ok := MapStringify(data); ok {
-			return m, nil
-		}
-	}
-	return data, nil
-}
+	"github.com/go-viper/mapstructure/v2"
+)
 
 var typeListString = reflect.TypeFor[[]string]()
 var typeMapString = reflect.TypeFor[map[string]any]()
@@ -139,7 +114,7 @@ func StructStringify(data any) (map[string]any, bool) {
 	}
 
 	m := make(map[string]any, val.NumField())
-	if err := Decode(data, &m); err != nil {
+	if err := mapstructure.Decode(data, &m); err != nil {
 		return nil, false
 	}
 	return m, true

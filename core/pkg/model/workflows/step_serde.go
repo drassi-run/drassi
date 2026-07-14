@@ -14,6 +14,11 @@ import (
 	"drassi.run/core/pkg/model"
 )
 
+func init() {
+	u := model.UnmarshalInterface(discriminateStep)
+	unmarshalers = append(unmarshalers, u)
+}
+
 func discriminateStep(raw jsontext.Value) (Step, error) {
 	var dis struct {
 		Run  string `json:"run,omitempty"`
@@ -34,8 +39,4 @@ func discriminateStep(raw jsontext.Value) (Step, error) {
 		// both Run and Uses are missing
 		return nil, fmt.Errorf("step MUST be contains either `run` or `uses`")
 	}
-}
-
-func init() {
-	model.RegisterUnmarshalInterface(discriminateStep)
 }

@@ -15,6 +15,18 @@ import (
 	"drassi.run/core/pkg/model"
 )
 
+var unmarshalers []*json.Unmarshalers
+
+func JsonUnmarshalers() *json.Unmarshalers {
+	return json.JoinUnmarshalers(unmarshalers...)
+}
+
+func init() {
+	unmarshalers = []*json.Unmarshalers{
+		model.UnmarshalInterface(discriminateRuns),
+	}
+}
+
 func discriminateRuns(raw jsontext.Value) (Runs, error) {
 	var dis struct {
 		Using string `json:"using,omitempty"`
@@ -34,8 +46,4 @@ func discriminateRuns(raw jsontext.Value) (Runs, error) {
 		}
 		return nil, fmt.Errorf(`unknown runs with using=%q`, u)
 	}
-}
-
-func init() {
-	model.RegisterUnmarshalInterface(discriminateRuns)
 }

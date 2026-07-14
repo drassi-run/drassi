@@ -43,7 +43,7 @@ func (c *Concurrency) UnmarshalJSONFrom(d *jsontext.Decoder) error {
 	switch k := d.PeekKind(); k {
 	// 1. Shorthand string format (e.g., "group1")
 	case jsontext.KindString:
-		return json.UnmarshalDecode(d, c.Group)
+		return json.UnmarshalDecode(d, &c.Group)
 
 	// 2. Standard object format (e.g., {"group": "group1", "cancel-in-progress": true})
 	case jsontext.KindBeginObject:

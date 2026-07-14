@@ -4,7 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package workflows
+package actions
+
+import "drassi.run/core/pkg/model/workflows"
 
 // A string identifier to associate with the input. The value of <input_id> is a map of the input's metadata.
 // The <input_id> must be a unique identifier within the inputs object.
@@ -27,7 +29,7 @@ type Input struct {
 	//
 	// Context available: `github`, `inputs`, `vars`
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
-	Default Evaluable[any] `json:"default,omitempty" yaml:"default,omitempty" actions:"default,omitempty"` // TODO type args
+	Default workflows.Evaluable[any] `json:"default,omitempty" yaml:"default,omitempty" actions:"default,omitempty"` // TODO type args
 
 	// The value of this parameter is a string specifying the data type of the input.
 	// This must be one of: boolean, choice, number, environment or string.
@@ -54,7 +56,7 @@ type Output struct {
 
 	// Context available: `github`, `jobs`, `vars`, `inputs`
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
-	Value Evaluable[string] `json:"value,omitempty" yaml:"value,omitempty" actions:"value,omitempty"`
+	Value workflows.Evaluable[string] `json:"value,omitempty" yaml:"value,omitempty" actions:"value,omitempty"`
 }
 
 // A string identifier to associate with the secret.

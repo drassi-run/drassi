@@ -13,9 +13,17 @@ import (
 	"strings"
 )
 
-func UnmarshalToken(d *jsontext.Decoder, t *Token) error {
+func init() {
+	u := json.UnmarshalFromFunc(unmarshalToken)
+	unmarshalers = append(unmarshalers, u)
+}
+
+func unmarshalToken(d *jsontext.Decoder, t *Token) error {
 	switch d.PeekKind() {
 	case jsontext.KindNull:
+		if _, err := d.ReadToken(); err != nil {
+			return err
+		}
 		*t = nil
 
 	case jsontext.KindTrue, jsontext.KindFalse:
