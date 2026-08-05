@@ -13,12 +13,14 @@ import (
 	"strings"
 
 	"drassi.run/core/pkg/model"
+	"drassi.run/core/pkg/model/workflows"
 )
 
 var unmarshalers []*json.Unmarshalers
 
 func JsonUnmarshalers() *json.Unmarshalers {
-	return json.JoinUnmarshalers(unmarshalers...)
+	um := append(unmarshalers, workflows.JsonUnmarshalers())
+	return json.JoinUnmarshalers(um...)
 }
 
 func init() {

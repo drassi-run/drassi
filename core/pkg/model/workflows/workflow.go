@@ -6,6 +6,8 @@
 
 package workflows
 
+import "encoding/json/jsontext"
+
 // https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions
 type Workflow struct {
 	// The name of your workflow. GitHub displays the names of your workflows on your repository's actions page.
@@ -67,6 +69,16 @@ type Workflow struct {
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobs
 	Jobs map[string]Job `json:"jobs,omitempty"`
 }
+
+// The name of the GitHub event that triggers the workflow.
+// You can provide a single event string, array of events, array of event types, or an event configuration map
+// that schedules a workflow or restricts the execution of a workflow to specific files, tags, or branch changes.
+// For a list of available events, see https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows.
+// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#on
+type On map[string]Event
+
+// Event https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows
+type Event = jsontext.Value
 
 // You can modify the default permissions granted to the GITHUB_TOKEN, adding or removing access as required,
 // so that you only allow the minimum required access.

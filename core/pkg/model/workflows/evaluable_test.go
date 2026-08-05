@@ -7,115 +7,105 @@
 package workflows
 
 import (
-	"drassi.run/core/pkg/model"
-	"github.com/go-viper/mapstructure/v2"
-	"github.com/google/go-cmp/cmp"
-	"github.com/mitchellh/copystructure"
-	"golang.org/x/exp/maps"
-	"gotest.tools/v3/assert"
-	"reflect"
-	"slices"
+	"encoding/json/v2"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func clone[T any](i T) T {
-	if o, err := copystructure.Copy(i); err != nil {
-		return i
-	} else {
-		return o.(T)
+func TestTokenSerde(t *testing.T) {
+	opt := json.WithUnmarshalers(json.UnmarshalFromFunc(unmarshalToken))
+
+	testcases := map[string]struct {
+		input string
+		fn    func(Token, *testing.T)
+	}{
+		"null": {
+			input: "null",
+			fn: func(got Token, t *testing.T) {
+				assert.Nil(t, got)
+			},
+		},
+		"bool": {
+			input: `true`,
+			fn: func(got Token, t *testing.T) {
+				assert.Equal(t, true, literalValue(t, got))
+			},
+		},
+		"number": {
+			input: `42`,
+			fn: func(got Token, t *testing.T) {
+				assert.EqualValues(t, 42, literalValue(t, got))
+			},
+		},
+		"string": {
+			input: `"plain"`,
+			fn: func(got Token, t *testing.T) {
+				assert.Equal(t, "plain", literalValue(t, got))
+			},
+		},
+		"expression": {
+			input: `"${{ github.ref }}"`,
+			fn: func(got Token, t *testing.T) {
+				expr, ok := Expression(got)
+				assert.True(t, ok)
+				assert.Equal(t, "${{ github.ref }}", expr)
+			},
+		},
+		"array": {
+			input: `["ubuntu-latest","x64"]`,
+			fn: func(got Token, t *testing.T) {
+				seq, ok := got.(sequenceToken)
+				require.True(t, ok)
+				assert.Len(t, seq, 2)
+				assert.Equal(t, "ubuntu-latest", literalValue(t, seq[0]))
+				assert.Equal(t, "x64", literalValue(t, seq[1]))
+			},
+		},
+		"object": {
+			input: `{"os":"ubuntu-latest","ref":"${{ github.ref }}"}`,
+			fn: func(got Token, t *testing.T) {
+				mapping, ok := got.(mappingToken)
+				require.True(t, ok)
+				assert.Len(t, mapping, 2)
+				assert.Equal(t, "os", literalValue(t, mapping[0][0]))
+				assert.Equal(t, "ubuntu-latest", literalValue(t, mapping[0][1]))
+				assert.Equal(t, "ref", literalValue(t, mapping[1][0]))
+				expr, ok := Expression(mapping[1][1])
+				assert.True(t, ok)
+				assert.Equal(t, "${{ github.ref }}", expr)
+			},
+		},
+	}
+
+	for name, tc := range testcases {
+		t.Run(name, unmarshal(tc.input, tc.fn, opt))
 	}
 }
 
-func mapValues[E any](m map[string]E) []E {
-	keys := maps.Keys(m)
-	slices.Sort(keys)
+func TestMappingTokenSerde(t *testing.T) {
+	opt := json.WithUnmarshalers(json.UnmarshalFromFunc(unmarshalToken))
 
-	l := make([]E, len(keys))
-	for i, k := range keys {
-		l[i] = m[k]
+	t.Run("object", unmarshal(`{"key":"value"}`, func(got mappingToken, t *testing.T) {
+		assert.Len(t, got, 1)
+		assert.Equal(t, "key", literalValue(t, got[0][0]))
+		assert.Equal(t, "value", literalValue(t, got[0][1]))
+	}, opt))
+
+	t.Run("invalid kind", func(t *testing.T) {
+		var got mappingToken
+		err := json.Unmarshal([]byte(`[]`), &got, opt)
+
+		assert.ErrorContains(t, err, "unknown token type")
+	})
+}
+
+func literalValue(t *testing.T, token Token) any {
+	t.Helper()
+	literal, ok := token.(*literalToken)
+	if !assert.Truef(t, ok, "got token %T, want *literalToken", token) {
+		return nil
 	}
-	return l
-}
-
-func mapTokenPairs[K comparable](m map[K]Token, keyConv func(K) Token) [][2]Token {
-	r := make([][2]Token, 0)
-	for k, v := range m {
-		key := keyConv(k)
-		r = append(r, [2]Token{key, v})
-	}
-	return r
-}
-
-func comparerForLiteralToken(opts ...cmp.Option) cmp.Option {
-	return cmp.Comparer(func(x, y literalToken) bool {
-		return cmp.Equal(x.value, y.value, opts...)
-	})
-}
-
-func TestDecodeEvaluable(t *testing.T) {
-	t.Run("kind", func(tt *testing.T) {
-		type testEvaluable struct {
-			LitBool   Evaluable[bool]           `actions:"litBool"`
-			LitInt    Evaluable[int64]          `actions:"litInt"`
-			LitFloat  Evaluable[float64]        `actions:"litFloat"`
-			LitString Evaluable[string]         `actions:"litString"`
-			Expr      Evaluable[string]         `actions:"expr"`
-			Seq       Evaluable[[]any]          `actions:"seq"`
-			Dict      Evaluable[map[string]any] `actions:"dict"`
-		}
-
-		scala := map[string]any{
-			"litBool":   true,
-			"litInt":    int64(123),
-			"litFloat":  float64(1.23),
-			"litString": "hello world",
-			"expr":      "${{ foo.bar }}",
-		}
-		input := clone(scala)
-		input["seq"] = mapValues(scala)
-		input["dict"] = clone(scala)
-
-		scalaExpected := map[string]Token{
-			"litBool":   NewLiteralToken(true),
-			"litInt":    NewLiteralToken(int64(123)),
-			"litFloat":  NewLiteralToken(float64(1.23)),
-			"litString": NewLiteralToken("hello world"),
-			"expr":      NewExpressionToken("${{ foo.bar }}"),
-		}
-		expected := &testEvaluable{
-			LitBool:   NewLiteralToken(true),
-			LitInt:    NewLiteralToken(int64(123)),
-			LitFloat:  NewLiteralToken(float64(1.23)),
-			LitString: NewLiteralToken("hello world"),
-			Expr:      NewExpressionToken("${{ foo.bar }}"),
-			Seq:       NewSequenceToken(mapValues(scalaExpected)),
-			Dict: NewMappingToken(mapTokenPairs(scalaExpected, func(s string) Token {
-				return NewLiteralToken(s)
-			})),
-		}
-
-		actual := new(testEvaluable)
-		err := model.Decode(input, actual)
-		assert.NilError(tt, err)
-
-		opts := comparerForLiteralToken()
-		assert.DeepEqual(tt, expected.Seq, actual.Seq, opts)
-	})
-
-	t.Run("invalid-reflection", func(tt *testing.T) {
-		opt := func(config *mapstructure.DecoderConfig) {
-			fault := func(from reflect.Value, to reflect.Value) (any, error) {
-				if !to.Type().Implements(typeToken) {
-					return valueOf(from), nil
-				}
-				return nil, nil // fault injection
-			}
-			// DecodeTokenHook MUST be after fault
-			config.DecodeHook = mapstructure.ComposeDecodeHookFunc(fault, DecodeTokenHook)
-		}
-
-		token := new(literalToken)
-		err := model.DecodeWithOptions("foobar", &token, opt)
-		assert.NilError(tt, err)
-	})
+	return literal.value
 }

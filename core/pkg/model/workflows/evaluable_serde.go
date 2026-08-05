@@ -37,9 +37,12 @@ func unmarshalToken(d *jsontext.Decoder, t *Token) error {
 	case jsontext.KindNumber:
 		if tok, err := d.ReadToken(); err != nil {
 			return err
-		} else {
-			f := tok.Float()
+		} else if i, err := tok.Int(); err == nil {
+			*t = NewLiteralToken(i)
+		} else if f, err := tok.Float(); err == nil {
 			*t = NewLiteralToken(f)
+		} else {
+			return err
 		}
 
 	case jsontext.KindString:

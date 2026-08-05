@@ -21,7 +21,7 @@ const (
 // GitHub Actions always evaluates it as an expression.
 type Conditional string
 
-type Evaluable[R any] Token
+type Evaluable[R any] = Token
 
 type Unraveler interface {
 	UnravelLiteral(val any) (any, error)

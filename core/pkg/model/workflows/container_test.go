@@ -7,70 +7,52 @@
 package workflows
 
 import (
-	"drassi.run/core/pkg/model"
-	"github.com/stretchr/testify/assert"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-type containerTestStruct struct {
-	Con          Container             `actions:"con"`
-	ConPtr       *Container            `actions:"conPtr"`
-	ListOfCon    []Container           `actions:"listOfCon"`
-	MapOfCon     map[string]Container  `actions:"mapOfCon"`
-	ListOfConPtr []*Container          `actions:"listOfConPtr"`
-	MapOfConPtr  map[string]*Container `actions:"mapOfConPtr"`
+func unmarshal[M any](in string, fn func(M, *testing.T), opts ...jsontext.Options) func(t *testing.T) {
+	return func(t *testing.T) {
+		var got M
+		err := json.Unmarshal([]byte(in), &got, opts...)
+		require.NoError(t, err)
+
+		fn(got, t)
+	}
 }
 
-func TestDecodeContainer(t *testing.T) {
-	t.Run("string", func(tt *testing.T) {
-		con := Container{Image: "ubuntu:22.04"}
-		testDecodeContainer(tt, "ubuntu:22.04", con)
-	})
-
-	t.Run("map", func(tt *testing.T) {
-		con := Container{
-			Image: "ubuntu:22.04",
-			Credentials: &ContainerCredentials{
-				Username: "username",
-				Password: "password",
+func TestContainerSerde(t *testing.T) {
+	testcases := map[string]struct {
+		input string
+		fn    func(Container, *testing.T)
+	}{
+		"string shorthand": {
+			input: `"node:22"`,
+			fn: func(got Container, t *testing.T) {
+				assert.Equal(t, "node:22", got.Image)
 			},
-		}
-		val := map[string]any{
-			"image": "ubuntu:22.04",
-			"credentials": map[string]any{
-				"username": "username",
-				"password": "password",
-			},
-		}
-		testDecodeContainer(tt, val, con)
-	})
-}
-
-func testDecodeContainer[C any](tt *testing.T, value C, con Container) {
-	data := map[string]any{
-		"con":       value,
-		"conPtr":    value,
-		"listOfCon": []C{value},
-		"mapOfCon": map[string]any{
-			"key": value,
 		},
-		"listOfConPtr": []C{value},
-		"mapOfConPtr": map[string]any{
-			"key": value,
+		"full-form": {
+			input: `{"image":"node:22","env":{"NODE_ENV":"test"},"ports":["3000"]}`,
+			fn: func(got Container, t *testing.T) {
+				assert.Equal(t, "node:22", got.Image)
+				assert.EqualValues(t, map[string]string{"NODE_ENV": "test"}, got.Env)
+				assert.EqualValues(t, []string{"3000"}, got.Ports)
+			},
 		},
 	}
 
-	actual := containerTestStruct{}
-	err := model.Decode(data, &actual)
-	assert.NoError(tt, err)
-
-	expected := containerTestStruct{
-		Con:          con,
-		ConPtr:       &con,
-		ListOfCon:    []Container{con},
-		ListOfConPtr: []*Container{&con},
-		MapOfCon:     map[string]Container{"key": con},
-		MapOfConPtr:  map[string]*Container{"key": &con},
+	for name, tc := range testcases {
+		t.Run(name, unmarshal(tc.input, tc.fn))
 	}
-	assert.EqualValues(tt, actual, expected)
+
+	t.Run("invalid kind", func(t *testing.T) {
+		var got Container
+		err := json.Unmarshal([]byte(`true`), &got)
+		assert.ErrorContains(t, err, "expected string or object for Container")
+	})
 }

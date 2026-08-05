@@ -12,6 +12,39 @@ import (
 	"fmt"
 )
 
+func (o *On) UnmarshalJSONFrom(d *jsontext.Decoder) error {
+	switch k := d.PeekKind(); k {
+	// 1. Shorthand for single event, e.g: `on: push`
+	case jsontext.KindString:
+		var event string
+		if err := json.UnmarshalDecode(d, &event); err != nil {
+			return err
+		}
+		*o = map[string]Event{event: nil}
+		return nil
+
+	// 2. Shorthand for multiple events, e.g: `on: [push, fork]`
+	case jsontext.KindBeginArray:
+		var events []string
+		if err := json.UnmarshalDecode(d, &events); err != nil {
+			return err
+		}
+		m := make(map[string]Event, len(events))
+		for _, e := range events {
+			m[e] = nil
+		}
+		*o = m
+		return nil
+
+	// 3. Full object format, e.g: `"on": {"label": {"types": ["created", "edited"]}}`
+	case jsontext.KindBeginObject:
+		return json.UnmarshalDecode(d, (*map[string]Event)(o))
+
+	default:
+		return fmt.Errorf("expected string, array or object for On, got kind %v", k)
+	}
+}
+
 func (p *Permissions) UnmarshalJSONFrom(d *jsontext.Decoder) error {
 	switch k := d.PeekKind(); k {
 	// 1. Shorthand string format: read-all | write-all
@@ -51,6 +84,6 @@ func (c *Concurrency) UnmarshalJSONFrom(d *jsontext.Decoder) error {
 		return json.UnmarshalDecode(d, (*alias)(c))
 
 	default:
-		return fmt.Errorf("expected string or object for Environment, got kind %v", k)
+		return fmt.Errorf("expected string or object for Concurrency, got kind %v", k)
 	}
 }
