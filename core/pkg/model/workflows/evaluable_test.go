@@ -10,6 +10,9 @@ import (
 	"encoding/json/v2"
 	"testing"
 
+	"drassi.run/core/pkg/expression/types"
+	"drassi.run/core/pkg/expression/types/ref"
+	"drassi.run/core/pkg/expression/types/traits"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -108,4 +111,57 @@ func literalValue(t *testing.T, token Token) any {
 		return nil
 	}
 	return literal.value
+}
+
+type mockUnraveler struct{}
+
+func (m *mockUnraveler) UnravelLiteral(val any) (ref.Val, error) {
+	return types.NativeToVal(val), nil
+}
+func (m *mockUnraveler) UnravelExpression(expr string, pure bool) (ref.Val, error) {
+	return types.NativeToVal(expr), nil
+}
+func (m *mockUnraveler) UnravelSequence(seq []Token) ([]ref.Val, error) {
+	return nil, nil
+}
+func (m *mockUnraveler) UnravelMapping(pairs [][2]Token) (map[string]ref.Val, error) {
+	res := make(map[string]ref.Val)
+	for _, p := range pairs {
+		k, _ := p[0].Unravel(m)
+		v, _ := p[1].Unravel(m)
+		res[k.(traits.Stringable).ToString()] = v
+	}
+	return res, nil
+}
+
+func TestSquashMappingToken(t *testing.T) {
+	u := &mockUnraveler{}
+
+	t1 := NewMappingToken([][2]Token{
+		{NewLiteralToken("k1"), NewLiteralToken("v1")},
+	})
+	t2 := NewLiteralToken(map[string]string{
+		"k2": "v2",
+	})
+	t3 := NewLiteralToken(map[string]any{
+		"k3": 123,
+	})
+
+	squash := NewSquashMappingToken(t1, t2, t3)
+	val, err := squash.Unravel(u)
+	require.NoError(t, err)
+
+	dict, ok := val.(traits.Iterable)
+	require.True(t, ok)
+
+	res := make(map[string]any)
+	for k, v := range dict.Items() {
+		res[k.(traits.Stringable).ToString()] = v.Value()
+	}
+
+	assert.Equal(t, map[string]any{
+		"k1": "v1",
+		"k2": "v2",
+		"k3": int64(123),
+	}, res)
 }

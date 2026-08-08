@@ -6,8 +6,20 @@
 
 package ref
 
-// LazyVal is useful for short-circuit evaluation, e.g in `&&`, `||` operators
-type LazyVal = func() Val
+import "drassi.run/core/util/error"
+
+// Program is useful for short-circuit evaluation, e.g: in `&&`, `||` operators
+type Program func() Val
+
+func (p Program) Execute() (val Val, err error) {
+	defer xerror.Recover(&err)
+
+	v := p()
+	if err, ok := v.(error); ok {
+		return nil, err
+	}
+	return v, nil
+}
 
 type Val interface {
 	Type() Type

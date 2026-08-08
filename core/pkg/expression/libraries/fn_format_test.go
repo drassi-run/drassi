@@ -7,10 +7,11 @@
 package libraries
 
 import (
+	"testing"
+
 	"drassi.run/core/pkg/expression/types"
 	"drassi.run/core/pkg/expression/types/ref"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestFormat(t *testing.T) {
@@ -71,15 +72,15 @@ func testFormatLazyEval(t *testing.T) {
 	assert.Equal(t, tracker, []bool{true, false, true, false})
 }
 
-func toLazy[V any](val V) ref.LazyVal {
+func toLazy[V any](val V) ref.Program {
 	v := types.NativeToVal(val)
 	return func() ref.Val {
 		return v
 	}
 }
 
-func toLazies[V any](vals ...V) []ref.LazyVal {
-	res := make([]ref.LazyVal, len(vals))
+func toLazies[V any](vals ...V) []ref.Program {
+	res := make([]ref.Program, len(vals))
 	for i, v := range vals {
 		val := types.NativeToVal(v)
 		res[i] = func() ref.Val {
@@ -90,8 +91,8 @@ func toLazies[V any](vals ...V) []ref.LazyVal {
 	return res
 }
 
-func toLaziesWithTracker[V any](vals ...V) ([]ref.LazyVal, []bool) {
-	res := make([]ref.LazyVal, len(vals))
+func toLaziesWithTracker[V any](vals ...V) ([]ref.Program, []bool) {
+	res := make([]ref.Program, len(vals))
 	tracker := make([]bool, len(vals))
 
 	for i, v := range vals {

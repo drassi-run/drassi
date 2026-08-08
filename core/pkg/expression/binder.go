@@ -23,12 +23,12 @@ type binder struct {
 
 // Bind associate ast.Node to the variables, functions and operators implementation in the env
 // but defer the execution later.
-func (b *binder) Bind(node ast.Node) (ref.LazyVal, error) {
+func (b *binder) Bind(node ast.Node) (ref.Program, error) {
 	r := b.Visit(node)
 	if err, ok := r.(error); ok {
 		return nil, err
 	}
-	return r.(ref.LazyVal), nil
+	return r.(ref.Program), nil
 }
 
 func (b *binder) pushNode(n ast.Node) {
@@ -46,19 +46,19 @@ func (b *binder) Visit(node ast.Node) any {
 	if err, ok := r.(error); ok {
 		return err
 	}
-	val := r.(ref.LazyVal)
+	val := r.(ref.Program)
 
-	return func() ref.Val {
+	return ref.Program(func() ref.Val {
 		b.pushNode(node)
 		defer b.popNode()
 		return val()
-	}
+	})
 }
 
 func (b *binder) VisitLiteralNode(node *ast.LiteralNode) any {
-	return func() ref.Val {
+	return ref.Program(func() ref.Val {
 		return node.Value
-	}
+	})
 }
 
 func (b *binder) VisitVariableNode(node *ast.VariableNode) any {
@@ -72,9 +72,9 @@ func (b *binder) VisitVariableNode(node *ast.VariableNode) any {
 		return fmt.Errorf("undefined variable: %s", node.Name)
 	}
 
-	return func() ref.Val {
+	return ref.Program(func() ref.Val {
 		return variable
-	}
+	})
 }
 
 func (b *binder) VisitOperatorNode(node *ast.OperatorNode) any {
@@ -91,13 +91,13 @@ func (b *binder) VisitOperatorNode(node *ast.OperatorNode) any {
 		return fmt.Errorf("too many args for operator %q, max %d, got %d", operators.Symbol(node.Operator), maxArgs, numArgs)
 	}
 
-	operands := make([]ref.LazyVal, len(node.Operands))
+	operands := make([]ref.Program, len(node.Operands))
 	for i, operand := range node.Operands {
 		r := b.Visit(operand)
 		if err, ok := r.(error); ok {
 			return err
 		}
-		operands[i] = r.(ref.LazyVal)
+		operands[i] = r.(ref.Program)
 	}
 
 	return operator.Bind(operands...)
@@ -113,9 +113,9 @@ func (b *binder) VisitPropertyAccessNode(node *ast.PropertyAccessNode) any {
 	if err, ok := r.(error); ok {
 		return err
 	}
-	object := r.(ref.LazyVal)
+	object := r.(ref.Program)
 
-	properties := make([]ref.LazyVal, len(node.Properties))
+	properties := make([]ref.Program, len(node.Properties))
 	for i, prop := range node.Properties {
 		p := types.String(prop)
 		properties[i] = func() ref.Val {
@@ -136,15 +136,15 @@ func (b *binder) VisitIndexAccessNode(node *ast.IndexAccessNode) any {
 	if err, ok := r.(error); ok {
 		return err
 	}
-	object := r.(ref.LazyVal)
+	object := r.(ref.Program)
 
-	indexes := make([]ref.LazyVal, len(node.Indexes))
+	indexes := make([]ref.Program, len(node.Indexes))
 	for i, idx := range node.Indexes {
 		r := b.Visit(idx)
 		if err, ok := r.(error); ok {
 			return err
 		}
-		indexes[i] = r.(ref.LazyVal)
+		indexes[i] = r.(ref.Program)
 	}
 
 	return operator.Bind(prepend(indexes, object)...)
@@ -165,13 +165,13 @@ func (b *binder) VisitFunctionNode(node *ast.FunctionNode) any {
 		return fmt.Errorf("too many args for function %q, max %d, got %d", node.Name, maxArgs, numArgs)
 	}
 
-	arguments := make([]ref.LazyVal, numArgs)
+	arguments := make([]ref.Program, numArgs)
 	for i, arg := range node.Arguments {
 		r := b.Visit(arg)
 		if err, ok := r.(error); ok {
 			return err
 		}
-		arguments[i] = r.(ref.LazyVal)
+		arguments[i] = r.(ref.Program)
 	}
 
 	return function.Bind(arguments...)

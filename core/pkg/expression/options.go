@@ -46,7 +46,7 @@ func WithFunction(name string, fn Function) Option {
 
 type Function interface {
 	NumArgs() (min int, max int)
-	Bind(args ...ref.LazyVal) ref.LazyVal
+	Bind(args ...ref.Program) ref.Program
 }
 
 func WithLibrary(lib Library) Option {

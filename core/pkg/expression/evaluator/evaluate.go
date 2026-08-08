@@ -54,7 +54,7 @@ func Meet(env expression.Env, condition workflows.Conditional) (bool, error) {
 		return false, err
 	}
 
-	res, err := env.Execute(prog)
+	res, err := prog.Execute()
 	if err != nil {
 		return false, err
 	}

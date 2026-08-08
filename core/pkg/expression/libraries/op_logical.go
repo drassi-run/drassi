@@ -12,7 +12,7 @@ import (
 	"drassi.run/core/pkg/expression/types/traits"
 )
 
-func LogicalAnd(operands ...ref.LazyVal) ref.Val {
+func LogicalAnd(operands ...ref.Program) ref.Val {
 	var res ref.Val = types.NULL
 
 	for _, o := range operands {
@@ -27,7 +27,7 @@ func LogicalAnd(operands ...ref.LazyVal) ref.Val {
 	return res
 }
 
-func LogicalOr(operands ...ref.LazyVal) ref.Val {
+func LogicalOr(operands ...ref.Program) ref.Val {
 	var res ref.Val = types.NULL
 
 	for _, o := range operands {

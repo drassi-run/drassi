@@ -8,7 +8,10 @@ package workflows
 
 import (
 	"fmt"
-	"maps"
+
+	"drassi.run/core/pkg/expression/types"
+	"drassi.run/core/pkg/expression/types/ref"
+	"drassi.run/core/pkg/expression/types/traits"
 )
 
 const (
@@ -24,21 +27,21 @@ type Conditional string
 type Evaluable[R any] = Token
 
 type Unraveler interface {
-	UnravelLiteral(val any) (any, error)
-	UnravelExpression(expr string, pure bool) (any, error)
-	UnravelSequence(seq []Token) (any, error)
-	UnravelMapping(pairs [][2]Token) (any, error)
+	UnravelLiteral(val any) (ref.Val, error)
+	UnravelExpression(expr string, pure bool) (ref.Val, error)
+	UnravelSequence(seq []Token) ([]ref.Val, error)
+	UnravelMapping(pairs [][2]Token) (map[string]ref.Val, error)
 }
 
 type Token interface {
-	Unravel(Unraveler) (any, error)
+	Unravel(Unraveler) (ref.Val, error)
 }
 
 type literalToken struct {
 	value any
 }
 
-func (l *literalToken) Unravel(u Unraveler) (any, error) {
+func (l *literalToken) Unravel(u Unraveler) (ref.Val, error) {
 	return u.UnravelLiteral(l.value)
 }
 
@@ -48,7 +51,7 @@ func NewLiteralToken(value any) Token {
 
 type expressionToken string
 
-func (e expressionToken) Unravel(u Unraveler) (any, error) {
+func (e expressionToken) Unravel(u Unraveler) (ref.Val, error) {
 	return u.UnravelExpression(string(e), false)
 }
 
@@ -59,8 +62,12 @@ func NewExpressionToken(expr string) Token {
 
 type sequenceToken []Token
 
-func (s sequenceToken) Unravel(u Unraveler) (any, error) {
-	return u.UnravelSequence(s)
+func (s sequenceToken) Unravel(u Unraveler) (ref.Val, error) {
+	if val, err := u.UnravelSequence(s); err != nil {
+		return nil, err
+	} else {
+		return types.NewListGeneric(val), nil
+	}
 }
 
 func NewSequenceToken(seq []Token) Token {
@@ -70,8 +77,12 @@ func NewSequenceToken(seq []Token) Token {
 
 type mappingToken [][2]Token
 
-func (m mappingToken) Unravel(u Unraveler) (any, error) {
-	return u.UnravelMapping(m)
+func (m mappingToken) Unravel(u Unraveler) (ref.Val, error) {
+	if val, err := u.UnravelMapping(m); err != nil {
+		return nil, err
+	} else {
+		return types.NewMapGeneric(val), nil
+	}
 }
 
 func NewMappingToken(pairs [][2]Token) Token {
@@ -81,20 +92,26 @@ func NewMappingToken(pairs [][2]Token) Token {
 
 type squashMappingToken []Token
 
-func (t squashMappingToken) Unravel(u Unraveler) (any, error) {
-	r := make(map[string]any)
+func (t squashMappingToken) Unravel(u Unraveler) (ref.Val, error) {
+	r := make(map[string]ref.Val)
 
 	for _, token := range t {
 		if res, err := token.Unravel(u); err != nil {
 			return nil, err
-		} else if m, ok := res.(map[string]any); ok {
-			maps.Copy(r, m)
+		} else if iter, ok := res.(traits.Iterable); !ok {
+			return nil, fmt.Errorf("expected token return a map, got %T", res)
 		} else {
-			return nil, fmt.Errorf("expected token return a map[string]any, got %T", res)
+			for k, v := range iter.Items() {
+				if s, ok := k.(traits.Stringable); ok {
+					r[s.ToString()] = v
+				} else {
+					return nil, fmt.Errorf("expected map key to be stringable, got %T", k)
+				}
+			}
 		}
 	}
 
-	return r, nil
+	return types.NewMapGeneric(r), nil
 }
 
 func NewSquashMappingToken(tokens ...Token) Token {

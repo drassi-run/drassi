@@ -17,8 +17,7 @@ import (
 type Env interface {
 	New(opts ...Option) (Env, error)
 	Parse(source string, pureExpr bool) (node ast.Node, err error)
-	Bind(node ast.Node) (prog ref.LazyVal, err error)
-	Execute(prog ref.LazyVal) (result any, err error)
+	Bind(node ast.Node) (prog ref.Program, err error)
 }
 
 func NewEnv(opts ...Option) (Env, error) {
@@ -122,19 +121,9 @@ func (e *env) Parse(source string, pureExpr bool) (node ast.Node, err error) {
 	return
 }
 
-func (e *env) Bind(node ast.Node) (prog ref.LazyVal, err error) {
+func (e *env) Bind(node ast.Node) (prog ref.Program, err error) {
 	defer xerror.Recover(&err)
 
 	b := binder{env: e}
 	return b.Bind(node)
-}
-
-func (e *env) Execute(prog ref.LazyVal) (result any, err error) {
-	defer xerror.Recover(&err)
-
-	val := prog()
-	if err, ok := val.(error); ok {
-		return nil, err
-	}
-	return val.Value(), nil
 }

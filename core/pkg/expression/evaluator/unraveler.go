@@ -10,11 +10,12 @@ import (
 	"errors"
 	"fmt"
 	"iter"
-	"reflect"
 	"regexp"
 
 	"drassi.run/core/pkg/expression"
-	"drassi.run/core/pkg/model"
+	"drassi.run/core/pkg/expression/types"
+	"drassi.run/core/pkg/expression/types/ref"
+	"drassi.run/core/pkg/expression/types/traits"
 	"drassi.run/core/pkg/model/workflows"
 )
 
@@ -22,11 +23,11 @@ type unraveler struct {
 	env expression.Env
 }
 
-func (u *unraveler) UnravelLiteral(val any) (any, error) {
-	return val, nil
+func (u *unraveler) UnravelLiteral(val any) (ref.Val, error) {
+	return types.NativeToVal(val), nil
 }
 
-func (u *unraveler) UnravelExpression(expr string, pure bool) (any, error) {
+func (u *unraveler) UnravelExpression(expr string, pure bool) (ref.Val, error) {
 	node, err := u.env.Parse(expr, pure)
 	if err != nil {
 		return nil, err
@@ -37,37 +38,39 @@ func (u *unraveler) UnravelExpression(expr string, pure bool) (any, error) {
 		return nil, err
 	}
 
-	return u.env.Execute(prog)
+	return prog.Execute()
 }
 
-func (u *unraveler) UnravelSequence(seq []workflows.Token) (any, error) {
-	errs := make([]error, 0)
-	res := make([]any, 0, len(seq))
+func (u *unraveler) UnravelSequence(seq []workflows.Token) (_ []ref.Val, err error) {
+	res := make([]ref.Val, 0, len(seq))
 
-	errorHandler := func(e error) {
-		errs = append(errs, e)
+	errorHandler := func(e error) bool {
+		err = e
+		return false
 	}
 
 	for v := range u.sequenceIterator(seq, errorHandler) {
 		res = append(res, v)
 	}
 
-	if len(errs) > 0 {
-		return nil, errors.Join(errs...)
+	if err != nil {
+		return
 	}
 	return res, nil
 }
 
 func (u *unraveler) sequenceIterator(
 	seq []workflows.Token,
-	onError func(err error),
-) iter.Seq[any] {
-	return func(yield func(any) bool) {
+	onError func(err error) bool,
+) iter.Seq[ref.Val] {
+	return func(yield func(ref.Val) bool) {
 		for _, token := range seq {
 			val, err := token.Unravel(u)
 			if err != nil {
-				onError(err)
-				continue
+				if onError(err) {
+					continue
+				}
+				return
 			}
 
 			if _, ok := workflows.Expression(token); !ok {
@@ -77,8 +80,7 @@ func (u *unraveler) sequenceIterator(
 				continue
 			}
 
-			v := reflect.ValueOf(val)
-			if v.Kind() != reflect.Slice && v.Kind() != reflect.Array {
+			if val.Type() != ref.TypeList {
 				if !yield(val) {
 					return
 				}
@@ -86,8 +88,8 @@ func (u *unraveler) sequenceIterator(
 			}
 
 			// expression result is a list, perform merging
-			for i := 0; i < v.Len(); i++ {
-				e := v.Index(i).Interface()
+			list := val.(traits.Iterable)
+			for _, e := range list.Items() {
 				if !yield(e) {
 					return
 				}
@@ -96,12 +98,13 @@ func (u *unraveler) sequenceIterator(
 	}
 }
 
-func (u *unraveler) UnravelMapping(pairs [][2]workflows.Token) (any, error) {
+func (u *unraveler) UnravelMapping(pairs [][2]workflows.Token) (_ map[string]ref.Val, err error) {
 	errs := make([]error, 0)
-	res := make(map[string]any, len(pairs))
+	res := make(map[string]ref.Val, len(pairs))
 
-	errorHandler := func(e error) {
+	errorHandler := func(e error) bool {
 		errs = append(errs, e)
+		return true
 	}
 
 	for k, v := range u.mappingIterator(pairs, errorHandler) {
@@ -119,26 +122,36 @@ func (u *unraveler) UnravelMapping(pairs [][2]workflows.Token) (any, error) {
 
 func (u *unraveler) mappingIterator(
 	pairs [][2]workflows.Token,
-	onError func(error),
-) iter.Seq2[string, any] {
-	return func(yield func(string, any) bool) {
+	onError func(error) bool,
+) iter.Seq2[string, ref.Val] {
+	return func(yield func(string, ref.Val) bool) {
 		for k, v := range tuple2(pairs) {
-			insertMode := isInsertMode(k)
 			val, err := v.Unravel(u)
 			if err != nil {
-				onError(err)
+				if !onError(err) {
+					return
+				}
 				continue
 			}
 
-			if insertMode {
-				m, ok := model.ObjectStringify(val)
-				if !ok {
-					onError(fmt.Errorf("can't merge map with %T", val))
+			if isInsertMode(k) {
+				if typ := val.Type(); typ != ref.TypeMap && typ != ref.TypeStruct {
+					err = fmt.Errorf("can't merge map with %q", typ)
+					if !onError(err) {
+						return
+					}
 					continue
 				}
 
-				for kItem, vItem := range m {
-					if !yield(kItem, vItem) {
+				dict := val.(traits.Iterable)
+				for kItem, vItem := range dict.Items() {
+					if s, ok := kItem.(traits.Stringable); !ok {
+						err = fmt.Errorf("key %v can't convert to string", kItem)
+						if !onError(err) {
+							return
+						}
+						continue
+					} else if !yield(s.ToString(), vItem) {
 						return
 					}
 				}
@@ -146,10 +159,17 @@ func (u *unraveler) mappingIterator(
 			}
 
 			if key, err := k.Unravel(u); err != nil {
-				onError(err)
-			} else if s, ok := model.Stringify(key); !ok {
-				onError(fmt.Errorf("key not a string: %T", key))
-			} else if !yield(s, val) {
+				if !onError(err) {
+					return
+				}
+				continue
+			} else if s, ok := key.(traits.Stringable); !ok {
+				err = fmt.Errorf("key %v can't convert to string", key)
+				if !onError(err) {
+					return
+				}
+				continue
+			} else if !yield(s.ToString(), val) {
 				return
 			}
 		}
