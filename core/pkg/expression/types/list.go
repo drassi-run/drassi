@@ -7,6 +7,8 @@
 package types
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"reflect"
 
 	"drassi.run/core/pkg/expression/types/ref"
@@ -105,4 +107,19 @@ func (l *List) Items() traits.Iterator {
 			}
 		}
 	}
+}
+
+func (l *List) MarshalJSONTo(enc *jsontext.Encoder) error {
+	if err := enc.WriteToken(jsontext.BeginArray); err != nil {
+		return err
+	}
+
+	for idx := range l.Size() {
+		item := l.get(idx)
+		if err := json.MarshalEncode(enc, item); err != nil {
+			return err
+		}
+	}
+
+	return enc.WriteToken(jsontext.EndArray)
 }

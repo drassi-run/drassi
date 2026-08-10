@@ -7,6 +7,7 @@
 package types
 
 import (
+	"errors"
 	"fmt"
 
 	"drassi.run/core/pkg/expression/types/ref"
@@ -39,4 +40,8 @@ func (e *Error) Equal(_ ref.Val) bool {
 
 func (e *Error) Unwrap() error {
 	return e.error
+}
+
+func (e *Error) MarshalText() ([]byte, error) {
+	return nil, errors.New("error is non-marshalable")
 }

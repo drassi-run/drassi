@@ -7,6 +7,8 @@
 package types
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"reflect"
 	"strings"
 
@@ -57,7 +59,7 @@ func buildFieldIndex(t reflect.Type) {
 	m := make(map[string]int)
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
-		tag, ok := f.Tag.Lookup("actions")
+		tag, ok := f.Tag.Lookup("json")
 		if !ok || len(tag) == 0 {
 			continue
 		}
@@ -68,6 +70,9 @@ func buildFieldIndex(t reflect.Type) {
 			key = tag[:idx]
 		} else {
 			key = tag
+		}
+		if key == "" || key == "-" {
+			continue
 		}
 		m[key] = i
 	}
@@ -135,4 +140,8 @@ func (s *Struct) Items() traits.Iterator {
 			}
 		}
 	}
+}
+
+func (s *Struct) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, s.object)
 }

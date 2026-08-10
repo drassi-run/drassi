@@ -7,6 +7,9 @@
 package types
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"fmt"
 	"reflect"
 
 	"drassi.run/core/pkg/expression/types/ref"
@@ -49,4 +52,29 @@ func (m *Map) Equal(other ref.Val) bool {
 		return mv.UnsafePointer() == ov.UnsafePointer()
 	}
 	return false
+}
+
+func (m *Map) MarshalJSONTo(enc *jsontext.Encoder) error {
+	if err := enc.WriteToken(jsontext.BeginObject); err != nil {
+		return err
+	}
+
+	for k, v := range m.Items() {
+		s, ok := k.(traits.Stringable)
+		if !ok {
+			return fmt.Errorf("key is not Stringable: %v", k)
+		}
+
+		// write key
+		if err := enc.WriteToken(jsontext.String(s.ToString())); err != nil {
+			return err
+		}
+
+		// write value
+		if err := json.MarshalEncode(enc, v); err != nil {
+			return err
+		}
+	}
+
+	return enc.WriteToken(jsontext.EndObject)
 }

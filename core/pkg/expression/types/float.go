@@ -7,6 +7,7 @@
 package types
 
 import (
+	"encoding/json/jsontext"
 	"fmt"
 	"math"
 	"strconv"
@@ -77,4 +78,9 @@ func (f Float) Compare(other ref.Val) (int, error) {
 	} else {
 		return 0, nil
 	}
+}
+
+func (f Float) MarshalJSONTo(enc *jsontext.Encoder) error {
+	t := jsontext.Float(float64(f))
+	return enc.WriteToken(t)
 }
