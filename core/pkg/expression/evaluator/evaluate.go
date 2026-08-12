@@ -7,12 +7,13 @@
 package evaluator
 
 import (
+	"encoding/json/v2"
 	"strings"
 
 	"drassi.run/core/pkg/expression"
-	"drassi.run/core/pkg/expression/types"
 	"drassi.run/core/pkg/expression/types/traits"
 	"drassi.run/core/pkg/model"
+	"drassi.run/core/pkg/model/actions"
 	"drassi.run/core/pkg/model/workflows"
 )
 
@@ -24,8 +25,14 @@ func Evaluate[R any](env expression.Env, evaluable workflows.Evaluable[R], v *R)
 	u := &unraveler{env: env}
 	if res, err := evaluable.Unravel(u); err != nil {
 		return err
+	} else if data, err := json.Marshal(res); err != nil {
+		return err
 	} else {
-		return model.Decode(res, v)
+		un := json.JoinUnmarshalers(
+			actions.JsonUnmarshalers(), // actions Unmarshalers already include workflows one
+			model.WeakUnmarshalers(),
+		)
+		return json.Unmarshal(data, v, json.WithUnmarshalers(un))
 	}
 }
 
@@ -59,9 +66,8 @@ func Meet(env expression.Env, condition workflows.Conditional) (bool, error) {
 		return false, err
 	}
 
-	v := types.NativeToVal(res)
 	// See libraries.isTruthy
-	b, ok := v.(traits.Logical)
+	b, ok := res.(traits.Logical)
 	meet := !ok || b.ToBoolean()
 	return meet, nil
 }

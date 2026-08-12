@@ -100,3 +100,54 @@ func testConditionalFailure(t *testing.T) {
 		assert.Falsef(t, b, "Conditional: %s", c)
 	}
 }
+
+func TestStructContextEvaluation(t *testing.T) {
+	gh := &records.Github{
+		Sha:   "abc1234",
+		Actor: "octocat",
+	}
+	runner := &records.RunnerInfo{
+		Name: "runner-1",
+		Os:   "Linux",
+	}
+	job := &records.JobInfo{
+		Status: records.ResultSuccess,
+	}
+	steps := map[string]*records.StepResult{
+		"build": {
+			Outcome: records.ResultSuccess,
+			Outputs: map[string]string{
+				"artifact": "app.tar.gz",
+			},
+		},
+	}
+
+	cEnv, err := expression.NewEnv(
+		expression.WithLibrary(libraries.StdLib()),
+		expression.WithVariable("github", gh),
+		expression.WithVariable("runner", runner),
+		expression.WithVariable("job", job),
+		expression.WithVariable("steps", steps),
+	)
+	assert.NoError(t, err)
+
+	var sha string
+	err = Evaluate(cEnv, NewExpressionToken("${{ github.sha }}"), &sha)
+	assert.NoError(t, err)
+	assert.Equal(t, "abc1234", sha)
+
+	var os string
+	err = Evaluate(cEnv, NewExpressionToken("${{ runner.os }}"), &os)
+	assert.NoError(t, err)
+	assert.Equal(t, "Linux", os)
+
+	var artifact string
+	err = Evaluate(cEnv, NewExpressionToken("${{ steps.build.outputs.artifact }}"), &artifact)
+	assert.NoError(t, err)
+	assert.Equal(t, "app.tar.gz", artifact)
+
+	var outcome string
+	err = Evaluate(cEnv, NewExpressionToken("${{ steps.build.outcome }}"), &outcome)
+	assert.NoError(t, err)
+	assert.Equal(t, "success", outcome)
+}
