@@ -40,18 +40,56 @@ func (m *MockMatcher) EXPECT() *MockMatcherMockRecorder {
 	return m.recorder
 }
 
-// Match mocks base method.
-func (m *MockMatcher) Match(line string) *problem.Problem {
+// Len mocks base method.
+func (m *MockMatcher) Len() int {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Match", line)
+	ret := m.ctrl.Call(m, "Len")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// Len indicates an expected call of Len.
+func (mr *MockMatcherMockRecorder) Len() *MockMatcherLenCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Len", reflect.TypeOf((*MockMatcher)(nil).Len))
+	return &MockMatcherLenCall{Call: call}
+}
+
+// MockMatcherLenCall wrap *gomock.Call
+type MockMatcherLenCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockMatcherLenCall) Return(arg0 int) *MockMatcherLenCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockMatcherLenCall) Do(f func() int) *MockMatcherLenCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockMatcherLenCall) DoAndReturn(f func() int) *MockMatcherLenCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// Match mocks base method.
+func (m *MockMatcher) Match(states []*problem.Problem, line string) *problem.Problem {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Match", states, line)
 	ret0, _ := ret[0].(*problem.Problem)
 	return ret0
 }
 
 // Match indicates an expected call of Match.
-func (mr *MockMatcherMockRecorder) Match(line any) *MockMatcherMatchCall {
+func (mr *MockMatcherMockRecorder) Match(states, line any) *MockMatcherMatchCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Match", reflect.TypeOf((*MockMatcher)(nil).Match), line)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Match", reflect.TypeOf((*MockMatcher)(nil).Match), states, line)
 	return &MockMatcherMatchCall{Call: call}
 }
 
@@ -67,49 +105,13 @@ func (c *MockMatcherMatchCall) Return(arg0 *problem.Problem) *MockMatcherMatchCa
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMatcherMatchCall) Do(f func(string) *problem.Problem) *MockMatcherMatchCall {
+func (c *MockMatcherMatchCall) Do(f func([]*problem.Problem, string) *problem.Problem) *MockMatcherMatchCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMatcherMatchCall) DoAndReturn(f func(string) *problem.Problem) *MockMatcherMatchCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// Reset mocks base method.
-func (m *MockMatcher) Reset() {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Reset")
-}
-
-// Reset indicates an expected call of Reset.
-func (mr *MockMatcherMockRecorder) Reset() *MockMatcherResetCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Reset", reflect.TypeOf((*MockMatcher)(nil).Reset))
-	return &MockMatcherResetCall{Call: call}
-}
-
-// MockMatcherResetCall wrap *gomock.Call
-type MockMatcherResetCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockMatcherResetCall) Return() *MockMatcherResetCall {
-	c.Call = c.Call.Return()
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockMatcherResetCall) Do(f func()) *MockMatcherResetCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMatcherResetCall) DoAndReturn(f func()) *MockMatcherResetCall {
+func (c *MockMatcherMatchCall) DoAndReturn(f func([]*problem.Problem, string) *problem.Problem) *MockMatcherMatchCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
