@@ -40,8 +40,8 @@ func Module(opts ...Option) *wire.Module {
 		if err := scope.Provide(mdw.ProcessCommand[exec.Milieu], dig.Name("processCommand")); err != nil {
 			return fmt.Errorf("provide 'processCommand' stream.Middleware: %w", err)
 		}
-		if err := scope.Provide(mdw.ScanProblem[exec.Milieu], dig.Name("scanProblem")); err != nil {
-			return fmt.Errorf("provide 'scanProblem' stream.Middleware: %w", err)
+		if err := scope.Provide(mdw.DetectProblem[exec.Milieu], dig.Name("detectProblem")); err != nil {
+			return fmt.Errorf("provide 'detectProblem' stream.Middleware: %w", err)
 		}
 		if err := scope.Provide(mdw.MaskSecret[exec.Milieu], dig.Name("maskSecret")); err != nil {
 			return fmt.Errorf("provide 'maskSecret' stream.Middleware: %w", err)
@@ -69,13 +69,13 @@ type streamParams[R any] struct {
 
 	Handler        stream.ResourceHandler[R]
 	ProcessCommand mdw.Middleware[R] `name:"processCommand"`
-	ScanProblem    mdw.Middleware[R] `name:"scanProblem"`
+	DetectProblem  mdw.Middleware[R] `name:"detectProblem"`
 	MaskSecret     mdw.Middleware[R] `name:"maskSecret"`
 }
 
 func attachMiddleware[R any](p streamParams[R]) stream.ResourceHandler[R] {
 	handler := p.Handler
-	middlewares := []mdw.Middleware[R]{p.ProcessCommand, p.ScanProblem, p.MaskSecret}
+	middlewares := []mdw.Middleware[R]{p.ProcessCommand, p.DetectProblem, p.MaskSecret}
 	for _, mw := range slices.Backward(middlewares) {
 		handler = mw(handler)
 	}

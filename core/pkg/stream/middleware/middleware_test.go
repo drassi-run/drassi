@@ -63,26 +63,28 @@ func TestProcessCommand(t *testing.T) {
 	})
 }
 
-func TestScanProblem(t *testing.T) {
-	suite.Run(t, new(ScanProblemTestSuite))
+func TestDetectProblem(t *testing.T) {
+	suite.Run(t, new(DetectProblemTestSuite))
 }
 
-type ScanProblemTestSuite struct {
+type DetectProblemTestSuite struct {
 	suite.Suite
 	ctrl *gomock.Controller
 	pm1  *mock_problem.MockMatcher
 	pm2  *mock_problem.MockMatcher
 	rpt  *mock_cmdtypes.MockReporter[string]
 	hdl  *mock_stream.MockResourceHandler[string]
-	ps   *problemScanner[string]
+	pd   *problemDetector[string]
 	res  string
 }
 
-func (s *ScanProblemTestSuite) SetupTest() {
+func (s *DetectProblemTestSuite) SetupTest() {
 	s.ctrl = gomock.NewController(s.T())
 	s.pm1 = mock_problem.NewMockMatcher(s.ctrl)
+	s.pm1.EXPECT().Len().Return(1).AnyTimes()
 	s.pm2 = mock_problem.NewMockMatcher(s.ctrl)
-	pm := problem.Matchers{
+	s.pm2.EXPECT().Len().Return(1).AnyTimes()
+	pm := problem.DetectorFactory{
 		"first":  s.pm1,
 		"second": s.pm2,
 	}
@@ -90,24 +92,24 @@ func (s *ScanProblemTestSuite) SetupTest() {
 	s.res = "awesome-resource"
 	s.hdl = mock_stream.NewMockResourceHandler[string](s.ctrl)
 	s.hdl.EXPECT().RHandle(s.T().Context(), s.res, gomock.Any()).Return(nil)
-	s.ps = ScanProblem[string](pm, s.rpt)(s.hdl).(*problemScanner[string])
+	s.pd = DetectProblem[string](pm, s.rpt)(s.hdl).(*problemDetector[string])
 }
 
-func (s *ScanProblemTestSuite) TearDownTest() {
+func (s *DetectProblemTestSuite) TearDownTest() {
 	s.ctrl.Finish()
 }
 
-func (s *ScanProblemTestSuite) TestNotMatch() {
+func (s *DetectProblemTestSuite) TestNotMatch() {
 	t := s.T()
 	line := "first line"
-	s.pm1.EXPECT().Match(line).Return(nil)
-	s.pm2.EXPECT().Match(line).Return(nil)
+	s.pm1.EXPECT().Match(nil, line).Return(nil)
+	s.pm2.EXPECT().Match(nil, line).Return(nil)
 
-	err := s.ps.RHandle(t.Context(), s.res, line)
+	err := s.pd.RHandle(t.Context(), s.res, line)
 	assert.NoError(t, err)
 }
 
-func (s *ScanProblemTestSuite) TestMatchAndSuccess() {
+func (s *DetectProblemTestSuite) TestMatchAndSuccess() {
 	t := s.T()
 	line := "second line"
 	pbl := &problem.Problem{
@@ -118,31 +120,50 @@ func (s *ScanProblemTestSuite) TestMatchAndSuccess() {
 		Code:     "<code>hello world</code>",
 		Message:  "hello from the other side",
 	}
-	iss, _ := s.ps.toIssuer(pbl)
-	s.pm1.EXPECT().Match(line).Return(nil).MinTimes(0).MaxTimes(1)
-	s.pm2.EXPECT().Match(line).Return(pbl)
-	s.pm1.EXPECT().Reset().Return() // reset other matchers
+	iss, _ := s.pd.toIssuer(pbl)
+	s.pm1.EXPECT().Match(nil, line).Return(nil).MinTimes(0).MaxTimes(1)
+	s.pm2.EXPECT().Match(nil, line).Return(pbl)
 	s.rpt.EXPECT().AddIssue(t.Context(), s.res, iss).Return(nil)
 
-	err := s.ps.RHandle(t.Context(), s.res, line)
+	err := s.pd.RHandle(t.Context(), s.res, line)
 	assert.NoError(t, err)
 }
 
-func (s *ScanProblemTestSuite) TestConvertError() {
+func (s *DetectProblemTestSuite) TestMatchWithColorCodes() {
+	t := s.T()
+	line := "\033[31msecond line\033[0m"
+	cleanLine := "second line"
+	pbl := &problem.Problem{
+		File:     "/path/to/file",
+		Line:     "1",
+		Column:   "1",
+		Severity: "ERROR",
+		Code:     "<code>hello world</code>",
+		Message:  "hello from the other side",
+	}
+	iss, _ := s.pd.toIssuer(pbl)
+	s.pm1.EXPECT().Match(nil, cleanLine).Return(nil).MinTimes(0).MaxTimes(1)
+	s.pm2.EXPECT().Match(nil, cleanLine).Return(pbl)
+	s.rpt.EXPECT().AddIssue(t.Context(), s.res, iss).Return(nil)
+
+	err := s.pd.RHandle(t.Context(), s.res, line)
+	assert.NoError(t, err)
+}
+
+func (s *DetectProblemTestSuite) TestConvertError() {
 	t := s.T()
 	line := "third line"
 	pbl := &problem.Problem{
 		Severity: "UNKNOWN",
 	}
-	s.pm1.EXPECT().Match(line).Return(pbl)
-	s.pm2.EXPECT().Match(line).Return(nil).MinTimes(0).MaxTimes(1)
-	s.pm2.EXPECT().Reset().Return()
+	s.pm1.EXPECT().Match(nil, line).Return(pbl)
+	s.pm2.EXPECT().Match(nil, line).Return(nil).MinTimes(0).MaxTimes(1)
 
-	err := s.ps.RHandle(t.Context(), s.res, line)
+	err := s.pd.RHandle(t.Context(), s.res, line)
 	assert.Error(t, err)
 }
 
-func (s *ScanProblemTestSuite) TestReportError() {
+func (s *DetectProblemTestSuite) TestReportError() {
 	t := s.T()
 	line := "forth line"
 	pbl := &problem.Problem{
@@ -153,14 +174,13 @@ func (s *ScanProblemTestSuite) TestReportError() {
 		Code:     "<code>hello world</code>",
 		Message:  "hello from the other side",
 	}
-	iss, _ := s.ps.toIssuer(pbl)
+	iss, _ := s.pd.toIssuer(pbl)
 	ex := errors.New("report-error")
-	s.pm1.EXPECT().Match(line).Return(pbl)
-	s.pm2.EXPECT().Match(line).Return(nil).MinTimes(0).MaxTimes(1)
-	s.pm2.EXPECT().Reset().Return()
+	s.pm1.EXPECT().Match(nil, line).Return(pbl)
+	s.pm2.EXPECT().Match(nil, line).Return(nil).MinTimes(0).MaxTimes(1)
 	s.rpt.EXPECT().AddIssue(t.Context(), s.res, iss).Return(ex)
 
-	err := s.ps.RHandle(t.Context(), s.res, line)
+	err := s.pd.RHandle(t.Context(), s.res, line)
 	assert.ErrorIs(t, err, ex)
 }
 

@@ -54,7 +54,7 @@ func (c *commandDecorator) DecorateActionRun(task *exec.ActionTask) exec.ActionR
 }
 
 // convert "file" property in issue into workspace relative path if possible.
-// used by [middleware.ScanProblem] and [cmdhandler.LogMessage]
+// used by [middleware.DetectProblem] and [cmdhandler.LogMessage]
 func refineIssueFileProp() xdig.Decorator[cmdtypes.Reporter[exec.Milieu]] {
 	return func(rep cmdtypes.Reporter[exec.Milieu]) cmdtypes.Reporter[exec.Milieu] {
 		return &refinePathReporter{Reporter: rep}
