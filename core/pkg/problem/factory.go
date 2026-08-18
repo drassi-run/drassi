@@ -2,6 +2,10 @@ package problem
 
 type DetectorFactory map[string]Matcher
 
+func NewDetectorFactory() DetectorFactory {
+	return make(DetectorFactory)
+}
+
 func (f DetectorFactory) Add(config Config) error {
 	if matcher, err := NewMatcher(config.Severity, config.Patterns); err != nil {
 		return err

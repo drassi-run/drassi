@@ -69,8 +69,8 @@ func Module(opts ...Option) *wire.Module {
 			return fmt.Errorf("provide 'RUNNER_' EnvProvider: %w", err)
 		}
 
-		if err := scope.Provide(problem.NewMatchers); err != nil {
-			return fmt.Errorf("provide problem.Matchers: %w", err)
+		if err := scope.Provide(problem.NewDetectorFactory); err != nil {
+			return fmt.Errorf("provide problem.DetectorFactory: %w", err)
 		}
 
 		if o.defaultDossier {
