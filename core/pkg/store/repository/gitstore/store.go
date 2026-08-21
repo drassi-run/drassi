@@ -15,6 +15,7 @@ import (
 	"io/fs"
 	"os"
 	"path"
+	"strings"
 
 	"drassi.run/core/pkg/store/repository"
 	"drassi.run/core/util/fs"
@@ -183,18 +184,32 @@ func (s *store) fetch(ctx context.Context, repo *repository.Repository, token, b
 
 	// TODO: using treeless clone when go-git implement it
 	// https://github.blog/2020-12-21-get-up-to-speed-with-partial-clone-and-shallow-clone/
-	fetchOptions := &git.FetchOptions{
-		RefSpecs: []config.RefSpec{
-			config.RefSpec(fmt.Sprintf("+%s:%s", repo.Ref, branch)),
-		},
-
-		Auth:  auth,
-		Tags:  git.NoTags,
-		Force: true,
-		Prune: true,
+	var last error
+	for _, spec := range fetchRefSpecs(repo.Ref, branch) {
+		err = remote.FetchContext(ctx, &git.FetchOptions{
+			RefSpecs: []config.RefSpec{spec},
+			Auth:     auth,
+			Tags:     git.NoTags,
+			Force:    true,
+			Depth:    1,
+		})
+		if err == nil || errors.Is(err, git.NoErrAlreadyUpToDate) {
+			return nil
+		}
+		last = err
 	}
+	return last
+}
 
-	return remote.FetchContext(ctx, fetchOptions)
+func fetchRefSpecs(ref, dst string) []config.RefSpec {
+	dst = "refs/heads/" + dst
+	if strings.HasPrefix(ref, "refs/") {
+		return []config.RefSpec{config.RefSpec(fmt.Sprintf("+%s:%s", ref, dst))}
+	}
+	return []config.RefSpec{
+		config.RefSpec(fmt.Sprintf("+refs/tags/%s:%s", ref, dst)),
+		config.RefSpec(fmt.Sprintf("+refs/heads/%s:%s", ref, dst)),
+	}
 }
 
 func (s *store) ensureDir(repo *repository.Repository) (string, error) {

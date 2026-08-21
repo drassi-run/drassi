@@ -153,6 +153,10 @@ func (l *launcher) Run(ctx context.Context) error {
 			return err
 		} else if err = l.handleMessage(ctx, msg); err != nil {
 			return err
+		} else if msg != nil && msg.Type != "" {
+			if err = lis.DeleteMessage(ctx, msg); err != nil {
+				return err
+			}
 		}
 	}
 }

@@ -48,6 +48,8 @@ type options struct {
 	Group     string
 	Name      string
 	Sandboxer string
+	Output    string
+	Labels    []string
 }
 
 var UserAgent types.UserAgentInfo
@@ -82,6 +84,8 @@ func New() *cobra.Command {
 	flags.StringVar(&opts.Group, "group", "", "GitHub Actions RunnerReference Group")
 	flags.StringVar(&opts.Name, "name", "", "GitHub Actions RunnerReference Name")
 	flags.StringVar(&opts.Sandboxer, "sandboxer", "", "Sandboxer name to used")
+	flags.StringVar(&opts.Output, "output", "", "Write runner configuration to this file")
+	flags.StringSliceVar(&opts.Labels, "label", nil, "Additional runner labels")
 
 	return cmd
 }
@@ -340,6 +344,9 @@ func (r *register) registerRunner(ctx context.Context) error {
 			PublicKey: dotnet.NewPublicKey(&r.key.PublicKey),
 		},
 	}
+	for _, name := range r.Labels {
+		req.Labels = append(req.Labels, types.Label{Name: name, Type: types.LabelTypeUser})
+	}
 
 	runner := new(types.Runner)
 	hr := r.client.Post(fmt.Sprintf(runnerEndpoint, r.group.Id)).
@@ -402,6 +409,10 @@ func (r *register) saveRunner(_ context.Context) error {
 		return err
 	}
 	fmt.Println(strings.Repeat("=", 50))
+
+	if r.Output != "" {
+		return os.WriteFile(r.Output, buf.Bytes(), 0o600)
+	}
 
 	saveToFile := false
 	var inquiry huh.Field

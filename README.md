@@ -72,6 +72,9 @@ and testing rather than production deployments.
 MicroVM sandboxer executes jobs within lightweight virtual machines (VMs). This approach offers a high level of security
 and isolation, but it requires more complex setup and can be slower to start compared to container sandboxes.
 
+Firecracker is the current microVM provider. See [docs/firecracker.md](docs/firecracker.md) for host setup, rootfs, TAP
+networking, and runner TOML.
+
 ### 3.4 incus sandboxer
 
 Incus sandboxer is an alternative solution for environments that don't support nested virtualization, such as AWS EC2.
