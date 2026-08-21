@@ -31,6 +31,7 @@ const (
 	opStat    = "stat"
 	opExec    = "exec"
 	opInfo    = "info"
+	opNet     = "net"
 
 	codeNotExist = "not_exist"
 
@@ -50,6 +51,10 @@ type request struct {
 	Env     map[string]string `json:"env,omitempty"`
 	PathEnv []string          `json:"path_env,omitempty"`
 	Workdir string            `json:"workdir,omitempty"`
+	Iface   string            `json:"iface,omitempty"`
+	Addr    string            `json:"addr,omitempty"`
+	Gateway string            `json:"gateway,omitempty"`
+	DNS     []string          `json:"dns,omitempty"`
 }
 
 type response struct {

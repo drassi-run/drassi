@@ -67,6 +67,10 @@ guest_mac = 'AA:FC:00:00:00:01'
 | `agent_port` | `1024` | Guest vsock port the agent listens on |
 | `tap_device` | | Host TAP name. Omit for no NIC |
 | `guest_mac` | | MAC on the TAP NIC |
+| `guest_ip` | next address on the TAP subnet | Guest CIDR on `eth0`, e.g. `172.16.0.2/24` |
+| `guest_gateway` | TAP IPv4 | Default route in the guest |
+| `guest_dns` | `1.1.1.1`, `8.8.8.8` | Written to `/etc/resolv.conf` |
+| `guest_iface` | `eth0` | Guest interface to configure |
 | `agent_wait_sec` | `30` | Seconds to wait for the guest agent after boot |
 
 Default `kernel_args`:
@@ -131,8 +135,10 @@ systemd. Overlayfs in the guest is required for Docker.
 ## Network
 
 Firecracker attaches at most one TAP (`tap_device`) as guest `eth0`. The TAP
-must already exist. The guest does **not** configure addressing; do that in
-the workflow (or bake it into the rootfs).
+must already exist on the host. After the guest agent is up, Drassi brings
+the interface up, assigns `guest_ip` (or the next IPv4 on the TAP subnet),
+installs a default route via `guest_gateway` (or the TAP address), and writes
+`guest_dns` to `/etc/resolv.conf`. Workflows do not need a network setup step.
 
 Example host TAP and NAT (one VM at a time on this TAP):
 
@@ -142,15 +148,6 @@ sudo ip addr add 172.16.0.1/24 dev tap-drassi
 sudo ip link set tap-drassi up
 sudo sysctl -w net.ipv4.ip_forward=1
 sudo iptables -t nat -A POSTROUTING -s 172.16.0.0/24 -j MASQUERADE
-```
-
-Example guest bring-up in a workflow step (`shell: sh`):
-
-```sh
-ip addr add 172.16.0.2/24 dev eth0
-ip link set eth0 up
-ip route add default via 172.16.0.1
-printf 'nameserver 1.1.1.1\n' > /etc/resolv.conf
 ```
 
 A TAP often shows `DOWN` until a VM attaches; that is expected. One shared

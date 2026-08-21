@@ -97,6 +97,10 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*san
 		_ = machine.stop(context.Background())
 		return nil, err
 	}
+	if err = e.configureGuestNet(ctx, cl); err != nil {
+		_ = machine.stop(context.Background())
+		return nil, err
+	}
 
 	sb, err := newSandbox(ctx, cl, machine)
 	if err != nil {
@@ -149,6 +153,29 @@ func (e *engine) waitAgent(ctx context.Context, cl *client, machine *vm) error {
 			}
 		}
 	}
+}
+
+func (e *engine) configureGuestNet(ctx context.Context, cl *client) error {
+	spec, err := e.guestNet()
+	if err != nil {
+		return err
+	}
+	if spec == nil {
+		return nil
+	}
+
+	var last error
+	for i := 0; i < 20; i++ {
+		if last = cl.ConfigureNet(ctx, spec); last == nil {
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("configure guest net: %w", ctx.Err())
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+	return fmt.Errorf("configure guest net: %w", last)
 }
 
 func (e *engine) sandboxDir(req *sandboxer.LaunchRequest) string {

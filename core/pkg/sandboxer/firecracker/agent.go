@@ -7,6 +7,7 @@
 package firecracker
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"fmt"
@@ -63,9 +64,63 @@ func handle(ctx context.Context, conn net.Conn) {
 		handleExec(ctx, s, req)
 	case opInfo:
 		_ = s.writeJSON(response{OK: true, EnvPath: os.Getenv("PATH")})
+	case opNet:
+		handleNet(s, req)
 	default:
 		_ = s.writeJSON(response{Error: fmt.Sprintf("unknown op %q", req.Op)})
 	}
+}
+
+func handleNet(s *session, req request) {
+	if err := applyGuestNet(req); err != nil {
+		_ = s.writeJSON(errResponse(err))
+		return
+	}
+	_ = s.writeJSON(okResponse())
+}
+
+func applyGuestNet(req request) error {
+	iface := req.Iface
+	if iface == "" {
+		iface = "eth0"
+	}
+	if req.Addr == "" {
+		return fmt.Errorf("guest addr is required")
+	}
+	if err := ipCmd("link", "set", iface, "up"); err != nil {
+		return err
+	}
+	if err := ipCmd("addr", "replace", req.Addr, "dev", iface); err != nil {
+		return err
+	}
+	if req.Gateway != "" {
+		if err := ipCmd("route", "replace", "default", "via", req.Gateway); err != nil {
+			return err
+		}
+	}
+	if len(req.DNS) == 0 {
+		return nil
+	}
+	var b strings.Builder
+	for _, d := range req.DNS {
+		if d == "" {
+			continue
+		}
+		fmt.Fprintf(&b, "nameserver %s\n", d)
+	}
+	if b.Len() == 0 {
+		return nil
+	}
+	return os.WriteFile("/etc/resolv.conf", []byte(b.String()), 0o644)
+}
+
+func ipCmd(args ...string) error {
+	cmd := exec.Command("ip", args...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("ip %s: %w: %s", strings.Join(args, " "), err, bytes.TrimSpace(out))
+	}
+	return nil
 }
 
 func handleCopyIn(ctx context.Context, s *session, req request) {

@@ -49,6 +49,29 @@ func (c *client) Info(ctx context.Context) (string, error) {
 	return resp.EnvPath, nil
 }
 
+func (c *client) ConfigureNet(ctx context.Context, spec *netSpec) error {
+	s, err := c.call(ctx)
+	if err != nil {
+		return err
+	}
+	defer s.conn.Close()
+
+	if err = s.writeJSON(request{
+		Op:      opNet,
+		Iface:   spec.Iface,
+		Addr:    spec.Addr,
+		Gateway: spec.Gateway,
+		DNS:     spec.DNS,
+	}); err != nil {
+		return err
+	}
+	var resp response
+	if err = s.readJSON(&resp); err != nil {
+		return err
+	}
+	return responseError(resp)
+}
+
 func (c *client) Stat(ctx context.Context, path string) (fs.FileInfo, error) {
 	s, err := c.call(ctx)
 	if err != nil {
