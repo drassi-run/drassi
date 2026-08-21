@@ -50,6 +50,9 @@ func Module(opts ...Option) *wire.Module {
 			if err := scope.Provide(stream.NewDetachResourceHandler[exec.Milieu]); err != nil {
 				return fmt.Errorf("provide 'detach' stream.ResourceHandler: %w", err)
 			}
+			if err := scope.Provide(staticResourceHandler[exec.Milieu]); err != nil {
+				return fmt.Errorf("provide static stream.CreateResourceHandler: %w", err)
+			}
 		}
 		if err := scope.Decorate(attachMiddleware[exec.Milieu]); err != nil {
 			return fmt.Errorf("attach stream.Middleware into handler: %w", err)
@@ -64,27 +67,33 @@ func Module(opts ...Option) *wire.Module {
 	return wire.NewModule("core/stream", fn)
 }
 
+func staticResourceHandler[R any](h stream.ResourceHandler[R]) stream.CreateResourceHandler[R] {
+	return func(name string) stream.ResourceHandler[R] { return h }
+}
+
 type streamParams[R any] struct {
 	dig.In
 
-	Handler        stream.ResourceHandler[R]
+	HandlerCreator stream.CreateResourceHandler[R]
 	ProcessCommand mdw.Middleware[R] `name:"processCommand"`
 	DetectProblem  mdw.Middleware[R] `name:"detectProblem"`
 	MaskSecret     mdw.Middleware[R] `name:"maskSecret"`
 }
 
-func attachMiddleware[R any](p streamParams[R]) stream.ResourceHandler[R] {
-	handler := p.Handler
+func attachMiddleware[R any](p streamParams[R]) stream.CreateResourceHandler[R] {
 	middlewares := []mdw.Middleware[R]{p.ProcessCommand, p.DetectProblem, p.MaskSecret}
-	for _, mw := range slices.Backward(middlewares) {
-		handler = mw(handler)
+	return func(name string) stream.ResourceHandler[R] {
+		h := p.HandlerCreator(name)
+		for _, mw := range slices.Backward(middlewares) {
+			h = mw(h)
+		}
+		return h
 	}
-	return handler
 }
 
-func newStreamFactory[R any](h stream.ResourceHandler[R]) stream.Factory[R] {
+func newStreamFactory[R any](rhc stream.CreateResourceHandler[R]) stream.Factory[R] {
 	return stream.NewFactory[R](
-		stream.WithStdout(h),
-		stream.WithStderr(h),
+		stream.WithStdout(rhc),
+		stream.WithStderr(rhc),
 	)
 }
