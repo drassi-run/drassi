@@ -42,7 +42,7 @@ root_dir = '/tmp/drassi-fc-runner'
 vcpu_count = 2
 mem_size_mib = 2048
 agent_wait_sec = 60
-kernel_args = 'console=ttyS0 reboot=k panic=1 pci=off root=/dev/vda rw init=/usr/bin/tini -- /usr/sbin/drassi-agent'
+kernel_args = 'console=ttyS0 reboot=k panic=1 pci=off root=/dev/vda rw init=/usr/bin/tini -- /usr/sbin/drassi-init'
 tap_device = 'tap-drassi'
 guest_mac = 'AA:FC:00:00:00:01'
 ```
@@ -58,7 +58,7 @@ guest_mac = 'AA:FC:00:00:00:01'
 | `root_dir` | `/var/lib/drassi/firecracker` | Per-job VM dirs and image cache |
 | `kernel_path` | *(required)* | `file://`, `http(s)://`, or `oci://` kernel |
 | `rootfs_path` | `oci://ghcr.io/drassi-run/ubuntu:26.04` | `file://` ext4 or `oci://` image converted to ext4 |
-| `agent` | `firecracker-agent` on `PATH` | Host path copied into the image as `/usr/sbin/drassi-agent` |
+| `agent` | `firecracker-agent` on `PATH` | Host path copied into the image as `/usr/sbin/drassi-agent`; `/usr/sbin/drassi-init` is installed alongside it |
 | `rootfs_size_mib` | `2048` | Size of a converted ext4 image |
 | `initrd` | | Optional initrd path |
 | `kernel_args` | see below | Guest cmdline |
@@ -76,12 +76,12 @@ guest_mac = 'AA:FC:00:00:00:01'
 Default `kernel_args`:
 
 ```text
-console=ttyS0 reboot=k panic=1 pci=off root=/dev/vda rw init=/usr/bin/tini -- /usr/sbin/drassi-agent
+console=ttyS0 reboot=k panic=1 pci=off root=/dev/vda rw init=/usr/bin/tini -- /usr/sbin/drassi-init
 ```
 
-That matches the default image (tini as PID 1, agent next). Override it if
-your rootfs boots differently (for example `init=/sbin/init` when the agent
-*is* PID 1).
+That matches the default image: tini is PID 1, `drassi-init` starts dockerd
+(if present) then execs the agent. Override it if your rootfs boots
+differently (for example `init=/sbin/init` when the agent *is* PID 1).
 
 ## Kernel
 
@@ -117,15 +117,16 @@ virtio-mmio (this sandboxer boots with `pci=off`).
 | Scheme | Behavior | Cache |
 | --- | --- | --- |
 | `file://` (or a bare path) | local ext4 used in place | none |
-| `oci://` | docker pull, export, install agent, `mkfs.ext4` | image digest |
+| `oci://` | docker pull, export, install agent and init, `mkfs.ext4` | image digest |
 
 For `oci://`, Drassi resolves a content digest (from `@sha256:…` if pinned,
 otherwise `docker pull` + inspect). The ext4 is cached at
 `{root_dir}/cache/<digest>/rootfs.ext4` (`:` in the digest becomes `-`).
 On a cache miss it exports the image, installs the agent at
-`/usr/sbin/drassi-agent`, and runs `mkfs.ext4`. Host Docker is required
-to resolve a tag and on the first conversion. A local ext4 is used as-is;
-bake the agent in yourself.
+`/usr/sbin/drassi-agent`, writes `/usr/sbin/drassi-init`, and runs
+`mkfs.ext4`. Host Docker is required to resolve a tag and on the first
+conversion. A local ext4 is used as-is; bake the agent and init script
+in yourself.
 
 Each job clones that file (`cp --reflink=auto --sparse=always`).
 

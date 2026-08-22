@@ -230,6 +230,29 @@ func TestMaterializeKernelFromOCI(t *testing.T) {
 	assert.Greater(t, st.Size(), int64(1<<20))
 }
 
+func TestDefaultKernelArgsUseTiniInit(t *testing.T) {
+	args := DefaultConfig().KernelArgs
+	assert.Contains(t, args, "init="+guestTiniPath+" -- "+guestInitPath)
+	assert.NotContains(t, args, guestTiniPath+" -- "+guestAgentPath)
+}
+
+func TestInstallGuestInit(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, installGuestInit(dir))
+
+	path := filepath.Join(dir, "usr", "sbin", "drassi-init")
+	info, err := os.Stat(path)
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o755), info.Mode().Perm())
+
+	body, err := os.ReadFile(path)
+	require.NoError(t, err)
+	got := string(body)
+	assert.True(t, strings.HasPrefix(got, "#!/bin/sh"))
+	assert.Contains(t, got, "dockerd")
+	assert.Contains(t, got, "exec "+guestAgentPath)
+}
+
 func TestEnsureRootfsRequiresPath(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.RootDir = t.TempDir()

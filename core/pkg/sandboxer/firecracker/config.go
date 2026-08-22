@@ -36,7 +36,7 @@ func DefaultConfig() *Config {
 		Bin:        "firecracker",
 		RootDir:    "/var/lib/drassi/firecracker",
 		RootfsPath: "oci://" + defaultRootfsImage,
-		KernelArgs: "console=ttyS0 reboot=k panic=1 pci=off root=/dev/vda rw init=" + guestTiniPath + " -- " + guestAgentPath,
+		KernelArgs: "console=ttyS0 reboot=k panic=1 pci=off root=/dev/vda rw init=" + guestTiniPath + " -- " + guestInitPath,
 		VcpuCount:  2,
 		MemSizeMiB: 2048,
 		AgentPort:  defaultAgentPort,

@@ -21,8 +21,39 @@ const (
 	defaultRootfsImage = "ghcr.io/drassi-run/ubuntu:26.04"
 	defaultRootfsMiB   = 2048
 	guestAgentPath     = "/usr/sbin/drassi-agent"
+	guestInitPath      = "/usr/sbin/drassi-init"
 	guestTiniPath      = "/usr/bin/tini"
 )
+
+// guestInitScript is PID 1's child under tini. It starts dockerd if present,
+// then execs the guest agent so both are in tini's process tree.
+const guestInitScript = `#!/bin/sh
+export PATH="${PATH:-/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin}"
+
+for d in /dev /proc /sys /run /tmp /opt /var/log /var/lib/docker; do
+	mkdir -p "$d"
+done
+
+mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
+mount -t proc proc /proc 2>/dev/null || true
+mount -t sysfs sysfs /sys 2>/dev/null || true
+mkdir -p /sys/fs/cgroup
+mount -t cgroup2 cgroup2 /sys/fs/cgroup 2>/dev/null || true
+
+if command -v dockerd >/dev/null 2>&1; then
+	dockerd >/var/log/dockerd.log 2>&1 &
+	i=0
+	while [ "$i" -lt 30 ]; do
+		if docker info >/dev/null 2>&1; then
+			break
+		fi
+		i=$((i + 1))
+		sleep 1
+	done
+fi
+
+exec ` + guestAgentPath + ` "$@"
+`
 
 func (c *Config) ensureRootfs() error {
 	if c.rootfs != "" {
@@ -98,6 +129,9 @@ func (c *Config) materializeOCIRootfs(image string) (string, error) {
 		return "", err
 	}
 	if err = installGuestAgent(staging, agent); err != nil {
+		return "", err
+	}
+	if err = installGuestInit(staging); err != nil {
 		return "", err
 	}
 
@@ -292,6 +326,14 @@ func installGuestAgent(root, agent string) error {
 		return err
 	}
 	return nil
+}
+
+func installGuestInit(root string) error {
+	dst := filepath.Join(root, filepath.FromSlash(strings.TrimPrefix(guestInitPath, "/")))
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(dst, []byte(guestInitScript), 0o755)
 }
 
 func resolveAgent(explicit string) (string, error) {
