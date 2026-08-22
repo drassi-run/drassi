@@ -13,6 +13,7 @@ import (
 	"io"
 	"net/url"
 	"path/filepath"
+	"strings"
 
 	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/actions"
@@ -71,6 +72,10 @@ func (spec *ReferenceActionSpec) CreateExecutor(
 	// If the action is located in different server than the job repo,
 	// unset the token to prevent an unauthenticated error.
 	if repository.Endpoint(spec.Repo) != spec.serverDomain(github.ServerUrl) {
+		token = ""
+	} else if !strings.EqualFold(spec.Repo.Name, github.Repository) {
+		// GITHUB_TOKEN is scoped to the job repo. Sending it to another
+		// GitHub repo can hide public tags or hang the git fetch.
 		token = ""
 	}
 

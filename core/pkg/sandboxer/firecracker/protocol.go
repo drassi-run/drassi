@@ -24,7 +24,9 @@ import (
 // Kata talks ttrpc CopyFile over Firecracker hybrid vsock (host Unix socket +
 // "CONNECT <port>\n"). That RPC is host→guest only and chunks each file.
 // Drassi CopyIn/CopyOut already speak tar, so we stream tar on the same
-// hybrid-vsock channel instead.
+// hybrid-vsock channel instead. The guest stops at the tar end marker;
+// vsock stays open for the JSON ack (do not CloseWrite — Firecracker
+// hybrid vsock treats a shutdown as a full close).
 const (
 	opCopyIn  = "copyin"
 	opCopyOut = "copyout"

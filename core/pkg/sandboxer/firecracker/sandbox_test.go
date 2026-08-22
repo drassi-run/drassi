@@ -17,6 +17,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"drassi.run/core/pkg/stream"
 	"drassi.run/core/util/tar"
@@ -88,6 +89,32 @@ func TestCopyInOutStat(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "world", content)
+}
+
+func TestCopyInStreamingPipe(t *testing.T) {
+	cl := startTestAgent(t)
+	dir := t.TempDir()
+
+	pr, pw := io.Pipe()
+	go func() {
+		tw := tar.NewWriter(pw)
+		hdr := &tar.Header{Name: "from-pipe.txt", Mode: 0o644, Size: 3}
+		_ = tw.WriteHeader(hdr)
+		_, _ = tw.Write([]byte("abc"))
+		// Close the tar writer before the pipe, matching gitstore.Read.
+		// Firecracker CopyIn has no connection EOF; the guest needs the
+		// tar end marker.
+		_ = tw.Close()
+		_ = pw.Close()
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	require.NoError(t, cl.CopyIn(ctx, pr, dir))
+
+	b, err := os.ReadFile(filepath.Join(dir, "from-pipe.txt"))
+	require.NoError(t, err)
+	assert.Equal(t, "abc", string(b))
 }
 
 func TestCopyOutMissing(t *testing.T) {

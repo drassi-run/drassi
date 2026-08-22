@@ -33,7 +33,6 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/storage"
 	"github.com/go-git/go-git/v5/storage/filesystem"
-	"k8s.io/apimachinery/pkg/util/rand"
 )
 
 type Store interface {
@@ -80,15 +79,12 @@ func (s *store) Fetch(ctx context.Context, repo *repository.Repository, token st
 		return "", err
 	}
 
-	tmpBranch := rand.String(12)
-	defer gitRepo.DeleteBranch(tmpBranch)
-
-	err = s.fetch(ctx, repo, token, tmpBranch)
+	err = s.fetch(ctx, repo, token)
 	if err != nil {
 		return "", err
 	}
 
-	hash, err := gitRepo.ResolveRevision(plumbing.Revision(tmpBranch))
+	hash, err := gitRepo.ResolveRevision(plumbing.Revision(repo.Ref))
 	if err != nil {
 		return "", err
 	}
@@ -125,11 +121,18 @@ func (s *store) Read(ctx context.Context, repo *repository.Repository, rev strin
 		defer writer.Close()
 		defer close(ch)
 		tw := tar.NewWriter(writer)
-		defer tw.Close()
 		handler := newTarHandler(tw, dir)
 
 		err := files.ForEach(handler)
-		_ = writer.CloseWithError(err)
+		// Close the tar writer before the pipe so the archive has an end
+		// marker. Firecracker CopyIn reads tar off vsock and never sees
+		// connection EOF; without the marker the guest waits forever.
+		if cerr := tw.Close(); err == nil {
+			err = cerr
+		}
+		if err != nil {
+			_ = writer.CloseWithError(err)
+		}
 	}()
 	return reader, nil
 }
@@ -162,7 +165,7 @@ func (s *store) File(ctx context.Context, repo *repository.Repository, rev, path
 	return file.Reader()
 }
 
-func (s *store) fetch(ctx context.Context, repo *repository.Repository, token, branch string) error {
+func (s *store) fetch(ctx context.Context, repo *repository.Repository, token string) error {
 	gitRepo := s.repos[repository.FullName(repo)]
 
 	var auth transport.AuthMethod
@@ -185,11 +188,10 @@ func (s *store) fetch(ctx context.Context, repo *repository.Repository, token, b
 	// TODO: using treeless clone when go-git implement it
 	// https://github.blog/2020-12-21-get-up-to-speed-with-partial-clone-and-shallow-clone/
 	var last error
-	for _, spec := range fetchRefSpecs(repo.Ref, branch) {
+	for _, spec := range fetchRefSpecs(repo.Ref) {
 		err = remote.FetchContext(ctx, &git.FetchOptions{
 			RefSpecs: []config.RefSpec{spec},
 			Auth:     auth,
-			Tags:     git.NoTags,
 			Force:    true,
 			Depth:    1,
 		})
@@ -201,14 +203,13 @@ func (s *store) fetch(ctx context.Context, repo *repository.Repository, token, b
 	return last
 }
 
-func fetchRefSpecs(ref, dst string) []config.RefSpec {
-	dst = "refs/heads/" + dst
+func fetchRefSpecs(ref string) []config.RefSpec {
 	if strings.HasPrefix(ref, "refs/") {
-		return []config.RefSpec{config.RefSpec(fmt.Sprintf("+%s:%s", ref, dst))}
+		return []config.RefSpec{config.RefSpec(fmt.Sprintf("+%s:%s", ref, ref))}
 	}
 	return []config.RefSpec{
-		config.RefSpec(fmt.Sprintf("+refs/tags/%s:%s", ref, dst)),
-		config.RefSpec(fmt.Sprintf("+refs/heads/%s:%s", ref, dst)),
+		config.RefSpec(fmt.Sprintf("+refs/tags/%s:refs/tags/%s", ref, ref)),
+		config.RefSpec(fmt.Sprintf("+refs/heads/%s:refs/heads/%s", ref, ref)),
 	}
 }
 
