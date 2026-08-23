@@ -40,7 +40,6 @@ jobs:
         shell: bash
         env:
           CGO_ENABLED: 0
-          GOEXPERIMENT: jsonv2
         run: |
           mkdir -p dist
           cp README.md LICENSE ./dist/

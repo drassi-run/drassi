@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-FROM golang:1.26 AS builder
+FROM golang:1.27 AS builder
 WORKDIR /app
 
 COPY core/go.mod core/go.sum ./core/
@@ -12,7 +12,6 @@ COPY go.work go.work.sum ./
 RUN go work sync
 
 COPY . .
-ARG GOEXPERIMENT=jsonv2
 ARG CGO_ENABLED=0
 RUN go build -o ./bin/gha-runner -trimpath -ldflags "-s -w" ./runner-gha
 

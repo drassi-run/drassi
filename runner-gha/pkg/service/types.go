@@ -247,7 +247,11 @@ func (i *qint64) UnmarshalJSONFrom(d *jsontext.Decoder) error {
 
 	switch tok.Kind() {
 	case jsontext.KindNumber:
-		*i = qint64(tok.Int())
+		if val, err := tok.Int(); err != nil {
+			return err
+		} else {
+			*i = qint64(val)
+		}
 
 	case jsontext.KindString:
 		s := tok.String()
