@@ -4,7 +4,7 @@
 
 module drassi.run/gitea-runner
 
-go 1.26
+go 1.27
 
 require (
 	code.gitea.io/actions-proto-go v0.4.0

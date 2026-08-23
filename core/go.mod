@@ -4,7 +4,7 @@
 
 module drassi.run/core
 
-go 1.26
+go 1.27
 
 require (
 	github.com/antlr4-go/antlr/v4 v4.13.1
