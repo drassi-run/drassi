@@ -33,11 +33,11 @@ func TestProcessCommand(t *testing.T) {
 		mgr := mock_command.NewMockConsoleManager[any](ctrl)
 		mgr.EXPECT().ParseCommand(line).Return(nil)
 
-		hdl := mock_stream.NewMockResourceHandler[any](ctrl)
-		hdl.EXPECT().RHandle(t.Context(), nil, line).Return(nil)
+		snk := mock_stream.NewMockSink[any](ctrl)
+		snk.EXPECT().Emit(t.Context(), nil, line).Return(nil)
 
-		handler := ProcessCommand[any](mgr)(hdl)
-		err := handler.RHandle(t.Context(), nil, line)
+		sink := ProcessCommand[any](mgr)(snk)
+		err := sink.Emit(t.Context(), nil, line)
 		assert.NoError(t, err)
 	})
 
@@ -46,8 +46,8 @@ func TestProcessCommand(t *testing.T) {
 		mgr.EXPECT().ParseCommand(line).Return(cmd)
 		mgr.EXPECT().Process(t.Context(), "awesome-resource", line, cmd).Return(nil)
 
-		handler := ProcessCommand[string](mgr)(nil)
-		err := handler.RHandle(t.Context(), "awesome-resource", line)
+		sink := ProcessCommand[string](mgr)(nil)
+		err := sink.Emit(t.Context(), "awesome-resource", line)
 		assert.NoError(t, err)
 	})
 
@@ -57,8 +57,8 @@ func TestProcessCommand(t *testing.T) {
 		mgr.EXPECT().ParseCommand(line).Return(cmd)
 		mgr.EXPECT().Process(t.Context(), nil, line, cmd).Return(ex)
 
-		handler := ProcessCommand[any](mgr)(nil)
-		err := handler.RHandle(t.Context(), nil, line)
+		sink := ProcessCommand[any](mgr)(nil)
+		err := sink.Emit(t.Context(), nil, line)
 		assert.ErrorIs(t, err, ex)
 	})
 }
@@ -73,7 +73,7 @@ type DetectProblemTestSuite struct {
 	pm1  *mock_problem.MockMatcher
 	pm2  *mock_problem.MockMatcher
 	rpt  *mock_cmdtypes.MockReporter[string]
-	hdl  *mock_stream.MockResourceHandler[string]
+	snk  *mock_stream.MockSink[string]
 	pd   *problemDetector[string]
 	res  string
 }
@@ -90,9 +90,9 @@ func (s *DetectProblemTestSuite) SetupTest() {
 	}
 	s.rpt = mock_cmdtypes.NewMockReporter[string](s.ctrl)
 	s.res = "awesome-resource"
-	s.hdl = mock_stream.NewMockResourceHandler[string](s.ctrl)
-	s.hdl.EXPECT().RHandle(s.T().Context(), s.res, gomock.Any()).Return(nil)
-	s.pd = DetectProblem[string](pm, s.rpt)(s.hdl).(*problemDetector[string])
+	s.snk = mock_stream.NewMockSink[string](s.ctrl)
+	s.snk.EXPECT().Emit(s.T().Context(), s.res, gomock.Any()).Return(nil)
+	s.pd = DetectProblem[string](pm, s.rpt)(s.snk).(*problemDetector[string])
 }
 
 func (s *DetectProblemTestSuite) TearDownTest() {
@@ -105,7 +105,7 @@ func (s *DetectProblemTestSuite) TestNotMatch() {
 	s.pm1.EXPECT().Match(nil, line).Return(nil)
 	s.pm2.EXPECT().Match(nil, line).Return(nil)
 
-	err := s.pd.RHandle(t.Context(), s.res, line)
+	err := s.pd.Emit(t.Context(), s.res, line)
 	assert.NoError(t, err)
 }
 
@@ -125,7 +125,7 @@ func (s *DetectProblemTestSuite) TestMatchAndSuccess() {
 	s.pm2.EXPECT().Match(nil, line).Return(pbl)
 	s.rpt.EXPECT().AddIssue(t.Context(), s.res, iss).Return(nil)
 
-	err := s.pd.RHandle(t.Context(), s.res, line)
+	err := s.pd.Emit(t.Context(), s.res, line)
 	assert.NoError(t, err)
 }
 
@@ -146,7 +146,7 @@ func (s *DetectProblemTestSuite) TestMatchWithColorCodes() {
 	s.pm2.EXPECT().Match(nil, cleanLine).Return(pbl)
 	s.rpt.EXPECT().AddIssue(t.Context(), s.res, iss).Return(nil)
 
-	err := s.pd.RHandle(t.Context(), s.res, line)
+	err := s.pd.Emit(t.Context(), s.res, line)
 	assert.NoError(t, err)
 }
 
@@ -159,7 +159,7 @@ func (s *DetectProblemTestSuite) TestConvertError() {
 	s.pm1.EXPECT().Match(nil, line).Return(pbl)
 	s.pm2.EXPECT().Match(nil, line).Return(nil).MinTimes(0).MaxTimes(1)
 
-	err := s.pd.RHandle(t.Context(), s.res, line)
+	err := s.pd.Emit(t.Context(), s.res, line)
 	assert.Error(t, err)
 }
 
@@ -180,7 +180,7 @@ func (s *DetectProblemTestSuite) TestReportError() {
 	s.pm2.EXPECT().Match(nil, line).Return(nil).MinTimes(0).MaxTimes(1)
 	s.rpt.EXPECT().AddIssue(t.Context(), s.res, iss).Return(ex)
 
-	err := s.pd.RHandle(t.Context(), s.res, line)
+	err := s.pd.Emit(t.Context(), s.res, line)
 	assert.ErrorIs(t, err, ex)
 }
 
@@ -193,10 +193,10 @@ func TestMaskSecret(t *testing.T) {
 	sm := mock_secret.NewMockMasker(ctrl)
 	sm.EXPECT().Mask(line).Return(maskedLine)
 
-	hdl := mock_stream.NewMockResourceHandler[string](ctrl)
-	hdl.EXPECT().RHandle(t.Context(), "res", maskedLine).Return(nil)
+	snk := mock_stream.NewMockSink[string](ctrl)
+	snk.EXPECT().Emit(t.Context(), "res", maskedLine).Return(nil)
 
-	handler := MaskSecret[string](sm)(hdl)
-	err := handler.RHandle(t.Context(), "res", line)
+	sink := MaskSecret[string](sm)(snk)
+	err := sink.Emit(t.Context(), "res", line)
 	assert.NoError(t, err)
 }

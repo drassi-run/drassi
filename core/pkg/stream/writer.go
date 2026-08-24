@@ -12,15 +12,19 @@ import (
 	"io"
 )
 
-type lineWriter struct {
-	handler Handler
-	buffer  bytes.Buffer
-	closed  bool
+type Handler interface {
+	Handle(string) error
 }
 
 // NewLineWriter return an [io.Writer] that split input into lines and forward to the [Handler]
 func NewLineWriter(h Handler) io.Writer {
 	return &lineWriter{handler: h}
+}
+
+type lineWriter struct {
+	handler Handler
+	buffer  bytes.Buffer
+	closed  bool
 }
 
 func (w *lineWriter) Write(p []byte) (int, error) {

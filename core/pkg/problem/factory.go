@@ -52,6 +52,11 @@ func (d *detector) Detect(line string) (pbl *Problem) {
 
 	for o, m := range d.matchers {
 		s := d.states[o]
+		if l := m.Len(); l > 1 && len(s) != l-1 {
+			// matcher is newly added
+			s = make([]*Problem, l-1)
+			d.states[o] = s
+		}
 		if p := m.Match(s, line); p != nil {
 			owner, pbl = o, p
 			break
@@ -61,7 +66,10 @@ func (d *detector) Detect(line string) (pbl *Problem) {
 	// Matched - then reset other matchers
 	if pbl != nil {
 		for o, s := range d.states {
-			if o != owner {
+			if _, exists := d.matchers[o]; !exists {
+				// matcher is removed
+				delete(d.states, o)
+			} else if o != owner {
 				clear(s)
 			}
 		}

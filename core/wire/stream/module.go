@@ -19,18 +19,18 @@ import (
 
 type Option func(o *options)
 type options struct {
-	detachResourceHandler bool // use stream.detachResourceHandler as stream.ResourceHandler
+	detachScopeSink bool // use stream.DetachScope as stream.Sink
 }
 
-func UseDetachResourceHandler(b bool) Option {
+func UseDetachScopeSink(b bool) Option {
 	return func(o *options) {
-		o.detachResourceHandler = b
+		o.detachScopeSink = b
 	}
 }
 
 func Module(opts ...Option) *wire.Module {
 	o := &options{
-		detachResourceHandler: true,
+		detachScopeSink: true,
 	}
 	for _, opt := range opts {
 		opt(o)
@@ -46,9 +46,12 @@ func Module(opts ...Option) *wire.Module {
 		if err := scope.Provide(mdw.MaskSecret[exec.Milieu], dig.Name("maskSecret")); err != nil {
 			return fmt.Errorf("provide 'maskSecret' stream.Middleware: %w", err)
 		}
-		if o.detachResourceHandler {
-			if err := scope.Provide(stream.NewDetachResourceHandler[exec.Milieu]); err != nil {
-				return fmt.Errorf("provide 'detach' stream.ResourceHandler: %w", err)
+		if o.detachScopeSink {
+			if err := scope.Provide(stream.DetachScope[exec.Milieu]); err != nil {
+				return fmt.Errorf("provide 'detach' stream.Sink: %w", err)
+			}
+			if err := scope.Provide(staticSinkFactory[exec.Milieu]); err != nil {
+				return fmt.Errorf("provide static stream.SinkFactory: %w", err)
 			}
 		}
 		if err := scope.Decorate(attachMiddleware[exec.Milieu]); err != nil {
@@ -64,27 +67,33 @@ func Module(opts ...Option) *wire.Module {
 	return wire.NewModule("core/stream", fn)
 }
 
+func staticSinkFactory[R any](h stream.Sink[R]) stream.SinkFactory[R] {
+	return func(name string) stream.Sink[R] { return h }
+}
+
 type streamParams[R any] struct {
 	dig.In
 
-	Handler        stream.ResourceHandler[R]
+	SinkFactory    stream.SinkFactory[R]
 	ProcessCommand mdw.Middleware[R] `name:"processCommand"`
 	DetectProblem  mdw.Middleware[R] `name:"detectProblem"`
 	MaskSecret     mdw.Middleware[R] `name:"maskSecret"`
 }
 
-func attachMiddleware[R any](p streamParams[R]) stream.ResourceHandler[R] {
-	handler := p.Handler
+func attachMiddleware[R any](p streamParams[R]) stream.SinkFactory[R] {
 	middlewares := []mdw.Middleware[R]{p.ProcessCommand, p.DetectProblem, p.MaskSecret}
-	for _, mw := range slices.Backward(middlewares) {
-		handler = mw(handler)
+	return func(name string) stream.Sink[R] {
+		s := p.SinkFactory(name)
+		for _, mw := range slices.Backward(middlewares) {
+			s = mw(s)
+		}
+		return s
 	}
-	return handler
 }
 
-func newStreamFactory[R any](h stream.ResourceHandler[R]) stream.Factory[R] {
+func newStreamFactory[R any](f stream.SinkFactory[R]) stream.Factory[R] {
 	return stream.NewFactory[R](
-		stream.WithStdout(h),
-		stream.WithStderr(h),
+		stream.WithStdout(f),
+		stream.WithStderr(f),
 	)
 }

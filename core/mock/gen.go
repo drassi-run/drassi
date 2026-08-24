@@ -14,5 +14,6 @@
 //go:generate mockgen -typed -destination=secret/masker.go -source=../pkg/secret/masker.go
 //go:generate mockgen -typed -destination=executor/job_executor.go -source=../pkg/executor/job_executor.go
 //go:generate mockgen -typed -destination=executor/step_executor.go -source=../pkg/executor/step_executor.go
-//go:generate mockgen -typed -destination=stream/handler.go -source=../pkg/stream/handler.go
+//go:generate mockgen -typed -destination=stream/sink.go -source=../pkg/stream/sink.go
+//go:generate mockgen -typed -destination=stream/writer.go -source=../pkg/stream/writer.go
 package mock

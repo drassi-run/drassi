@@ -205,4 +205,104 @@ func TestDetector(t *testing.T) {
 		// Matcher A was reset by B's match, so msgA does not complete
 		assert.Nil(tt, d.Detect("msgA: errA"))
 	})
+
+	t.Run("add_matcher_in_the_middle", func(tt *testing.T) {
+		factory := make(DetectorFactory)
+		_ = factory.Add(Config{
+			Owner:    "matcherA",
+			Severity: "NOTICE",
+			Patterns: []Pattern{
+				{Regexp: `^notice: (.+)$`, Message: new(1)},
+			},
+		})
+
+		d := factory.NewDetector()
+
+		assert.Nil(tt, d.Detect("random line"))
+		assert.EqualValues(tt, d.Detect("notice: before adding new matcher"), &Problem{
+			Severity: "NOTICE",
+			Message:  "before adding new matcher",
+		})
+
+		// Add multi-line matcher in the middle
+		err := factory.Add(Config{
+			Owner:    "matcherB",
+			Severity: "ERROR",
+			Patterns: []Pattern{
+				{Regexp: `^file: (.+)$`, File: new(1)},
+				{Regexp: `^line: (\d+)$`, Line: new(1)},
+				{Regexp: `^error: (.+)$`, Message: new(1)},
+			},
+		})
+		assert.NoError(tt, err)
+
+		// Test multi-line detection with matcherB added after NewDetector()
+		assert.Nil(tt, d.Detect("file: main.go"))
+		assert.Nil(tt, d.Detect("line: 42"))
+		assert.EqualValues(tt, d.Detect("error: syntax error"), &Problem{
+			Severity: "ERROR",
+			File:     "main.go",
+			Line:     "42",
+			Message:  "syntax error",
+		})
+
+		// Matcher A still works
+		assert.EqualValues(tt, d.Detect("notice: after adding new matcher"), &Problem{
+			Severity: "NOTICE",
+			Message:  "after adding new matcher",
+		})
+
+		// Add another multi-line loop matcher in the middle
+		err = factory.Add(Config{
+			Owner: "matcherC",
+			Patterns: []Pattern{
+				{Regexp: `^fileC: (.+)$`, File: new(1)},
+				{Regexp: `^msgC: (.+)$`, Message: new(1), Loop: true},
+			},
+		})
+		assert.NoError(tt, err)
+
+		assert.Nil(tt, d.Detect("fileC: loop.go"))
+		assert.EqualValues(tt, d.Detect("msgC: first issue"), &Problem{
+			File:    "loop.go",
+			Message: "first issue",
+		})
+		assert.EqualValues(tt, d.Detect("msgC: second issue"), &Problem{
+			File:    "loop.go",
+			Message: "second issue",
+		})
+
+		// Partial match before adding new matcher, then complete after
+		_ = factory.Add(Config{
+			Owner: "matcherD",
+			Patterns: []Pattern{
+				{Regexp: `^fileD: (.+)$`, File: new(1)},
+				{Regexp: `^lineD: (\d+)$`, Line: new(1)},
+				{Regexp: `^errorD: (.+)$`, Message: new(1)},
+			},
+		})
+		assert.Nil(tt, d.Detect("fileD: foo.go"))
+
+		// Add new matcher while matcherD is partially matched
+		_ = factory.Add(Config{
+			Owner:    "matcherE",
+			Severity: "WARNING",
+			Patterns: []Pattern{
+				{Regexp: `^warnE: (.+)$`, Message: new(1)},
+			},
+		})
+
+		assert.Nil(tt, d.Detect("lineD: 100"))
+		assert.EqualValues(tt, d.Detect("errorD: broken"), &Problem{
+			File:    "foo.go",
+			Line:    "100",
+			Message: "broken",
+		})
+
+		// Verify matcherE works as well
+		assert.EqualValues(tt, d.Detect("warnE: something"), &Problem{
+			Severity: "WARNING",
+			Message:  "something",
+		})
+	})
 }

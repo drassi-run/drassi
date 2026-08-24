@@ -21,26 +21,26 @@ import (
 	"drassi.run/core/pkg/stream"
 )
 
-type Middleware[R any] func(handler stream.ResourceHandler[R]) stream.ResourceHandler[R]
+type Middleware[R any] func(sink stream.Sink[R]) stream.Sink[R]
 
 func ProcessCommand[R any](consMgr command.ConsoleManager[R]) Middleware[R] {
-	return func(handler stream.ResourceHandler[R]) stream.ResourceHandler[R] {
+	return func(sink stream.Sink[R]) stream.Sink[R] {
 		return &commandProcessor[R]{
-			handler: handler,
+			sink:    sink,
 			consMgr: consMgr,
 		}
 	}
 }
 
 type commandProcessor[R any] struct {
-	handler stream.ResourceHandler[R]
+	sink    stream.Sink[R]
 	consMgr command.ConsoleManager[R]
 }
 
-func (mw *commandProcessor[R]) RHandle(ctx context.Context, res R, line string) error {
+func (mw *commandProcessor[R]) Emit(ctx context.Context, res R, line string) error {
 	cmd := mw.consMgr.ParseCommand(line)
 	if cmd == nil {
-		return mw.handler.RHandle(ctx, res, line)
+		return mw.sink.Emit(ctx, res, line)
 	}
 
 	if err := mw.consMgr.Process(ctx, res, line, cmd); err != nil {
@@ -50,9 +50,9 @@ func (mw *commandProcessor[R]) RHandle(ctx context.Context, res R, line string) 
 }
 
 func DetectProblem[R any](factory problem.DetectorFactory, reporter cmdtypes.Reporter[R]) Middleware[R] {
-	return func(handler stream.ResourceHandler[R]) stream.ResourceHandler[R] {
+	return func(sink stream.Sink[R]) stream.Sink[R] {
 		return &problemDetector[R]{
-			handler:  handler,
+			sink:     sink,
 			reporter: reporter,
 			detector: factory.NewDetector(),
 		}
@@ -60,18 +60,18 @@ func DetectProblem[R any](factory problem.DetectorFactory, reporter cmdtypes.Rep
 }
 
 type problemDetector[R any] struct {
-	handler  stream.ResourceHandler[R]
+	sink     stream.Sink[R]
 	reporter cmdtypes.Reporter[R]
 	detector problem.Detector
 }
 
-func (mw *problemDetector[R]) RHandle(ctx context.Context, res R, line string) (err error) {
+func (mw *problemDetector[R]) Emit(ctx context.Context, res R, line string) (err error) {
 	pbl := mw.detect(line)
 	if pbl != nil {
 		err = mw.report(ctx, res, pbl)
 	}
 
-	err2 := mw.handler.RHandle(ctx, res, line)
+	err2 := mw.sink.Emit(ctx, res, line)
 	return errors.Join(err, err2)
 }
 
@@ -144,20 +144,20 @@ func (mw *problemDetector[R]) toIssuer(pbl *problem.Problem) (*cmdtypes.Issue, e
 }
 
 func MaskSecret[R any](masker secret.Masker) Middleware[R] {
-	return func(handler stream.ResourceHandler[R]) stream.ResourceHandler[R] {
+	return func(sink stream.Sink[R]) stream.Sink[R] {
 		return &secretMasker[R]{
-			handler: handler,
-			masker:  masker,
+			sink:   sink,
+			masker: masker,
 		}
 	}
 }
 
 type secretMasker[R any] struct {
-	handler stream.ResourceHandler[R]
-	masker  secret.Masker
+	sink   stream.Sink[R]
+	masker secret.Masker
 }
 
-func (mw *secretMasker[R]) RHandle(ctx context.Context, res R, line string) error {
+func (mw *secretMasker[R]) Emit(ctx context.Context, res R, line string) error {
 	line = mw.masker.Mask(line)
-	return mw.handler.RHandle(ctx, res, line)
+	return mw.sink.Emit(ctx, res, line)
 }
