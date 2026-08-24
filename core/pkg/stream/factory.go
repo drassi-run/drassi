@@ -16,7 +16,7 @@ type Factory[R any] interface {
 }
 
 type FactoryOption[R any] func(*factory[R])
-type CreateResourceHandler[R any] func(name string) ResourceHandler[R]
+type SinkFactory[R any] func(name string) Sink[R]
 
 func WithStdin[R any](in io.Reader) FactoryOption[R] {
 	return func(f *factory[R]) {
@@ -24,13 +24,13 @@ func WithStdin[R any](in io.Reader) FactoryOption[R] {
 	}
 }
 
-func WithStdout[R any](out CreateResourceHandler[R]) FactoryOption[R] {
+func WithStdout[R any](out SinkFactory[R]) FactoryOption[R] {
 	return func(f *factory[R]) {
 		f.stdoutCreator = out
 	}
 }
 
-func WithStderr[R any](err CreateResourceHandler[R]) FactoryOption[R] {
+func WithStderr[R any](err SinkFactory[R]) FactoryOption[R] {
 	return func(f *factory[R]) {
 		f.stderrCreator = err
 	}
@@ -46,8 +46,8 @@ func NewFactory[R any](opts ...FactoryOption[R]) Factory[R] {
 
 type factory[R any] struct {
 	in            io.Reader
-	stdoutCreator CreateResourceHandler[R]
-	stderrCreator CreateResourceHandler[R]
+	stdoutCreator SinkFactory[R]
+	stderrCreator SinkFactory[R]
 }
 
 func (f *factory[R]) Create(ctx context.Context, res R) *Streams {
@@ -62,7 +62,7 @@ func (f *factory[R]) Create(ctx context.Context, res R) *Streams {
 	return streams
 }
 
-func (f *factory[R]) newWriter(ctx context.Context, res R, hdl ResourceHandler[R]) io.Writer {
-	handler := NewAttachResourceHandler(ctx, res, hdl)
+func (f *factory[R]) newWriter(ctx context.Context, res R, sink Sink[R]) io.Writer {
+	handler := AttachScope(ctx, res, sink)
 	return NewLineWriter(handler)
 }
