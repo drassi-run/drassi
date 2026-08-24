@@ -52,7 +52,7 @@ func AddSecretMask[R any](sm secret.Masker) *command.ConsoleHandler[R] {
 // AddProblemMatcher create [command.ConsoleHandler] that handle "add-matcher" command
 //
 //   - https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L451
-func AddProblemMatcher[R any](m problem.Matchers, sb sandboxer.Sandbox) *command.ConsoleHandler[R] {
+func AddProblemMatcher[R any](f problem.DetectorFactory, sb sandboxer.Sandbox) *command.ConsoleHandler[R] {
 	run := func(ctx context.Context, res R, cmd *command.Command) error {
 		file := cmd.Value
 		if file == "" {
@@ -77,12 +77,10 @@ func AddProblemMatcher[R any](m problem.Matchers, sb sandboxer.Sandbox) *command
 
 		var owners = make([]string, len(conf.Configs))
 		for i, config := range conf.Configs {
-			if matcher, err := problem.NewMatcher(config.Severity, config.Patterns); err != nil {
+			if err := f.Add(config); err != nil {
 				return err
-			} else {
-				owners[i] = config.Owner
-				m[config.Owner] = matcher
 			}
+			owners[i] = config.Owner
 		}
 		scribe.Debugf(ctx,
 			"Added matchers: %s. Problem matchers scan action output for known warning or error strings and report these inline.",
@@ -95,7 +93,7 @@ func AddProblemMatcher[R any](m problem.Matchers, sb sandboxer.Sandbox) *command
 // RemoveProblemMatcher create [command.ConsoleHandler] that handle "remove-matcher" command
 //
 //   - https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/ActionCommandManager.cs#L498
-func RemoveProblemMatcher[R any](m problem.Matchers, sb sandboxer.Sandbox) *command.ConsoleHandler[R] {
+func RemoveProblemMatcher[R any](f problem.DetectorFactory, sb sandboxer.Sandbox) *command.ConsoleHandler[R] {
 	run := func(ctx context.Context, res R, cmd *command.Command) error {
 		file := cmd.Value
 		owner := cmd.Params["owner"]
@@ -125,7 +123,7 @@ func RemoveProblemMatcher[R any](m problem.Matchers, sb sandboxer.Sandbox) *comm
 		}
 
 		for _, o := range owners {
-			delete(m, o)
+			f.Remove(o)
 		}
 		scribe.Debugf(ctx, "Removed matchers: %s", strings.Join(owners, ", "))
 		return nil

@@ -12,7 +12,7 @@ inputs:
   version:
     description: HawkEye version to be used
     required: false
-    default: v6.0.2
+    default: v7.0.0
   config:
     description: The configuration file
     required: false

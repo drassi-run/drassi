@@ -49,24 +49,24 @@ func (mw *commandProcessor[R]) RHandle(ctx context.Context, res R, line string) 
 	return nil
 }
 
-func ScanProblem[R any](pm problem.Matchers, reporter cmdtypes.Reporter[R]) Middleware[R] {
+func DetectProblem[R any](factory problem.DetectorFactory, reporter cmdtypes.Reporter[R]) Middleware[R] {
 	return func(handler stream.ResourceHandler[R]) stream.ResourceHandler[R] {
-		return &problemScanner[R]{
+		return &problemDetector[R]{
 			handler:  handler,
-			matcher:  pm,
 			reporter: reporter,
+			detector: factory.NewDetector(),
 		}
 	}
 }
 
-type problemScanner[R any] struct {
+type problemDetector[R any] struct {
 	handler  stream.ResourceHandler[R]
-	matcher  problem.Matchers
 	reporter cmdtypes.Reporter[R]
+	detector problem.Detector
 }
 
-func (mw *problemScanner[R]) RHandle(ctx context.Context, res R, line string) (err error) {
-	pbl := mw.scan(line)
+func (mw *problemDetector[R]) RHandle(ctx context.Context, res R, line string) (err error) {
+	pbl := mw.detect(line)
 	if pbl != nil {
 		err = mw.report(ctx, res, pbl)
 	}
@@ -78,33 +78,12 @@ func (mw *problemScanner[R]) RHandle(ctx context.Context, res R, line string) (e
 // https://en.wikipedia.org/wiki/ANSI_escape_code
 var colorCodeRegex = regexp.MustCompile(`\033\[[\d;]*m`)
 
-func (mw *problemScanner[R]) scan(line string) (pbl *problem.Problem) {
-	var owner string
-
+func (mw *problemDetector[R]) detect(line string) *problem.Problem {
 	line = colorCodeRegex.ReplaceAllLiteralString(line, "")
-	for o, m := range mw.matcher {
-		if p := m.Match(line); p != nil {
-			owner, pbl = o, p
-			break
-		}
-	}
-
-	// Not matched
-	if pbl == nil {
-		return
-	}
-
-	// Matched - then reset other matchers
-	for o, m := range mw.matcher {
-		if o != owner {
-			m.Reset()
-		}
-	}
-
-	return
+	return mw.detector.Detect(line)
 }
 
-func (mw *problemScanner[R]) report(ctx context.Context, res R, pbl *problem.Problem) error {
+func (mw *problemDetector[R]) report(ctx context.Context, res R, pbl *problem.Problem) error {
 	iss, err := mw.toIssuer(pbl)
 	if err != nil {
 		return err
@@ -118,7 +97,7 @@ const skippedIssueMsg = "skipped logging an issue for the matched line because o
 var numberRegex = regexp.MustCompile(`^[+\-]?\d+$`)
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/Handlers/OutputManager.cs#L200
-func (mw *problemScanner[R]) toIssuer(pbl *problem.Problem) (*cmdtypes.Issue, error) {
+func (mw *problemDetector[R]) toIssuer(pbl *problem.Problem) (*cmdtypes.Issue, error) {
 	if pbl.Message == "" {
 		return nil, fmt.Errorf("%s empty message", skippedIssueMsg)
 	}

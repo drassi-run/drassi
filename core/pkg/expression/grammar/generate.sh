@@ -3,7 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-
 set -eux
 
 REPO_DIR=$(git rev-parse --show-toplevel)

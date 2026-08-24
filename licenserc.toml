@@ -5,19 +5,21 @@
 # * https://spdx.github.io/spdx-spec/v2.3/file-tags/
 # * https://spdx.dev/learn/handling-license-info/
 # * https://reuse.software/spec-3.3/
-inlineHeader = """
+[header]
+text = """
 SPDX-FileCopyrightText: (c) {{props["inceptionYear"]}} {{props["copyrightOwner"]}}
 
 SPDX-License-Identifier: {{props["license"]}}
 """
 
+[files]
 excludes = [
   "**/default.yaml",
   "*/mock/**/*.go",
   "zz_generated.*.go"
 ]
 
-[properties]
+[props]
 license = "Apache-2.0"
 inceptionYear = 2024
 copyrightOwner = "The Drassi Authors"
