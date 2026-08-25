@@ -6,7 +6,11 @@
 
 package types
 
-import "strconv"
+import (
+	"net"
+	"net/netip"
+	"strconv"
+)
 
 type ContainerNetwork struct {
 	Exposes    []*Port        // informs Docker that the container listens on the specified network ports at runtime
@@ -71,16 +75,16 @@ type Endpoint struct {
 	Target  string
 	Options map[string]string // driver options
 
-	IPv4Address  string
-	IPv6Address  string
-	MacAddress   string
-	LinkLocalIPs []string
+	IPv4Address  netip.Addr
+	IPv6Address  netip.Addr
+	MacAddress   net.HardwareAddr
+	LinkLocalIPs []netip.Addr
 	Aliases      []string
 	Links        []string
 }
 
 type DNS struct {
-	Servers    []string
+	Servers    []netip.Addr
 	Options    []string
 	Search     []string
 	HostName   string

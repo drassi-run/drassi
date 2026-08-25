@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"strconv"
 	"strings"
 
@@ -77,16 +78,36 @@ func (fm *flagMapper) mapEndpoints(copts *containerOptions) error {
 	userDefined := false
 	ep := new(types.Endpoint)
 	if copts.ipv4Address != "" {
-		userDefined, ep.IPv4Address = true, copts.ipv4Address
+		ip, err := netip.ParseAddr(copts.ipv4Address)
+		if err != nil {
+			return fmt.Errorf("invalid IPv4 address %s: %w", copts.ipv4Address, err)
+		}
+		userDefined, ep.IPv4Address = true, ip
 	}
 	if copts.ipv6Address != "" {
-		userDefined, ep.IPv6Address = true, copts.ipv6Address
+		ip, err := netip.ParseAddr(copts.ipv6Address)
+		if err != nil {
+			return fmt.Errorf("invalid IPv6 address %s: %w", copts.ipv6Address, err)
+		}
+		userDefined, ep.IPv6Address = true, ip
 	}
 	if copts.macAddress != "" {
-		userDefined, ep.MacAddress = true, copts.macAddress
+		mac, err := net.ParseMAC(copts.macAddress)
+		if err != nil {
+			return fmt.Errorf("invalid MAC address %s: %w", copts.macAddress, err)
+		}
+		userDefined, ep.MacAddress = true, mac
 	}
 	if copts.linkLocalIPs.Len() > 0 {
-		userDefined, ep.LinkLocalIPs = true, copts.linkLocalIPs.GetAllOrEmpty()
+		ips := make([]netip.Addr, 0, copts.linkLocalIPs.Len())
+		for _, s := range copts.linkLocalIPs.GetAllOrEmpty() {
+			ip, err := netip.ParseAddr(s)
+			if err != nil {
+				return fmt.Errorf("invalid link-local IP address %s: %w", s, err)
+			}
+			ips = append(ips, ip)
+		}
+		userDefined, ep.LinkLocalIPs = true, ips
 	}
 	if copts.aliases.Len() > 0 {
 		userDefined, ep.Aliases = true, copts.aliases.GetAllOrEmpty()
@@ -102,7 +123,17 @@ func (fm *flagMapper) mapEndpoints(copts *containerOptions) error {
 
 func (fm *flagMapper) mapDNS(copts *containerOptions) error {
 	dns := &fm.Spec.DNS
-	dns.Servers = copts.dns.GetAllOrEmpty()
+	if copts.dns.Len() > 0 {
+		servers := make([]netip.Addr, 0, copts.dns.Len())
+		for _, s := range copts.dns.GetAllOrEmpty() {
+			ip, err := netip.ParseAddr(s)
+			if err != nil {
+				return fmt.Errorf("invalid DNS IP address %s: %w", s, err)
+			}
+			servers = append(servers, ip)
+		}
+		dns.Servers = servers
+	}
 	dns.Options = copts.dnsOptions.GetAllOrEmpty()
 	dns.Search = copts.dnsSearch.GetAllOrEmpty()
 	dns.HostName = copts.hostname

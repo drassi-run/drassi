@@ -68,14 +68,7 @@ func (cc *containerConfig) setPublish(publishes []*types.PortBinding) {
 func (cc *containerConfig) setDNS(dns *types.DNS) {
 	c, hc := cc.Config, cc.HostConfig
 
-	if len(dns.Servers) > 0 {
-		hc.DNS = make([]netip.Addr, 0, len(dns.Servers))
-		for _, s := range dns.Servers {
-			if ip, err := netip.ParseAddr(s); err == nil {
-				hc.DNS = append(hc.DNS, ip)
-			}
-		}
-	}
+	hc.DNS = dns.Servers
 	hc.DNSSearch = dns.Search
 	hc.DNSOptions = dns.Options
 	for k, v := range dns.HostAdd {
@@ -98,26 +91,14 @@ func (cc *containerConfig) setNetworkEndpoints(endpoints []*types.Endpoint) {
 			Links:      ep.Links,
 			Aliases:    ep.Aliases,
 			DriverOpts: ep.Options,
+			MacAddress: dockernetwork.HardwareAddr(ep.MacAddress),
 		}
-		if ep.MacAddress != "" {
-			if mac, err := net.ParseMAC(ep.MacAddress); err == nil {
-				endpoint.MacAddress = dockernetwork.HardwareAddr(mac)
+		if ep.IPv4Address.IsValid() || ep.IPv6Address.IsValid() || len(ep.LinkLocalIPs) > 0 {
+			endpoint.IPAMConfig = &dockernetwork.EndpointIPAMConfig{
+				IPv4Address:  ep.IPv4Address,
+				IPv6Address:  ep.IPv6Address,
+				LinkLocalIPs: ep.LinkLocalIPs,
 			}
-		}
-		if ep.IPv4Address != "" || ep.IPv6Address != "" || len(ep.LinkLocalIPs) > 0 {
-			ipam := &dockernetwork.EndpointIPAMConfig{}
-			if ep.IPv4Address != "" {
-				ipam.IPv4Address, _ = netip.ParseAddr(ep.IPv4Address)
-			}
-			if ep.IPv6Address != "" {
-				ipam.IPv6Address, _ = netip.ParseAddr(ep.IPv6Address)
-			}
-			for _, lip := range ep.LinkLocalIPs {
-				if ip, err := netip.ParseAddr(lip); err == nil {
-					ipam.LinkLocalIPs = append(ipam.LinkLocalIPs, ip)
-				}
-			}
-			endpoint.IPAMConfig = ipam
 		}
 		target := ep.Target
 		if target == "" {
@@ -195,14 +176,8 @@ func (cs *containerSpec) setPublish(publishes dockernetwork.PortMap) error {
 }
 
 func (cs *containerSpec) setDNS(c *dockercontainer.Config, hc *dockercontainer.HostConfig) error {
-	servers := make([]string, 0, len(hc.DNS))
-	for _, ip := range hc.DNS {
-		if ip.IsValid() {
-			servers = append(servers, ip.String())
-		}
-	}
 	cs.Spec.DNS = types.DNS{
-		Servers:    servers,
+		Servers:    hc.DNS,
 		Options:    hc.DNSOptions,
 		Search:     hc.DNSSearch,
 		HostName:   c.Hostname,
@@ -234,25 +209,17 @@ func (cs *containerSpec) setNetworkEndpoints(endpoints map[string]*dockernetwork
 
 	ne := make([]*types.Endpoint, 0, len(endpoints))
 	for _, endpoint := range endpoints {
-		var mac string
-		if len(endpoint.MacAddress) > 0 {
-			mac = endpoint.MacAddress.String()
-		}
-		var ipv4, ipv6 string
-		if endpoint.IPAddress.IsValid() {
-			ipv4 = endpoint.IPAddress.String()
-		}
-		if endpoint.GlobalIPv6Address.IsValid() {
-			ipv6 = endpoint.GlobalIPv6Address.String()
-		}
 		ep := &types.Endpoint{
 			Target:      endpoint.NetworkID,
 			Options:     endpoint.DriverOpts,
 			Links:       endpoint.Links,
 			Aliases:     endpoint.Aliases,
-			MacAddress:  mac,
-			IPv4Address: ipv4,
-			IPv6Address: ipv6,
+			MacAddress:  net.HardwareAddr(endpoint.MacAddress),
+			IPv4Address: endpoint.IPAddress,
+			IPv6Address: endpoint.GlobalIPv6Address,
+		}
+		if endpoint.IPAMConfig != nil {
+			ep.LinkLocalIPs = endpoint.IPAMConfig.LinkLocalIPs
 		}
 		ne = append(ne, ep)
 	}
