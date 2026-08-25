@@ -16,8 +16,8 @@ type ContainerStorage struct {
 }
 
 // Mount represents a mount (volume).
-//   - [github.com/docker/docker/api/types/mount.Mount]
-//   - [github.com/docker/docker/api/types.MountPoint]
+//   - [github.com/moby/moby/api/types/mount.Mount]
+//   - [github.com/moby/moby/api/types/container.MountPoint]
 //   - [github.com/compose-spec/compose-go/v2/types.ServiceVolumeConfig]
 type Mount struct {
 	Type     string // "bind", "volume", "tmpfs"
@@ -31,7 +31,7 @@ type Mount struct {
 }
 
 // BindOptions defines options specific to mounts of type "bind".
-//   - [github.com/docker/docker/api/types/mount.BindOptions]
+//   - [github.com/moby/moby/api/types/mount.BindOptions]
 //   - [github.com/compose-spec/compose-go/v2/types.ServiceVolumeBind]
 type BindOptions struct {
 	Propagation    string // [r]shared | [r]slave | [r]private (default=rprivate)
@@ -41,7 +41,7 @@ type BindOptions struct {
 }
 
 // VolumeOptions represents the options for a mount of type "volume".
-//   - [github.com/docker/docker/api/types/mount.VolumeOptions]
+//   - [github.com/moby/moby/api/types/mount.VolumeOptions]
 //   - [github.com/compose-spec/compose-go/v2/types.ServiceVolumeVolume]
 type VolumeOptions struct {
 	NoCopy  bool
@@ -49,13 +49,13 @@ type VolumeOptions struct {
 	SubPath string
 
 	// Driver config for volume mount.
-	// [github.com/docker/docker/api/types/mount.Driver]
+	// [github.com/moby/moby/api/types/mount.Driver]
 	Driver  string
 	Options map[string]string
 }
 
 // TmpfsOptions defines options specific to mounts of type "tmpfs".
-//   - [github.com/docker/docker/api/types/mount.TmpfsOptions]
+//   - [github.com/moby/moby/api/types/mount.TmpfsOptions]
 //   - [github.com/compose-spec/compose-go/v2/types.ServiceVolumeTmpfs]
 type TmpfsOptions struct {
 	Size    int64
@@ -63,7 +63,7 @@ type TmpfsOptions struct {
 	Options [][]string
 }
 
-// https://github.com/moby/moby/blob/v27.3.1/api/types/volume/create_options.go#L10-L29
+// https://github.com/moby/moby/blob/docker-v29.7.2/api/types/volume/create_request.go
 // https://github.com/containers/podman/blob/v5.2.4/pkg/domain/entities/types/volumes.go#L8-L21
 type VolumeSpec struct {
 	Name   string

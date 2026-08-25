@@ -9,8 +9,8 @@ package docker
 import (
 	"drassi.run/core/pkg/container/types"
 	dockeropts "github.com/docker/cli/opts"
-	"github.com/docker/docker/api/types/blkiodev"
-	dockercontainer "github.com/docker/docker/api/types/container"
+	"github.com/moby/moby/api/types/blkiodev"
+	dockercontainer "github.com/moby/moby/api/types/container"
 )
 
 func (cc *containerConfig) setResources(conf *types.ContainerResource) error {

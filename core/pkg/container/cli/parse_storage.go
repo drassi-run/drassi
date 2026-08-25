@@ -16,8 +16,8 @@ import (
 
 	"drassi.run/core/pkg/container/types"
 	"github.com/docker/cli/cli/compose/loader"
-	dockermount "github.com/docker/docker/api/types/mount"
 	"github.com/docker/go-units"
+	dockermount "github.com/moby/moby/api/types/mount"
 )
 
 func (fm *flagMapper) mapStorage(copts *containerOptions) error {
@@ -25,14 +25,14 @@ func (fm *flagMapper) mapStorage(copts *containerOptions) error {
 		mount := parseMount(m)
 		fm.Spec.Mounts = append(fm.Spec.Mounts, mount)
 	}
-	for _, v := range copts.volumes.GetAll() {
+	for _, v := range copts.volumes.GetAllOrEmpty() {
 		if mount, err := ParseVolume(v); err != nil {
 			return err
 		} else {
 			fm.Spec.Mounts = append(fm.Spec.Mounts, mount)
 		}
 	}
-	for _, t := range copts.tmpfs.GetAll() {
+	for _, t := range copts.tmpfs.GetAllOrEmpty() {
 		if mount, err := ParseTmpfs(t); err != nil {
 			return err
 		} else {
@@ -52,13 +52,13 @@ func (fm *flagMapper) mapStorage(copts *containerOptions) error {
 		}
 	}
 
-	if storageOpts, err := parseStorageOpts(copts.storageOpt.GetAll()); err != nil {
+	if storageOpts, err := parseStorageOpts(copts.storageOpt.GetAllOrEmpty()); err != nil {
 		return err
 	} else {
 		fm.Spec.StorageOpt = storageOpts
 	}
 
-	fm.Spec.VolumesFrom = copts.volumesFrom.GetAll()
+	fm.Spec.VolumesFrom = copts.volumesFrom.GetAllOrEmpty()
 	fm.Spec.ReadonlyRootfs = copts.readonlyRootfs
 	return nil
 }
@@ -178,7 +178,7 @@ func ParseTmpfs(t string) (*types.Mount, error) {
 }
 
 // parses storage options per container into a map
-// https://github.com/docker/cli/blob/v27.3.1/cli/command/container/opts.go#L974-L984
+// https://github.com/docker/cli/blob/v29.7.2/cli/command/container/opts.go#L981-L992
 func parseStorageOpts(storageOpts []string) (map[string]string, error) {
 	m := make(map[string]string)
 	for _, option := range storageOpts {

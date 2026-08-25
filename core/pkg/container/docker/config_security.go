@@ -8,7 +8,7 @@ package docker
 
 import (
 	"drassi.run/core/pkg/container/types"
-	dockercontainer "github.com/docker/docker/api/types/container"
+	dockercontainer "github.com/moby/moby/api/types/container"
 )
 
 func (cc *containerConfig) setSecurity(conf *types.ContainerSecurity) {

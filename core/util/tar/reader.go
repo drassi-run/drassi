@@ -15,7 +15,7 @@ import (
 	"io"
 	"io/fs"
 
-	"github.com/docker/docker/pkg/archive"
+	"github.com/moby/go-archive/compression"
 )
 
 const defaultFilePerm int64 = 0o666
@@ -136,7 +136,7 @@ func ContentReader(m map[string]string) (io.Reader, error) {
 type UntarHandler = func(*tar.Header, io.Reader) error
 
 func Untar(ctx context.Context, r io.Reader, h UntarHandler) error {
-	xr, err := archive.DecompressStream(r)
+	xr, err := compression.DecompressStream(r)
 	if err != nil {
 		return err
 	}

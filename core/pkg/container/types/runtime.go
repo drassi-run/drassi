@@ -21,8 +21,8 @@ type ContainerRuntime struct {
 }
 
 // RestartPolicy represents the restart policies of the container.
-//   - [github.com/docker/docker/api/types/container.RestartPolicy]
-//   - [github.com/docker/docker/api/types/swarm.RestartPolicy]
+//   - [github.com/moby/moby/api/types/container.RestartPolicy]
+//   - [github.com/moby/moby/api/types/swarm.RestartPolicy]
 //   - [github.com/docker/cli/cli/compose/types.RestartPolicy]
 //   - [github.com/compose-spec/compose-go/v2/types.RestartPolicy]
 type RestartPolicy struct {
@@ -31,7 +31,7 @@ type RestartPolicy struct {
 }
 
 // LoggingConfig is identical with compose LoggingConfig
-//   - [github.com/docker/docker/api/types/container.LogConfig]
+//   - [github.com/moby/moby/api/types/container.LogConfig]
 //   - [github.com/compose-spec/compose-go/v2/types.LoggingConfig]
 type LoggingConfig struct {
 	Driver  string
@@ -39,7 +39,7 @@ type LoggingConfig struct {
 }
 
 // HealthCheckConfig is identical with docker's HealthConfig
-//   - [github.com/docker/docker/api/types/container.HealthConfig]
+//   - [github.com/moby/moby/api/types/container.HealthConfig]
 //   - [github.com/compose-spec/compose-go/v2/types.HealthCheckConfig]
 //   - [github.com/containers/image/v5/manifest.Schema2HealthConfig]
 type HealthCheckConfig struct {

@@ -9,8 +9,8 @@ package docker
 import (
 	"drassi.run/core/pkg/container/cli"
 	"drassi.run/core/pkg/container/types"
-	dockertypes "github.com/docker/docker/api/types"
-	dockermount "github.com/docker/docker/api/types/mount"
+	dockercontainer "github.com/moby/moby/api/types/container"
+	dockermount "github.com/moby/moby/api/types/mount"
 )
 
 func (cc *containerConfig) setStorage(conf *types.ContainerStorage) {
@@ -69,7 +69,7 @@ func (cc *containerConfig) setMounts(volumes []*types.Mount) {
 	cc.HostConfig.Tmpfs = nil
 }
 
-func (cs *containerSpec) setStorage(info dockertypes.ContainerJSON) error {
+func (cs *containerSpec) setStorage(info dockercontainer.InspectResponse) error {
 	hc := info.HostConfig
 
 	if err := cs.setTmpfs(hc.Tmpfs); err != nil {
@@ -167,7 +167,7 @@ func (cs *containerSpec) setMounts(mounts []dockermount.Mount) {
 // * add Driver info into volume mount
 // * add anonymous volume
 // * volumesFrom
-func (cs *containerSpec) setResolvedMounts(mounts []dockertypes.MountPoint) {
+func (cs *containerSpec) setResolvedMounts(mounts []dockercontainer.MountPoint) {
 	mountMap := make(map[string]*types.Mount)
 	for _, m := range cs.Spec.Mounts {
 		// mount targets are uniq in a container

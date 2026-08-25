@@ -22,7 +22,7 @@ import (
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/stream"
 	"drassi.run/core/util/string"
-	dockerclient "github.com/docker/docker/client"
+	dockerclient "github.com/moby/moby/client"
 	"golang.org/x/sync/errgroup"
 )
 
