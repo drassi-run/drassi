@@ -38,7 +38,7 @@ func (fm *flagMapper) mapLogging(copts *containerOptions) error {
 		return nil
 	}
 
-	// https://github.com/docker/cli/blob/v27.3.1/cli/command/container/opts.go#L912-L918
+	// https://github.com/docker/cli/blob/v29.7.2/cli/command/container/opts.go#L920-L926
 	driver := copts.loggingDriver
 	options := ConvertKVStringsToMap(copts.loggingOpts.GetAllOrEmpty())
 	if driver == "none" && len(options) > 0 {

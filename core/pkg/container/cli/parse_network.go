@@ -69,7 +69,7 @@ func (fm *flagMapper) mapPublish(copts *containerOptions) error {
 }
 
 // - [github.com/docker/cli/opts.NetworkOpt]
-// - https://github.com/docker/cli/blob/v27.3.1/cli/command/container/opts.go#L749
+// - https://github.com/docker/cli/blob/v29.7.2/cli/command/container/opts.go#L750
 func (fm *flagMapper) mapEndpoints(copts *containerOptions) error {
 	if len(copts.netMode.Value()) > 0 {
 		return fmt.Errorf("the --network option is not supported")

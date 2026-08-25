@@ -56,7 +56,7 @@ type BlkioConfig struct {
 
 // WeightDevice is a structure that holds device:weight pair
 //   - [github.com/compose-spec/compose-go/v2/types.WeightDevice]
-//   - [github.com/docker/docker/api/types/blkiodev.WeightDevice]
+//   - [github.com/moby/moby/api/types/blkiodev.WeightDevice]
 type WeightDevice struct {
 	Path   string
 	Weight uint16
@@ -68,7 +68,7 @@ func (w *WeightDevice) String() string {
 
 // ThrottleDevice is a structure that holds device:rate_per_second pair
 //   - [github.com/compose-spec/compose-go/v2/types.ThrottleDevice]
-//   - [github.com/docker/docker/api/types/blkiodev.ThrottleDevice]
+//   - [github.com/moby/moby/api/types/blkiodev.ThrottleDevice]
 type ThrottleDevice struct {
 	Path string
 	Rate uint64

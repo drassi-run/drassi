@@ -415,7 +415,7 @@ func (e *engine) streamingStdio(ctx context.Context, id string, exec bool, stdio
 			if stdio.Tty {
 				_, err = io.Copy(outWriter, reader)
 			} else {
-				// https://github.com/moby/moby/blob/v27.3.1/client/container_attach.go#L36
+				// https://github.com/moby/moby/blob/docker-v29.7.2/client/container_attach.go#L52
 				_, err = stdcopy.StdCopy(outWriter, errWriter, reader)
 			}
 			errC <- err

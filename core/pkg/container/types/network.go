@@ -68,7 +68,7 @@ func (e *Port) String() string {
 
 // Endpoint represents the container's networking configuration for each of its interfaces
 //   - [github.com/docker/cli/opts.NetworkAttachmentOpts]
-//   - [github.com/docker/docker/api/types/network.NetworkingConfig]
+//   - [github.com/moby/moby/api/types/network.NetworkingConfig]
 //   - [github.com/containers/common/libnetwork/types.PerNetworkOptions]
 //   - [github.com/compose-spec/compose-go/v2/types.ServiceNetworkConfig]
 type Endpoint struct {
@@ -92,7 +92,7 @@ type DNS struct {
 	HostAdd    map[string][]string
 }
 
-// https://github.com/moby/moby/blob/v27.3.1/api/types/network/network.go#L33-L45
+// https://github.com/moby/moby/blob/docker-v29.7.2/api/types/network/network.go
 // https://github.com/containers/common/blob/v0.60.4/libnetwork/types/network.go#L53-L88
 type NetworkSpec struct {
 	Name   string

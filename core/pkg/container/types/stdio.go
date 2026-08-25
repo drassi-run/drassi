@@ -13,7 +13,7 @@ const (
 	None = 0 // detach mode
 )
 
-// See also: https://github.com/docker/cli/blob/v27.3.1/cli/command/container/run.go#L122-L135
+// See also: https://github.com/docker/cli/blob/v29.7.2/cli/command/container/run.go#L128-L141
 type Stdio struct {
 	Tty         bool
 	Attach      int

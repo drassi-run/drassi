@@ -57,7 +57,7 @@ func (fm *flagMapper) mapSecurity(copts *containerOptions) error {
 	if securityOpts, err := parseSecurityOpts(copts.securityOpt.GetAllOrEmpty()); err != nil {
 		return err
 	} else {
-		spec.SecurityOpt = securityOpts // TODO: parseSystemPaths https://github.com/docker/cli/blob/26.0/cli/command/container/opts.go#L542
+		spec.SecurityOpt = securityOpts // TODO: parseSystemPaths https://github.com/docker/cli/blob/v29.7.2/cli/command/container/opts.go#L553
 	}
 
 	spec.Sysctls = copts.sysctls.GetAll()
@@ -74,7 +74,7 @@ const (
 )
 
 // takes a local seccomp daemon, reads the file contents for sending to the daemon
-// https://github.com/docker/cli/blob/v27.3.1/cli/command/container/opts.go#L921-L952
+// https://github.com/docker/cli/blob/v29.7.2/cli/command/container/opts.go#L928-L960
 func parseSecurityOpts(securityOpts []string) ([]string, error) {
 	for key, opt := range securityOpts {
 		k, v, ok := strings.Cut(opt, "=")

@@ -25,7 +25,7 @@ const (
 )
 
 // containerOptions is a data object with all the options for creating a container
-// See also: https://github.com/docker/cli/blob/v27.3.1/cli/command/container/opts.go#L48-L146
+// See also: https://github.com/docker/cli/blob/v29.7.2/cli/command/container/opts.go#L48-L146
 //
 //goland:noinspection SpellCheckingInspection
 type containerOptions struct {
@@ -125,18 +125,18 @@ type containerOptions struct {
 	annotations         *opts.MapOpts
 
 	//// options set from args
-	//// see: https://github.com/docker/cli/blob/v27.3.1/cli/command/container/create.go#L54-L57
+	//// see: https://github.com/docker/cli/blob/v29.7.2/cli/command/container/create.go#L57-L60
 	//Image string
 	//Args  []string
 
 	// options from createOptions
-	// https://github.com/docker/cli/blob/v27.3.1/cli/command/container/create.go#L36-L42
+	// https://github.com/docker/cli/blob/v29.7.2/cli/command/container/create.go#L39-L45
 	name string
 	pull string // always, missing, never
 }
 
 // addFlags adds all command line flags that will be used by parse to the FlagSet
-// See also: https://github.com/docker/cli/blob/v27.3.1/cli/command/container/opts.go#L149-L325
+// See also: https://github.com/docker/cli/blob/v29.7.2/cli/command/container/opts.go#L148-L328
 //
 //goland:noinspection GoUnhandledErrorResult
 func addFlags(flags *pflag.FlagSet) *containerOptions {
@@ -315,9 +315,9 @@ func addFlags(flags *pflag.FlagSet) *containerOptions {
 	flags.SetAnnotation("annotation", "version", []string{"1.43"})
 
 	// options from createOptions
-	// https://github.com/docker/cli/blob/v27.3.1/cli/command/container/create.go#L69-L70
+	// https://github.com/docker/cli/blob/v29.7.2/cli/command/container/create.go#L73-L74
 	flags.StringVar(&copts.name, "name", "", "Assign a name to the container")
-	flags.StringVar(&copts.pull, "pull", PullImageMissing, `Pull image before creating ("`+PullImageAlways+`", "|`+PullImageMissing+`", "`+PullImageNever+`")`)
+	flags.StringVar(&copts.pull, "pull", PullImageMissing, `Pull image before creating ("`+PullImageAlways+`", "|`+PullImageMissing+`", "|`+PullImageNever+`")`)
 
 	return copts
 }

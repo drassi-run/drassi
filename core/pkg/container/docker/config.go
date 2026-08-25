@@ -14,7 +14,7 @@ import (
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
-// [github.com/docker/docker/api/types/backend.ContainerCreateConfig]
+// [github.com/moby/moby/client.ContainerCreateOptions]
 type containerConfig struct {
 	Name             string
 	Config           *dockercontainer.Config
@@ -23,7 +23,7 @@ type containerConfig struct {
 	Platform         *ocispec.Platform
 }
 
-// https://github.com/docker/cli/blob/v27.3.1/cli/command/container/opts.go#L602-L703
+// https://github.com/docker/cli/blob/v29.7.2/cli/command/container/opts.go#L613-L713
 func (cc *containerConfig) From(spec *types.ContainerSpec, stdio *types.Stdio) error {
 	cc.Name = spec.Name
 
@@ -62,7 +62,7 @@ func (cc *containerConfig) setStdio(stdio *types.Stdio) {
 	c.AttachStderr = stdio.AttachStderr()
 
 	// When allocating stdin in attached mode, close stdin at client disconnect
-	// https://github.com/docker/cli/blob/v27.3.1/cli/command/container/opts.go#L715-L718
+	// https://github.com/docker/cli/blob/v29.7.2/cli/command/container/opts.go#L724-L727
 	c.StdinOnce = stdio.Interactive && stdio.AttachStdin()
 }
 

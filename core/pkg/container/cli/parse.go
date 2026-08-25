@@ -41,7 +41,7 @@ type flagMapper struct {
 
 // mapStdio function convert flags and copts to Stdio
 func (fm *flagMapper) mapStdio(copts *containerOptions) {
-	// https://github.com/docker/cli/blob/v27.3.1/cli/command/container/opts.go#L339-L358
+	// https://github.com/docker/cli/blob/v29.7.2/cli/command/container/opts.go#L343-L362
 	fm.Stdio = &types.Stdio{
 		Tty:         copts.tty,
 		Interactive: copts.stdin, // --interactive
@@ -63,7 +63,7 @@ func (fm *flagMapper) mapStdio(copts *containerOptions) {
 }
 
 // mapContainerSpec function convert flags and copts to Spec
-// See also: https://github.com/docker/cli/blob/v27.3.1/cli/command/container/opts.go#L338-L740
+// See also: https://github.com/docker/cli/blob/v29.7.2/cli/command/container/opts.go#L342-L740
 func (fm *flagMapper) mapContainerSpec(flags *pflag.FlagSet, copts *containerOptions) error {
 	fm.Spec = &types.ContainerSpec{
 		Name:        copts.name,
@@ -75,7 +75,7 @@ func (fm *flagMapper) mapContainerSpec(flags *pflag.FlagSet, copts *containerOpt
 	}
 	spec := fm.Spec
 
-	// https://github.com/docker/cli/blob/v27.3.1/cli/command/container/opts.go#L419-L424
+	// https://github.com/docker/cli/blob/v29.7.2/cli/command/container/opts.go#L416-L421
 	if copts.entrypoint != "" {
 		spec.Entrypoint = []string{copts.entrypoint}
 	} else if flags.Changed("entrypoint") {
@@ -89,7 +89,7 @@ func (fm *flagMapper) mapContainerSpec(flags *pflag.FlagSet, copts *containerOpt
 	if err := fm.mapStorage(copts); err != nil {
 		return err
 	}
-	// TODO https://github.com/docker/cli/blob/26.0/cli/command/container/opts.go#L468-L493
+	// TODO https://github.com/docker/cli/blob/v29.7.2/cli/command/container/opts.go#L487-L504
 	spec.Devices = copts.devices.GetAllOrEmpty()
 	spec.DeviceCgroupRules = copts.deviceCgroupRules.GetAllOrEmpty()
 	if err := fm.mapRuntime(flags, copts); err != nil {
