@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/docker/cli/opts"
-	"github.com/docker/docker/api/types/container"
+	"github.com/moby/moby/api/types/container"
 	"github.com/spf13/pflag"
 )
 

@@ -17,9 +17,9 @@ import (
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/sandboxer/container"
 	"drassi.run/core/util/string"
-	dockerclient "github.com/docker/docker/client"
 	incusclient "github.com/lxc/incus/v6/client"
 	incusapi "github.com/lxc/incus/v6/shared/api"
+	dockerclient "github.com/moby/moby/client"
 )
 
 type Config struct {

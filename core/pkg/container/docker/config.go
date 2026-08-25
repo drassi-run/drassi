@@ -9,9 +9,8 @@ package docker
 import (
 	"drassi.run/core/pkg/container/cli"
 	"drassi.run/core/pkg/container/types"
-	dockertypes "github.com/docker/docker/api/types"
-	dockercontainer "github.com/docker/docker/api/types/container"
-	dockernetwork "github.com/docker/docker/api/types/network"
+	dockercontainer "github.com/moby/moby/api/types/container"
+	dockernetwork "github.com/moby/moby/api/types/network"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
@@ -71,7 +70,7 @@ type containerSpec struct {
 	Spec *types.ContainerSpec
 }
 
-func (cs *containerSpec) From(info dockertypes.ContainerJSON) error {
+func (cs *containerSpec) From(info dockercontainer.InspectResponse) error {
 	c, hc := info.Config, info.HostConfig
 
 	cs.Spec = &types.ContainerSpec{

@@ -69,8 +69,8 @@ func (fm *flagMapper) mapContainerSpec(flags *pflag.FlagSet, copts *containerOpt
 		Name:        copts.name,
 		PullPolicy:  copts.pull,
 		WorkingDir:  copts.workingDir,
-		Environment: ConvertKVStringsToMap(copts.env.GetAll()),
-		Labels:      ConvertKVStringsToMap(copts.labels.GetAll()),
+		Environment: ConvertKVStringsToMap(copts.env.GetAllOrEmpty()),
+		Labels:      ConvertKVStringsToMap(copts.labels.GetAllOrEmpty()),
 		Annotations: copts.annotations.GetAll(),
 	}
 	spec := fm.Spec
@@ -90,8 +90,8 @@ func (fm *flagMapper) mapContainerSpec(flags *pflag.FlagSet, copts *containerOpt
 		return err
 	}
 	// TODO https://github.com/docker/cli/blob/26.0/cli/command/container/opts.go#L468-L493
-	spec.Devices = copts.devices.GetAll()
-	spec.DeviceCgroupRules = copts.deviceCgroupRules.GetAll()
+	spec.Devices = copts.devices.GetAllOrEmpty()
+	spec.DeviceCgroupRules = copts.deviceCgroupRules.GetAllOrEmpty()
 	if err := fm.mapRuntime(flags, copts); err != nil {
 		return err
 	}

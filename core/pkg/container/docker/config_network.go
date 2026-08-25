@@ -7,15 +7,15 @@
 package docker
 
 import (
+	"net"
+	"net/netip"
 	"strconv"
 	"strings"
 
 	"drassi.run/core/pkg/container/cli"
 	"drassi.run/core/pkg/container/types"
-	dockertypes "github.com/docker/docker/api/types"
-	dockercontainer "github.com/docker/docker/api/types/container"
-	dockernetwork "github.com/docker/docker/api/types/network"
-	"github.com/docker/go-connections/nat"
+	dockercontainer "github.com/moby/moby/api/types/container"
+	dockernetwork "github.com/moby/moby/api/types/network"
 )
 
 type empty = struct{}
@@ -30,25 +30,33 @@ func (cc *containerConfig) setNetwork(conf *types.ContainerNetwork) {
 
 func (cc *containerConfig) setExpose(exposes []*types.Port) {
 	c := cc.Config
-	c.ExposedPorts = make(nat.PortSet)
+	c.ExposedPorts = make(dockernetwork.PortSet)
 	for _, e := range exposes {
-		port := nat.Port(e.String())
-		c.ExposedPorts[port] = empty{}
+		if port, err := dockernetwork.ParsePort(e.String()); err == nil {
+			c.ExposedPorts[port] = empty{}
+		}
 	}
 }
 
 func (cc *containerConfig) setPublish(publishes []*types.PortBinding) {
 	c, hc := cc.Config, cc.HostConfig
-	hc.PortBindings = make(nat.PortMap)
+	hc.PortBindings = make(dockernetwork.PortMap)
 	for _, p := range publishes {
 		s := strconv.Itoa(int(p.ContainerPort))
 		if p.Protocol != "" {
 			s += "/" + p.Protocol
 		}
-		port := nat.Port(s)
+		port, err := dockernetwork.ParsePort(s)
+		if err != nil {
+			continue
+		}
 		c.ExposedPorts[port] = empty{} // publish a port also expose it
 
-		binding := nat.PortBinding{HostIP: p.HostIP}
+		var hostIP netip.Addr
+		if p.HostIP != "" {
+			hostIP, _ = netip.ParseAddr(p.HostIP)
+		}
+		binding := dockernetwork.PortBinding{HostIP: hostIP}
 		if p.HostPort != 0 {
 			binding.HostPort = strconv.Itoa(int(p.HostPort))
 		}
@@ -60,7 +68,14 @@ func (cc *containerConfig) setPublish(publishes []*types.PortBinding) {
 func (cc *containerConfig) setDNS(dns *types.DNS) {
 	c, hc := cc.Config, cc.HostConfig
 
-	hc.DNS = dns.Servers
+	if len(dns.Servers) > 0 {
+		hc.DNS = make([]netip.Addr, 0, len(dns.Servers))
+		for _, s := range dns.Servers {
+			if ip, err := netip.ParseAddr(s); err == nil {
+				hc.DNS = append(hc.DNS, ip)
+			}
+		}
+	}
 	hc.DNSSearch = dns.Search
 	hc.DNSOptions = dns.Options
 	for k, v := range dns.HostAdd {
@@ -82,15 +97,27 @@ func (cc *containerConfig) setNetworkEndpoints(endpoints []*types.Endpoint) {
 		endpoint := &dockernetwork.EndpointSettings{
 			Links:      ep.Links,
 			Aliases:    ep.Aliases,
-			MacAddress: ep.MacAddress,
 			DriverOpts: ep.Options,
 		}
-		if ep.IPv4Address != "" || ep.IPv6Address != "" || len(ep.LinkLocalIPs) > 0 {
-			endpoint.IPAMConfig = &dockernetwork.EndpointIPAMConfig{
-				IPv4Address:  ep.IPv4Address,
-				IPv6Address:  ep.IPv6Address,
-				LinkLocalIPs: ep.LinkLocalIPs,
+		if ep.MacAddress != "" {
+			if mac, err := net.ParseMAC(ep.MacAddress); err == nil {
+				endpoint.MacAddress = dockernetwork.HardwareAddr(mac)
 			}
+		}
+		if ep.IPv4Address != "" || ep.IPv6Address != "" || len(ep.LinkLocalIPs) > 0 {
+			ipam := &dockernetwork.EndpointIPAMConfig{}
+			if ep.IPv4Address != "" {
+				ipam.IPv4Address, _ = netip.ParseAddr(ep.IPv4Address)
+			}
+			if ep.IPv6Address != "" {
+				ipam.IPv6Address, _ = netip.ParseAddr(ep.IPv6Address)
+			}
+			for _, lip := range ep.LinkLocalIPs {
+				if ip, err := netip.ParseAddr(lip); err == nil {
+					ipam.LinkLocalIPs = append(ipam.LinkLocalIPs, ip)
+				}
+			}
+			endpoint.IPAMConfig = ipam
 		}
 		target := ep.Target
 		if target == "" {
@@ -104,7 +131,7 @@ func (cc *containerConfig) setNetworkEndpoints(endpoints []*types.Endpoint) {
 	}
 }
 
-func (cs *containerSpec) setNetwork(info dockertypes.ContainerJSON) error {
+func (cs *containerSpec) setNetwork(info dockercontainer.InspectResponse) error {
 	c, hc, net := info.Config, info.HostConfig, info.NetworkSettings
 
 	if err := cs.setExpose(c.ExposedPorts); err != nil {
@@ -124,50 +151,43 @@ func (cs *containerSpec) setNetwork(info dockertypes.ContainerJSON) error {
 	return nil
 }
 
-func (cs *containerSpec) setExpose(exposes nat.PortSet) error {
+func (cs *containerSpec) setExpose(exposes dockernetwork.PortSet) error {
 	if len(exposes) == 0 {
 		return nil
 	}
 
 	for e := range exposes {
-		// nat.Port resolved portRange into single port
-		if port, proto, err := parsePortProto(string(e)); err != nil {
-			return err
-		} else {
-			expose := &types.Port{Number: port, Protocol: proto}
-			cs.Spec.Exposes = append(cs.Spec.Exposes, expose)
-		}
+		expose := &types.Port{Number: e.Num(), Protocol: string(e.Proto())}
+		cs.Spec.Exposes = append(cs.Spec.Exposes, expose)
 	}
 
 	return nil
 }
 
-func (cs *containerSpec) setPublish(publishes nat.PortMap) error {
+func (cs *containerSpec) setPublish(publishes dockernetwork.PortMap) error {
 	if len(publishes) == 0 {
 		return nil
 	}
 
 	for k, v := range publishes {
-		var publish types.PortBinding
-
-		// nat.Port resolved portRange into single port
-		if port, proto, err := parsePortProto(string(k)); err != nil {
-			return err
-		} else {
-			publish.ContainerPort = port
-			publish.Protocol = proto
+		publish := types.PortBinding{
+			ContainerPort: k.Num(),
+			Protocol:      string(k.Proto()),
 		}
 
 		for _, h := range v {
-			publish := publish // cloned
-			// nat.PortBinding.HostPort is single port as well
-			if port, err := strconv.ParseUint(h.HostPort, 10, 16); err != nil {
-				return err
-			} else {
-				publish.HostIP = h.HostIP
-				publish.HostPort = uint16(port)
+			pub := publish // cloned
+			if h.HostPort != "" {
+				if port, err := strconv.ParseUint(h.HostPort, 10, 16); err != nil {
+					return err
+				} else {
+					pub.HostPort = uint16(port)
+				}
 			}
-			cs.Spec.Publish = append(cs.Spec.Publish, &publish)
+			if h.HostIP.IsValid() {
+				pub.HostIP = h.HostIP.String()
+			}
+			cs.Spec.Publish = append(cs.Spec.Publish, &pub)
 		}
 	}
 
@@ -175,8 +195,14 @@ func (cs *containerSpec) setPublish(publishes nat.PortMap) error {
 }
 
 func (cs *containerSpec) setDNS(c *dockercontainer.Config, hc *dockercontainer.HostConfig) error {
+	servers := make([]string, 0, len(hc.DNS))
+	for _, ip := range hc.DNS {
+		if ip.IsValid() {
+			servers = append(servers, ip.String())
+		}
+	}
 	cs.Spec.DNS = types.DNS{
-		Servers:    hc.DNS,
+		Servers:    servers,
 		Options:    hc.DNSOptions,
 		Search:     hc.DNSSearch,
 		HostName:   c.Hostname,
@@ -208,26 +234,27 @@ func (cs *containerSpec) setNetworkEndpoints(endpoints map[string]*dockernetwork
 
 	ne := make([]*types.Endpoint, 0, len(endpoints))
 	for _, endpoint := range endpoints {
+		var mac string
+		if len(endpoint.MacAddress) > 0 {
+			mac = endpoint.MacAddress.String()
+		}
+		var ipv4, ipv6 string
+		if endpoint.IPAddress.IsValid() {
+			ipv4 = endpoint.IPAddress.String()
+		}
+		if endpoint.GlobalIPv6Address.IsValid() {
+			ipv6 = endpoint.GlobalIPv6Address.String()
+		}
 		ep := &types.Endpoint{
 			Target:      endpoint.NetworkID,
 			Options:     endpoint.DriverOpts,
 			Links:       endpoint.Links,
 			Aliases:     endpoint.Aliases,
-			MacAddress:  endpoint.MacAddress,
-			IPv4Address: endpoint.IPAddress,
-			IPv6Address: endpoint.GlobalIPv6Address,
+			MacAddress:  mac,
+			IPv4Address: ipv4,
+			IPv6Address: ipv6,
 		}
 		ne = append(ne, ep)
 	}
 	cs.Spec.Endpoints = ne
-}
-
-func parsePortProto(s string) (uint16, string, error) {
-	if port, proto, err := cli.SplitProto(s); err != nil {
-		return 0, "", err
-	} else if num, err := cli.ParsePort(port); err != nil {
-		return 0, "", err
-	} else {
-		return num, proto, nil
-	}
 }

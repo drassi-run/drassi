@@ -13,7 +13,7 @@ import (
 	"os"
 	"strings"
 
-	docker "github.com/docker/docker/api/types/container"
+	docker "github.com/moby/moby/api/types/container"
 )
 
 func (fm *flagMapper) mapSecurity(copts *containerOptions) error {
@@ -48,13 +48,13 @@ func (fm *flagMapper) mapSecurity(copts *containerOptions) error {
 
 	// Security
 	spec.User = copts.user
-	spec.GroupAdd = copts.groupAdd.GetAll()
-	spec.CapAdd = copts.capAdd.GetAll()
-	spec.CapDrop = copts.capDrop.GetAll()
+	spec.GroupAdd = copts.groupAdd.GetAllOrEmpty()
+	spec.CapAdd = copts.capAdd.GetAllOrEmpty()
+	spec.CapDrop = copts.capDrop.GetAllOrEmpty()
 	spec.Privileged = copts.privileged
-	spec.SecurityOpt = copts.securityOpt.GetAll()
+	spec.SecurityOpt = copts.securityOpt.GetAllOrEmpty()
 
-	if securityOpts, err := parseSecurityOpts(copts.securityOpt.GetAll()); err != nil {
+	if securityOpts, err := parseSecurityOpts(copts.securityOpt.GetAllOrEmpty()); err != nil {
 		return err
 	} else {
 		spec.SecurityOpt = securityOpts // TODO: parseSystemPaths https://github.com/docker/cli/blob/26.0/cli/command/container/opts.go#L542

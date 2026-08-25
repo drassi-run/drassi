@@ -18,7 +18,7 @@ import (
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/util/otel"
 	"drassi.run/core/util/tar"
-	"github.com/docker/docker/pkg/archive"
+	"github.com/moby/go-archive/compression"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -130,7 +130,7 @@ func (mgr *fileManager[R]) handle(ctx context.Context, res R, handler *FileHandl
 	}
 	defer r.Close()
 
-	xr, err := archive.DecompressStream(r)
+	xr, err := compression.DecompressStream(r)
 	if err != nil {
 		return err
 	}

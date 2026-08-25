@@ -37,7 +37,7 @@ func (fm *flagMapper) mapNetwork(copts *containerOptions) error {
 }
 
 func (fm *flagMapper) mapExposes(copts *containerOptions) error {
-	for _, opt := range copts.expose.GetAll() {
+	for _, opt := range copts.expose.GetAllOrEmpty() {
 		if p, length, err := ParseExpose(opt); err != nil {
 			return err
 		} else {
@@ -51,7 +51,7 @@ func (fm *flagMapper) mapExposes(copts *containerOptions) error {
 }
 
 func (fm *flagMapper) mapPublish(copts *containerOptions) error {
-	for _, opt := range copts.publish.GetAll() {
+	for _, opt := range copts.publish.GetAllOrEmpty() {
 		if p, length, err := ParsePublish(opt); err != nil {
 			return err
 		} else {
@@ -86,13 +86,13 @@ func (fm *flagMapper) mapEndpoints(copts *containerOptions) error {
 		userDefined, ep.MacAddress = true, copts.macAddress
 	}
 	if copts.linkLocalIPs.Len() > 0 {
-		userDefined, ep.LinkLocalIPs = true, copts.linkLocalIPs.GetAll()
+		userDefined, ep.LinkLocalIPs = true, copts.linkLocalIPs.GetAllOrEmpty()
 	}
 	if copts.aliases.Len() > 0 {
-		userDefined, ep.Aliases = true, copts.aliases.GetAll()
+		userDefined, ep.Aliases = true, copts.aliases.GetAllOrEmpty()
 	}
 	if copts.links.Len() > 0 {
-		userDefined, ep.Links = true, copts.links.GetAll()
+		userDefined, ep.Links = true, copts.links.GetAllOrEmpty()
 	}
 	if userDefined {
 		fm.Spec.Endpoints = append(fm.Spec.Endpoints, ep)
@@ -102,16 +102,16 @@ func (fm *flagMapper) mapEndpoints(copts *containerOptions) error {
 
 func (fm *flagMapper) mapDNS(copts *containerOptions) error {
 	dns := &fm.Spec.DNS
-	dns.Servers = copts.dns.GetAll()
-	dns.Options = copts.dnsOptions.GetAll()
-	dns.Search = copts.dnsSearch.GetAll()
+	dns.Servers = copts.dns.GetAllOrEmpty()
+	dns.Options = copts.dnsOptions.GetAllOrEmpty()
+	dns.Search = copts.dnsSearch.GetAllOrEmpty()
 	dns.HostName = copts.hostname
 	dns.DomainName = copts.domainname
 
 	if copts.extraHosts.Len() > 0 {
 		dns.HostAdd = make(map[string][]string)
 	}
-	for _, h := range copts.extraHosts.GetAll() {
+	for _, h := range copts.extraHosts.GetAllOrEmpty() {
 		if host, ips, err := ParseHost(h); err != nil {
 			return err
 		} else if exist, ok := dns.HostAdd[host]; ok {

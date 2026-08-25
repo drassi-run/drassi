@@ -20,17 +20,14 @@ import (
 	"drassi.run/core/pkg/container/cli"
 	"drassi.run/core/pkg/container/types"
 	"drassi.run/core/pkg/stream"
-	"drassi.run/core/util/context"
-	"drassi.run/core/util/io"
-	dockertypes "github.com/docker/docker/api/types"
-	dockercontainer "github.com/docker/docker/api/types/container"
-	dockerfilters "github.com/docker/docker/api/types/filters"
-	dockerimage "github.com/docker/docker/api/types/image"
-	dockernetwork "github.com/docker/docker/api/types/network"
-	dockervolume "github.com/docker/docker/api/types/volume"
-	dockerclient "github.com/docker/docker/client"
-	dockererr "github.com/docker/docker/errdefs"
-	"github.com/docker/docker/pkg/stdcopy"
+	xcontext "drassi.run/core/util/context"
+	xio "drassi.run/core/util/io"
+	"github.com/containerd/errdefs"
+	"github.com/moby/moby/api/pkg/stdcopy"
+	dockercontainer "github.com/moby/moby/api/types/container"
+	dockernetwork "github.com/moby/moby/api/types/network"
+	dockervolume "github.com/moby/moby/api/types/volume"
+	dockerclient "github.com/moby/moby/client"
 )
 
 // ProxyCommand
@@ -45,18 +42,17 @@ func ProxyCommand(host string) []string {
 }
 
 type engine struct {
-	client dockerclient.APIClient
+	client *dockerclient.Client
 }
 
 var defaultOpts = []dockerclient.Opt{
-	dockerclient.WithAPIVersionNegotiation(),
 	dockerclient.WithUserAgent("drassi"),
 }
 
 func New(opts ...dockerclient.Opt) (container.Engine, error) {
 	opts = append(defaultOpts, opts...)
 
-	if client, err := dockerclient.NewClientWithOpts(opts...); err != nil {
+	if client, err := dockerclient.New(opts...); err != nil {
 		return nil, err
 	} else {
 		return &engine{client: client}, nil
@@ -76,11 +72,11 @@ func (e *engine) ImagePull(ctx context.Context, ref string, opts *container.Pull
 	case "never":
 		return nil
 	case "", "missing":
-		_, _, err := e.client.ImageInspectWithRaw(ctx, ref)
+		_, err := e.client.ImageInspect(ctx, ref)
 		if err == nil { // image existed
 			return nil
 		}
-		if !dockererr.IsNotFound(err) {
+		if !errdefs.IsNotFound(err) {
 			return err
 		}
 	case "always":
@@ -92,19 +88,19 @@ func (e *engine) ImagePull(ctx context.Context, ref string, opts *container.Pull
 	if opts.RegistryAuth != nil {
 		cred = opts.RegistryAuth.Credential()
 	}
-	reader, err := e.client.ImagePull(ctx, ref, dockerimage.PullOptions{
+	resp, err := e.client.ImagePull(ctx, ref, dockerclient.ImagePullOptions{
 		RegistryAuth: cred,
 	})
 	if err != nil {
 		return err
 	}
 
-	defer reader.Close()
+	defer resp.Close()
 	// cli.ImagePull is asynchronous.
 	// The reader needs to be read completely for the pull operation to complete.
 	// If stdout is not required, consider using io.Discard instead of os.Stdout.
 	// TODO: show download progress
-	_, err = io.Copy(os.Stdout, reader)
+	_, err = io.Copy(os.Stdout, resp)
 	return err
 }
 
@@ -120,7 +116,13 @@ func (e *engine) ContainerRun(ctx context.Context, spec *types.ContainerSpec, op
 		return "", err
 	}
 
-	createResp, err := e.client.ContainerCreate(ctx, cc.Config, cc.HostConfig, cc.NetworkingConfig, cc.Platform, cc.Name)
+	createResp, err := e.client.ContainerCreate(ctx, dockerclient.ContainerCreateOptions{
+		Config:           cc.Config,
+		HostConfig:       cc.HostConfig,
+		NetworkingConfig: cc.NetworkingConfig,
+		Platform:         cc.Platform,
+		Name:             cc.Name,
+	})
 	if err != nil {
 		return "", err
 	}
@@ -141,12 +143,11 @@ func (e *engine) ContainerRun(ctx context.Context, spec *types.ContainerSpec, op
 func (e *engine) ContainerExec(ctx context.Context, id string, opts *container.ExecOptions) (string, error) {
 	stdio := opts.Stdio
 
-	idResp, err := e.client.ContainerExecCreate(ctx, id, dockercontainer.ExecOptions{
+	idResp, err := e.client.ExecCreate(ctx, id, dockerclient.ExecCreateOptions{
 		Cmd:          opts.Cmd,
 		WorkingDir:   opts.Workdir,
 		Env:          cli.ConvertMapToKVString(opts.Env),
-		Tty:          stdio.Tty,
-		Detach:       stdio.Detach(),
+		TTY:          stdio.Tty,
 		AttachStdin:  stdio.AttachStdin(),
 		AttachStdout: stdio.AttachStdout(),
 		AttachStderr: stdio.AttachStderr(),
@@ -182,11 +183,11 @@ func (e *engine) ContainerRemove(ctx context.Context, opts *container.RemoveOpti
 
 	if labels := opts.Labels; len(labels) > 0 {
 		filter := e.filterOf(labels)
-		if _, err := e.client.ContainersPrune(ctx, filter); err != nil {
+		if _, err := e.client.ContainerPrune(ctx, dockerclient.ContainerPruneOptions{Filters: filter}); err != nil {
 			return err
 		}
 
-		containers, err := e.client.ContainerList(ctx, dockercontainer.ListOptions{
+		containers, err := e.client.ContainerList(ctx, dockerclient.ContainerListOptions{
 			All:     true,
 			Filters: filter,
 		})
@@ -194,7 +195,7 @@ func (e *engine) ContainerRemove(ctx context.Context, opts *container.RemoveOpti
 			return err
 		}
 
-		return parallel(containers, func(ctn *dockertypes.Container) error {
+		return parallel(containers.Items, func(ctn *dockercontainer.Summary) error {
 			return e.containerRemove(ctx, ctn.ID)
 		})
 	}
@@ -203,56 +204,65 @@ func (e *engine) ContainerRemove(ctx context.Context, opts *container.RemoveOpti
 }
 
 func (e *engine) containerRemove(ctx context.Context, id string) error {
-	err := e.client.ContainerStop(ctx, id, dockercontainer.StopOptions{})
+	_, err := e.client.ContainerStop(ctx, id, dockerclient.ContainerStopOptions{})
 	if err != nil {
-		if dockererr.IsNotFound(err) {
+		if errdefs.IsNotFound(err) {
 			return nil
 		}
 		return err
 	}
-	err = e.client.ContainerRemove(ctx, id, dockercontainer.RemoveOptions{
+	_, err = e.client.ContainerRemove(ctx, id, dockerclient.ContainerRemoveOptions{
 		RemoveVolumes: true, // Remove anonymous volumes associated with the container
 		RemoveLinks:   true, // Remove the specified link
 		Force:         true, // Force the removal of a running container (uses SIGKILL)
 	})
 	// In the case of `docker run --rm ...`
-	if err != nil && !dockererr.IsNotFound(err) && !dockererr.IsConflict(err) {
+	if err != nil && !errdefs.IsNotFound(err) && !errdefs.IsConflict(err) {
 		return err
 	}
 	return nil
 }
 
 func (e *engine) ContainerInspect(ctx context.Context, id string) (*types.ContainerSpec, error) {
-	res, err := e.client.ContainerInspect(ctx, id)
+	res, err := e.client.ContainerInspect(ctx, id, dockerclient.ContainerInspectOptions{})
 	if err != nil {
 		return nil, err
 	}
 	cs := new(containerSpec)
-	if err = cs.From(res); err != nil {
+	if err = cs.From(res.Container); err != nil {
 		return nil, err
 	}
 	return cs.Spec, nil
 }
 
 func (e *engine) Stat(ctx context.Context, id string, path string) (fs.FileInfo, error) {
-	if ps, err := e.client.ContainerStatPath(ctx, id, path); err != nil {
+	if ps, err := e.client.ContainerStatPath(ctx, id, dockerclient.ContainerStatPathOptions{Path: path}); err != nil {
 		return nil, err
 	} else {
-		return &fileInfo{ps}, nil
+		return &fileInfo{ps.Stat}, nil
 	}
 }
 
 func (e *engine) CopyIn(ctx context.Context, id string, opts *container.CopyInOptions) error {
-	return e.client.CopyToContainer(ctx, id, opts.DestinationPath, opts.Reader, dockercontainer.CopyToContainerOptions{})
+	_, err := e.client.CopyToContainer(ctx, id, dockerclient.CopyToContainerOptions{
+		DestinationPath: opts.DestinationPath,
+		Content:         opts.Reader,
+	})
+	return err
 }
 
 func (e *engine) CopyOut(ctx context.Context, id string, opts *container.CopyOutOptions) (io.ReadCloser, error) {
-	r, _, err := e.client.CopyFromContainer(ctx, id, opts.SourcePath)
-	return r, err
+	res, err := e.client.CopyFromContainer(ctx, id, dockerclient.CopyFromContainerOptions{
+		SourcePath: opts.SourcePath,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return res.Content, nil
 }
 
 func (e *engine) NetworkCreate(ctx context.Context, spec *types.NetworkSpec) (string, error) {
-	config := dockernetwork.CreateOptions{
+	config := dockerclient.NetworkCreateOptions{
 		Labels:  spec.Labels,
 		Driver:  spec.Driver,
 		Options: spec.Options,
@@ -273,26 +283,27 @@ func (e *engine) NetworkCreate(ctx context.Context, spec *types.NetworkSpec) (st
 
 func (e *engine) NetworkRemove(ctx context.Context, opts *container.RemoveOptions) error {
 	if id := opts.Id; id != "" {
-		if err := e.client.NetworkRemove(ctx, id); err != nil {
+		if _, err := e.client.NetworkRemove(ctx, id, dockerclient.NetworkRemoveOptions{}); err != nil {
 			return err
 		}
 	}
 
 	if labels := opts.Labels; len(labels) > 0 {
 		filter := e.filterOf(labels)
-		if _, err := e.client.NetworksPrune(ctx, filter); err != nil {
+		if _, err := e.client.NetworkPrune(ctx, dockerclient.NetworkPruneOptions{Filters: filter}); err != nil {
 			return err
 		}
 
-		networks, err := e.client.NetworkList(ctx, dockernetwork.ListOptions{
+		networks, err := e.client.NetworkList(ctx, dockerclient.NetworkListOptions{
 			Filters: filter,
 		})
 		if err != nil {
 			return err
 		}
 
-		return parallel(networks, func(net *dockernetwork.Summary) error {
-			return e.client.NetworkRemove(ctx, net.ID)
+		return parallel(networks.Items, func(net *dockernetwork.Summary) error {
+			_, err := e.client.NetworkRemove(ctx, net.ID, dockerclient.NetworkRemoveOptions{})
+			return err
 		})
 	}
 
@@ -300,7 +311,7 @@ func (e *engine) NetworkRemove(ctx context.Context, opts *container.RemoveOption
 }
 
 func (e *engine) VolumeCreate(ctx context.Context, spec *types.VolumeSpec) (string, error) {
-	config := dockervolume.CreateOptions{
+	config := dockerclient.VolumeCreateOptions{
 		Name:       spec.Name,
 		Labels:     spec.Labels,
 		Driver:     spec.Driver,
@@ -310,32 +321,33 @@ func (e *engine) VolumeCreate(ctx context.Context, spec *types.VolumeSpec) (stri
 	if res, err := e.client.VolumeCreate(ctx, config); err != nil {
 		return "", err
 	} else {
-		return res.Name, nil
+		return res.Volume.Name, nil
 	}
 }
 
 func (e *engine) VolumeRemove(ctx context.Context, opts *container.RemoveOptions) error {
 	if id := opts.Id; id != "" {
-		if err := e.client.VolumeRemove(ctx, id, true); err != nil {
+		if _, err := e.client.VolumeRemove(ctx, id, dockerclient.VolumeRemoveOptions{Force: true}); err != nil {
 			return err
 		}
 	}
 
 	if labels := opts.Labels; len(labels) > 0 {
 		filter := e.filterOf(labels)
-		if _, err := e.client.VolumesPrune(ctx, filter); err != nil {
+		if _, err := e.client.VolumePrune(ctx, dockerclient.VolumePruneOptions{Filters: filter}); err != nil {
 			return err
 		}
 
-		resp, err := e.client.VolumeList(ctx, dockervolume.ListOptions{
+		resp, err := e.client.VolumeList(ctx, dockerclient.VolumeListOptions{
 			Filters: filter,
 		})
 		if err != nil {
 			return err
 		}
 
-		return parallel(resp.Volumes, func(vol **dockervolume.Volume) error {
-			return e.client.VolumeRemove(ctx, (*vol).Name, true)
+		return parallel(resp.Items, func(vol *dockervolume.Volume) error {
+			_, err := e.client.VolumeRemove(ctx, vol.Name, dockerclient.VolumeRemoveOptions{Force: true})
+			return err
 		})
 	}
 
@@ -348,16 +360,18 @@ func (e *engine) start(ctx context.Context, id string, exec bool, stdio *types.S
 	// ContainerExec
 	if exec {
 		return func() error {
-			return e.client.ContainerExecStart(ctx, id, dockercontainer.ExecStartOptions{
+			_, err := e.client.ExecStart(ctx, id, dockerclient.ExecStartOptions{
 				Detach: stdio.Detach(),
-				Tty:    stdio.Tty,
+				TTY:    stdio.Tty,
 			})
+			return err
 		}
 	}
 
 	// ContainerRun
 	return func() error {
-		return e.client.ContainerStart(ctx, id, dockercontainer.StartOptions{})
+		_, err := e.client.ContainerStart(ctx, id, dockerclient.ContainerStartOptions{})
+		return err
 	}
 }
 
@@ -367,22 +381,26 @@ func (e *engine) streamingStdio(ctx context.Context, id string, exec bool, stdio
 	return func() (err error) {
 		defer cancel()
 
-		var hijackedResp dockertypes.HijackedResponse
+		var hijackedResp dockerclient.HijackedResponse
 		if exec {
-			hijackedResp, err = e.client.ContainerExecAttach(ctx, id, dockercontainer.ExecAttachOptions{
-				Detach: stdio.Detach(),
-				Tty:    stdio.Tty,
+			attachRes, err := e.client.ExecAttach(ctx, id, dockerclient.ExecAttachOptions{
+				TTY: stdio.Tty,
 			})
+			if err != nil {
+				return err
+			}
+			hijackedResp = attachRes.HijackedResponse
 		} else {
-			hijackedResp, err = e.client.ContainerAttach(ctx, id, dockercontainer.AttachOptions{
+			attachRes, err := e.client.ContainerAttach(ctx, id, dockerclient.ContainerAttachOptions{
 				Stream: true,
 				Stdin:  stdio.AttachStdin(),
 				Stdout: stdio.AttachStdout(),
 				Stderr: stdio.AttachStderr(),
 			})
-		}
-		if err != nil {
-			return
+			if err != nil {
+				return err
+			}
+			hijackedResp = attachRes.HijackedResponse
 		}
 
 		errC := make(chan error, 1)
@@ -423,23 +441,25 @@ func (e *engine) waitFinish(ctx context.Context, id string, autoRemove bool, fn 
 	return func() error {
 		defer cancel()
 
-		resultC, waitErrC := e.client.ContainerWait(ctx, id, condition)
+		waitRes := e.client.ContainerWait(ctx, id, dockerclient.ContainerWaitOptions{
+			Condition: condition,
+		})
 
 		errC := make(chan error, 1)
 		go func() {
 			defer close(errC)
 
 			select {
-			case result := <-resultC:
+			case result := <-waitRes.Result:
 				if result.Error != nil {
 					errC <- errors.New(result.Error.Message)
 				} else if result.StatusCode != 0 {
 					errC <- fmt.Errorf("container exited with status code: %d", result.StatusCode)
 				}
-			case err := <-waitErrC:
+			case err := <-waitRes.Error:
 				ctx, cancel := xcontext.ExpandContext(ctx, err)
 				defer cancel()
-				_ = e.client.ContainerKill(ctx, id, "SIGKILL")
+				_, _ = e.client.ContainerKill(ctx, id, dockerclient.ContainerKillOptions{Signal: "SIGKILL"})
 
 				errC <- err
 			}
@@ -461,7 +481,7 @@ func (e *engine) exitCode(ctx context.Context, id string, exec bool, fn run) run
 				return err
 			}
 
-			inspectResp, err := e.client.ContainerExecInspect(ctx, id)
+			inspectResp, err := e.client.ExecInspect(ctx, id, dockerclient.ExecInspectOptions{})
 			if err != nil {
 				return fmt.Errorf("failed to inspect exec: %w", err)
 			}
@@ -478,11 +498,11 @@ func (e *engine) exitCode(ctx context.Context, id string, exec bool, fn run) run
 			return err
 		}
 
-		inspectResp, err := e.client.ContainerInspect(ctx, id)
+		inspectResp, err := e.client.ContainerInspect(ctx, id, dockerclient.ContainerInspectOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to inspect container: %w", err)
 		}
-		if ec := inspectResp.State.ExitCode; ec != 0 {
+		if ec := inspectResp.Container.State.ExitCode; ec != 0 {
 			err = fmt.Errorf("exitcode '%d': failure", ec)
 		}
 		return err
@@ -496,8 +516,8 @@ func (e *engine) exitCode(ctx context.Context, id string, exec bool, fn run) run
 //     only remove images with (or without, in case label!=... is used) the specified labels.
 //
 // See: https://docs.docker.com/reference/cli/docker/image/prune/#filter
-func (e *engine) filterOf(labels map[string]string) dockerfilters.Args {
-	args := dockerfilters.NewArgs()
+func (e *engine) filterOf(labels map[string]string) dockerclient.Filters {
+	args := make(dockerclient.Filters)
 	for k, v := range labels {
 		args.Add("label", fmt.Sprintf("%s=%s", k, v))
 	}
@@ -509,10 +529,10 @@ func parallel[E any](list []E, op func(*E) error) error {
 		return nil
 	}
 
-	var wg sync.WaitGroup
 	errs := make([]error, len(list))
+	var wg sync.WaitGroup
 
-	for i := 0; i < len(list); i++ {
+	for i := range list {
 		wg.Add(1)
 		go func(i int, e *E) {
 			defer wg.Done()
