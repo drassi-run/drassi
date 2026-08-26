@@ -7,14 +7,16 @@
 package logsubscriber
 
 import (
+	"context"
+	"io"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
-	"testing/synctest"
-	"time"
 
 	mock_logtypes "drassi.run/gha-runner/mock/log/logtypes"
 	"drassi.run/gha-runner/pkg/log"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
 )
@@ -25,171 +27,157 @@ func TestLiveFeedSubscriberSuite(t *testing.T) {
 
 type LiveFeedSubscriberTestSuite struct {
 	suite.Suite
-	ctrl   *gomock.Controller
-	app    *mock_logtypes.MockAppender
-	sub    *liveFeedSubscriber
-	tmpDir string
+	ctrl *gomock.Controller
+	dir  string
 }
 
 func (s *LiveFeedSubscriberTestSuite) SetupTest() {
 	s.ctrl = gomock.NewController(s.T())
-	s.app = mock_logtypes.NewMockAppender(s.ctrl)
-	s.sub = NewLiveFeedSubscriber(s.app).(*liveFeedSubscriber)
-	s.tmpDir = s.T().TempDir()
+	s.dir = s.T().TempDir()
 }
 
 func (s *LiveFeedSubscriberTestSuite) TearDownTest() {
 	s.ctrl.Finish()
 }
 
-func (s *LiveFeedSubscriberTestSuite) TestRun() {
-	synctest.Test(s.T(), func(t *testing.T) {
-		ch := make(chan *log.Event)
-		done := make(chan struct{})
-		go func() {
-			defer close(done)
-			s.sub.Run(t.Context(), ch)
-		}()
+func (s *LiveFeedSubscriberTestSuite) TestConcurrentSteps() {
+	t := s.T()
+	app := mock_logtypes.NewMockAppender(s.ctrl)
+	sub := NewLiveFeedSubscriber(app)
 
-		uid := "test-uid"
-		content := "line 1\nline 2\n"
+	ch := make(chan *log.Event, 10)
+	ctx := context.Background()
 
-		logFile := s.tempFile("step.log", content)
+	// Create test log files for step1 and step2
+	file1 := filepath.Join(s.dir, "step1.0.log")
+	file2 := filepath.Join(s.dir, "step2.0.log")
+	require.NoError(t, os.WriteFile(file1, []byte("s1-line1\ns1-line2\n"), 0644))
+	require.NoError(t, os.WriteFile(file2, []byte("s2-line1\ns2-line2\n"), 0644))
 
-		// Send log event
-		ch <- &log.Event{
-			Uid: uid,
-			Update: &log.Update{
-				File:   logFile,
-				Line:   2,
-				Offset: int64(len(content)),
-			},
-		}
+	app.EXPECT().Append(gomock.Any(), "step1", 0, []string{"s1-line1", "s1-line2"}).Return(nil)
+	app.EXPECT().Append(gomock.Any(), "step2", 0, []string{"s2-line1", "s2-line2"}).Return(nil)
 
-		// Expect Append to be called with lines
-		s.app.EXPECT().
-			Append(gomock.Any(), uid, 0, []string{"line 1", "line 2"}).
-			Return(nil)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		sub.Run(ctx, ch)
+	}()
 
-		// Close current record to trigger flush
-		ch <- &log.Event{
-			Uid:  uid,
-			Kind: log.OnRecordStop,
-		}
+	// Send OnRecordStart
+	ch <- &log.Event{Uid: "step1", Kind: log.OnRecordStart}
+	ch <- &log.Event{Uid: "step2", Kind: log.OnRecordStart}
 
-		synctest.Wait()
+	// Interleaved OnRecordLog
+	ch <- &log.Event{
+		Uid:  "step1",
+		Kind: log.OnRecordLog,
+		Update: &log.Update{
+			File:     file1,
+			Complete: true,
+			Offset:   18,
+			Line:     2,
+		},
+	}
+	ch <- &log.Event{
+		Uid:  "step2",
+		Kind: log.OnRecordLog,
+		Update: &log.Update{
+			File:     file2,
+			Complete: true,
+			Offset:   18,
+			Line:     2,
+		},
+	}
 
-		close(ch)
-		<-done
+	// Stop step1
+	ch <- &log.Event{Uid: "step1", Kind: log.OnRecordStop}
+	// Stop step2
+	ch <- &log.Event{Uid: "step2", Kind: log.OnRecordStop}
 
-		s.Assert().Equal(2, s.sub.lineCount)
-	})
+	close(ch)
+	wg.Wait()
 }
 
-func (s *LiveFeedSubscriberTestSuite) TestBatchingByTimeout() {
-	synctest.Test(s.T(), func(t *testing.T) {
-		ch := make(chan *log.Event)
-		done := make(chan struct{})
-		go func() {
-			defer close(done)
-			s.sub.Run(t.Context(), ch)
-		}()
+func (s *LiveFeedSubscriberTestSuite) TestSequentialUpdatesForStep() {
+	t := s.T()
+	app := mock_logtypes.NewMockAppender(s.ctrl)
+	sub := NewLiveFeedSubscriber(app)
 
-		uid := "test-uid"
-		content := "line 1\n"
-		logFile := s.tempFile("step.log", content)
+	ch := make(chan *log.Event, 10)
+	ctx := context.Background()
 
-		// Expect Append to be called after timeout (1s)
-		s.app.EXPECT().
-			Append(gomock.Any(), uid, 0, []string{"line 1"}).
-			Return(nil)
+	file1 := filepath.Join(s.dir, "step1.0.log")
+	require.NoError(t, os.WriteFile(file1, []byte("line1\nline2\nline3\n"), 0644))
 
-		ch <- &log.Event{
-			Uid: uid,
-			Update: &log.Update{
-				File:   logFile,
-				Line:   1,
-				Offset: int64(len(content)),
-			},
-		}
+	app.EXPECT().Append(gomock.Any(), "step1", 0, []string{"line1", "line2", "line3"}).Return(nil)
 
-		// Advance time by more than 1s
-		time.Sleep(1100 * time.Millisecond)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		sub.Run(ctx, ch)
+	}()
 
-		close(ch)
-		<-done
-		s.Assert().Equal(1, s.sub.lineCount)
-	})
+	ch <- &log.Event{Uid: "step1", Kind: log.OnRecordStart}
+	ch <- &log.Event{
+		Uid:  "step1",
+		Kind: log.OnRecordLog,
+		Update: &log.Update{
+			File:     file1,
+			Complete: true,
+			Offset:   18,
+			Line:     3,
+		},
+	}
+	ch <- &log.Event{Uid: "step1", Kind: log.OnRecordStop}
+
+	close(ch)
+	wg.Wait()
 }
 
-func (s *LiveFeedSubscriberTestSuite) TestSwitchUid() {
-	synctest.Test(s.T(), func(t *testing.T) {
-		ch := make(chan *log.Event)
-		done := make(chan struct{})
-		go func() {
-			defer close(done)
-			s.sub.Run(t.Context(), ch)
-		}()
+func (s *LiveFeedSubscriberTestSuite) TestStopAllSessionsOnChannelClose() {
+	t := s.T()
+	app := mock_logtypes.NewMockAppender(s.ctrl)
+	sub := NewLiveFeedSubscriber(app)
 
-		// UID 1
-		uid1 := "uid-1"
-		content1 := "line from uid-1\n"
-		logFile1 := s.tempFile("uid1.log", content1)
+	ch := make(chan *log.Event, 10)
+	ctx := context.Background()
 
-		// UID 2
-		uid2 := "uid-2"
-		content2 := "line from uid-2\n"
-		logFile2 := s.tempFile("uid2.log", content2)
+	file1 := filepath.Join(s.dir, "step1.0.log")
+	require.NoError(t, os.WriteFile(file1, []byte("unstopped-line\n"), 0644))
 
-		// Switching to uid2 should cause uid1's batcher to close and flush
-		s.app.EXPECT().Append(gomock.Any(), uid1, 0, []string{"line from uid-1"}).Return(nil)
-		// Eventually uid2 will also flush (on close or timeout)
-		s.app.EXPECT().Append(gomock.Any(), uid2, 1, []string{"line from uid-2"}).Return(nil)
+	app.EXPECT().Append(gomock.Any(), "step1", 0, []string{"unstopped-line"}).Return(nil)
 
-		ch <- &log.Event{
-			Uid: uid1,
-			Update: &log.Update{
-				File:   logFile1,
-				Line:   1,
-				Offset: int64(len(content1)),
-			},
-		}
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		sub.Run(ctx, ch)
+	}()
 
-		synctest.Wait()
+	ch <- &log.Event{
+		Uid:  "step1",
+		Kind: log.OnRecordLog,
+		Update: &log.Update{
+			File:     file1,
+			Complete: true,
+			Offset:   15,
+			Line:     1,
+		},
+	}
 
-		ch <- &log.Event{
-			Uid: uid2,
-			Update: &log.Update{
-				File:   logFile2,
-				Line:   1,
-				Offset: int64(len(content2)),
-			},
-		}
-
-		synctest.Wait()
-
-		// Close record for uid2
-		ch <- &log.Event{
-			Uid:  uid2,
-			Kind: log.OnRecordStop,
-		}
-
-		synctest.Wait()
-
-		close(ch)
-		<-done
-		s.Assert().Equal(2, s.sub.lineCount)
-	})
+	// Close channel without sending OnRecordStop
+	close(ch)
+	wg.Wait()
 }
 
 func (s *LiveFeedSubscriberTestSuite) TestClose() {
-	s.app.EXPECT().Close().Return(nil)
-	s.Require().NoError(s.sub.Close())
-}
+	app := mock_logtypes.NewMockAppender(s.ctrl)
+	sub := NewLiveFeedSubscriber(app).(io.Closer)
 
-func (s *LiveFeedSubscriberTestSuite) tempFile(name, content string) string {
-	f := filepath.Join(s.tmpDir, name)
-	err := os.WriteFile(f, []byte(content), 0644)
+	app.EXPECT().Close().Return(nil)
+
+	err := sub.Close()
 	s.Require().NoError(err)
-	return f
 }

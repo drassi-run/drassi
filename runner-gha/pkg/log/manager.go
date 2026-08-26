@@ -7,7 +7,6 @@
 package log
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"sync"
@@ -36,10 +35,21 @@ func NewManager(dir string, maxSize int64) (*Manager, error) {
 		return nil, err
 	}
 	m := &Manager{
-		dir:     dir,
-		maxSize: maxSize,
+		dir:      dir,
+		maxSize:  maxSize,
+		sessions: make(map[string]*session),
 	}
 	return m, nil
+}
+
+type session struct {
+	uid   string
+	attrs []attribute.KeyValue
+	mu    sync.Mutex
+	f     *os.File
+	idx   int
+	size  int64
+	lines int
 }
 
 // Manager writes log entries to the local filesystem then
@@ -49,15 +59,9 @@ type Manager struct {
 	dir     string
 	maxSize int64
 
-	currUid   string
-	currAttrs []attribute.KeyValue
-	currSize  int64
-	currLines int
-	idx       int
-	f         *os.File
-
-	mu   sync.Mutex
-	subs []chan<- *Event
+	mu       sync.RWMutex
+	subs     []chan<- *Event
+	sessions map[string]*session
 }
 
 func (m *Manager) Subscribe() <-chan *Event {
@@ -70,60 +74,65 @@ func (m *Manager) Subscribe() <-chan *Event {
 	return ch
 }
 
-// ContextHandle is used for [scribe.Handler]
-func (m *Manager) ContextHandle(_ context.Context, msg string) error {
-	return m.Handle(msg)
-}
+func (m *Manager) Handle(uid string, line string) error {
+	m.mu.RLock()
+	s, ok := m.sessions[uid]
+	m.mu.RUnlock()
 
-func (m *Manager) Handle(line string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	if !ok {
+		return nil
+	}
 
-	if m.f == nil {
-		path := m.currFile()
+	s.mu.Lock()
+	if s.f == nil {
+		path := m.sessionFile(s)
 		f, err := os.Create(path)
 		if err != nil {
+			s.mu.Unlock()
 			return err
 		}
-		m.f, m.currSize, m.currLines = f, 0, 0
+		s.f, s.size, s.lines = f, 0, 0
 	}
 
 	// write data
-	if err := m.write(line); err != nil {
+	if err := s.write(line); err != nil {
+		s.mu.Unlock()
 		return err
 	}
 
 	e := &Event{
-		Uid:   m.currUid,
+		Uid:   s.uid,
 		Kind:  OnRecordLog,
-		Attrs: m.currAttrs,
+		Attrs: s.attrs,
 		Update: &Update{
-			File:     m.currFile(),
+			File:     m.sessionFile(s),
 			Complete: false,
-			Offset:   m.currSize,
-			Line:     m.currLines,
+			Offset:   s.size,
+			Line:     s.lines,
 		},
 	}
 
-	if m.currSize >= m.maxSize {
+	if s.size >= m.maxSize {
 		e.Complete = true
-		if err := m.rotate(); err != nil {
+		if err := s.rotate(); err != nil {
+			s.mu.Unlock()
 			return err
 		}
 	}
+	s.mu.Unlock()
 
 	m.notify(e)
 	return nil
 }
 
-func (m *Manager) currFile() string {
-	return fmt.Sprintf("%s/%s.%d.log", m.dir, m.currUid, m.idx)
+func (m *Manager) sessionFile(s *session) string {
+	return fmt.Sprintf("%s/%s.%d.log", m.dir, s.uid, s.idx)
 }
 
 // RFC3339Tick is C# DateTime format with precision of 100 nanoseconds (7 digits)
 const RFC3339Tick = "2006-01-02T15:04:05.0000000Z07:00"
 
-func (m *Manager) write(line string) error {
+func (s *session) write(line string) error {
 	now := time.Now().UTC()
 	b := now.AppendFormat(nil, RFC3339Tick)
 	b = append(b, ' ')
@@ -132,29 +141,31 @@ func (m *Manager) write(line string) error {
 		b = append(b, '\n')
 	}
 
-	n, err := m.f.Write(b)
+	n, err := s.f.Write(b)
 	if err != nil {
 		return err
 	}
 
-	m.currSize += int64(n)
-	m.currLines++
+	s.size += int64(n)
+	s.lines++
 	return nil
 }
 
-func (m *Manager) rotate() error {
-	// Chmod to RO
-	_ = m.f.Chmod(0400)
-	if err := m.f.Close(); err != nil {
+func (s *session) rotate() error {
+	_ = s.f.Chmod(0400)
+	if err := s.f.Close(); err != nil {
 		return err
 	}
 
-	m.f, m.currLines, m.currSize = nil, 0, 0
-	m.idx++
+	s.f, s.lines, s.size = nil, 0, 0
+	s.idx++
 	return nil
 }
 
 func (m *Manager) notify(e *Event) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
 	for _, sub := range m.subs {
 		sub <- e
 	}
@@ -162,66 +173,80 @@ func (m *Manager) notify(e *Event) {
 
 func (m *Manager) Start(uid string, attrs ...attribute.KeyValue) error {
 	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if m.currUid != "" {
-		return fmt.Errorf("session already started")
+	if _, exists := m.sessions[uid]; exists {
+		m.mu.Unlock()
+		return fmt.Errorf("session %s already started", uid)
 	}
 
-	m.currUid, m.currAttrs, m.idx = uid, attrs, 0
-	m.f, m.currLines, m.currSize = nil, 0, 0
+	s := &session{
+		uid:   uid,
+		attrs: attrs,
+	}
+	m.sessions[uid] = s
+	m.mu.Unlock()
 
 	e := &Event{
-		Uid:   m.currUid,
+		Uid:   uid,
 		Kind:  OnRecordStart,
-		Attrs: m.currAttrs,
+		Attrs: attrs,
 	}
 	m.notify(e)
 	return nil
 }
 
-func (m *Manager) Stop() error {
+func (m *Manager) Stop(uid string) error {
 	m.mu.Lock()
-	defer m.mu.Unlock()
+	s, ok := m.sessions[uid]
+	if ok {
+		delete(m.sessions, uid)
+	}
+	m.mu.Unlock()
 
-	if m.currUid == "" {
+	if !ok {
 		return nil
 	}
 
+	s.mu.Lock()
 	e := &Event{
-		Uid:   m.currUid,
+		Uid:   s.uid,
 		Kind:  OnRecordStop,
-		Attrs: m.currAttrs,
+		Attrs: s.attrs,
 	}
 
-	if m.f != nil {
+	var rotErr error
+	if s.f != nil {
 		e.Update = &Update{
-			File:     m.currFile(),
+			File:     m.sessionFile(s),
 			Complete: true,
-			Offset:   m.currSize,
-			Line:     m.currLines,
+			Offset:   s.size,
+			Line:     s.lines,
 		}
 
-		if err := m.rotate(); err != nil {
-			return err
-		}
+		rotErr = s.rotate()
 	}
+	s.mu.Unlock()
 
-	m.currUid, m.currAttrs, m.idx = "", nil, 0
 	m.notify(e)
-	return nil
+	return rotErr
 }
 
 func (m *Manager) Close() error {
 	m.mu.Lock()
-	defer m.mu.Unlock()
+	sessions, subs := m.sessions, m.subs
+	m.sessions, m.subs = make(map[string]*session), nil
+	m.mu.Unlock()
 
-	m.currUid, m.currAttrs, m.idx = "", nil, 0
+	for _, s := range sessions {
+		s.mu.Lock()
+		if s.f != nil {
+			_ = s.rotate()
+		}
+		s.mu.Unlock()
+	}
 
-	for _, sub := range m.subs {
+	for _, sub := range subs {
 		close(sub)
 	}
-	m.subs = nil // avoid panic when close twice
 	return nil
 }
 

@@ -77,42 +77,6 @@ func (c *MockSubscriberRunCall) DoAndReturn(f func(context.Context, <-chan *log.
 	return c
 }
 
-// Wait mocks base method.
-func (m *MockSubscriber) Wait() {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Wait")
-}
-
-// Wait indicates an expected call of Wait.
-func (mr *MockSubscriberMockRecorder) Wait() *MockSubscriberWaitCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Wait", reflect.TypeOf((*MockSubscriber)(nil).Wait))
-	return &MockSubscriberWaitCall{Call: call}
-}
-
-// MockSubscriberWaitCall wrap *gomock.Call
-type MockSubscriberWaitCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockSubscriberWaitCall) Return() *MockSubscriberWaitCall {
-	c.Call = c.Call.Return()
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockSubscriberWaitCall) Do(f func()) *MockSubscriberWaitCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSubscriberWaitCall) DoAndReturn(f func()) *MockSubscriberWaitCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // MockSignedUrlResponse is a mock of SignedUrlResponse interface.
 type MockSignedUrlResponse struct {
 	ctrl     *gomock.Controller

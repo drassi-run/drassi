@@ -17,6 +17,18 @@ import (
 	"drassi.run/gha-runner/pkg/types"
 )
 
+type stepUidKey struct{}
+
+func WithStepUid(ctx context.Context, uid string) context.Context {
+	return context.WithValue(ctx, stepUidKey{}, uid)
+}
+
+func StepUidFromContext(ctx context.Context) (uid string, ok bool) {
+	uid, ok = ctx.Value(stepUidKey{}).(string)
+	ok = ok && uid != ""
+	return
+}
+
 type decorator struct {
 	mgr   *Manager
 	store types.RecordStore
@@ -43,13 +55,14 @@ func (d *decorator) DecorateStepRun(task *executor.StepTask) executor.StepRun {
 		}
 
 		defer func() {
-			if ex := d.mgr.Stop(); ex == nil {
+			if ex := d.mgr.Stop(uid); ex == nil {
 				return
 			} else if err == nil {
 				err = fmt.Errorf("stop record log: %w", ex)
 			}
 		}()
 
+		ctx = WithStepUid(ctx, uid)
 		return run(ctx)
 	}
 }

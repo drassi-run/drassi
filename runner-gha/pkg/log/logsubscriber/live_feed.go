@@ -18,7 +18,16 @@ import (
 )
 
 func NewLiveFeedSubscriber(app logtypes.Appender) logtypes.Subscriber {
-	return &liveFeedSubscriber{app: app}
+	return &liveFeedSubscriber{
+		app:      app,
+		sessions: make(map[string]*liveFeedSession),
+	}
+}
+
+type liveFeedSession struct {
+	log.Batcher
+	uid       string
+	lineCount int
 }
 
 type liveFeedSubscriber struct {
@@ -28,85 +37,94 @@ type liveFeedSubscriber struct {
 	mu sync.Mutex
 	wg sync.WaitGroup
 
-	currUid     string
-	currBatcher log.Batcher
-	lineCount   int
+	sessions map[string]*liveFeedSession
 }
 
 func (s *liveFeedSubscriber) Run(ctx context.Context, ch <-chan *log.Event) {
 	s.ctx = ctx
 
 	for e := range ch {
-		b := s.batcher(e.Uid, e.Attrs)
+		sess := s.session(e.Uid, e.Attrs)
 		if u := e.Update; u != nil {
-			b.Update(u)
+			sess.Update(u)
 		}
 		if e.Kind == log.OnRecordStop {
-			s.stopCurrentBatcher()
+			s.stopSession(e.Uid)
 		}
 	}
 
 	// for any reason, OnRecordStop is not received before channel close
-	s.stopCurrentBatcher()
+	s.stopAllSessions()
 	s.wg.Wait()
 }
 
-func (s *liveFeedSubscriber) batcher(uid string, attrs []attribute.KeyValue) log.Batcher {
+func (s *liveFeedSubscriber) session(uid string, attrs []attribute.KeyValue) *liveFeedSession {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.currUid == uid {
-		return s.currBatcher
+	if sess, ok := s.sessions[uid]; ok {
+		return sess
 	}
 
-	if s.currUid != "" { // batcher of another step
-		_ = s.currBatcher.Close()
-		s.currUid, s.currBatcher = "", nil
-	}
-
-	// In GitHub Runner (C# version)
-	// + (batchSize) threshold=100 : https://github.com/actions/runner/blob/v2.332.0/src/Runner.Common/JobServerQueue.cs#L372-L389
-	// + interval=500ms : https://github.com/actions/runner/blob/v2.332.0/src/Runner.Common/JobServerQueue.cs#L33
 	b := log.NewBatcher(100, time.Second)
-	s.currUid, s.currBatcher = uid, b
+	sess := &liveFeedSession{
+		Batcher: b,
+		uid:     uid,
+	}
+	s.sessions[uid] = sess
 
 	s.wg.Add(1)
 	go func() {
 		defer s.wg.Done()
-		s.run(uid, b, attrs)
+		s.run(sess, attrs)
 	}()
-	return b
+	return sess
 }
 
-func (s *liveFeedSubscriber) stopCurrentBatcher() {
+func (s *liveFeedSubscriber) stopSession(uid string) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if s.currBatcher == nil {
-		return
+	sess, ok := s.sessions[uid]
+	if ok {
+		delete(s.sessions, uid)
 	}
+	s.mu.Unlock()
 
-	_ = s.currBatcher.Close()
-	s.currUid, s.currBatcher = "", nil
+	if ok {
+		_ = sess.Close()
+	}
 }
 
-func (s *liveFeedSubscriber) run(uid string, batcher log.Batcher, attrs []attribute.KeyValue) {
+func (s *liveFeedSubscriber) stopAllSessions() {
+	s.mu.Lock()
+	all := make([]*liveFeedSession, 0, len(s.sessions))
+	for _, sess := range s.sessions {
+		all = append(all, sess)
+	}
+	clear(s.sessions)
+	s.mu.Unlock()
+
+	for _, sess := range all {
+		_ = sess.Close()
+	}
+}
+
+func (s *liveFeedSubscriber) run(sess *liveFeedSession, attrs []attribute.KeyValue) {
 	ctx, logger := xotel.ChildLogger(s.ctx,
 		xotel.ToSlogAttrs(attrs...),
 	)
 
-	for b := range batcher.Channel() {
+	for b := range sess.Channel() {
 		if lines, err := b.Scan(); err != nil {
 			logger.Errorf("scan batch error: %v", err)
 		} else {
 			logger.Debugf("LiveFeed - streaming %d log lines", len(lines))
-			if err = s.app.Append(ctx, uid, s.lineCount, lines); err != nil {
+			if err = s.app.Append(ctx, sess.uid, sess.lineCount, lines); err != nil {
 				logger.Errorf("LiveFeed - stream logs error: %v", err)
 			} else {
 				logger.Debugf("LiveFeed - streamed %d lines", len(lines))
 			}
 		}
-		s.lineCount += b.Lines()
+		sess.lineCount += b.Lines()
 	}
 }
 
