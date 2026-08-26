@@ -13,18 +13,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type HandlerFunc func(string) error
-
-func (f HandlerFunc) Handle(line string) error {
-	return f(line)
-}
-
 func TestLineWriter(t *testing.T) {
 	lines := make([]string, 0)
-	lineHandler := HandlerFunc(func(s string) error {
+	lineHandler := func(s string) error {
 		lines = append(lines, s)
 		return nil
-	})
+	}
 
 	lw := NewLineWriter(lineHandler)
 

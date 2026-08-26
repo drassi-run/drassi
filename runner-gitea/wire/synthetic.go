@@ -37,7 +37,9 @@ func Synthetic(scope *dig.Scope, task *runnerv1.Task, extras ...*wire.Module) er
 	modules = append(modules, wire_runtime.Module())
 	modules = append(modules, wire_scribe.Module())
 	modules = append(modules, wire_secret.Module())
-	modules = append(modules, wire_stream.Module())
+	modules = append(modules, wire_stream.Module(
+		wire_stream.ForwardSinkToHandler(true),
+	))
 
 	// gitea modules
 	modules = append(modules, wire_core.Module())

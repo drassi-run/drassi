@@ -32,10 +32,10 @@ func Module(task *runnerv1.Task) *wire.Module {
 		if err := scope.Provide(o.newLogStreamer); err != nil {
 			return fmt.Errorf("provide reporter.LogStreamer: %w", err)
 		}
-		if err := scope.Provide(streamHandler); err != nil {
-			return fmt.Errorf("provide stream.Handler from reporter.LogStreamer: %w", err)
+		if err := scope.Provide((*reporter.LogStreamer).Handle, dig.As(new(stream.Handler))); err != nil {
+			return fmt.Errorf("provide stream.Handler from reporter.LogStreamer.Handle(...): %w", err)
 		}
-		if err := scope.Provide(scribeHandler); err != nil {
+		if err := scope.Provide((*reporter.LogStreamer).ContextHandle, dig.As(new(scribe.Handler))); err != nil {
 			return fmt.Errorf("provide scribe.Handler from reporter.LogStreamer.ContextHandle(...): %w", err)
 		}
 
@@ -55,14 +55,6 @@ func Module(task *runnerv1.Task) *wire.Module {
 
 func (o *options) newLogStreamer(ctxProv xcontext.Provider, client gitea.Client) *reporter.LogStreamer {
 	return reporter.NewLogStreamer(o.task.Id, ctxProv, client)
-}
-
-func streamHandler(ls *reporter.LogStreamer) stream.Handler {
-	return ls
-}
-
-func scribeHandler(ls *reporter.LogStreamer) scribe.Handler {
-	return ls.ContextHandle
 }
 
 func (o *options) newReporter(

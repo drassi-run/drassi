@@ -91,6 +91,7 @@ func (ls *LogStreamer) ContextHandle(_ context.Context, msg string) error {
 	return ls.Handle(msg)
 }
 
+// Handle is used for [stream.Handler]
 func (ls *LogStreamer) Handle(msg string) error {
 	ls.logOffset++
 	msg = strings.TrimRight(msg, "\r\n")
