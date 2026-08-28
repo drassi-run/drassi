@@ -7,12 +7,15 @@
 package wire_log
 
 import (
+	"context"
 	"fmt"
 
+	exec "drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/scribe"
 	"drassi.run/core/pkg/stream"
 	"drassi.run/core/wire"
 	"drassi.run/gha-runner/pkg/log"
+	"drassi.run/gha-runner/pkg/types"
 	"go.uber.org/dig"
 )
 
@@ -47,11 +50,11 @@ func Module(opts ...Option) *wire.Module {
 		if err := scope.Provide(o.newLogManager); err != nil {
 			return fmt.Errorf("provide log.Manager: %w", err)
 		}
-		if err := scope.Provide(streamHandler); err != nil {
-			return fmt.Errorf("provide stream.Handler from log.Manager: %w", err)
+		if err := scope.Provide(streamSinkFactory); err != nil {
+			return fmt.Errorf("provide stream.SinkFactory from log.Manager: %w", err)
 		}
 		if err := scope.Provide(scribeHandler); err != nil {
-			return fmt.Errorf("provide scribe.Handler from log.Manager.ContextHandle(...): %w", err)
+			return fmt.Errorf("provide scribe.Handler from log.Manager: %w", err)
 		}
 		if err := scope.Provide(log.NewDecorator, dig.Name("log")); err != nil {
 			return fmt.Errorf("provide log.Decorator as %q StepRunDecorator: %w", "log", err)
@@ -65,10 +68,29 @@ func (o *options) newLogManager() (*log.Manager, error) {
 	return log.NewManager(o.dir, o.maxLogSize)
 }
 
-func streamHandler(logMgr *log.Manager) stream.Handler {
-	return logMgr
+type logStreamSink struct {
+	logMgr *log.Manager
+	store  types.RecordStore
+}
+
+func (s *logStreamSink) Emit(_ context.Context, res exec.Milieu, line string) error {
+	stepUid := res.StepSpec().Uid
+	uid := s.store.RecordUid(res.Stage(), stepUid)
+	return s.logMgr.Handle(uid, line)
+}
+
+func streamSinkFactory(logMgr *log.Manager, store types.RecordStore) stream.SinkFactory[exec.Milieu] {
+	sink := &logStreamSink{logMgr: logMgr, store: store}
+	return func(_ string) stream.Sink[exec.Milieu] {
+		return sink
+	}
 }
 
 func scribeHandler(logMgr *log.Manager) scribe.Handler {
-	return logMgr.ContextHandle
+	return func(ctx context.Context, msg string) error {
+		if uid, ok := log.StepUidFromContext(ctx); ok {
+			return logMgr.Handle(uid, msg)
+		}
+		return nil
+	}
 }

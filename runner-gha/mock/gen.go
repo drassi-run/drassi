@@ -8,4 +8,5 @@
 //go:generate mockgen -source=../pkg/log/logtypes/uploader.go -destination=log/logtypes/uploader.go -typed
 //go:generate mockgen -source=../pkg/service/job.go -destination=service/job.go -typed
 //go:generate mockgen -source=../pkg/service/result.go -destination=service/result.go -typed
+//go:generate mockgen -source=../pkg/types/types.go -destination=types/types.go -typed
 package mock

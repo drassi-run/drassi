@@ -12,9 +12,7 @@ import (
 	"io"
 )
 
-type Handler interface {
-	Handle(string) error
-}
+type Handler func(string) error
 
 // NewLineWriter return an [io.Writer] that split input into lines and forward to the [Handler]
 func NewLineWriter(h Handler) io.Writer {
@@ -44,7 +42,7 @@ func (w *lineWriter) Write(p []byte) (int, error) {
 			}
 			return written, err
 		}
-		if err = w.handler.Handle(w.buffer.String()); err != nil {
+		if err = w.handler(w.buffer.String()); err != nil {
 			return written, err
 		}
 		w.buffer.Reset()
@@ -60,7 +58,7 @@ func (w *lineWriter) Close() error {
 	w.closed = true
 	defer w.buffer.Reset()
 	if s := w.buffer.String(); s != "" {
-		return w.handler.Handle(s)
+		return w.handler(s)
 	}
 	return nil
 }

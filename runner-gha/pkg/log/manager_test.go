@@ -7,9 +7,11 @@
 package log
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -70,66 +72,94 @@ func (s *ManagerTestSuite) SetupTest() {
 }
 
 func (s *ManagerTestSuite) TearDownTest() {
-	err := s.m.Stop()
-	s.Require().NoError(err)
-
-	err = s.m.Close()
+	err := s.m.Close()
 	s.Require().NoError(err)
 }
 
 func (s *ManagerTestSuite) TestStartStop() {
 	t := s.T()
 
-	// Test Start
-	uid := "test-session"
-	err := s.m.Start(uid)
+	// Test Start multiple distinct sessions concurrently
+	uid1 := "session-1"
+	uid2 := "session-2"
+	err := s.m.Start(uid1)
 	require.NoError(t, err)
-	assert.Equal(t, uid, s.m.currUid)
-
-	// Test Start again (should error)
-	err = s.m.Start("another-uid")
-	assert.ErrorContains(t, err, "session already started")
-
-	// Test Stop
-	err = s.m.Stop()
+	err = s.m.Start(uid2)
 	require.NoError(t, err)
-	assert.Empty(t, s.m.currUid)
 
-	// Test Stop again (should be idempotent)
-	err = s.m.Stop()
+	// Test Start again with existing uid (should error)
+	err = s.m.Start(uid1)
+	assert.ErrorContains(t, err, "already started")
+
+	// Test Stop uid1
+	err = s.m.Stop(uid1)
+	require.NoError(t, err)
+
+	// Test Stop uid1 again (should be idempotent)
+	err = s.m.Stop(uid1)
+	require.NoError(t, err)
+
+	// Verify uid2 is still active and can be stopped
+	err = s.m.Stop(uid2)
 	require.NoError(t, err)
 }
 
-func (s *ManagerTestSuite) TestHandle_Write() {
+func (s *ManagerTestSuite) TestHandle_ConcurrentSteps() {
 	t := s.T()
-	uid := "session-1"
-	err := s.m.Start(uid)
+	s.m.maxSize = 1024
+	uid1 := "step-1"
+	uid2 := "step-2"
+
+	require.NoError(t, s.m.Start(uid1))
+	require.NoError(t, s.m.Start(uid2))
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 5; i++ {
+			err := s.m.Handle(uid1, fmt.Sprintf("line-1-%d", i))
+			assert.NoError(t, err)
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 5; i++ {
+			err := s.m.Handle(uid2, fmt.Sprintf("line-2-%d", i))
+			assert.NoError(t, err)
+		}
+	}()
+
+	wg.Wait()
+
+	require.NoError(t, s.m.Stop(uid1))
+	require.NoError(t, s.m.Stop(uid2))
+
+	logFile1 := filepath.Join(s.m.dir, uid1+".0.log")
+	content1, err := os.ReadFile(logFile1)
+	require.NoError(t, err)
+	expected1 := "line-1-0\nline-1-1\nline-1-2\nline-1-3\nline-1-4\n"
+	assert.Equal(t, expected1, tsTrim(content1))
+
+	logFile2 := filepath.Join(s.m.dir, uid2+".0.log")
+	content2, err := os.ReadFile(logFile2)
+	require.NoError(t, err)
+	expected2 := "line-2-0\nline-2-1\nline-2-2\nline-2-3\nline-2-4\n"
+	assert.Equal(t, expected2, tsTrim(content2))
+}
+
+func (s *ManagerTestSuite) TestHandle_UnstartedSession() {
+	t := s.T()
+	// Unstarted session logs should be dropped without error
+	err := s.m.Handle("unstarted-session", "dropped line")
 	require.NoError(t, err)
 
-	// write log "hello"
-	line := "hello"
-	err = s.m.Handle(line)
+	// Verify no file was created
+	files, err := os.ReadDir(s.m.dir)
 	require.NoError(t, err)
-	assert.EqualValues(t, 1, s.m.currLines)
-	size := tsSize + len(line) + 1
-	assert.EqualValues(t, size, s.m.currSize)
-
-	logFile := filepath.Join(s.m.dir, uid+".0.log")
-	content, err := os.ReadFile(logFile)
-	require.NoError(t, err)
-	assert.Equal(t, "hello\n", tsTrim(content))
-
-	// write log "world"
-	line = "world"
-	err = s.m.Handle(line)
-	require.NoError(t, err)
-	assert.EqualValues(t, 2, s.m.currLines)
-	size += tsSize + len(line) + 1
-	assert.EqualValues(t, size, s.m.currSize)
-
-	content, err = os.ReadFile(logFile)
-	require.NoError(t, err)
-	assert.Equal(t, "hello\nworld\n", tsTrim(content))
+	assert.Empty(t, files)
 }
 
 func (s *ManagerTestSuite) TestHandle_Rotation() {
@@ -139,163 +169,90 @@ func (s *ManagerTestSuite) TestHandle_Rotation() {
 	require.NoError(t, err)
 
 	// Write first 2 lines - should NOT trigger rotation yet
-	line := strings.Repeat("x", 10) // tsSize(29 bytes) + 10 bytes + 1 newline = 30 bytes
-	for range 2 {                   // 2 lines = 60 bytes
-		err = s.m.Handle(line)
+	line := strings.Repeat("x", 10)
+	for range 2 {
+		err = s.m.Handle(uid, line)
 		require.NoError(t, err)
-		assert.Equal(t, 0, s.m.idx)
-		assert.NotNil(t, s.m.f)
 	}
 
 	// 3rd line -> trigger rotate
-	err = s.m.Handle(line)
+	err = s.m.Handle(uid, line)
 	require.NoError(t, err)
-	assert.Equal(t, 1, s.m.idx)
-	assert.Nil(t, s.m.f)
-	assert.EqualValues(t, 0, s.m.currLines)
-	assert.EqualValues(t, 0, s.m.currSize)
 
-	// 4th line -> in next file
-	err = s.m.Handle(line)
+	// 4th line -> written in next file (.1.log)
+	err = s.m.Handle(uid, line)
 	require.NoError(t, err)
-	assert.Equal(t, 1, s.m.idx)
-	assert.NotNil(t, s.m.f)
-	assert.EqualValues(t, 1, s.m.currLines)
-	assert.EqualValues(t, tsSize+len(line)+1, s.m.currSize)
 
-	logFile := filepath.Join(s.m.dir, uid+".1.log")
-	content, err := os.ReadFile(logFile)
+	require.NoError(t, s.m.Stop(uid))
+
+	logFile0 := filepath.Join(s.m.dir, uid+".0.log")
+	content0, err := os.ReadFile(logFile0)
 	require.NoError(t, err)
-	assert.Equal(t, line+"\n", tsTrim(content))
+	assert.Equal(t, strings.Repeat(line+"\n", 3), tsTrim(content0))
+
+	logFile1 := filepath.Join(s.m.dir, uid+".1.log")
+	content1, err := os.ReadFile(logFile1)
+	require.NoError(t, err)
+	assert.Equal(t, line+"\n", tsTrim(content1))
 }
 
 func (s *ManagerTestSuite) TestSubscribe() {
 	t := s.T()
 	sub := s.m.Subscribe()
 
-	share := func(uid string) {
-		// OnRecordStart
-		err := s.m.Start(uid)
-		require.NoError(t, err)
+	uid := "sub-step"
+	err := s.m.Start(uid)
+	require.NoError(t, err)
 
-		select {
-		case e := <-sub:
-			assert.Equal(t, OnRecordStart, e.Kind)
-			assert.Equal(t, uid, e.Uid)
-		case <-time.After(time.Second):
-			t.Fatal("timed out waiting for OnRecordStart")
-		}
-
-		// 1st OnRecordLog
-		line := strings.Repeat("x", 15)
-		err = s.m.Handle(line)
-		require.NoError(t, err)
-
-		size := tsSize + len(line) + 1
-		select {
-		case e := <-sub:
-			assert.Equal(t, OnRecordLog, e.Kind)
-			assert.Equal(t, uid, e.Uid)
-			assert.Equal(t, filepath.Join(s.m.dir, uid+".0.log"), e.File)
-			assert.False(t, e.Complete)
-			assert.Equal(t, 1, e.Line)
-			assert.EqualValues(t, size, e.Offset)
-		case <-time.After(time.Second):
-			t.Fatal("timed out waiting for OnRecordLog")
-		}
-
-		// 2nd OnRecordLog - file size reach limit => rotate
-		err = s.m.Handle(line)
-		require.NoError(t, err)
-
-		size += tsSize + len(line) + 1
-		select {
-		case e := <-sub:
-			assert.Equal(t, OnRecordLog, e.Kind)
-			assert.Equal(t, uid, e.Uid)
-			assert.Equal(t, filepath.Join(s.m.dir, uid+".0.log"), e.File)
-			assert.True(t, e.Complete)
-			assert.Equal(t, 2, e.Line)
-			assert.EqualValues(t, size, e.Offset)
-		case <-time.After(time.Second):
-			t.Fatal("timed out waiting for OnRecordLog")
-		}
+	select {
+	case e := <-sub:
+		assert.Equal(t, OnRecordStart, e.Kind)
+		assert.Equal(t, uid, e.Uid)
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for OnRecordStart")
 	}
 
-	step1 := func() {
-		uid := "step1"
-		share(uid)
+	line := strings.Repeat("x", 15)
+	err = s.m.Handle(uid, line)
+	require.NoError(t, err)
 
-		// OnRecordStop
-		err := s.m.Stop()
-		require.NoError(t, err)
-
-		select {
-		case e := <-sub:
-			assert.Equal(t, OnRecordStop, e.Kind)
-			assert.Equal(t, uid, e.Uid)
-			assert.Nil(t, e.Update)
-		case <-time.After(time.Second):
-			t.Fatal("timed out waiting for OnRecordStop")
-		}
+	size := tsSize + len(line) + 1
+	select {
+	case e := <-sub:
+		assert.Equal(t, OnRecordLog, e.Kind)
+		assert.Equal(t, uid, e.Uid)
+		assert.Equal(t, filepath.Join(s.m.dir, uid+".0.log"), e.File)
+		assert.False(t, e.Complete)
+		assert.Equal(t, 1, e.Line)
+		assert.EqualValues(t, size, e.Offset)
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for OnRecordLog")
 	}
 
-	step2 := func() {
-		uid := "step2"
-		share(uid)
+	err = s.m.Stop(uid)
+	require.NoError(t, err)
 
-		// 3rd OnRecordLog - write in 2nd file
-		line := strings.Repeat("z", 20)
-		err := s.m.Handle(line)
-		require.NoError(t, err)
-
-		size := tsSize + len(line) + 1
-		file := filepath.Join(s.m.dir, uid+".1.log")
-		select {
-		case e := <-sub:
-			assert.Equal(t, OnRecordLog, e.Kind)
-			assert.Equal(t, uid, e.Uid)
-			assert.Equal(t, file, e.File)
-			assert.False(t, e.Complete)
-			assert.Equal(t, 1, e.Line)
-			assert.EqualValues(t, size, e.Offset)
-		case <-time.After(time.Second):
-			t.Fatal("timed out waiting for OnRecordLog")
-		}
-
-		// OnRecordStop
-		err = s.m.Stop()
-		require.NoError(t, err)
-
-		select {
-		case e := <-sub:
-			assert.Equal(t, OnRecordStop, e.Kind)
-			assert.Equal(t, uid, e.Uid)
-			assert.Equal(t, file, e.File)
-			assert.True(t, e.Complete)
-			assert.Equal(t, 1, e.Line)
-			assert.EqualValues(t, size, e.Offset)
-		case <-time.After(time.Second):
-			t.Fatal("timed out waiting for OnRecordStop")
-		}
+	select {
+	case e := <-sub:
+		assert.Equal(t, OnRecordStop, e.Kind)
+		assert.Equal(t, uid, e.Uid)
+		assert.True(t, e.Complete)
+		assert.Equal(t, 1, e.Line)
+		assert.EqualValues(t, size, e.Offset)
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for OnRecordStop")
 	}
-
-	step1()
-	step2()
 }
 
 func (s *ManagerTestSuite) TestClose() {
 	t := s.T()
 	sub := s.m.Subscribe()
 
-	// Cannot close active session
-	err := s.m.Start("active")
+	err := s.m.Start("active-session")
 	require.NoError(t, err)
 
 	err = s.m.Close()
 	require.NoError(t, err)
-	assert.Equal(t, "", s.m.currUid)
-	assert.Equal(t, 0, s.m.idx)
 
 	// Verify channel is closed
 	for range sub {

@@ -156,10 +156,6 @@ func (w *Worker) closeLogSubscribers(p logSubscriberParams) {
 	l := clog.FromContext(w.ctx)
 
 	if lm := p.LogManager; lm != nil {
-		// stop any current running session, e.g. because of panic
-		if err := lm.Stop(); err != nil {
-			l.Errorf("stop log.Manager failed: %v", err)
-		}
 		if err := lm.Close(); err != nil {
 			l.Errorf("close log.Manager failed: %v", err)
 		}

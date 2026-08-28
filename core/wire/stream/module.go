@@ -19,19 +19,17 @@ import (
 
 type Option func(o *options)
 type options struct {
-	detachScopeSink bool // use stream.DetachScope as stream.Sink
+	forwardSinkToHandler bool // forward stream.Sink to stream.Handler by detaching scope (ctx/resource)
 }
 
-func UseDetachScopeSink(b bool) Option {
+func ForwardSinkToHandler(b bool) Option {
 	return func(o *options) {
-		o.detachScopeSink = b
+		o.forwardSinkToHandler = b
 	}
 }
 
 func Module(opts ...Option) *wire.Module {
-	o := &options{
-		detachScopeSink: true,
-	}
+	o := new(options)
 	for _, opt := range opts {
 		opt(o)
 	}
@@ -46,11 +44,8 @@ func Module(opts ...Option) *wire.Module {
 		if err := scope.Provide(mdw.MaskSecret[exec.Milieu], dig.Name("maskSecret")); err != nil {
 			return fmt.Errorf("provide 'maskSecret' stream.Middleware: %w", err)
 		}
-		if o.detachScopeSink {
-			if err := scope.Provide(stream.DetachScope[exec.Milieu]); err != nil {
-				return fmt.Errorf("provide 'detach' stream.Sink: %w", err)
-			}
-			if err := scope.Provide(staticSinkFactory[exec.Milieu]); err != nil {
+		if o.forwardSinkToHandler {
+			if err := scope.Provide(forwardSinkFactory[exec.Milieu]); err != nil {
 				return fmt.Errorf("provide static stream.SinkFactory: %w", err)
 			}
 		}
@@ -67,8 +62,9 @@ func Module(opts ...Option) *wire.Module {
 	return wire.NewModule("core/stream", fn)
 }
 
-func staticSinkFactory[R any](h stream.Sink[R]) stream.SinkFactory[R] {
-	return func(name string) stream.Sink[R] { return h }
+func forwardSinkFactory[R any](handler stream.Handler) stream.SinkFactory[R] {
+	sink := stream.DetachScope[R](handler)
+	return func(_ string) stream.Sink[R] { return sink }
 }
 
 type streamParams[R any] struct {

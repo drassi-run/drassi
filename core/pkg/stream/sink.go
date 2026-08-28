@@ -12,30 +12,22 @@ type Sink[R any] interface {
 	Emit(context.Context, R, string) error
 }
 
+type SinkFunc[R any] func(context.Context, R, string) error
+
+func (s SinkFunc[R]) Emit(ctx context.Context, res R, line string) error {
+	return s(ctx, res, line)
+}
+
 // AttachScope return new Handler which attach resource and forward to Sink
-func AttachScope[R any](ctx context.Context, scope R, s Sink[R]) Handler {
-	return &attachScopeHandler[R]{ctx: ctx, scope: scope, sink: s}
-}
-
-type attachScopeHandler[R any] struct {
-	ctx   context.Context
-	sink  Sink[R]
-	scope R
-}
-
-func (h *attachScopeHandler[R]) Handle(line string) error {
-	return h.sink.Emit(h.ctx, h.scope, line)
+func AttachScope[R any](ctx context.Context, res R, sink Sink[R]) Handler {
+	return func(line string) error {
+		return sink.Emit(ctx, res, line)
+	}
 }
 
 // DetachScope return new Sink which detach (discard) resource and forward to Handler
-func DetachScope[R any](h Handler) Sink[R] {
-	return &detachScopeSink[R]{hdl: h}
-}
-
-type detachScopeSink[R any] struct {
-	hdl Handler
-}
-
-func (h *detachScopeSink[R]) Emit(_ context.Context, _ R, line string) error {
-	return h.hdl.Handle(line)
+func DetachScope[R any](handler Handler) Sink[R] {
+	return SinkFunc[R](func(_ context.Context, _ R, line string) error {
+		return handler(line)
+	})
 }
