@@ -26,6 +26,7 @@ type options struct {
 	defaultDossier      bool          // create default records.Dossier
 	defaultFeatureFlags bool          // use feature.Empty as feature.Flags
 	expressionOptions   []expr.Option // additional expression.Option
+	expressionAstCache  bool          // enable caching expression AST
 }
 
 func ProvideDefaultDossier(b bool) Option {
@@ -43,6 +44,12 @@ func UseEmptyFeatureFlags(b bool) Option {
 func AddExpressionOption(opts ...expr.Option) Option {
 	return func(o *options) {
 		o.expressionOptions = append(o.expressionOptions, opts...)
+	}
+}
+
+func EnableExpressionAstCache() Option {
+	return func(o *options) {
+		o.expressionAstCache = true
 	}
 }
 
@@ -91,6 +98,12 @@ func Module(opts ...Option) *wire.Module {
 			return fmt.Errorf("provide default expression.Env: %w", err)
 		}
 
+		if o.expressionAstCache {
+			if err := scope.Decorate(expr.EnableCache); err != nil {
+				return fmt.Errorf("enable expression AST cache: %w", err)
+			}
+		}
+
 		if o.defaultFeatureFlags {
 			if err := xdig.Supply(scope, feature.Empty); err != nil {
 				return fmt.Errorf("provide default (empty) feature.Flags: %w", err)
@@ -114,7 +127,6 @@ func Module(opts ...Option) *wire.Module {
 
 func (o *options) expressionEnv(d *records.Dossier) (expr.Env, error) {
 	opts := []expr.Option{
-		expr.WithCache(true),
 		expr.WithLibrary(libs.StdLib()),
 		expr.WithVariable("secrets", d.Secrets),
 		expr.WithVariable("vars", d.Variables),

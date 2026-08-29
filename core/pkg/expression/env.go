@@ -29,11 +29,6 @@ func NewEnv(opts ...Option) (Env, error) {
 		// https://github.com/actions/runner/blob/v2.315.0/src/Sdk/DTExpressions2/Expressions2/ExpressionConstants.cs#L30
 		maxLength: 21_000,
 
-		cacheEnabled: true,
-
-		exprCache: make(map[string]*cacheNode),
-		tmplCache: make(map[string]*cacheNode),
-
 		alias:     make(map[string]string),
 		variables: make(map[string]ref.Val),
 		functions: make(map[string]Function),
@@ -48,19 +43,10 @@ func NewEnv(opts ...Option) (Env, error) {
 	return e, nil
 }
 
-type cacheNode struct {
-	node ast.Node
-	err  error
-}
-
 type env struct {
-	maxError     int
-	maxDepth     int
-	maxLength    int
-	cacheEnabled bool
-
-	exprCache map[string]*cacheNode
-	tmplCache map[string]*cacheNode
+	maxError  int
+	maxDepth  int
+	maxLength int
 
 	alias     map[string]string
 	variables map[string]ref.Val
@@ -69,13 +55,9 @@ type env struct {
 
 func (e *env) New(opts ...Option) (Env, error) {
 	n := &env{
-		maxError:     e.maxError,
-		maxDepth:     e.maxDepth,
-		maxLength:    e.maxLength,
-		cacheEnabled: e.cacheEnabled,
-
-		exprCache: e.exprCache,
-		tmplCache: e.tmplCache,
+		maxError:  e.maxError,
+		maxDepth:  e.maxDepth,
+		maxLength: e.maxLength,
 
 		alias:     maps.Clone(e.alias),
 		variables: maps.Clone(e.variables),
@@ -94,31 +76,13 @@ func (e *env) New(opts ...Option) (Env, error) {
 func (e *env) Parse(source string, pureExpr bool) (node ast.Node, err error) {
 	defer xerror.Recover(&err)
 
-	cache := e.tmplCache
-	if pureExpr {
-		cache = e.exprCache
-	}
-
-	// check if expr already in cache
-	if e.cacheEnabled {
-		if n, ok := cache[source]; ok {
-			return n.node, n.err
-		}
-	}
-
 	// Parse expr
 	opt := ast.Option{
 		MaxError:  e.maxError,
 		MaxDepth:  e.maxDepth,
 		MaxLength: e.maxLength,
 	}
-	node, err = ast.Parse(source, pureExpr, opt)
-
-	// store expr result in cache
-	if e.cacheEnabled {
-		cache[source] = &cacheNode{node: node, err: err}
-	}
-	return
+	return ast.Parse(source, pureExpr, opt)
 }
 
 func (e *env) Bind(node ast.Node) (prog ref.Program, err error) {

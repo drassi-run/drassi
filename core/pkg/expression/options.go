@@ -84,10 +84,3 @@ func WithMaxLength(length int) Option {
 		return nil
 	}
 }
-
-func WithCache(enabled bool) Option {
-	return func(o *env) error {
-		o.cacheEnabled = enabled
-		return nil
-	}
-}
