@@ -28,7 +28,7 @@ type S struct {
 	List    []string          `json:"list"`
 	Map     map[string]string `json:"map"`
 
-	Ignore   byte
+	Ignore   byte `json:"-"`
 	EmptyTag rune `json:""`
 }
 
