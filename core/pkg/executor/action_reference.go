@@ -8,6 +8,7 @@ package executor
 
 import (
 	"context"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
@@ -17,6 +18,7 @@ import (
 	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/actions"
 	"drassi.run/core/pkg/model/records"
+	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/scribe"
 	"drassi.run/core/pkg/store/repository"
@@ -133,7 +135,12 @@ func (spec *ReferenceActionSpec) loadActionManifest(r io.ReadCloser) (ActionSpec
 		return nil, err
 	}
 	action := new(actions.Action)
-	if err := model.Decode(m, action); err != nil {
+	um := json.JoinUnmarshalers(
+		workflows.JsonUnmarshalers(),
+		actions.JsonUnmarshalers(),
+		model.WeakUnmarshalers(),
+	)
+	if err := model.Decode(m, action, json.WithUnmarshalers(um)); err != nil {
 		return nil, err
 	}
 

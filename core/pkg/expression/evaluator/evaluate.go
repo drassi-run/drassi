@@ -25,14 +25,13 @@ func Evaluate[R any](env expression.Env, evaluable workflows.Evaluable[R], v *R)
 	u := &unraveler{env: env}
 	if res, err := evaluable.Unravel(u); err != nil {
 		return err
-	} else if data, err := json.Marshal(res); err != nil {
-		return err
 	} else {
-		un := json.JoinUnmarshalers(
-			actions.JsonUnmarshalers(), // actions Unmarshalers already include workflows one
+		um := json.JoinUnmarshalers(
+			workflows.JsonUnmarshalers(),
+			actions.JsonUnmarshalers(),
 			model.WeakUnmarshalers(),
 		)
-		return json.Unmarshal(data, v, json.WithUnmarshalers(un))
+		return model.Decode(res, v, json.WithUnmarshalers(um))
 	}
 }
 

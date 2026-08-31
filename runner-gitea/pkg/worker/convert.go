@@ -8,12 +8,14 @@ package worker
 
 import (
 	"bytes"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
 
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/model"
+	"drassi.run/core/pkg/model/actions"
 	"drassi.run/core/pkg/model/workflows"
 	"gopkg.in/yaml.v3"
 )
@@ -25,7 +27,12 @@ func decodeWorkflow(payload []byte, workflow *workflows.Workflow) error {
 		return err
 	}
 
-	return model.Decode(raw, workflow)
+	um := json.JoinUnmarshalers(
+		workflows.JsonUnmarshalers(),
+		actions.JsonUnmarshalers(),
+		model.WeakUnmarshalers(),
+	)
+	return model.Decode(raw, workflow, json.WithUnmarshalers(um))
 }
 
 func convertJobSpec(wf *workflows.Workflow) (*executor.JobSpec, error) {
