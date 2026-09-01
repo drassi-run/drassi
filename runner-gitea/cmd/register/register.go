@@ -12,11 +12,11 @@ import (
 	"os"
 	"strings"
 
-	pingv1 "code.gitea.io/actions-proto-go/ping/v1"
-	runnerv1 "code.gitea.io/actions-proto-go/runner/v1"
 	"connectrpc.com/connect"
 	giteaconfig "drassi.run/gitea-runner/config"
 	"drassi.run/gitea-runner/pkg/gitea"
+	pingv1 "gitea.dev/actionslib/ping/v1"
+	runnerv1 "gitea.dev/actionslib/runner/v1"
 	"github.com/charmbracelet/huh"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/spf13/cobra"

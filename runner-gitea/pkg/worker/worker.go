@@ -10,7 +10,6 @@ import (
 	"context"
 	"fmt"
 
-	runnerv1 "code.gitea.io/actions-proto-go/runner/v1"
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/model/workflows"
@@ -22,6 +21,7 @@ import (
 	"drassi.run/core/wire"
 	"drassi.run/gitea-runner/pkg/reporter"
 	gitea_wire "drassi.run/gitea-runner/wire"
+	runnerv1 "gitea.dev/actionslib/runner/v1"
 	"github.com/chainguard-dev/clog"
 	"go.uber.org/dig"
 )

@@ -10,13 +10,13 @@ import (
 	"fmt"
 	"strings"
 
-	runnerv1 "code.gitea.io/actions-proto-go/runner/v1"
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/secret"
 	"drassi.run/core/wire"
 	"drassi.run/gitea-runner/pkg/gitea"
+	runnerv1 "gitea.dev/actionslib/runner/v1"
 	"go.uber.org/dig"
 )
 

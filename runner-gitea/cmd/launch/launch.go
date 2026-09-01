@@ -13,7 +13,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"code.gitea.io/actions-proto-go/runner/v1"
 	"connectrpc.com/connect"
 	coreconfig "drassi.run/core/config"
 	"drassi.run/core/pkg/model"
@@ -25,6 +24,7 @@ import (
 	giteaconfig "drassi.run/gitea-runner/config"
 	"drassi.run/gitea-runner/pkg/gitea"
 	"drassi.run/gitea-runner/pkg/worker"
+	"gitea.dev/actionslib/runner/v1"
 	"github.com/chainguard-dev/clog"
 	"github.com/spf13/cobra"
 	"go.uber.org/dig"
