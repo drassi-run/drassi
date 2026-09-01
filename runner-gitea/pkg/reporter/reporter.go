@@ -11,14 +11,14 @@ import (
 	"fmt"
 	"time"
 
-	runnerv1 "code.gitea.io/actions-proto-go/runner/v1"
-	"code.gitea.io/actions-proto-go/runner/v1/runnerv1connect"
 	"connectrpc.com/connect"
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/util/context"
 	"drassi.run/core/util/reactive"
+	runnerv1 "gitea.dev/actionslib/runner/v1"
+	"gitea.dev/actionslib/runner/v1/runnerv1connect"
 	"github.com/chainguard-dev/clog"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )

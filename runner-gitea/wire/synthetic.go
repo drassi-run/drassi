@@ -9,7 +9,6 @@ package wire
 import (
 	"fmt"
 
-	runnerv1 "code.gitea.io/actions-proto-go/runner/v1"
 	"drassi.run/core/pkg/expression"
 	xdig "drassi.run/core/util/dig"
 	"drassi.run/core/wire"
@@ -21,6 +20,7 @@ import (
 	wire_stream "drassi.run/core/wire/stream"
 	wire_core "drassi.run/gitea-runner/wire/core"
 	wire_reporter "drassi.run/gitea-runner/wire/reporter"
+	runnerv1 "gitea.dev/actionslib/runner/v1"
 	"go.uber.org/dig"
 )
 
