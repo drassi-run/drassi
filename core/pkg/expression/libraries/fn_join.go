@@ -14,7 +14,7 @@ import (
 	"drassi.run/core/pkg/expression/types/traits"
 )
 
-func Join(array ref.Val, separator ref.LazyVal) ref.Val {
+func Join(array ref.Val, separator ref.Program) ref.Val {
 	if array.Type() == ref.TypeList {
 		list, ok := array.(traits.Iterable)
 		if !ok {

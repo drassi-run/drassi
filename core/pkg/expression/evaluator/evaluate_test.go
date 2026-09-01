@@ -7,10 +7,10 @@
 package evaluator
 
 import (
+	"encoding/json/v2"
 	"iter"
 	"testing"
 
-	"drassi.run/core/pkg/model"
 	. "drassi.run/core/pkg/model/workflows"
 	"github.com/stretchr/testify/assert"
 )
@@ -51,22 +51,28 @@ func evaluateSuccess[R any](evals iter.Seq2[Evaluable[R], R]) func(t *testing.T)
 	}
 }
 
-func evaluateFailed[R any](evals []Evaluable[R], contains string) func(t *testing.T) {
+func evaluateFailed[R any](evals []Evaluable[R]) func(t *testing.T) {
 	return func(t *testing.T) {
 		for _, e := range evals {
 			o := new(R)
 			err := Evaluate(env, e, o)
-			assert.ErrorContains(t, err, contains, "%#v", e)
+			var se *json.SemanticError
+			assert.ErrorAsf(t, err, &se, "%#v", e)
 		}
 	}
 }
 
 func tokenFrom(input any) Token {
-	var t Token
-	if err := model.Decode(input, &t); err != nil {
+	if b, err := json.Marshal(input); err != nil {
 		panic(err)
+	} else {
+		t := new(Token)
+		opt := json.WithUnmarshalers(JsonUnmarshalers())
+		if err = json.Unmarshal(b, &t, opt); err != nil {
+			panic(err)
+		}
+		return *t
 	}
-	return t
 }
 
 func TestEvaluate(t *testing.T) {
@@ -95,7 +101,7 @@ func testEvaluateString(t *testing.T) {
 		NewExpressionToken("${{ la }}"),
 		NewExpressionToken("${{ ms }}"),
 	}
-	t.Run("failed", evaluateFailed(tcFailed, "got unconvertible type"))
+	t.Run("failed", evaluateFailed[string](tcFailed))
 }
 
 func testEvaluateBool(t *testing.T) {
@@ -113,7 +119,7 @@ func testEvaluateBool(t *testing.T) {
 		NewExpressionToken("${{ la }}"),
 		NewExpressionToken("${{ ms }}"),
 	}
-	t.Run("failed", evaluateFailed(tcFailed, "got unconvertible type"))
+	t.Run("failed", evaluateFailed[bool](tcFailed))
 }
 
 func testEvaluateInt64(t *testing.T) {
@@ -132,7 +138,7 @@ func testEvaluateInt64(t *testing.T) {
 		NewExpressionToken("${{ la }}"),
 		NewExpressionToken("${{ ms }}"),
 	}
-	t.Run("failed", evaluateFailed(tcFailed, "got unconvertible type"))
+	t.Run("failed", evaluateFailed[int64](tcFailed))
 }
 
 func testEvaluateFloat64(t *testing.T) {
@@ -151,7 +157,7 @@ func testEvaluateFloat64(t *testing.T) {
 		NewExpressionToken("${{ la }}"),
 		NewExpressionToken("${{ ms }}"),
 	}
-	t.Run("failed", evaluateFailed(tcFailed, "got unconvertible type"))
+	t.Run("failed", evaluateFailed[float64](tcFailed))
 }
 
 var listResultString = []string{
@@ -196,7 +202,15 @@ func testEvaluateList(t *testing.T) {
 	t.Run("float", evaluateSuccess(iterOfTuple2(tcFloat)))
 
 	tcAny := []Tuple2[Evaluable[[]any], []any]{
-		{listToken, listResult},
+		{
+			listToken,
+			[]any{
+				"string", float64(123),
+				"abc", true, 3.14,
+				"Infinity", true,
+				"one", "two", "three",
+			},
+		},
 		{NewExpressionToken(`${{ fromJson('["string",123,true]') }}`), []any{"string", float64(123), true}},
 	}
 	t.Run("any", evaluateSuccess(iterOfTuple2(tcAny)))
@@ -209,7 +223,7 @@ func testEvaluateList(t *testing.T) {
 		NewExpressionToken("${{ 'foobar' }}"),
 		NewExpressionToken("${{ ms }}"),
 	}
-	t.Run("failed", evaluateFailed(tcFailed, "source data must be an array or slice"))
+	t.Run("failed", evaluateFailed[[]string](tcFailed))
 }
 
 var mapResultString = map[string]string{
@@ -223,7 +237,17 @@ var mapResultString = map[string]string{
 
 func testEvaluateMap(t *testing.T) {
 	tcAny := []Tuple2[Evaluable[map[string]any], map[string]any]{
-		{mapToken, mapResult},
+		{
+			mapToken,
+			map[string]any{
+				"string":   "foobar",
+				"123":      float64(123),
+				"3.14":     3.14,
+				"false":    true,
+				"expr-key": "expr-value",
+				"1":        "value", "2": 3.14, "3": false,
+			},
+		},
 		{
 			NewExpressionToken(`${{ fromJson('{"first":"one","second":2,"third":true}') }}`),
 			map[string]any{"first": "one", "second": float64(2), "third": true},
@@ -248,7 +272,7 @@ func testEvaluateMap(t *testing.T) {
 		NewExpressionToken("${{ 'foobar' }}"),
 		NewExpressionToken("${{ la }}"),
 	}
-	t.Run("failed", evaluateFailed(tcFailed, "expected a map"))
+	t.Run("failed", evaluateFailed[map[string]any](tcFailed))
 }
 
 func testEvaluateContainer(t *testing.T) {
@@ -280,9 +304,6 @@ func testEvaluateContainer(t *testing.T) {
 
 	tcSuccess := []Tuple2[Evaluable[*Container], *Container]{
 		{NewLiteralToken("foobar"), &Container{Image: "foobar"}},
-		{NewLiteralToken(123), &Container{Image: "123"}},
-		{NewLiteralToken(3.14), &Container{Image: "3.14"}},
-		{NewLiteralToken(true), &Container{Image: "true"}},
 		{NewExpressionToken("${{ 'foobar' }}"), &Container{Image: "foobar"}},
 
 		{tokenFrom(c1), &Container{Image: "foobar"}},
@@ -317,9 +338,6 @@ func testEvaluateRunsOn(t *testing.T) {
 	}
 	tcSuccess := []Tuple2[Evaluable[RunsOn], RunsOn]{
 		{NewLiteralToken("foobar"), RunsOn{Labels: []string{"foobar"}}},
-		{NewLiteralToken(123), RunsOn{Labels: []string{"123"}}},
-		{NewLiteralToken(3.14), RunsOn{Labels: []string{"3.14"}}},
-		{NewLiteralToken(true), RunsOn{Labels: []string{"true"}}},
 		{NewExpressionToken("${{ 'foobar' }}"), RunsOn{Labels: []string{"foobar"}}},
 
 		{

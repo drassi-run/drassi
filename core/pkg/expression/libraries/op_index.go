@@ -17,7 +17,7 @@ import (
 
 const wildcard = types.String("*")
 
-func Index(object ref.LazyVal, indexes ...ref.LazyVal) ref.Val {
+func Index(object ref.Program, indexes ...ref.Program) ref.Val {
 	value := object()
 
 	filterMode := false

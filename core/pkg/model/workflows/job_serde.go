@@ -7,119 +7,115 @@
 package workflows
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"fmt"
-	"reflect"
 
 	"drassi.run/core/pkg/model"
 )
 
-var typeJob = reflect.TypeFor[Job]()
-
-func DecodeJobHook(from reflect.Value, to reflect.Value) (any, error) {
-	if !from.IsValid() || !to.Type().Implements(typeJob) {
-		return valueOf(from), nil
-	}
-
-	f := from.Interface()
-	m, ok := model.ObjectStringify(f)
-	if !ok {
-		return f, nil
-	}
-
-	_, containsRunsOn := m["runs-on"]
-	_, containsUses := m["uses"]
-	if containsRunsOn == containsUses {
-		return nil, fmt.Errorf("map MUST be contains either `runs-on` or `uses`")
-	}
-
-	t := to.Interface()
-	if containsRunsOn {
-		if t == nil {
-			to.Set(reflect.ValueOf(&NormalJob{}))
-		} else if _, ok := t.(*NormalJob); !ok {
-			return nil, fmt.Errorf("map contains `runs-on` CAN'T be decode to %T", t)
-		}
-	}
-	if containsUses {
-		if t == nil {
-			to.Set(reflect.ValueOf(&ReusableWorkflowCallJob{}))
-		} else if _, ok := t.(*ReusableWorkflowCallJob); !ok {
-			return nil, fmt.Errorf("map contains `uses` CAN'T be decode to %T", t)
-		}
-	}
-	return m, nil
-}
-
 func init() {
-	model.RegisterDecodeHook(DecodeJobHook)
+	u := model.UnmarshalInterface(discriminateJob)
+	unmarshalers = append(unmarshalers, u)
 }
 
-func (n *JobNeeds) DecodeMapstructure(input any) (any, error) {
-	if s, ok := model.Stringify(input); ok {
-		return []string{s}, nil
-	} else {
-		return input, nil
+func discriminateJob(raw jsontext.Value) (Job, error) {
+	var dis struct {
+		RunsOn jsontext.Value `json:"runs-on,omitempty"`
+		Uses   string         `json:"uses,omitempty"`
+	}
+	if err := json.Unmarshal(raw, &dis); err != nil {
+		return nil, err
+	}
+
+	hasRunsOn := len(dis.RunsOn) > 0 && dis.RunsOn.Kind() != jsontext.KindNull
+	hasUses := dis.Uses != ""
+
+	switch {
+	case hasRunsOn && hasUses:
+		return nil, fmt.Errorf("job MUST be contains either `runs-on` or `uses`")
+	case hasUses:
+		return new(ReusableWorkflowCallJob), nil
+	case hasRunsOn:
+		return new(NormalJob), nil
+	default:
+		// both RunsOn and Uses are missing
+		return nil, fmt.Errorf("job MUST be contains either `runs-on` or `uses`")
 	}
 }
 
-func (s *JobSecrets) DecodeMapstructure(input any) (any, error) {
-	if input == "inherit" {
-		s.Inherit = true
-		return nil, nil
-	}
-	if m, ok := input.(map[string]string); ok {
-		s.Secrets = m
-		return nil, nil
-	}
-	if m, ok := input.(map[string]any); ok {
-		if secrets, err := castMap[string, string](m); err != nil {
-			return nil, err
+func (a *array) UnmarshalJSONFrom(d *jsontext.Decoder) error {
+	switch k := d.PeekKind(); k {
+	// 1. Shorthand string format (e.g., "first")
+	case jsontext.KindString:
+		if tok, err := d.ReadToken(); err != nil {
+			return err
 		} else {
-			s.Secrets = secrets
-			return nil, nil
+			*a = []string{tok.String()}
+			return nil
 		}
+
+	// 2. Standard array format (e.g., [first, second,...])
+	case jsontext.KindBeginArray:
+		type alias array
+		return json.UnmarshalDecode(d, (*alias)(a))
+
+	default:
+		return fmt.Errorf("expected string or array, got kind %v", k)
 	}
-	// process JobSecrets normal way
-	return input, nil
 }
 
-func (e *Environment) DecodeMapstructure(input any) (any, error) {
-	if name, ok := model.Stringify(input); ok {
-		e.Name = name
-		return nil, nil
-	}
-	// process Environment normal way
-	return input, nil
-}
-
-func (r *RunsOn) setLabels(input any, rec bool) (any, error) {
-	if s, ok := model.Stringify(input); ok {
-		r.Labels = []string{s}
-		return nil, nil
-	}
-	if l, ok := model.ListStringify(input); ok {
-		r.Labels = l
-		return nil, nil
-	}
-	if m, ok := model.ObjectStringify(input); ok {
-		if rec {
-			if labels, ok := m["labels"]; ok {
-				remain, err := r.setLabels(labels, false)
-				if err != nil {
-					return nil, err
-				}
-				if remain == nil { // Labels is set
-					delete(m, "labels")
-				} else {
-					m["labels"] = remain
-				}
-			}
+func (s *JobSecrets) UnmarshalJSONFrom(d *jsontext.Decoder) error {
+	switch k := d.PeekKind(); k {
+	// 1. "inherit" secret
+	case jsontext.KindString:
+		if tok, err := d.ReadToken(); err != nil {
+			return err
+		} else if t := tok.String(); t == "inherit" {
+			s.Inherit = true
+			return nil
+		} else {
+			return fmt.Errorf("unexpected JobSecrets=%v", t)
 		}
-		return m, nil
+
+	// 2. Standard object format (e.g., {"k": "v",...})
+	case jsontext.KindBeginObject:
+		return json.UnmarshalDecode(d, &s.Secrets)
+
+	default:
+		return fmt.Errorf("expected object for JobSecrets, got kind %v", k)
 	}
-	return input, nil
 }
 
-func (r *RunsOn) DecodeMapstructure(input any) (any, error) {
-	return r.setLabels(input, true)
+func (e *Environment) UnmarshalJSONFrom(d *jsontext.Decoder) error {
+	switch k := d.PeekKind(); k {
+	// 1. Shorthand string format (e.g., "first")
+	case jsontext.KindString:
+		return json.UnmarshalDecode(d, &e.Name)
+
+	// 2. Standard object format (e.g., {"name": "prod", "url": "http://foobar.app"})
+	case jsontext.KindBeginObject:
+		type alias Environment
+		return json.UnmarshalDecode(d, (*alias)(e))
+
+	default:
+		return fmt.Errorf("expected string or object for Environment, got kind %v", k)
+	}
+}
+
+func (r *RunsOn) UnmarshalJSONFrom(d *jsontext.Decoder) error {
+	switch k := d.PeekKind(); k {
+	// 1. Shorthand string/[]string format (e.g., "first")
+	case jsontext.KindString,
+		jsontext.KindBeginArray:
+		return json.UnmarshalDecode(d, &r.Labels)
+
+	// 2. Full object format (e.g., {"group": "gpu-runner", "labels": ["label1", "label2",...]})
+	case jsontext.KindBeginObject:
+		type alias RunsOn
+		return json.UnmarshalDecode(d, (*alias)(r))
+
+	default:
+		return fmt.Errorf("expected string, array or object for RunsOn, got kind %v", k)
+	}
 }

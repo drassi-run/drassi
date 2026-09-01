@@ -7,13 +7,13 @@
 package libraries
 
 import (
-	"drassi.run/core/pkg/expression/types"
-	"drassi.run/core/pkg/model"
-	"encoding/json"
-	"github.com/go-viper/mapstructure/v2"
-	"github.com/stretchr/testify/assert"
-	"reflect"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"testing"
+
+	"drassi.run/core/pkg/expression/types"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var jsonTest = [][2]any{
@@ -57,9 +57,13 @@ func testToJSONPrimitive(t *testing.T) {
 func testToJSONNonPrimitive(t *testing.T) {
 	tests := []any{listInt, listString, listFloat, mapSS, mapIS, objectX}
 	for _, tc := range tests {
+		expected, _ := json.Marshal(tc, jsontext.WithIndent("  "))
 		actual := ToJSON(types.NativeToVal(tc))
-		expected, _ := json.MarshalIndent(tc, "", "  ")
-		verify(t, expected, actual, "toJSON(%v)", tc)
+
+		err, _ := actual.(error)
+		require.NoError(t, err, "toJSON(%v)", tc)
+
+		assert.JSONEqf(t, string(expected), actual.Value().(string), "toJSON(%v)", tc)
 	}
 }
 
@@ -76,113 +80,17 @@ func testFromJSONPrimitive(t *testing.T) {
 }
 
 func testFromJSONNonPrimitive(t *testing.T) {
-	tests := []any{objectX} // listInt, listString, listFloat, mapSS, mapIS, objectX}
+	tests := []any{listInt, listString, listFloat, mapSS, mapIS, objectX}
 
 	for _, tc := range tests {
 		str, _ := json.Marshal(tc)
 		actual := FromJson(types.NativeToVal(str))
 
 		err, _ := actual.(error)
-		assert.NoError(t, err, "fromJSON(%v)", tc)
+		require.NoError(t, err, "fromJSON(%v)", tc)
 
-		rExpected := reflect.ValueOf(tc)
-		rActual := reflect.ValueOf(actual.Value())
-		assert.True(t, compareUsingReflect(rExpected, rActual), "fromJSON(%v)", tc)
-	}
-}
-
-var optTagJson = func(config *mapstructure.DecoderConfig) {
-	config.TagName = "json"
-}
-
-func compareUsingReflect(x, y reflect.Value) bool {
-	if !x.IsValid() || !y.IsValid() {
-		return x.IsValid() == y.IsValid()
-	}
-
-	if kind := x.Kind(); kind == reflect.Struct {
-		o := make(map[string]any)
-		_ = model.DecodeWithOptions(x.Interface(), &o, optTagJson)
-		return compareUsingReflect(reflect.ValueOf(o), y)
-	} else if kind == reflect.Pointer || kind == reflect.Interface {
-		return compareUsingReflect(x.Elem(), y)
-	}
-
-	if kind := y.Kind(); kind == reflect.Struct {
-		o := make(map[string]any)
-		_ = model.DecodeWithOptions(y.Interface(), &o, optTagJson)
-		return compareUsingReflect(x, reflect.ValueOf(o))
-	} else if kind == reflect.Pointer || kind == reflect.Interface {
-		return compareUsingReflect(x, y.Elem())
-	}
-
-	switch x.Kind() {
-	case reflect.Array, reflect.Slice:
-		if yKind := y.Kind(); yKind != reflect.Array && yKind != reflect.Slice {
-			return false
-		}
-		if x.Len() != y.Len() {
-			return false
-		}
-		for i := 0; i < x.Len(); i++ {
-			xItem := x.Index(i)
-			yItem := y.Index(i)
-			if !compareUsingReflect(xItem, yItem) {
-				return false
-			}
-		}
-		return true
-	case reflect.Map:
-		if y.Kind() != reflect.Map {
-			return false
-		}
-		if x.Len() != y.Len() {
-			return false
-		}
-		for _, k := range y.MapKeys() {
-			xItem := y.MapIndex(k)
-			yItem := y.MapIndex(k)
-			if !compareUsingReflect(xItem, yItem) {
-				return false
-			}
-		}
-		return true
-	//case reflect.Struct:
-	//	if x.Type() != y.Type() {
-	//		return false
-	//	}
-	//	for i := 0; i < x.NumField(); i++ {
-	//		xField := x.Field(i)
-	//		yField := y.Field(i)
-	//		if !compareUsingReflect(xField, yField) {
-	//			return false
-	//		}
-	//	}
-	//	return true
-	case reflect.Chan, reflect.Func, reflect.UnsafePointer:
-		if x.Kind() != y.Kind() {
-			return false
-		}
-		return x.UnsafePointer() == y.UnsafePointer()
-	default:
-		xV := x.Interface()
-		yV := y.Interface()
-		if xV == yV { // same type
-			return true
-		}
-
-		if !x.CanConvert(y.Type()) {
-			return false
-		}
-		if xC := x.Convert(y.Type()).Interface(); xC != yV {
-			return false
-		}
-		if !y.CanConvert(x.Type()) {
-			return false
-		}
-		if yC := y.Convert(x.Type()).Interface(); yC != xV {
-			return false
-		}
-		return true
+		rActual, err := json.Marshal(actual.Value())
+		require.NoError(t, err)
+		assert.JSONEq(t, string(str), string(rActual), "fromJSON(%v)", tc)
 	}
 }

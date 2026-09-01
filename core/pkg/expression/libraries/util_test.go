@@ -7,10 +7,12 @@
 package libraries
 
 import (
-	"drassi.run/core/pkg/expression/types"
-	"github.com/stretchr/testify/assert"
 	"math"
 	"testing"
+
+	"drassi.run/core/pkg/expression/types"
+	"drassi.run/core/pkg/expression/types/ref"
+	"github.com/stretchr/testify/assert"
 )
 
 type weakTypeConversion struct {
@@ -93,4 +95,36 @@ func testValueStringify(t *testing.T) {
 
 		assert.Equal(t, tc.stringify, actual, "%q (%[1]T)", tc.value)
 	}
+}
+
+func TestFunctionBinding(t *testing.T) {
+	t.Run("nullaryFn", func(t *testing.T) {
+		fn := nullaryFn(func() ref.Val { return types.String("ok") })
+		prog := fn.Bind()
+		assert.Equal(t, types.String("ok"), prog())
+	})
+
+	t.Run("unaryFn", func(t *testing.T) {
+		fn := unaryFn(func(v ref.Val) ref.Val { return types.String("hello " + stringify(v)) })
+		prog := fn.Bind(func() ref.Val { return types.String("world") })
+		assert.Equal(t, types.String("hello world"), prog())
+	})
+
+	t.Run("binaryFn", func(t *testing.T) {
+		fn := binaryFn(func(v1, v2 ref.Val) ref.Val { return types.String(stringify(v1) + " " + stringify(v2)) })
+		prog := fn.Bind(func() ref.Val { return types.String("foo") }, func() ref.Val { return types.String("bar") })
+		assert.Equal(t, types.String("foo bar"), prog())
+	})
+
+	t.Run("ternaryFn", func(t *testing.T) {
+		fn := ternaryFn(func(v1, v2, v3 ref.Val) ref.Val {
+			return types.String(stringify(v1) + "-" + stringify(v2) + "-" + stringify(v3))
+		})
+		prog := fn.Bind(
+			func() ref.Val { return types.String("a") },
+			func() ref.Val { return types.String("b") },
+			func() ref.Val { return types.String("c") },
+		)
+		assert.Equal(t, types.String("a-b-c"), prog())
+	})
 }

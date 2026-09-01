@@ -7,6 +7,8 @@
 package types
 
 import (
+	"encoding/json/jsontext"
+
 	"drassi.run/core/pkg/expression/types/ref"
 )
 
@@ -37,4 +39,8 @@ func (n Null) ToNumber() float64 {
 
 func (n Null) ToString() string {
 	return ""
+}
+
+func (n Null) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteToken(jsontext.Null)
 }

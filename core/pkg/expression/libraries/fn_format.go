@@ -25,7 +25,7 @@ const (
 
 var errInvalidFormat = errors.New("invalid format")
 
-func Format(fmt ref.LazyVal, args ...ref.LazyVal) ref.Val {
+func Format(fmt ref.Program, args ...ref.Program) ref.Val {
 	v := fmt()
 	if ref.IsError(v) {
 		return v

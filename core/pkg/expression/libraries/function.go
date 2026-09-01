@@ -22,8 +22,8 @@ func (f nullaryFn) NumArgs() (min int, max int) {
 	return 0, 0
 }
 
-func (f nullaryFn) Bind(args ...ref.LazyVal) ref.LazyVal {
-	return f
+func (f nullaryFn) Bind(...ref.Program) ref.Program {
+	return ref.Program(f)
 }
 
 // unaryFn is the function take 1 argument
@@ -35,11 +35,11 @@ func (f unaryFn) NumArgs() (min int, max int) {
 	return 1, 1
 }
 
-func (f unaryFn) Bind(args ...ref.LazyVal) ref.LazyVal {
+func (f unaryFn) Bind(args ...ref.Program) ref.Program {
 	return f.invoke(args[0])
 }
 
-func (f unaryFn) invoke(arg ref.LazyVal) ref.LazyVal {
+func (f unaryFn) invoke(arg ref.Program) ref.Program {
 	return func() ref.Val {
 		v := arg()
 		if ref.IsError(v) {
@@ -59,11 +59,11 @@ func (f binaryFn) NumArgs() (min int, max int) {
 	return 2, 2
 }
 
-func (f binaryFn) Bind(args ...ref.LazyVal) ref.LazyVal {
+func (f binaryFn) Bind(args ...ref.Program) ref.Program {
 	return f.invoke(args[0], args[1])
 }
 
-func (f binaryFn) invoke(a1, a2 ref.LazyVal) ref.LazyVal {
+func (f binaryFn) invoke(a1, a2 ref.Program) ref.Program {
 	return func() ref.Val {
 		v1 := a1()
 		if ref.IsError(v1) {
@@ -88,11 +88,11 @@ func (f ternaryFn) NumArgs() (min int, max int) {
 	return 3, 3
 }
 
-func (f ternaryFn) Bind(args ...ref.LazyVal) ref.LazyVal {
-	return f.invoke(args[0], args[1], args[3])
+func (f ternaryFn) Bind(args ...ref.Program) ref.Program {
+	return f.invoke(args[0], args[1], args[2])
 }
 
-func (f ternaryFn) invoke(a1, a2, a3 ref.LazyVal) ref.LazyVal {
+func (f ternaryFn) invoke(a1, a2, a3 ref.Program) ref.Program {
 	return func() ref.Val {
 		v1 := a1()
 		if ref.IsError(v1) {
@@ -114,7 +114,7 @@ func (f ternaryFn) invoke(a1, a2, a3 ref.LazyVal) ref.LazyVal {
 }
 
 // variadicLazyFn is the function take 0 or more arguments
-type variadicLazyFn func(...ref.LazyVal) ref.Val
+type variadicLazyFn func(...ref.Program) ref.Val
 
 var _ expr.Function = (variadicLazyFn)(nil)
 
@@ -122,18 +122,18 @@ func (f variadicLazyFn) NumArgs() (min int, max int) {
 	return 0, math.MaxInt32
 }
 
-func (f variadicLazyFn) Bind(args ...ref.LazyVal) ref.LazyVal {
+func (f variadicLazyFn) Bind(args ...ref.Program) ref.Program {
 	return f.invoke(args...)
 }
 
-func (f variadicLazyFn) invoke(args ...ref.LazyVal) ref.LazyVal {
+func (f variadicLazyFn) invoke(args ...ref.Program) ref.Program {
 	return func() ref.Val {
 		return f(args...)
 	}
 }
 
 // oneRestLazyFn is the function take 1 or more arguments
-type oneRestLazyFn func(ref.LazyVal, ...ref.LazyVal) ref.Val
+type oneRestLazyFn func(ref.Program, ...ref.Program) ref.Val
 
 var _ expr.Function = (oneRestLazyFn)(nil)
 
@@ -141,18 +141,18 @@ func (f oneRestLazyFn) NumArgs() (min int, max int) {
 	return 1, math.MaxInt32
 }
 
-func (f oneRestLazyFn) Bind(args ...ref.LazyVal) ref.LazyVal {
+func (f oneRestLazyFn) Bind(args ...ref.Program) ref.Program {
 	return f.invoke(args[0], args[1:]...)
 }
 
-func (f oneRestLazyFn) invoke(a ref.LazyVal, rest ...ref.LazyVal) ref.LazyVal {
+func (f oneRestLazyFn) invoke(a ref.Program, rest ...ref.Program) ref.Program {
 	return func() ref.Val {
 		return f(a, rest...)
 	}
 }
 
-// oneRestLazyFn is the function take 1 argument and 1 optional argument
-type oneOptionFn func(ref.Val, ref.LazyVal) ref.Val
+// oneOptionFn is the function take 1 argument and 1 optional argument
+type oneOptionFn func(ref.Val, ref.Program) ref.Val
 
 var _ expr.Function = (oneOptionFn)(nil)
 
@@ -160,16 +160,16 @@ func (f oneOptionFn) NumArgs() (min int, max int) {
 	return 1, 2
 }
 
-func (f oneOptionFn) Bind(args ...ref.LazyVal) ref.LazyVal {
-	var a1 ref.LazyVal = args[0]
-	var a2 ref.LazyVal = nil
+func (f oneOptionFn) Bind(args ...ref.Program) ref.Program {
+	a1 := args[0]
+	a2 := ref.Program(nil)
 	if len(args) > 1 {
 		a2 = args[1]
 	}
 	return f.invoke(a1, a2)
 }
 
-func (f oneOptionFn) invoke(a1, a2 ref.LazyVal) ref.LazyVal {
+func (f oneOptionFn) invoke(a1, a2 ref.Program) ref.Program {
 	return func() ref.Val {
 		v1 := a1()
 		if ref.IsError(v1) {

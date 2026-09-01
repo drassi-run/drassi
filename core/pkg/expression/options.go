@@ -46,7 +46,7 @@ func WithFunction(name string, fn Function) Option {
 
 type Function interface {
 	NumArgs() (min int, max int)
-	Bind(args ...ref.LazyVal) ref.LazyVal
+	Bind(args ...ref.Program) ref.Program
 }
 
 func WithLibrary(lib Library) Option {
@@ -81,13 +81,6 @@ func WithMaxDepth(depth int) Option {
 func WithMaxLength(length int) Option {
 	return func(o *env) error {
 		o.maxLength = length
-		return nil
-	}
-}
-
-func WithCache(enabled bool) Option {
-	return func(o *env) error {
-		o.cacheEnabled = enabled
 		return nil
 	}
 }

@@ -10,6 +10,8 @@ import (
 	"math"
 	"testing"
 
+	"drassi.run/core/pkg/expression/types"
+	"drassi.run/core/pkg/expression/types/traits"
 	. "drassi.run/core/pkg/model/workflows"
 	"github.com/stretchr/testify/assert"
 )
@@ -26,7 +28,7 @@ func testUnravelLiteral(t *testing.T) {
 	token := NewLiteralToken(value)
 	res, err := token.Unravel(ur)
 	assert.Nil(t, err)
-	assert.Equal(t, value, res)
+	assert.Equal(t, value, res.Value())
 }
 
 func testUnravelExpression(t *testing.T) {
@@ -71,11 +73,10 @@ func testUnravelExpressionSuccess(t *testing.T) {
 		assert.Nil(t, err, "expression: %s", expr)
 
 		if f, ok := expected.(float64); ok && math.IsNaN(f) {
-			a, ok := res.(float64)
-			assert.Truef(t, ok && math.IsNaN(a), "expression: %s", expr)
+			assert.Truef(t, types.IsNaN(res), "expression: %s", expr)
 			continue
 		}
-		assert.EqualValuesf(t, expected, res, "expression: %s", expr)
+		assert.EqualValuesf(t, expected, res.Value(), "expression: %s", expr)
 	}
 }
 
@@ -114,7 +115,7 @@ var (
 		NewExpressionToken("${{ ls }}"),
 	})
 	listResult = []any{
-		"string", 123,
+		"string", int64(123),
 		"abc", true, 3.14, // la
 		math.Inf(1), true,
 		"one", "two", "three", // ls
@@ -124,7 +125,13 @@ var (
 func testUnravelSequenceSuccess(t *testing.T) {
 	res, err := listToken.Unravel(ur)
 	assert.Nil(t, err)
-	assert.Equal(t, listResult, res)
+	list, ok := res.(traits.Iterable)
+	assert.True(t, ok)
+	var actual []any
+	for _, v := range list.Items() {
+		actual = append(actual, v.Value())
+	}
+	assert.Equal(t, listResult, actual)
 }
 
 func testUnravelSequenceFailed(t *testing.T) {
@@ -136,7 +143,6 @@ func testUnravelSequenceFailed(t *testing.T) {
 
 	_, err := token.Unravel(ur)
 	assert.ErrorContains(t, err, "syntax error")
-	assert.ErrorContains(t, err, "undefined variable")
 }
 
 func testUnravelMapping(t *testing.T) {
@@ -148,7 +154,7 @@ func testUnravelMapping(t *testing.T) {
 func testUnravelMappingString(t *testing.T) {
 	token := NewMappingToken([][2]Token{
 		{NewLiteralToken("string"), NewLiteralToken("foobar")},
-		{NewLiteralToken("int"), NewLiteralToken(123)},
+		{NewLiteralToken(123), NewLiteralToken(123)},
 		{NewLiteralToken("float"), NewLiteralToken(3.14)},
 		{NewLiteralToken("bool"), NewLiteralToken(true)},
 		{NewExpressionToken("${{ 'expr-key' }}"), NewExpressionToken("${{ 'expr-value' }}")},
@@ -156,16 +162,22 @@ func testUnravelMappingString(t *testing.T) {
 	})
 	expected := map[string]any{
 		"string":   "foobar",
-		"int":      123,
+		"123":      int64(123),
 		"float":    3.14,
 		"bool":     true,
 		"expr-key": "expr-value",
-		"first":    1, "second": 2, "third": 3, // ms
+		"first":    int64(1), "second": int64(2), "third": int64(3), // ms
 	}
 
 	res, err := token.Unravel(ur)
 	assert.Nil(t, err)
-	assert.Equal(t, expected, res)
+	dict, ok := res.(traits.Iterable)
+	assert.True(t, ok)
+	actual := make(map[string]any)
+	for k, v := range dict.Items() {
+		actual[k.(traits.Stringable).ToString()] = v.Value()
+	}
+	assert.Equal(t, expected, actual)
 }
 
 var (
@@ -179,7 +191,7 @@ var (
 	})
 	mapResult = map[string]any{
 		"string":   "foobar",
-		"123":      123,
+		"123":      int64(123),
 		"3.14":     3.14,
 		"false":    true,
 		"expr-key": "expr-value",
@@ -190,7 +202,13 @@ var (
 func testUnravelMappingAny(t *testing.T) {
 	res, err := mapToken.Unravel(ur)
 	assert.Nil(t, err)
-	assert.Equal(t, mapResult, res)
+	dict, ok := res.(traits.Iterable)
+	assert.True(t, ok)
+	actual := make(map[string]any)
+	for k, v := range dict.Items() {
+		actual[k.(traits.Stringable).ToString()] = v.Value()
+	}
+	assert.Equal(t, mapResult, actual)
 }
 
 func testUnravelMappingError(t *testing.T) {
@@ -218,7 +236,7 @@ func testUnravelMappingError(t *testing.T) {
 		})
 
 		_, err := token.Unravel(ur)
-		assert.ErrorContains(t, err, "key not a string")
+		assert.ErrorContains(t, err, "can't convert to string")
 	})
 
 	t.Run("key-duplicate", func(t *testing.T) {

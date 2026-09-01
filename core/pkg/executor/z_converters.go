@@ -152,7 +152,7 @@ func ToActionSpec(action *actions.Action, repo *repository.Repository) (ActionSp
 	return spec, nil
 }
 
-func inputToken(m map[string]workflows.Input) workflows.Token {
+func inputToken(m map[string]actions.Input) workflows.Token {
 	tokens := make([][2]workflows.Token, 0)
 	for name, input := range m {
 		if input.Default != nil {
@@ -173,7 +173,7 @@ func inputToken(m map[string]workflows.Input) workflows.Token {
 	return nil
 }
 
-func outputToken(m map[string]workflows.Output) workflows.Token {
+func outputToken(m map[string]actions.Output) workflows.Token {
 	tokens := make([][2]workflows.Token, 0)
 	for name, output := range m {
 		if output.Value != nil {

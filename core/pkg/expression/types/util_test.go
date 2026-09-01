@@ -21,15 +21,15 @@ type L []string
 type M map[int]int
 
 type S struct {
-	Boolean bool              `actions:"boolean"`
-	Integer int64             `actions:"integer"`
-	Float   float64           `actions:"float"`
-	String  string            `actions:"string"`
-	List    []string          `actions:"list"`
-	Map     map[string]string `actions:"map"`
+	Boolean bool              `json:"boolean"`
+	Integer int64             `json:"integer"`
+	Float   float64           `json:"float"`
+	String  string            `json:"string"`
+	List    []string          `json:"list"`
+	Map     map[string]string `json:"map"`
 
-	Ignore   byte
-	EmptyTag rune `actions:""`
+	Ignore   byte `json:"-"`
+	EmptyTag rune `json:""`
 }
 
 // Pointer implement interface I
@@ -42,7 +42,7 @@ type FV float64
 type LV []string
 type MV map[int]int
 type SV struct {
-	Name string `actions:"name"`
+	Name string `json:"name"`
 }
 
 // Value implement interface I

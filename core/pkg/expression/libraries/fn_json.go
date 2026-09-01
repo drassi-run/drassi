@@ -7,7 +7,8 @@
 package libraries
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 
 	"drassi.run/core/pkg/expression/types"
 	"drassi.run/core/pkg/expression/types/ref"
@@ -17,7 +18,7 @@ import (
 func ToJSON(v ref.Val) ref.Val {
 	//TODO: go's encoding/json not support +/-Infinity and NaN, but C# does
 
-	if b, err := json.MarshalIndent(v.Value(), "", "  "); err != nil {
+	if b, err := json.Marshal(v, jsontext.WithIndent("  ")); err != nil {
 		return types.WrapError(err)
 	} else {
 		s := string(b)
@@ -38,8 +39,8 @@ func FromJson(v ref.Val) ref.Val {
 	var o any
 	if err := json.Unmarshal(b, &o); err != nil {
 		return types.WrapError(err)
-	} else {
-		val := types.NativeToVal(o)
-		return val
 	}
+
+	val := types.NativeToVal(o)
+	return val
 }

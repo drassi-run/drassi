@@ -7,157 +7,132 @@
 package workflows
 
 import (
-	"drassi.run/core/pkg/model"
-	"gotest.tools/v3/assert"
+	"encoding/json/v2"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
-type concurrencyTestStruct struct {
-	Con          Concurrency             `actions:"con"`
-	ConPtr       *Concurrency            `actions:"conPtr"`
-	ListOfCon    []Concurrency           `actions:"listOfCon"`
-	MapOfCon     map[string]Concurrency  `actions:"mapOfCon"`
-	ListOfConPtr []*Concurrency          `actions:"listOfConPtr"`
-	MapOfConPtr  map[string]*Concurrency `actions:"mapOfConPtr"`
-}
-
-func TestDecodeConcurrency(t *testing.T) {
-	t.Run("string", func(tt *testing.T) {
-		c := Concurrency{
-			Group: NewLiteralToken("group1"),
-		}
-		testDecodeConcurrency(tt, "group1", c)
-	})
-
-	t.Run("expr", func(tt *testing.T) {
-		c := Concurrency{
-			Group: NewExpressionToken("${{ foobar }}"),
-		}
-		testDecodeConcurrency(tt, "${{ foobar }}", c)
-	})
-
-	t.Run("map/group-expr", func(tt *testing.T) {
-		c := Concurrency{
-			Group:            NewExpressionToken("${{ foobar }}"),
-			CancelInProgress: true,
-		}
-		input := map[string]any{
-			"group":              "${{ foobar }}",
-			"cancel-in-progress": true,
-		}
-		testDecodeConcurrency(tt, input, c)
-	})
-	t.Run("map/group-string", func(tt *testing.T) {
-		c := Concurrency{
-			Group:            NewLiteralToken("group1"),
-			CancelInProgress: true,
-		}
-		input := map[string]any{
-			"group":              "group1",
-			"cancel-in-progress": true,
-		}
-		testDecodeConcurrency(tt, input, c)
-	})
-}
-
-func testDecodeConcurrency(tt *testing.T, value any, con Concurrency) {
-	data := map[string]any{
-		"con":       value,
-		"conPtr":    value,
-		"listOfCon": []any{value},
-		"mapOfCon": map[string]any{
-			"key": value,
+func TestOnSerde(t *testing.T) {
+	testcases := map[string]struct {
+		input string
+		fn    func(On, *testing.T)
+	}{
+		"string shorthand": {
+			input: `"push"`,
+			fn: func(got On, t *testing.T) {
+				_, ok := got["push"]
+				assert.True(t, ok)
+				assert.Len(t, got, 1)
+			},
 		},
-		"listOfConPtr": []any{value},
-		"mapOfConPtr": map[string]any{
-			"key": value,
+		"array shorthand": {
+			input: `["push","pull_request"]`,
+			fn: func(got On, t *testing.T) {
+				_, hasPush := got["push"]
+				_, hasPullRequest := got["pull_request"]
+				assert.True(t, hasPush)
+				assert.True(t, hasPullRequest)
+				assert.Len(t, got, 2)
+			},
+		},
+		"object": {
+			input: `{"pull_request":{"types":["opened"]}}`,
+			fn: func(got On, t *testing.T) {
+				assert.Len(t, got, 1)
+				assert.JSONEq(t, `{"types":["opened"]}`, string(got["pull_request"]))
+			},
 		},
 	}
-
-	actual := concurrencyTestStruct{}
-	err := model.Decode(data, &actual)
-
-	opts := comparerForLiteralToken()
-	expected := concurrencyTestStruct{
-		Con:          con,
-		ConPtr:       &con,
-		ListOfCon:    []Concurrency{con},
-		ListOfConPtr: []*Concurrency{&con},
-		MapOfCon:     map[string]Concurrency{"key": con},
-		MapOfConPtr:  map[string]*Concurrency{"key": &con},
-	}
-	assert.NilError(tt, err)
-	assert.DeepEqual(tt, actual, expected, opts)
-}
-
-type permissionTestStruct struct {
-	Perm Permissions `actions:"perm"`
-}
-
-func TestDecodePermissions(t *testing.T) {
-	t.Run("read-all", func(tt *testing.T) {
-		p := Permissions{
-			Actions:            PermissionsLevelRead,
-			Checks:             PermissionsLevelRead,
-			Contents:           PermissionsLevelRead,
-			Deployments:        PermissionsLevelRead,
-			Discussions:        PermissionsLevelRead,
-			IdToken:            PermissionsLevelRead,
-			Issues:             PermissionsLevelRead,
-			Packages:           PermissionsLevelRead,
-			Pages:              PermissionsLevelRead,
-			PullRequests:       PermissionsLevelRead,
-			RepositoryProjects: PermissionsLevelRead,
-			SecurityEvents:     PermissionsLevelRead,
-			Statuses:           PermissionsLevelRead,
-		}
-		testDecodePermissions(tt, "read-all", p)
-	})
-
-	t.Run("write-all", func(tt *testing.T) {
-		p := Permissions{
-			Actions:            PermissionsLevelWrite,
-			Checks:             PermissionsLevelWrite,
-			Contents:           PermissionsLevelWrite,
-			Deployments:        PermissionsLevelWrite,
-			Discussions:        PermissionsLevelWrite,
-			IdToken:            PermissionsLevelWrite,
-			Issues:             PermissionsLevelWrite,
-			Packages:           PermissionsLevelWrite,
-			Pages:              PermissionsLevelWrite,
-			PullRequests:       PermissionsLevelWrite,
-			RepositoryProjects: PermissionsLevelWrite,
-			SecurityEvents:     PermissionsLevelWrite,
-			Statuses:           PermissionsLevelWrite,
-		}
-		testDecodePermissions(tt, "write-all", p)
-	})
-
-	t.Run("specify", func(tt *testing.T) {
-		p := Permissions{
-			Actions:  PermissionsLevelWrite,
-			IdToken:  PermissionsLevelRead,
-			Issues:   PermissionsLevelNone,
-			Statuses: PermissionsLevelWrite,
-		}
-		d := map[string]any{
-			"actions":  PermissionsLevelWrite,
-			"id-token": PermissionsLevelRead,
-			"issues":   PermissionsLevelNone,
-			"statuses": PermissionsLevelWrite,
-		}
-		testDecodePermissions(tt, d, p)
-	})
-}
-
-func testDecodePermissions(tt *testing.T, value any, perm Permissions) {
-	data := map[string]any{
-		"perm": value,
+	for name, tc := range testcases {
+		t.Run(name, unmarshal(tc.input, tc.fn))
 	}
 
-	obj := permissionTestStruct{}
-	err := model.Decode(data, &obj)
+	t.Run("invalid kind", func(t *testing.T) {
+		var got On
+		input := `true`
+		err := json.Unmarshal([]byte(input), &got)
+		assert.ErrorContains(t, err, "expected string, array or object for On")
+	})
+}
 
-	assert.NilError(tt, err)
-	assert.Equal(tt, obj.Perm, perm)
+func TestPermissionsSerde(t *testing.T) {
+	testcases := map[string]struct {
+		input string
+		fn    func(Permissions, *testing.T)
+	}{
+		"read-all shorthand": {
+			input: `"read-all"`,
+			fn: func(got Permissions, t *testing.T) {
+				assert.Equal(t, Permissions{"*": PermissionsLevelRead}, got)
+			},
+		},
+		"write-all shorthand": {
+			input: `"write-all"`,
+			fn: func(got Permissions, t *testing.T) {
+				assert.Equal(t, Permissions{"*": PermissionsLevelWrite}, got)
+			},
+		},
+		"object": {
+			input: `{"actions":"read","contents":"write","issues":"none"}`,
+			fn: func(got Permissions, t *testing.T) {
+				assert.Equal(t, Permissions{
+					"actions":  PermissionsLevelRead,
+					"contents": PermissionsLevelWrite,
+					"issues":   PermissionsLevelNone,
+				}, got)
+			},
+		},
+	}
+	for name, tc := range testcases {
+		t.Run(name, unmarshal(tc.input, tc.fn))
+	}
+
+	t.Run("unknown shorthand", func(t *testing.T) {
+		var got Permissions
+		err := json.Unmarshal([]byte(`"admin-all"`), &got)
+
+		assert.ErrorContains(t, err, "unknown permission admin-all")
+	})
+
+	t.Run("invalid kind", func(t *testing.T) {
+		var got Permissions
+		err := json.Unmarshal([]byte(`true`), &got)
+
+		assert.ErrorContains(t, err, "expected string or object for Permission")
+	})
+}
+
+func TestConcurrencySerde(t *testing.T) {
+	opt := json.WithUnmarshalers(json.UnmarshalFromFunc(unmarshalToken))
+
+	testcases := map[string]struct {
+		input string
+		fn    func(Concurrency, *testing.T)
+	}{
+		"string shorthand": {
+			input: `"ci-main"`,
+			fn: func(got Concurrency, t *testing.T) {
+				assert.Equal(t, "ci-main", literalValue(t, got.Group))
+				assert.False(t, got.CancelInProgress)
+			},
+		},
+		"object": {
+			input: `{"group":"ci-main","cancel-in-progress":true}`,
+			fn: func(got Concurrency, t *testing.T) {
+				assert.Equal(t, "ci-main", literalValue(t, got.Group))
+				assert.True(t, got.CancelInProgress)
+			},
+		},
+	}
+	for name, tc := range testcases {
+		t.Run(name, unmarshal(tc.input, tc.fn, opt))
+	}
+
+	t.Run("invalid kind", func(t *testing.T) {
+		var got Concurrency
+		err := json.Unmarshal([]byte(`42`), &got, opt)
+
+		assert.ErrorContains(t, err, "expected string or object for Concurrency")
+	})
 }
