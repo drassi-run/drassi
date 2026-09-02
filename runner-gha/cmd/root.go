@@ -8,6 +8,7 @@ package cmd
 
 import (
 	"drassi.run/gha-runner/cmd/launch"
+	"drassi.run/gha-runner/cmd/migrate"
 	"drassi.run/gha-runner/cmd/register"
 	"github.com/spf13/cobra"
 )
@@ -22,6 +23,7 @@ func New() *cobra.Command {
 	cmd.AddCommand(
 		register.New(),
 		launch.New(),
+		migrate.New(),
 	)
 
 	return cmd
