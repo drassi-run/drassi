@@ -12,12 +12,12 @@ import (
 	"os"
 	"strings"
 
+	"charm.land/huh/v2"
 	"connectrpc.com/connect"
 	giteaconfig "drassi.run/gitea-runner/config"
 	"drassi.run/gitea-runner/pkg/gitea"
 	pingv1 "gitea.dev/actionslib/ping/v1"
 	runnerv1 "gitea.dev/actionslib/runner/v1"
-	"github.com/charmbracelet/huh"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/spf13/cobra"
 )
