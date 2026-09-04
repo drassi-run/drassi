@@ -27,6 +27,7 @@ type options struct {
 	defaultFeatureFlags bool          // use feature.Empty as feature.Flags
 	expressionOptions   []expr.Option // additional expression.Option
 	expressionAstCache  bool          // enable caching expression AST
+	forgeEnvPrefix      string
 }
 
 func ProvideDefaultDossier(b bool) Option {
@@ -53,10 +54,17 @@ func EnableExpressionAstCache() Option {
 	}
 }
 
+func ForgeEnvPrefix(s string) Option {
+	return func(o *options) {
+		o.forgeEnvPrefix = s
+	}
+}
+
 func Module(opts ...Option) *wire.Module {
 	o := &options{
 		defaultDossier:      true,
 		defaultFeatureFlags: true,
+		forgeEnvPrefix:      "GITHUB_",
 	}
 	for _, opt := range opts {
 		opt(o)
@@ -69,7 +77,7 @@ func Module(opts ...Option) *wire.Module {
 		if err := scope.Provide(StateEnv, dig.Group(wire.EnvProvider)); err != nil {
 			return fmt.Errorf("provide 'STATE_' EnvProvider: %w", err)
 		}
-		if err := scope.Provide(ForgeEnv, dig.Group(wire.EnvProvider)); err != nil {
+		if err := scope.Provide(o.ForgeEnv, dig.Group(wire.EnvProvider)); err != nil {
 			return fmt.Errorf("provide 'GITHUB_' EnvProvider: %w", err)
 		}
 		if err := scope.Provide(RunnerEnv, dig.Group(wire.EnvProvider)); err != nil {
@@ -170,43 +178,43 @@ func StateEnv() exec.EnvProvider {
 	return exec.EnvProviderFunc(fn)
 }
 
-func ForgeEnv() exec.EnvProvider {
+func (o *options) ForgeEnv() exec.EnvProvider {
 	fn := func(e exec.StepExecutor) map[string]string {
 		forge := e.Forge()
 
 		// set GITHUB_* env
 		return map[string]string{
-			"GITHUB_ACTION":              forge.Action,
-			"GITHUB_ACTION_REF":          forge.ActionRef,
-			"GITHUB_ACTION_REPOSITORY":   forge.ActionRepository,
-			"GITHUB_ACTOR":               forge.Actor,
-			"GITHUB_ACTOR_ID":            forge.ActorId,
-			"GITHUB_API_URL":             forge.ApiUrl,
-			"GITHUB_BASE_REF":            forge.BaseRef,
-			"GITHUB_EVENT_NAME":          forge.EventName,
-			"GITHUB_EVENT_PATH":          forge.EventPath,
-			"GITHUB_GRAPHQL_URL":         forge.GraphqlUrl,
-			"GITHUB_HEAD_REF":            forge.HeadRef,
-			"GITHUB_JOB":                 forge.Job,
-			"GITHUB_REF":                 forge.Ref,
-			"GITHUB_REF_NAME":            forge.RefName,
-			"GITHUB_REF_PROTECTED":       strconv.FormatBool(forge.RefProtected),
-			"GITHUB_REF_TYPE":            string(forge.RefType),
-			"GITHUB_REPOSITORY":          forge.Repository,
-			"GITHUB_REPOSITORY_ID":       forge.RepositoryId,
-			"GITHUB_REPOSITORY_OWNER":    forge.RepositoryOwner,
-			"GITHUB_REPOSITORY_OWNER_ID": forge.RepositoryOwnerId,
-			"GITHUB_RETENTION_DAYS":      forge.RetentionDays,
-			"GITHUB_RUN_ATTEMPT":         forge.RunAttempt,
-			"GITHUB_RUN_ID":              forge.RunId,
-			"GITHUB_RUN_NUMBER":          forge.RunNumber,
-			"GITHUB_SERVER_URL":          forge.ServerUrl,
-			"GITHUB_SHA":                 forge.Sha,
-			"GITHUB_TRIGGERING_ACTOR":    forge.TriggeringActor,
-			"GITHUB_WORKFLOW":            forge.Workflow,
-			"GITHUB_WORKFLOW_REF":        forge.WorkflowRef,
-			"GITHUB_WORKFLOW_SHA":        forge.WorkflowSha,
-			"GITHUB_WORKSPACE":           forge.Workspace,
+			o.forgeEnvPrefix + "ACTION":              forge.Action,
+			o.forgeEnvPrefix + "ACTION_REF":          forge.ActionRef,
+			o.forgeEnvPrefix + "ACTION_REPOSITORY":   forge.ActionRepository,
+			o.forgeEnvPrefix + "ACTOR":               forge.Actor,
+			o.forgeEnvPrefix + "ACTOR_ID":            forge.ActorId,
+			o.forgeEnvPrefix + "API_URL":             forge.ApiUrl,
+			o.forgeEnvPrefix + "BASE_REF":            forge.BaseRef,
+			o.forgeEnvPrefix + "EVENT_NAME":          forge.EventName,
+			o.forgeEnvPrefix + "EVENT_PATH":          forge.EventPath,
+			o.forgeEnvPrefix + "GRAPHQL_URL":         forge.GraphqlUrl,
+			o.forgeEnvPrefix + "HEAD_REF":            forge.HeadRef,
+			o.forgeEnvPrefix + "JOB":                 forge.Job,
+			o.forgeEnvPrefix + "REF":                 forge.Ref,
+			o.forgeEnvPrefix + "REF_NAME":            forge.RefName,
+			o.forgeEnvPrefix + "REF_PROTECTED":       strconv.FormatBool(forge.RefProtected),
+			o.forgeEnvPrefix + "REF_TYPE":            string(forge.RefType),
+			o.forgeEnvPrefix + "REPOSITORY":          forge.Repository,
+			o.forgeEnvPrefix + "REPOSITORY_ID":       forge.RepositoryId,
+			o.forgeEnvPrefix + "REPOSITORY_OWNER":    forge.RepositoryOwner,
+			o.forgeEnvPrefix + "REPOSITORY_OWNER_ID": forge.RepositoryOwnerId,
+			o.forgeEnvPrefix + "RETENTION_DAYS":      forge.RetentionDays,
+			o.forgeEnvPrefix + "RUN_ATTEMPT":         forge.RunAttempt,
+			o.forgeEnvPrefix + "RUN_ID":              forge.RunId,
+			o.forgeEnvPrefix + "RUN_NUMBER":          forge.RunNumber,
+			o.forgeEnvPrefix + "SERVER_URL":          forge.ServerUrl,
+			o.forgeEnvPrefix + "SHA":                 forge.Sha,
+			o.forgeEnvPrefix + "TRIGGERING_ACTOR":    forge.TriggeringActor,
+			o.forgeEnvPrefix + "WORKFLOW":            forge.Workflow,
+			o.forgeEnvPrefix + "WORKFLOW_REF":        forge.WorkflowRef,
+			o.forgeEnvPrefix + "WORKFLOW_SHA":        forge.WorkflowSha,
+			o.forgeEnvPrefix + "WORKSPACE":           forge.Workspace,
 		}
 	}
 	return exec.EnvProviderFunc(fn)
