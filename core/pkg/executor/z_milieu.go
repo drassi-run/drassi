@@ -15,7 +15,7 @@ import (
 type Milieu interface {
 	Stage() Stage
 	StepSpec() *StepSpec
-	Github() *records.Github
+	Forge() *records.Forge
 
 	AddPath(paths []string)
 	SetEnv(env map[string]string)
@@ -44,8 +44,8 @@ func (s *milieu) StepSpec() *StepSpec {
 	return s.exec.StepSpec()
 }
 
-func (s *milieu) Github() *records.Github {
-	return s.exec.Github()
+func (s *milieu) Forge() *records.Forge {
+	return s.exec.Forge()
 }
 
 func (s *milieu) AddPath(paths []string) {

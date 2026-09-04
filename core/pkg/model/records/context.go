@@ -10,9 +10,9 @@ package records
 // Each context is an object that contains properties, which can be strings or other objects.
 // https://docs.github.com/en/actions/learn-github-actions/contexts#about-contexts
 type Dossier struct {
-	// The `github` context contains information about the workflow run and the event that triggered the run.
+	// The `forge` context contains information about the workflow run and the event that triggered the run.
 	// https://docs.github.com/en/actions/learn-github-actions/contexts#github-contex
-	Github *Github `json:"github"`
+	Forge *Forge `json:"github"`
 
 	// The `env` context contains variables that have been set in a workflow, job, or step.
 	// It does not contain variables inherited by the runner process.

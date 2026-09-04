@@ -193,40 +193,40 @@ func (c *MockJobExecutorExprEnvCall) DoAndReturn(f func() expression.Env) *MockJ
 	return c
 }
 
-// Github mocks base method.
-func (m *MockJobExecutor) Github() *records.Github {
+// Forge mocks base method.
+func (m *MockJobExecutor) Forge() *records.Forge {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Github")
-	ret0, _ := ret[0].(*records.Github)
+	ret := m.ctrl.Call(m, "Forge")
+	ret0, _ := ret[0].(*records.Forge)
 	return ret0
 }
 
-// Github indicates an expected call of Github.
-func (mr *MockJobExecutorMockRecorder) Github() *MockJobExecutorGithubCall {
+// Forge indicates an expected call of Forge.
+func (mr *MockJobExecutorMockRecorder) Forge() *MockJobExecutorForgeCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Github", reflect.TypeOf((*MockJobExecutor)(nil).Github))
-	return &MockJobExecutorGithubCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Forge", reflect.TypeOf((*MockJobExecutor)(nil).Forge))
+	return &MockJobExecutorForgeCall{Call: call}
 }
 
-// MockJobExecutorGithubCall wrap *gomock.Call
-type MockJobExecutorGithubCall struct {
+// MockJobExecutorForgeCall wrap *gomock.Call
+type MockJobExecutorForgeCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockJobExecutorGithubCall) Return(arg0 *records.Github) *MockJobExecutorGithubCall {
+func (c *MockJobExecutorForgeCall) Return(arg0 *records.Forge) *MockJobExecutorForgeCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockJobExecutorGithubCall) Do(f func() *records.Github) *MockJobExecutorGithubCall {
+func (c *MockJobExecutorForgeCall) Do(f func() *records.Forge) *MockJobExecutorForgeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockJobExecutorGithubCall) DoAndReturn(f func() *records.Github) *MockJobExecutorGithubCall {
+func (c *MockJobExecutorForgeCall) DoAndReturn(f func() *records.Forge) *MockJobExecutorForgeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

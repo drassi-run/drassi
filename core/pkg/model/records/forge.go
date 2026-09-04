@@ -6,9 +6,9 @@
 
 package records
 
-// The github context contains information about the workflow run and the event that triggered the run.
+// Forge (a.k.a `github`) is the context contains information about the workflow run and the event that triggered the run.
 // https://docs.github.com/en/actions/learn-github-actions/contexts#github-context
-type Github struct {
+type Forge struct {
 	Action            string       `json:"action"`
 	ActionPath        string       `json:"action_path"`
 	ActionRef         string       `json:"action_ref"`

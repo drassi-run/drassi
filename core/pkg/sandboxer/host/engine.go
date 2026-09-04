@@ -78,19 +78,19 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*san
 
 func (e *engine) sandboxDir(req *sandboxer.LaunchRequest) string {
 	var server string
-	if u, err := url.Parse(req.Github.ServerUrl); err == nil {
+	if u, err := url.Parse(req.Forge.ServerUrl); err == nil {
 		server = u.Host
 	}
 	server = strings.ToLower(server)
-	repo := strings.ToLower(req.Github.Repository)
+	repo := strings.ToLower(req.Forge.Repository)
 
-	workflow := strings.TrimSuffix(req.Github.Workflow, ".yml")
+	workflow := strings.TrimSuffix(req.Forge.Workflow, ".yml")
 	workflow = strings.TrimSuffix(workflow, ".yaml")
 	workflow = xstring.Normalize(workflow)
 
-	job := xstring.Normalize(req.Github.Job)
-	run := xstring.Normalize(req.Github.RunId)
-	attempt := xstring.Normalize(req.Github.RunAttempt)
+	job := xstring.Normalize(req.Forge.Job)
+	run := xstring.Normalize(req.Forge.RunId)
+	attempt := xstring.Normalize(req.Forge.RunAttempt)
 
 	path := filepath.Join(server, repo, workflow, job, run+"_"+attempt)
 	return path

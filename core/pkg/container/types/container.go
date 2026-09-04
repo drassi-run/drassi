@@ -44,9 +44,9 @@ const (
 	LabelRun        = "run.drassi.run"
 )
 
-func LabelsFor(gh *records.Github) map[string]string {
-	repo := gh.Repository
-	if u, err := url.Parse(gh.ServerUrl); err == nil {
+func LabelsFor(forge *records.Forge) map[string]string {
+	repo := forge.Repository
+	if u, err := url.Parse(forge.ServerUrl); err == nil {
 		if server := u.Host; server != "" {
 			server = strings.ToLower(server)
 			server = strings.TrimRight(server, "/")
@@ -55,12 +55,12 @@ func LabelsFor(gh *records.Github) map[string]string {
 	}
 
 	labels := map[string]string{
-		LabelRepository: repo,          // e.g: github.com/drassi-run/drassi
-		LabelReference:  gh.Ref,        // e.g: refs/heads/main
-		LabelWorkflow:   gh.Workflow,   // e.g: test
-		LabelJob:        gh.Job,        // e.g: unittests
-		LabelAttempt:    gh.RunAttempt, // e.g: 1
-		LabelRun:        gh.RunId,      // e.g: 11208400917
+		LabelRepository: repo,             // e.g: github.com/drassi-run/drassi
+		LabelReference:  forge.Ref,        // e.g: refs/heads/main
+		LabelWorkflow:   forge.Workflow,   // e.g: test
+		LabelJob:        forge.Job,        // e.g: unittests
+		LabelAttempt:    forge.RunAttempt, // e.g: 1
+		LabelRun:        forge.RunId,      // e.g: 11208400917
 	}
 	return labels
 }

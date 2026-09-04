@@ -38,7 +38,7 @@ type JobExecutor interface {
 	Sandbox() sandboxer.Sandbox
 	ExprEnv() expression.Env
 
-	Github() *records.Github
+	Forge() *records.Forge
 	Path() []string
 	AddPath(paths []string)
 	Env() map[string]string
@@ -65,7 +65,7 @@ type jobExecutor struct {
 	scope *dig.Scope
 
 	// records
-	github  *records.Github
+	forge   *records.Forge
 	jobInfo *records.JobInfo
 	job     *records.JobResult
 	steps   map[string]*records.StepResult
@@ -158,24 +158,24 @@ func (e *jobExecutor) injectDeps(ctx context.Context) error {
 	if err := xdig.Populate(e.scope, &e.env); err != nil {
 		return fmt.Errorf("populate 'env': %w", err)
 	}
-	if err := xdig.Populate(e.scope, &e.github); err != nil {
-		return fmt.Errorf("populate 'github': %w", err)
+	if err := xdig.Populate(e.scope, &e.forge); err != nil {
+		return fmt.Errorf("populate 'forge': %w", err)
 	}
 
-	// sanitize GitHub
-	e.github = new(*e.github) // clone
-	e.github.Job = e.spec.Id
-	e.github.Action = ""
-	e.github.ActionPath = ""
-	e.github.ActionRef = ""
-	e.github.ActionRepository = ""
-	e.github.ActionStatus = ""
+	// sanitize Forge
+	e.forge = new(*e.forge) // clone
+	e.forge.Job = e.spec.Id
+	e.forge.Action = ""
+	e.forge.ActionPath = ""
+	e.forge.ActionRef = ""
+	e.forge.ActionRepository = ""
+	e.forge.ActionStatus = ""
 	e.jobInfo = new(records.JobInfo)
 	e.steps = make(map[string]*records.StepResult, len(e.spec.Steps))
 
 	// setup expression.Env
 	opts := []expression.Option{
-		expression.WithVariable("github", e.github),
+		expression.WithVariable("github", e.forge),
 		expression.WithVariable("job", e.jobInfo),
 		expression.WithVariable("steps", e.steps),
 		expression.WithVariable("env", e.env),
@@ -263,8 +263,8 @@ func (e *jobExecutor) initializeSandbox(ctx context.Context, s *scribe.Scribe) e
 	}
 
 	req := &sandboxer.LaunchRequest{
-		Uid:    e.spec.Uid,
-		Github: e.github,
+		Uid:   e.spec.Uid,
+		Forge: e.forge,
 	}
 
 	s.Debugf("Evaluating 'container'")
@@ -293,7 +293,7 @@ func (e *jobExecutor) initializeSandbox(ctx context.Context, s *scribe.Scribe) e
 		e.jobInfo.Services = resp.ServiceContainers
 
 		layout := e.sandbox.Layout()
-		e.github.Workspace = layout.Workspace
+		e.forge.Workspace = layout.Workspace
 
 		if err = xdig.Supply(e.scope, resp.ContainerEngine, dig.Export(true)); err != nil {
 			return fmt.Errorf("supply 'container.Engine': %w", err)
@@ -306,7 +306,7 @@ func (e *jobExecutor) initializeSandbox(ctx context.Context, s *scribe.Scribe) e
 	if location, err := e.setupEventFile(ctx); err != nil {
 		return err
 	} else {
-		e.github.EventPath = location
+		e.forge.EventPath = location
 	}
 
 	// register SandboxLib (e.g. hashFiles func) to expression.Env
@@ -332,8 +332,8 @@ func (e *jobExecutor) initializeScope() error {
 	if err := xdig.Supply(e.scope, e.exprEnv); err != nil {
 		return fmt.Errorf("supply 'exprEnv': %w", err)
 	}
-	if err := xdig.Supply(e.scope, e.github); err != nil {
-		return fmt.Errorf("supply 'github': %w", err)
+	if err := xdig.Supply(e.scope, e.forge); err != nil {
+		return fmt.Errorf("supply 'forge': %w", err)
 	}
 	if err := xdig.Supply(e.scope, e.jobInfo, dig.Export(true)); err != nil {
 		return fmt.Errorf("supply 'jobInfo': %w", err)
@@ -504,8 +504,8 @@ func (e *jobExecutor) ExprEnv() expression.Env {
 	return e.exprEnv
 }
 
-func (e *jobExecutor) Github() *records.Github {
-	return e.github
+func (e *jobExecutor) Forge() *records.Forge {
+	return e.forge
 }
 
 // Status return current job's Result
@@ -564,7 +564,7 @@ func (e *jobExecutor) SetEnv(env map[string]string) {
 
 func (e *jobExecutor) setupEventFile(ctx context.Context) (string, error) {
 	tmp := e.sandbox.Layout().Temp
-	files := map[string]any{"workflow/event.json": e.github.Event}
+	files := map[string]any{"workflow/event.json": e.forge.Event}
 	r, err := xtar.JsonObjectReader(files, false)
 	if err != nil {
 		return "", err

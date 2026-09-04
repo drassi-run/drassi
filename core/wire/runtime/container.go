@@ -35,11 +35,11 @@ func NewContainerRuntime(
 	engine container.Engine,
 	sandbox sandboxer.Sandbox,
 	info *records.JobInfo,
-	gh *records.Github,
+	forge *records.Forge,
 ) (runtime.Container, error) {
 	opts := make([]runtime.ContainerRuntimeOption, 0)
 	opts = append(opts, runtime.WithWorkDir(workspaceDir))
-	if opt := labelsOpt(gh); opt != nil {
+	if opt := labelsOpt(forge); opt != nil {
 		opts = append(opts, opt)
 	}
 	if opt := networkOpt(info); opt != nil {
@@ -75,8 +75,8 @@ func NewContainerRuntime(
 	return runtime.NewContainerRuntime(engine, opts...)
 }
 
-func labelsOpt(gh *records.Github) runtime.ContainerRuntimeOption {
-	labels := types.LabelsFor(gh)
+func labelsOpt(forge *records.Forge) runtime.ContainerRuntimeOption {
+	labels := types.LabelsFor(forge)
 	return runtime.WithLabels(labels)
 }
 

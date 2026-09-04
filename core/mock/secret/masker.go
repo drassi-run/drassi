@@ -41,15 +41,15 @@ func (m *MockMasker) EXPECT() *MockMaskerMockRecorder {
 }
 
 // AddSecret mocks base method.
-func (m *MockMasker) AddSecret(secret secret.Secret) {
+func (m *MockMasker) AddSecret(arg0 secret.Secret) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "AddSecret", secret)
+	m.ctrl.Call(m, "AddSecret", arg0)
 }
 
 // AddSecret indicates an expected call of AddSecret.
-func (mr *MockMaskerMockRecorder) AddSecret(secret any) *MockMaskerAddSecretCall {
+func (mr *MockMaskerMockRecorder) AddSecret(arg0 any) *MockMaskerAddSecretCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddSecret", reflect.TypeOf((*MockMasker)(nil).AddSecret), secret)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddSecret", reflect.TypeOf((*MockMasker)(nil).AddSecret), arg0)
 	return &MockMaskerAddSecretCall{Call: call}
 }
 

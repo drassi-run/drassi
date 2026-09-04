@@ -143,13 +143,13 @@ func (e *compositeActionExecutor) CreateTask(stage Stage) *ActionTask {
 
 func (e *compositeActionExecutor) runStage(stage Stage, tasks []*StepTask) ActionRun {
 	return func(ctx context.Context) (records.Result, error) {
-		gh := e.sExec.Github()
+		forge := e.sExec.Forge()
 		errs := make([]error, 0)
 		cause := error(nil)
 		e.status = records.ResultSuccess
 
 		for _, task := range tasks {
-			gh.ActionStatus = e.status
+			forge.ActionStatus = e.status
 
 			res, err := task.Run(ctx)
 			if con := res.Conclusion; level(e.status) < level(con) {
