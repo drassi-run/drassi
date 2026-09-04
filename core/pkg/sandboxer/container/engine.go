@@ -194,7 +194,6 @@ func (e *engine) Bootstrap(ctx context.Context, sb sandboxer.Sandbox, req *sandb
 		g, ctx := errgroup.WithContext(ctx)
 		g.SetLimit(8)
 		for name, def := range req.ServiceContainers {
-			name, def := name, def
 			g.Go(func() error {
 				if containerId, err := e.runContainer(ctx, def, refiners); err != nil {
 					return err
