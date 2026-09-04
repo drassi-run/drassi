@@ -41,7 +41,7 @@ type StepExecutor interface {
 	Streams(ctx context.Context, stage Stage) *stream.Streams
 
 	Name(stage Stage) string
-	Github() *records.Github
+	Forge() *records.Forge
 	Inputs() map[string]string
 	SetOutput(output map[string]string)
 	Env() map[string]string
@@ -113,7 +113,7 @@ type stepExecutor struct {
 	aExec  ActionExecutor
 
 	// records
-	github *records.Github
+	forge *records.Forge
 
 	name    string
 	inputs  map[string]string
@@ -163,11 +163,11 @@ func (e *stepExecutor) init(ctx context.Context, scope *dig.Scope) (ex error) {
 	if err := xdig.Populate(scope, &e.factory); err != nil {
 		return fmt.Errorf("populate 'stream.Factory': %w", err)
 	}
-	if err := xdig.Populate(scope, &e.github); err != nil {
-		return fmt.Errorf("populate 'github': %w", err)
+	if err := xdig.Populate(scope, &e.forge); err != nil {
+		return fmt.Errorf("populate 'forge': %w", err)
 	}
-	e.github = new(*e.github) // clone
-	e.github.Action = e.spec.Id
+	e.forge = new(*e.forge) // clone
+	e.forge.Action = e.spec.Id
 	e.inputs = make(map[string]string)
 	e.outputs = make(map[string]string)
 	e.env = maps.Clone(e.upperEnv())
@@ -175,7 +175,7 @@ func (e *stepExecutor) init(ctx context.Context, scope *dig.Scope) (ex error) {
 
 	// setup expression.Env
 	opts := []expression.Option{
-		expression.WithVariable("github", &e.github),
+		expression.WithVariable("github", &e.forge),
 		expression.WithVariable("env", e.env),
 	}
 	if e.parent == nil {
@@ -203,8 +203,8 @@ func (e *stepExecutor) init(ctx context.Context, scope *dig.Scope) (ex error) {
 	if r, ok := e.spec.Action.(interface{ Repository() *repository.Repository }); ok {
 		repo := r.Repository()
 
-		e.github.ActionRepository = repo.Name
-		e.github.ActionRef = repo.Ref
+		e.forge.ActionRepository = repo.Name
+		e.forge.ActionRef = repo.Ref
 	}
 
 	// initialize displayName
@@ -215,8 +215,8 @@ func (e *stepExecutor) init(ctx context.Context, scope *dig.Scope) (ex error) {
 	if err := xdig.Supply(scope, e.exprEnv); err != nil {
 		return fmt.Errorf("supply 'exprEnv': %w", err)
 	}
-	if err := xdig.Supply(scope, e.github); err != nil {
-		return fmt.Errorf("supply 'github': %w", err)
+	if err := xdig.Supply(scope, e.forge); err != nil {
+		return fmt.Errorf("supply 'forge': %w", err)
 	}
 	if err := xdig.Supply(scope, e.env); err != nil {
 		return fmt.Errorf("supply 'env': %w", err)
@@ -528,8 +528,8 @@ func (e *stepExecutor) Name(stage Stage) string {
 	}
 }
 
-func (e *stepExecutor) Github() *records.Github {
-	return e.github
+func (e *stepExecutor) Forge() *records.Forge {
+	return e.forge
 }
 
 // Inputs return evaluated inputs

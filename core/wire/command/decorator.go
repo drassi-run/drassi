@@ -79,8 +79,8 @@ func (r *refinePathReporter) AddIssue(ctx context.Context, res exec.Milieu, iss 
 		}
 
 		// convert file to workspace relative path & inject repo info
-		gh := res.Github()
-		ws := xstring.EnsureSuffix(gh.Workspace, "/")
+		forge := res.Forge()
+		ws := xstring.EnsureSuffix(forge.Workspace, "/")
 
 		// convert absolute path into workspace relative path if possible
 		if f, ok := strings.CutPrefix(file, ws); ok {
@@ -89,7 +89,7 @@ func (r *refinePathReporter) AddIssue(ctx context.Context, res exec.Milieu, iss 
 
 		// file is in workspace
 		if filepath.IsLocal(file) && !strings.HasPrefix(filepath.Dir(file), "~") {
-			iss.Data["repo"] = gh.Repository
+			iss.Data["repo"] = forge.Repository
 		}
 
 		iss.Data["file"] = file

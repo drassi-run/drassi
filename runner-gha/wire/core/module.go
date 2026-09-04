@@ -127,8 +127,8 @@ func newDossierAndFlags(req *messages.PipelineAgentJobRequest, runner *records.R
 		return nil, nil, fmt.Errorf("decode ContextData: %w", err)
 	}
 
-	if dossier.Github == nil {
-		dossier.Github = new(records.Github)
+	if dossier.Forge == nil {
+		dossier.Forge = new(records.Forge)
 	}
 	if dossier.Env == nil {
 		dossier.Env = make(map[string]string)
@@ -137,17 +137,17 @@ func newDossierAndFlags(req *messages.PipelineAgentJobRequest, runner *records.R
 
 	// GitHub context
 	// https://github.com/actions/runner/blob/v2.324.0/src/Runner.Worker/ExecutionContext.cs#L882-L891
-	github := dossier.Github
-	if github.Token == "" {
+	forge := dossier.Forge
+	if forge.Token == "" {
 		if v, ok := req.Variables["system.github.token"]; ok {
-			github.Token = v.Value
+			forge.Token = v.Value
 		} else if v, ok = req.Variables["github_token"]; ok {
-			github.Token = v.Value
+			forge.Token = v.Value
 		}
 	}
-	if github.Job == "" {
+	if forge.Job == "" {
 		if v, ok := req.Variables["system.github.job"]; ok {
-			github.Job = v.Value
+			forge.Job = v.Value
 		}
 	}
 

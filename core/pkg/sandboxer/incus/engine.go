@@ -94,7 +94,7 @@ func (e *engine) Close() error {
 }
 
 func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*sandboxer.LaunchResponse, error) {
-	name := e.sandboxName(req.Github)
+	name := e.sandboxName(req.Forge)
 	iReq := incusapi.InstancesPost{
 		Name:         name,
 		Start:        true,
@@ -134,17 +134,17 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*san
 	return b.Bootstrap(ctx, s, req)
 }
 
-func (e *engine) sandboxName(gh *records.Github) string {
-	repo := xstring.Normalize(gh.Repository)
+func (e *engine) sandboxName(forge *records.Forge) string {
+	repo := xstring.Normalize(forge.Repository)
 	repo = strings.ToLower(repo)
 
-	workflow := strings.TrimSuffix(gh.Workflow, ".yml")
+	workflow := strings.TrimSuffix(forge.Workflow, ".yml")
 	workflow = strings.TrimSuffix(workflow, ".yaml")
 	workflow = xstring.Normalize(workflow)
 
-	job := xstring.Normalize(gh.Job)
-	run := xstring.Normalize(gh.RunId)
-	attempt := xstring.Normalize(gh.RunAttempt)
+	job := xstring.Normalize(forge.Job)
+	run := xstring.Normalize(forge.RunId)
+	attempt := xstring.Normalize(forge.RunAttempt)
 
 	name := strings.Join([]string{repo, workflow, job, run, attempt}, "-")
 	name = strings.ReplaceAll(name, "_", "-")

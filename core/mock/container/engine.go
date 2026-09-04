@@ -353,17 +353,17 @@ func (c *MockEngineCopyOutCall) DoAndReturn(f func(context.Context, string, *con
 }
 
 // ImageBuild mocks base method.
-func (m *MockEngine) ImageBuild(ctx context.Context, context io.Reader, opts *container.BuildOptions) error {
+func (m *MockEngine) ImageBuild(ctx context.Context, arg1 io.Reader, opts *container.BuildOptions) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ImageBuild", ctx, context, opts)
+	ret := m.ctrl.Call(m, "ImageBuild", ctx, arg1, opts)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ImageBuild indicates an expected call of ImageBuild.
-func (mr *MockEngineMockRecorder) ImageBuild(ctx, context, opts any) *MockEngineImageBuildCall {
+func (mr *MockEngineMockRecorder) ImageBuild(ctx, arg1, opts any) *MockEngineImageBuildCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImageBuild", reflect.TypeOf((*MockEngine)(nil).ImageBuild), ctx, context, opts)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImageBuild", reflect.TypeOf((*MockEngine)(nil).ImageBuild), ctx, arg1, opts)
 	return &MockEngineImageBuildCall{Call: call}
 }
 

@@ -96,18 +96,18 @@ func (w *Worker) run(scope *dig.Scope) (err error) {
 }
 
 func (w *Worker) initOtel(scope *dig.Scope) (func(context.Context) (context.Context, func(*error)), error) {
-	var gh *records.Github
-	if err := xdig.Populate(scope, &gh); err != nil {
-		return nil, fmt.Errorf("inject records.Github: %w", err)
+	var forge *records.Forge
+	if err := xdig.Populate(scope, &forge); err != nil {
+		return nil, fmt.Errorf("inject records.Forge: %w", err)
 	}
 
 	fn := func(ctx context.Context) (context.Context, func(*error)) {
 		// TODO set LogLevel=Debug if RunnerDebug=true
 		return xotel.SetupTelemetry(ctx, "worker",
-			xotel.Repo(gh.Repository),
-			xotel.Workflow(gh.Workflow),
-			xotel.Run(gh.RunId+"#"+gh.RunAttempt),
-			xotel.Job(gh.Job),
+			xotel.Repo(forge.Repository),
+			xotel.Workflow(forge.Workflow),
+			xotel.Run(forge.RunId+"#"+forge.RunAttempt),
+			xotel.Job(forge.Job),
 		)
 	}
 	return fn, nil

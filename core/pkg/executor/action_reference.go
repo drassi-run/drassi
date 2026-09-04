@@ -52,14 +52,14 @@ func (spec *ReferenceActionSpec) CreateExecutor(
 	s := scribe.FromContext(ctx)
 
 	var (
-		github *records.Github
-		store  gitstore.Store
+		forge *records.Forge
+		store gitstore.Store
 	)
 
 	span := trace.SpanFromContext(ctx)
 	span.SetAttributes(xotel.ActionRepo(repository.Location(spec.Repo)))
 
-	if err := xdig.Populate(scope, &github); err != nil {
+	if err := xdig.Populate(scope, &forge); err != nil {
 		return nil, err
 	}
 	if err := xdig.Populate(scope, &store); err != nil {
@@ -69,10 +69,10 @@ func (spec *ReferenceActionSpec) CreateExecutor(
 		return nil, err
 	}
 
-	token := github.Token
+	token := forge.Token
 	// If the action is located in different server than the job repo,
 	// unset the token to prevent an unauthenticated error.
-	if repository.Endpoint(spec.Repo) != spec.serverDomain(github.ServerUrl) {
+	if repository.Endpoint(spec.Repo) != spec.serverDomain(forge.ServerUrl) {
 		token = ""
 	}
 

@@ -102,7 +102,7 @@ func testConditionalFailure(t *testing.T) {
 }
 
 func TestStructContextEvaluation(t *testing.T) {
-	gh := &records.Github{
+	gh := &records.Forge{
 		Sha:   "abc1234",
 		Actor: "octocat",
 	}

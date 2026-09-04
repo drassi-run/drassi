@@ -235,40 +235,40 @@ func (c *MockStepExecutorExprEnvCall) DoAndReturn(f func() expression.Env) *Mock
 	return c
 }
 
-// Github mocks base method.
-func (m *MockStepExecutor) Github() *records.Github {
+// Forge mocks base method.
+func (m *MockStepExecutor) Forge() *records.Forge {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Github")
-	ret0, _ := ret[0].(*records.Github)
+	ret := m.ctrl.Call(m, "Forge")
+	ret0, _ := ret[0].(*records.Forge)
 	return ret0
 }
 
-// Github indicates an expected call of Github.
-func (mr *MockStepExecutorMockRecorder) Github() *MockStepExecutorGithubCall {
+// Forge indicates an expected call of Forge.
+func (mr *MockStepExecutorMockRecorder) Forge() *MockStepExecutorForgeCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Github", reflect.TypeOf((*MockStepExecutor)(nil).Github))
-	return &MockStepExecutorGithubCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Forge", reflect.TypeOf((*MockStepExecutor)(nil).Forge))
+	return &MockStepExecutorForgeCall{Call: call}
 }
 
-// MockStepExecutorGithubCall wrap *gomock.Call
-type MockStepExecutorGithubCall struct {
+// MockStepExecutorForgeCall wrap *gomock.Call
+type MockStepExecutorForgeCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStepExecutorGithubCall) Return(arg0 *records.Github) *MockStepExecutorGithubCall {
+func (c *MockStepExecutorForgeCall) Return(arg0 *records.Forge) *MockStepExecutorForgeCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStepExecutorGithubCall) Do(f func() *records.Github) *MockStepExecutorGithubCall {
+func (c *MockStepExecutorForgeCall) Do(f func() *records.Forge) *MockStepExecutorForgeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStepExecutorGithubCall) DoAndReturn(f func() *records.Github) *MockStepExecutorGithubCall {
+func (c *MockStepExecutorForgeCall) DoAndReturn(f func() *records.Forge) *MockStepExecutorForgeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

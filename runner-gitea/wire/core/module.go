@@ -40,14 +40,14 @@ func configureDossier(task *runnerv1.Task, d *records.Dossier) (*records.Dossier
 	d.Secrets = task.Secrets
 	d.Variables = task.Vars
 	d.Needs = convertJobNeeds(task.Needs)
-	github := d.Github
-	if err := model.Decode(task.Context.AsMap(), github); err != nil {
+	forge := d.Forge
+	if err := model.Decode(task.Context.AsMap(), forge); err != nil {
 		return nil, err
-	} else if github.Token == "" {
+	} else if forge.Token == "" {
 		if t := task.Secrets["GITEA_TOKEN"]; t != "" {
-			github.Token = t
+			forge.Token = t
 		} else if t = task.Secrets["GITHUB_TOKEN"]; t != "" {
-			github.Token = t
+			forge.Token = t
 		}
 	}
 	return d, nil
@@ -60,7 +60,7 @@ func configureSecretMasker(task *runnerv1.Task, sm secret.Masker) secret.Masker 
 	return sm
 }
 
-func endpointEnv(client gitea.Client, task *runnerv1.Task, gh *records.Github) executor.EnvProvider {
+func endpointEnv(client gitea.Client, task *runnerv1.Task, forge *records.Forge) executor.EnvProvider {
 	endpoint := client.Address()
 	endpoint = strings.TrimSuffix(endpoint, "/")
 
@@ -68,7 +68,7 @@ func endpointEnv(client gitea.Client, task *runnerv1.Task, gh *records.Github) e
 	token := taskContext["gitea_runtime_token"].GetStringValue()
 	if token == "" {
 		// use task token to action api token for previous Gitea Server Versions
-		token = gh.Token
+		token = forge.Token
 	}
 
 	m := map[string]string{

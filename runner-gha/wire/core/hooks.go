@@ -17,9 +17,9 @@ import (
 	"drassi.run/gha-runner/pkg/messages"
 )
 
-func printSecretSource[R any](gh *records.Github) executor.Hook[R] {
+func printSecretSource[R any](forge *records.Forge) executor.Hook[R] {
 	return executor.HookFunc[R](func(ctx context.Context, r R) error {
-		scribe.Writef(ctx, "Secret source: %s", gh.SecretSource)
+		scribe.Writef(ctx, "Secret source: %s", forge.SecretSource)
 		return nil
 	})
 }

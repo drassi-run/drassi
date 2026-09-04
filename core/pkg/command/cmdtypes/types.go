@@ -31,6 +31,6 @@ type HasPathTranslator interface {
 	PathTranslator() runtime.PathTranslator
 }
 
-type HasGithub interface {
-	Github() *records.Github
+type HasForge interface {
+	Forge() *records.Forge
 }

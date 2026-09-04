@@ -319,64 +319,64 @@ func (c *MockHasPathTranslatorPathTranslatorCall) DoAndReturn(f func() runtime.P
 	return c
 }
 
-// MockHasGithub is a mock of HasGithub interface.
-type MockHasGithub struct {
+// MockHasForge is a mock of HasForge interface.
+type MockHasForge struct {
 	ctrl     *gomock.Controller
-	recorder *MockHasGithubMockRecorder
+	recorder *MockHasForgeMockRecorder
 	isgomock struct{}
 }
 
-// MockHasGithubMockRecorder is the mock recorder for MockHasGithub.
-type MockHasGithubMockRecorder struct {
-	mock *MockHasGithub
+// MockHasForgeMockRecorder is the mock recorder for MockHasForge.
+type MockHasForgeMockRecorder struct {
+	mock *MockHasForge
 }
 
-// NewMockHasGithub creates a new mock instance.
-func NewMockHasGithub(ctrl *gomock.Controller) *MockHasGithub {
-	mock := &MockHasGithub{ctrl: ctrl}
-	mock.recorder = &MockHasGithubMockRecorder{mock}
+// NewMockHasForge creates a new mock instance.
+func NewMockHasForge(ctrl *gomock.Controller) *MockHasForge {
+	mock := &MockHasForge{ctrl: ctrl}
+	mock.recorder = &MockHasForgeMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockHasGithub) EXPECT() *MockHasGithubMockRecorder {
+func (m *MockHasForge) EXPECT() *MockHasForgeMockRecorder {
 	return m.recorder
 }
 
-// Github mocks base method.
-func (m *MockHasGithub) Github() *records.Github {
+// Forge mocks base method.
+func (m *MockHasForge) Forge() *records.Forge {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Github")
-	ret0, _ := ret[0].(*records.Github)
+	ret := m.ctrl.Call(m, "Forge")
+	ret0, _ := ret[0].(*records.Forge)
 	return ret0
 }
 
-// Github indicates an expected call of Github.
-func (mr *MockHasGithubMockRecorder) Github() *MockHasGithubGithubCall {
+// Forge indicates an expected call of Forge.
+func (mr *MockHasForgeMockRecorder) Forge() *MockHasForgeForgeCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Github", reflect.TypeOf((*MockHasGithub)(nil).Github))
-	return &MockHasGithubGithubCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Forge", reflect.TypeOf((*MockHasForge)(nil).Forge))
+	return &MockHasForgeForgeCall{Call: call}
 }
 
-// MockHasGithubGithubCall wrap *gomock.Call
-type MockHasGithubGithubCall struct {
+// MockHasForgeForgeCall wrap *gomock.Call
+type MockHasForgeForgeCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockHasGithubGithubCall) Return(arg0 *records.Github) *MockHasGithubGithubCall {
+func (c *MockHasForgeForgeCall) Return(arg0 *records.Forge) *MockHasForgeForgeCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockHasGithubGithubCall) Do(f func() *records.Github) *MockHasGithubGithubCall {
+func (c *MockHasForgeForgeCall) Do(f func() *records.Forge) *MockHasForgeForgeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockHasGithubGithubCall) DoAndReturn(f func() *records.Github) *MockHasGithubGithubCall {
+func (c *MockHasForgeForgeCall) DoAndReturn(f func() *records.Forge) *MockHasForgeForgeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -22,8 +22,8 @@ type Engine interface {
 }
 
 type LaunchRequest struct {
-	Uid    string
-	Github *records.Github
+	Uid   string
+	Forge *records.Forge
 
 	JobContainer      *workflows.Container
 	ServiceContainers map[string]*workflows.Container
