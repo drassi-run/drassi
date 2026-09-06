@@ -155,3 +155,10 @@ func (s *ManagerTestSuite) TestUnmount() {
 		s.Require().Contains(err.Error(), "device busy")
 	})
 }
+
+func (s *ManagerTestSuite) TestClose() {
+	s.store.EXPECT().Shutdown(false).Return([]string(nil), nil)
+
+	err := s.mgr.Close()
+	s.Require().NoError(err)
+}

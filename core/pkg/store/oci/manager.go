@@ -98,6 +98,6 @@ func (m *manager) Unmount(_ context.Context, layerId string) error {
 }
 
 func (m *manager) Close() error {
-	//TODO implement me
-	panic("implement me")
+	_, err := m.store.Shutdown(false)
+	return err
 }
