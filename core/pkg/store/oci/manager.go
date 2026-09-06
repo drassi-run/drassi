@@ -12,6 +12,11 @@ import (
 	"fmt"
 	"sync"
 
+	xstring "drassi.run/core/util/string"
+	"go.podman.io/image/v5/copy"
+	"go.podman.io/image/v5/docker"
+	istorage "go.podman.io/image/v5/storage"
+	"go.podman.io/image/v5/types"
 	"go.podman.io/storage"
 	"golang.org/x/sync/singleflight"
 )
@@ -29,13 +34,15 @@ type Manager interface {
 }
 
 func New(store storage.Store) Manager {
-	return &manager{store: store}
+	return &manager{store: store, pull: pull}
 }
 
 type manager struct {
 	store storage.Store
 	sf    singleflight.Group
 	mu    sync.Mutex
+
+	pull func(ctx context.Context, destRef, srcRef types.ImageReference, opts ...PullOption) error
 }
 
 func (m *manager) Image(_ context.Context, imageRef string) (*storage.Image, error) {
@@ -50,8 +57,56 @@ func (m *manager) Image(_ context.Context, imageRef string) (*storage.Image, err
 }
 
 func (m *manager) Pull(ctx context.Context, imageRef string, opts ...PullOption) (*storage.Image, error) {
-	//TODO implement me
-	panic("implement me")
+	srcRef, err := docker.ParseReference(xstring.EnsurePrefix(imageRef, "//"))
+	if err != nil {
+		return nil, fmt.Errorf("parse source reference %q: %w", imageRef, err)
+	}
+
+	destRef, err := istorage.Transport.ParseStoreReference(m.store, imageRef)
+	if err != nil {
+		return nil, fmt.Errorf("parse destination reference %q: %w", imageRef, err)
+	}
+
+	v, err, _ := m.sf.Do(imageRef, func() (any, error) {
+		if err := m.pull(ctx, destRef, srcRef, opts...); err != nil {
+			return nil, fmt.Errorf("copy image %q: %w", imageRef, err)
+		}
+
+		if img, err := m.store.Image(imageRef); err != nil {
+			return nil, fmt.Errorf("lookup pulled image %q: %w", imageRef, err)
+		} else {
+			return img, nil
+		}
+	})
+
+	if err != nil {
+		return nil, err
+	}
+	return v.(*storage.Image), nil
+}
+
+func pull(ctx context.Context, destRef, srcRef types.ImageReference, opts ...PullOption) error {
+	po := new(pullOptions)
+	for _, opt := range opts {
+		opt(po)
+	}
+
+	pc, ephemeral, err := po.PolicyCtx()
+	if err != nil {
+		return err
+	}
+	if ephemeral {
+		defer pc.Destroy()
+	}
+
+	copyOpts := &copy.Options{
+		ReportWriter:   po.ReportWriter,
+		SourceCtx:      po.SystemContext,
+		DestinationCtx: po.SystemContext,
+	}
+
+	_, err = copy.Image(ctx, pc, destRef, srcRef, copyOpts)
+	return err
 }
 
 func (m *manager) Mount(_ context.Context, image *storage.Image, opts ...MountOption) (string, string, error) {

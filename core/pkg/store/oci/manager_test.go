@@ -1,11 +1,18 @@
 package ocistore
 
 import (
+	"context"
 	"errors"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	mock_storage "drassi.run/core/mock/podman/storage"
+	mock_io "drassi.run/core/mock/sdk/io"
 	"github.com/stretchr/testify/suite"
+	"go.podman.io/image/v5/signature"
+	"go.podman.io/image/v5/types"
 	"go.podman.io/storage"
 	"go.uber.org/mock/gomock"
 )
@@ -51,6 +58,214 @@ func (s *ManagerTestSuite) TestImage() {
 		img, err := s.mgr.Image(s.T().Context(), "nonexistent:tag")
 		s.Require().NoError(err)
 		s.Require().Nil(img)
+	})
+}
+
+func (s *ManagerTestSuite) TestPull() {
+	s.Run("success singleflight concurrent", func() {
+		expectedImg := &storage.Image{
+			ID:       "img-pulled",
+			TopLayer: "layer-pulled",
+		}
+
+		var copyCount atomic.Int32
+		s.mgr.pull = func(ctx context.Context, destRef, srcRef types.ImageReference, opts ...PullOption) error {
+			copyCount.Add(1)
+			time.Sleep(50 * time.Millisecond) // simulate copy latency
+			return nil
+		}
+
+		s.store.EXPECT().Image("alpine:latest").Return(expectedImg, nil).Times(1)
+
+		const concurrency = 5
+		var wg sync.WaitGroup
+
+		wg.Add(concurrency)
+		for i := 0; i < concurrency; i++ {
+			go func() {
+				defer wg.Done()
+				img, err := s.mgr.Pull(s.T().Context(), "alpine:latest")
+				s.Require().NoError(err)
+				s.Require().Equal(expectedImg, img)
+			}()
+		}
+
+		wg.Wait()
+		s.Require().Equal(int32(1), copyCount.Load())
+	})
+
+	s.Run("options and context propagation", func() {
+		expectedImg := &storage.Image{
+			ID:       "img-custom",
+			TopLayer: "layer-custom",
+		}
+
+		var (
+			capturedSrcRef  types.ImageReference
+			capturedDestRef types.ImageReference
+			capturedOpts    []PullOption
+		)
+
+		s.mgr.pull = func(ctx context.Context, destRef, srcRef types.ImageReference, opts ...PullOption) error {
+			capturedSrcRef = srcRef
+			capturedDestRef = destRef
+			capturedOpts = opts
+			return nil
+		}
+
+		s.store.EXPECT().Image("docker.io/library/ubuntu:22.04").Return(expectedImg, nil)
+
+		policy := &signature.Policy{
+			Default: []signature.PolicyRequirement{signature.NewPRInsecureAcceptAnything()},
+		}
+		pCtx, err := signature.NewPolicyContext(policy)
+		s.Require().NoError(err)
+		defer pCtx.Destroy()
+
+		mockWriter := mock_io.NewMockWriter(s.ctrl)
+
+		img, err := s.mgr.Pull(
+			s.T().Context(),
+			"docker.io/library/ubuntu:22.04",
+			WithAuth("testuser", "testpass"),
+			WithAuthFile("/tmp/auth.json"),
+			WithReportWriter(mockWriter),
+			WithInsecureSkipTLSVerify(true),
+			WithPlatform("linux", "arm64"),
+			WithPolicyContext(pCtx),
+		)
+		s.Require().NoError(err)
+		s.Require().Equal(expectedImg, img)
+
+		s.Require().NotNil(capturedSrcRef)
+		s.Require().NotNil(capturedDestRef)
+		s.Require().NotEmpty(capturedOpts)
+
+		po := new(pullOptions)
+		for _, opt := range capturedOpts {
+			opt(po)
+		}
+		s.Require().Equal(mockWriter, po.ReportWriter)
+		s.Require().NotNil(po.SystemContext)
+		s.Require().Equal("testuser", po.SystemContext.DockerAuthConfig.Username)
+		s.Require().Equal("testpass", po.SystemContext.DockerAuthConfig.Password)
+		s.Require().Equal("/tmp/auth.json", po.SystemContext.AuthFilePath)
+		s.Require().Equal(types.OptionalBoolTrue, po.SystemContext.DockerInsecureSkipTLSVerify)
+		s.Require().Equal("linux", po.SystemContext.OSChoice)
+		s.Require().Equal("arm64", po.SystemContext.ArchitectureChoice)
+		s.Require().Equal(pCtx, po.PolicyContext)
+
+		resPC, ephemeral, err := po.PolicyCtx()
+		s.Require().NoError(err)
+		s.Require().False(ephemeral)
+		s.Require().Equal(pCtx, resPC)
+	})
+
+	s.Run("individual arch and os options", func() {
+		var capturedOpts []PullOption
+		s.mgr.pull = func(ctx context.Context, destRef, srcRef types.ImageReference, opts ...PullOption) error {
+			capturedOpts = opts
+			return nil
+		}
+
+		s.store.EXPECT().Image("alpine:3.20").Return(&storage.Image{ID: "img-alpine"}, nil)
+
+		_, err := s.mgr.Pull(
+			s.T().Context(),
+			"alpine:3.20",
+			WithArchitecture("riscv64"),
+			WithOS("freebsd"),
+		)
+		s.Require().NoError(err)
+		po := new(pullOptions)
+		for _, opt := range capturedOpts {
+			opt(po)
+		}
+		s.Require().Equal("riscv64", po.SystemContext.ArchitectureChoice)
+		s.Require().Equal("freebsd", po.SystemContext.OSChoice)
+	})
+
+	s.Run("custom system context option", func() {
+		customSys := &types.SystemContext{
+			DockerRegistryUserAgent: "custom-agent",
+		}
+
+		var capturedOpts []PullOption
+		s.mgr.pull = func(ctx context.Context, destRef, srcRef types.ImageReference, opts ...PullOption) error {
+			capturedOpts = opts
+			return nil
+		}
+
+		s.store.EXPECT().Image("alpine:3.20").Return(&storage.Image{ID: "img-alpine"}, nil)
+
+		_, err := s.mgr.Pull(
+			s.T().Context(),
+			"alpine:3.20",
+			WithSystemContext(customSys),
+		)
+		s.Require().NoError(err)
+		po := new(pullOptions)
+		for _, opt := range capturedOpts {
+			opt(po)
+		}
+		s.Require().Equal(customSys, po.SystemContext)
+	})
+
+	s.Run("invalid source reference", func() {
+		img, err := s.mgr.Pull(s.T().Context(), ":::invalid reference:::")
+		s.Require().Error(err)
+		s.Require().Nil(img)
+		s.Require().Contains(err.Error(), "parse source reference")
+	})
+
+	s.Run("copy error propagation", func() {
+		s.mgr.pull = func(ctx context.Context, destRef, srcRef types.ImageReference, opts ...PullOption) error {
+			return errors.New("network timeout")
+		}
+
+		img, err := s.mgr.Pull(s.T().Context(), "alpine:latest")
+		s.Require().Error(err)
+		s.Require().Nil(img)
+		s.Require().Contains(err.Error(), "copy image \"alpine:latest\": network timeout")
+	})
+
+	s.Run("lookup after pull error", func() {
+		s.mgr.pull = func(ctx context.Context, destRef, srcRef types.ImageReference, opts ...PullOption) error {
+			return nil
+		}
+
+		s.store.EXPECT().Image("alpine:latest").Return(nil, errors.New("store corrupted"))
+
+		img, err := s.mgr.Pull(s.T().Context(), "alpine:latest")
+		s.Require().Error(err)
+		s.Require().Nil(img)
+		s.Require().Contains(err.Error(), "lookup pulled image \"alpine:latest\": store corrupted")
+	})
+}
+
+func (s *ManagerTestSuite) TestPullOptions_PolicyCtx() {
+	s.Run("default fallback policy when policy context is nil", func() {
+		po := new(pullOptions)
+		pc, ephemeral, err := po.PolicyCtx()
+		s.Require().NoError(err)
+		s.Require().True(ephemeral)
+		s.Require().NotNil(pc)
+		_ = pc.Destroy()
+	})
+
+	s.Run("explicit policy context returns non-ephemeral", func() {
+		policy := &signature.Policy{
+			Default: []signature.PolicyRequirement{signature.NewPRInsecureAcceptAnything()},
+		}
+		expectedPC, err := signature.NewPolicyContext(policy)
+		s.Require().NoError(err)
+		defer expectedPC.Destroy()
+
+		po := &pullOptions{PolicyContext: expectedPC}
+		pc, ephemeral, err := po.PolicyCtx()
+		s.Require().NoError(err)
+		s.Require().False(ephemeral)
+		s.Require().Equal(expectedPC, pc)
 	})
 }
 
