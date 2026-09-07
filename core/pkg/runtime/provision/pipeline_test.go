@@ -71,16 +71,16 @@ func TestPipelinePreLaunchError(t *testing.T) {
 }
 
 func TestPipelinePostLaunchError(t *testing.T) {
-	op1 := &mockOp{name: "op1", postErr: errors.New("post fail")}
-	op2 := &mockOp{name: "op2"}
+	op1 := &mockOp{name: "op1"}
+	op2 := &mockOp{name: "op2", postErr: errors.New("post fail")}
 
 	p := provision.NewPipeline(op1, op2)
 	pctx := provision.NewContext(context.Background(), "python", &config.Runtime{}, "/target")
 
 	err := p.PostLaunch(pctx, nil)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), `operation "op1" post-launch failed for runtime "python": post fail`)
-	require.False(t, op2.postCalled)
+	require.Contains(t, err.Error(), `operation "op2" post-launch failed for runtime "python": post fail`)
+	require.False(t, op1.postCalled)
 }
 
 func TestPipelineEmpty(t *testing.T) {

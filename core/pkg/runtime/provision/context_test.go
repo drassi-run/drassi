@@ -7,6 +7,7 @@ import (
 
 	"drassi.run/core/config"
 	"drassi.run/core/pkg/runtime/provision"
+	ocistore "drassi.run/core/pkg/store/oci"
 	"github.com/stretchr/testify/require"
 )
 
@@ -32,6 +33,14 @@ func TestContextGenericState(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, "mount-12345", mountID)
 	require.Equal(t, "mount-12345", pctx.MustGet(provision.KeyMountID))
+
+	// Test KeyImage
+	img := &ocistore.Image{ID: "img-node"}
+	pctx.Set(provision.KeyImage, img)
+	gotImg, ok := pctx.Get(provision.KeyImage)
+	require.True(t, ok)
+	require.Equal(t, img, gotImg)
+	require.Equal(t, img, pctx.MustGet(provision.KeyImage))
 
 	// Test missing key
 	const keyMissing = provision.StateKey[int]("missing_key")

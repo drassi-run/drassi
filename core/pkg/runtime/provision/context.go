@@ -10,11 +10,6 @@ import (
 
 type StateKey[T any] string
 
-const (
-	KeyHostMountDir = StateKey[string]("host_mount_dir")
-	KeyMountID      = StateKey[string]("mount_id")
-)
-
 type Context struct {
 	context.Context
 
