@@ -49,6 +49,104 @@ func (s *ManagerTestSuite) SetupTest() {
 	s.mgr = New(s.store).(*manager)
 }
 
+func (s *ManagerTestSuite) newPolicyContext() *signature.PolicyContext {
+	s.T().Helper()
+	policy := &signature.Policy{
+		Default: []signature.PolicyRequirement{signature.NewPRInsecureAcceptAnything()},
+	}
+	pCtx, err := signature.NewPolicyContext(policy)
+	s.Require().NoError(err)
+	s.T().Cleanup(func() { _ = pCtx.Destroy() })
+	return pCtx
+}
+
+func (s *ManagerTestSuite) capturePullOptions(targetImg *storage.Image, opts ...PullOption) *pullOptions {
+	s.T().Helper()
+	var capturedOpts []PullOption
+	s.mgr.pull = func(ctx context.Context, destRef, srcRef types.ImageReference, opts ...PullOption) error {
+		capturedOpts = opts
+		return nil
+	}
+
+	s.store.EXPECT().Image(gomock.Any()).Return(targetImg, nil)
+
+	_, err := s.mgr.Pull(s.T().Context(), "alpine:3.20", opts...)
+	s.Require().NoError(err)
+	po := new(pullOptions)
+	for _, opt := range capturedOpts {
+		opt(po)
+	}
+	return po
+}
+
+func (s *ManagerTestSuite) mockCreateLayer(parent, layerID string, err error) *storage.Layer {
+	s.T().Helper()
+	var layer *storage.Layer
+	if err == nil {
+		layer = &storage.Layer{ID: layerID, Parent: parent}
+	}
+	s.store.EXPECT().CreateLayer("", parent, []string(nil), "", true, (*storage.LayerOptions)(nil)).Return(layer, err)
+	return layer
+}
+
+func (s *ManagerTestSuite) mockImageMount(layerID, mountDir string) *storage.Image {
+	s.T().Helper()
+	s.store.EXPECT().Mount(layerID, "").Return(mountDir, nil)
+	s.store.EXPECT().Unmount(layerID, false).Return(false, nil)
+	return &storage.Image{ID: "img-" + layerID, TopLayer: layerID}
+}
+
+func (s *ManagerTestSuite) createTempDir(files, symlinks map[string]string) string {
+	s.T().Helper()
+	tempDir := s.T().TempDir()
+	for relPath, content := range files {
+		fullPath := filepath.Join(tempDir, relPath)
+		s.Require().NoError(os.MkdirAll(filepath.Dir(fullPath), 0o755))
+		s.Require().NoError(os.WriteFile(fullPath, []byte(content), 0o644))
+	}
+	for linkName, target := range symlinks {
+		fullPath := filepath.Join(tempDir, linkName)
+		s.Require().NoError(os.MkdirAll(filepath.Dir(fullPath), 0o755))
+		s.Require().NoError(os.Symlink(target, fullPath))
+	}
+	return tempDir
+}
+
+func (s *ManagerTestSuite) assertTar(r io.Reader, expectedEntries, expectedSymlinks map[string]string) {
+	s.T().Helper()
+	entries := make(map[string]string)
+	symlinks := make(map[string]string)
+	tr := tar.NewReader(r)
+
+	for {
+		hdr, err := tr.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		s.Require().NoError(err)
+
+		if hdr.Typeflag == tar.TypeSymlink {
+			symlinks[hdr.Name] = hdr.Linkname
+		} else if hdr.Typeflag == tar.TypeReg {
+			content, err := io.ReadAll(tr)
+			s.Require().NoError(err)
+			entries[hdr.Name] = string(content)
+		}
+	}
+
+	if expectedEntries != nil {
+		s.Require().Equal(expectedEntries, entries)
+	} else {
+		s.Require().Empty(entries)
+	}
+
+	if expectedSymlinks != nil {
+		s.Require().Equal(expectedSymlinks, symlinks)
+	} else {
+		s.Require().Empty(symlinks)
+	}
+}
+
 func (s *ManagerTestSuite) TestImage() {
 	s.Run("found", func() {
 		expectedImg := &storage.Image{
@@ -125,13 +223,7 @@ func (s *ManagerTestSuite) TestPull() {
 
 		s.store.EXPECT().Image("docker.io/library/ubuntu:22.04").Return(expectedImg, nil)
 
-		policy := &signature.Policy{
-			Default: []signature.PolicyRequirement{signature.NewPRInsecureAcceptAnything()},
-		}
-		pCtx, err := signature.NewPolicyContext(policy)
-		s.Require().NoError(err)
-		defer pCtx.Destroy()
-
+		pCtx := s.newPolicyContext()
 		mockWriter := mock_io.NewMockWriter(s.ctrl)
 
 		img, err := s.mgr.Pull(
@@ -172,25 +264,7 @@ func (s *ManagerTestSuite) TestPull() {
 	})
 
 	s.Run("individual arch and os options", func() {
-		var capturedOpts []PullOption
-		s.mgr.pull = func(ctx context.Context, destRef, srcRef types.ImageReference, opts ...PullOption) error {
-			capturedOpts = opts
-			return nil
-		}
-
-		s.store.EXPECT().Image("alpine:3.20").Return(&storage.Image{ID: "img-alpine"}, nil)
-
-		_, err := s.mgr.Pull(
-			s.T().Context(),
-			"alpine:3.20",
-			WithArchitecture("riscv64"),
-			WithOS("freebsd"),
-		)
-		s.Require().NoError(err)
-		po := new(pullOptions)
-		for _, opt := range capturedOpts {
-			opt(po)
-		}
+		po := s.capturePullOptions(&storage.Image{ID: "img-alpine"}, WithArchitecture("riscv64"), WithOS("freebsd"))
 		s.Require().Equal("riscv64", po.SystemContext.ArchitectureChoice)
 		s.Require().Equal("freebsd", po.SystemContext.OSChoice)
 	})
@@ -199,25 +273,7 @@ func (s *ManagerTestSuite) TestPull() {
 		customSys := &types.SystemContext{
 			DockerRegistryUserAgent: "custom-agent",
 		}
-
-		var capturedOpts []PullOption
-		s.mgr.pull = func(ctx context.Context, destRef, srcRef types.ImageReference, opts ...PullOption) error {
-			capturedOpts = opts
-			return nil
-		}
-
-		s.store.EXPECT().Image("alpine:3.20").Return(&storage.Image{ID: "img-alpine"}, nil)
-
-		_, err := s.mgr.Pull(
-			s.T().Context(),
-			"alpine:3.20",
-			WithSystemContext(customSys),
-		)
-		s.Require().NoError(err)
-		po := new(pullOptions)
-		for _, opt := range capturedOpts {
-			opt(po)
-		}
+		po := s.capturePullOptions(&storage.Image{ID: "img-alpine"}, WithSystemContext(customSys))
 		s.Require().Equal(customSys, po.SystemContext)
 	})
 
@@ -264,12 +320,7 @@ func (s *ManagerTestSuite) TestPullOptions_PolicyCtx() {
 	})
 
 	s.Run("explicit policy context returns non-ephemeral", func() {
-		policy := &signature.Policy{
-			Default: []signature.PolicyRequirement{signature.NewPRInsecureAcceptAnything()},
-		}
-		expectedPC, err := signature.NewPolicyContext(policy)
-		s.Require().NoError(err)
-		defer expectedPC.Destroy()
+		expectedPC := s.newPolicyContext()
 
 		po := &pullOptions{PolicyContext: expectedPC}
 		pc, ephemeral, err := po.PolicyCtx()
@@ -280,11 +331,9 @@ func (s *ManagerTestSuite) TestPullOptions_PolicyCtx() {
 }
 
 func (s *ManagerTestSuite) TestMount() {
+	img := &storage.Image{ID: "img-123", TopLayer: "layer-top-456"}
+
 	s.Run("read-only base mount success", func() {
-		img := &storage.Image{
-			ID:       "img-123",
-			TopLayer: "layer-top-456",
-		}
 		s.store.EXPECT().Mount("layer-top-456", "").Return("/var/lib/oci/mounts/layer-top-456", nil)
 
 		mountDir, id, err := s.mgr.Mount(s.T().Context(), img)
@@ -294,10 +343,6 @@ func (s *ManagerTestSuite) TestMount() {
 	})
 
 	s.Run("read-only mount layer mount error", func() {
-		img := &storage.Image{
-			ID:       "img-123",
-			TopLayer: "layer-top-456",
-		}
 		s.store.EXPECT().Mount("layer-top-456", "").Return("", errors.New("mount permission denied"))
 
 		mountDir, id, err := s.mgr.Mount(s.T().Context(), img)
@@ -308,16 +353,7 @@ func (s *ManagerTestSuite) TestMount() {
 	})
 
 	s.Run("writable COW mount success", func() {
-		img := &storage.Image{
-			ID:       "img-123",
-			TopLayer: "layer-base-456",
-		}
-		cowLayer := &storage.Layer{
-			ID:     "layer-cow-789",
-			Parent: "layer-base-456",
-		}
-
-		s.store.EXPECT().CreateLayer("", "layer-base-456", []string(nil), "", true, (*storage.LayerOptions)(nil)).Return(cowLayer, nil)
+		s.mockCreateLayer("layer-top-456", "layer-cow-789", nil)
 		s.store.EXPECT().Mount("layer-cow-789", "").Return("/var/lib/oci/mounts/layer-cow-789", nil)
 
 		mountDir, id, err := s.mgr.Mount(s.T().Context(), img, WithWritable(true))
@@ -327,11 +363,7 @@ func (s *ManagerTestSuite) TestMount() {
 	})
 
 	s.Run("writable COW mount create layer error", func() {
-		img := &storage.Image{
-			ID:       "img-123",
-			TopLayer: "layer-base-456",
-		}
-		s.store.EXPECT().CreateLayer("", "layer-base-456", []string(nil), "", true, (*storage.LayerOptions)(nil)).Return(nil, errors.New("disk full"))
+		s.mockCreateLayer("layer-top-456", "layer-cow-789", errors.New("disk full"))
 
 		mountDir, id, err := s.mgr.Mount(s.T().Context(), img, WithWritable(true))
 		s.Require().Error(err)
@@ -341,16 +373,7 @@ func (s *ManagerTestSuite) TestMount() {
 	})
 
 	s.Run("writable COW mount mount error cleans up layer", func() {
-		img := &storage.Image{
-			ID:       "img-123",
-			TopLayer: "layer-base-456",
-		}
-		cowLayer := &storage.Layer{
-			ID:     "layer-cow-789",
-			Parent: "layer-base-456",
-		}
-
-		s.store.EXPECT().CreateLayer("", "layer-base-456", []string(nil), "", true, (*storage.LayerOptions)(nil)).Return(cowLayer, nil)
+		s.mockCreateLayer("layer-top-456", "layer-cow-789", nil)
 		s.store.EXPECT().Mount("layer-cow-789", "").Return("", errors.New("failed to mount"))
 		s.store.EXPECT().DeleteLayer("layer-cow-789").Return(nil)
 
@@ -381,52 +404,13 @@ func (s *ManagerTestSuite) TestUnmount() {
 	})
 }
 
-func (s *ManagerTestSuite) assertTar(r io.Reader, expectedEntries, expectedSymlinks map[string]string) {
-	s.T().Helper()
-	entries := make(map[string]string)
-	symlinks := make(map[string]string)
-	tr := tar.NewReader(r)
-
-	for {
-		hdr, err := tr.Next()
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		s.Require().NoError(err)
-
-		if hdr.Typeflag == tar.TypeSymlink {
-			symlinks[hdr.Name] = hdr.Linkname
-		} else if hdr.Typeflag == tar.TypeReg {
-			content, err := io.ReadAll(tr)
-			s.Require().NoError(err)
-			entries[hdr.Name] = string(content)
-		}
-	}
-
-	if expectedEntries != nil {
-		s.Require().Equal(expectedEntries, entries)
-	} else {
-		s.Require().Empty(entries)
-	}
-
-	if expectedSymlinks != nil {
-		s.Require().Equal(expectedSymlinks, symlinks)
-	} else {
-		s.Require().Empty(symlinks)
-	}
-}
-
 func (s *ManagerTestSuite) TestRead() {
 	s.Run("full image success", func() {
-		tempDir := s.T().TempDir()
-		s.Require().NoError(os.WriteFile(filepath.Join(tempDir, "file1.txt"), []byte("content1"), 0o644))
-		s.Require().NoError(os.MkdirAll(filepath.Join(tempDir, "sub"), 0o755))
-		s.Require().NoError(os.WriteFile(filepath.Join(tempDir, "sub", "file2.txt"), []byte("content2"), 0o644))
-		s.Require().NoError(os.Symlink("file1.txt", filepath.Join(tempDir, "link1")))
-
-		img := &storage.Image{ID: "img-read-1", TopLayer: "layer-read-1"}
-		s.store.EXPECT().Mount("layer-read-1", "").Return(tempDir, nil)
-		s.store.EXPECT().Unmount("layer-read-1", false).Return(false, nil)
+		tempDir := s.createTempDir(
+			map[string]string{"file1.txt": "content1", "sub/file2.txt": "content2"},
+			map[string]string{"link1": "file1.txt"},
+		)
+		img := s.mockImageMount("layer-read-1", tempDir)
 
 		rc, err := s.mgr.Read(s.T().Context(), img)
 		s.Require().NoError(err)
@@ -441,15 +425,11 @@ func (s *ManagerTestSuite) TestRead() {
 	})
 
 	s.Run("subpath directory success", func() {
-		tempDir := s.T().TempDir()
-		appConfigDir := filepath.Join(tempDir, "app", "config")
-		s.Require().NoError(os.MkdirAll(appConfigDir, 0o755))
-		s.Require().NoError(os.WriteFile(filepath.Join(appConfigDir, "settings.json"), []byte(`{"port":8080}`), 0o644))
-		s.Require().NoError(os.WriteFile(filepath.Join(appConfigDir, "app.conf"), []byte("key=val"), 0o644))
-
-		img := &storage.Image{ID: "img-read-2", TopLayer: "layer-read-2"}
-		s.store.EXPECT().Mount("layer-read-2", "").Return(tempDir, nil)
-		s.store.EXPECT().Unmount("layer-read-2", false).Return(false, nil)
+		tempDir := s.createTempDir(map[string]string{
+			"app/config/settings.json": `{"port":8080}`,
+			"app/config/app.conf":      "key=val",
+		}, nil)
+		img := s.mockImageMount("layer-read-2", tempDir)
 
 		rc, err := s.mgr.Read(s.T().Context(), img, WithSubpath("app/config"))
 		s.Require().NoError(err)
@@ -462,30 +442,18 @@ func (s *ManagerTestSuite) TestRead() {
 	})
 
 	s.Run("subpath single file success", func() {
-		tempDir := s.T().TempDir()
-		appDir := filepath.Join(tempDir, "app")
-		s.Require().NoError(os.MkdirAll(appDir, 0o755))
-		s.Require().NoError(os.WriteFile(filepath.Join(appDir, "config.yaml"), []byte("env: test"), 0o644))
-
-		img := &storage.Image{ID: "img-read-3", TopLayer: "layer-read-3"}
-		s.store.EXPECT().Mount("layer-read-3", "").Return(tempDir, nil)
-		s.store.EXPECT().Unmount("layer-read-3", false).Return(false, nil)
+		tempDir := s.createTempDir(map[string]string{"app/config.yaml": "env: test"}, nil)
+		img := s.mockImageMount("layer-read-3", tempDir)
 
 		rc, err := s.mgr.Read(s.T().Context(), img, WithSubpath("/app/config.yaml"))
 		s.Require().NoError(err)
 		defer rc.Close()
 
-		s.assertTar(rc, map[string]string{
-			"config.yaml": "env: test",
-		}, nil)
+		s.assertTar(rc, map[string]string{"config.yaml": "env: test"}, nil)
 	})
 
 	s.Run("subpath not found error unmounts layer", func() {
-		tempDir := s.T().TempDir()
-
-		img := &storage.Image{ID: "img-read-4", TopLayer: "layer-read-4"}
-		s.store.EXPECT().Mount("layer-read-4", "").Return(tempDir, nil)
-		s.store.EXPECT().Unmount("layer-read-4", false).Return(false, nil)
+		img := s.mockImageMount("layer-read-4", s.T().TempDir())
 
 		rc, err := s.mgr.Read(s.T().Context(), img, WithSubpath("nonexistent"))
 		s.Require().Error(err)
@@ -494,11 +462,7 @@ func (s *ManagerTestSuite) TestRead() {
 	})
 
 	s.Run("subpath escapes root error unmounts layer", func() {
-		tempDir := s.T().TempDir()
-
-		img := &storage.Image{ID: "img-read-5", TopLayer: "layer-read-5"}
-		s.store.EXPECT().Mount("layer-read-5", "").Return(tempDir, nil)
-		s.store.EXPECT().Unmount("layer-read-5", false).Return(false, nil)
+		img := s.mockImageMount("layer-read-5", s.T().TempDir())
 
 		rc, err := s.mgr.Read(s.T().Context(), img, WithSubpath("../../etc/passwd"))
 		s.Require().Error(err)
@@ -517,12 +481,8 @@ func (s *ManagerTestSuite) TestRead() {
 	})
 
 	s.Run("context cancellation during read", func() {
-		tempDir := s.T().TempDir()
-		s.Require().NoError(os.WriteFile(filepath.Join(tempDir, "file.txt"), []byte("data"), 0o644))
-
-		img := &storage.Image{ID: "img-read-7", TopLayer: "layer-read-7"}
-		s.store.EXPECT().Mount("layer-read-7", "").Return(tempDir, nil)
-		s.store.EXPECT().Unmount("layer-read-7", false).Return(false, nil)
+		tempDir := s.createTempDir(map[string]string{"file.txt": "data"}, nil)
+		img := s.mockImageMount("layer-read-7", tempDir)
 
 		ctx, cancel := context.WithCancel(s.T().Context())
 		cancel() // cancel immediately
