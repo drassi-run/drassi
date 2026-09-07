@@ -10,9 +10,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"path/filepath"
+	"strings"
 	"sync"
 
+	xfs "drassi.run/core/util/fs"
 	xstring "drassi.run/core/util/string"
+	"github.com/go-git/go-billy/v5/osfs"
 	"go.podman.io/image/v5/copy"
 	"go.podman.io/image/v5/docker"
 	istorage "go.podman.io/image/v5/storage"
@@ -30,6 +35,7 @@ type Manager interface {
 	Pull(ctx context.Context, imageRef string, opts ...PullOption) (*storage.Image, error)
 	Mount(ctx context.Context, image *storage.Image, opts ...MountOption) (mountDir string, layerId string, err error)
 	Unmount(ctx context.Context, layerId string) error
+	Read(ctx context.Context, image *storage.Image, opts ...ReadOption) (io.ReadCloser, error)
 	Close() error
 }
 
@@ -149,6 +155,56 @@ func (m *manager) Unmount(_ context.Context, layerId string) error {
 	_, err := m.store.Unmount(layerId, true)
 	// If it's an ephemeral layer, delete it
 	_ = m.store.DeleteLayer(layerId)
+	return err
+}
+
+func (m *manager) Read(ctx context.Context, image *storage.Image, opts ...ReadOption) (io.ReadCloser, error) {
+	ro := new(readOptions)
+	for _, opt := range opts {
+		opt(ro)
+	}
+
+	layerId := image.TopLayer
+	mountDir, err := m.store.Mount(layerId, "")
+	if err != nil {
+		return nil, fmt.Errorf("mount image: %w", err)
+	}
+
+	fsys := osfs.New(mountDir)
+	subpath := strings.TrimPrefix(filepath.Clean(ro.Subpath), "/")
+
+	if subpath != "" && subpath != "." {
+		if info, err := fsys.Stat(subpath); err != nil {
+			_, _ = m.store.Unmount(layerId, false)
+			return nil, fmt.Errorf("resolve subpath %q: %w", ro.Subpath, err)
+		} else if info.IsDir() {
+			if fsys, err = fsys.Chroot(subpath); err != nil {
+				_, _ = m.store.Unmount(layerId, false)
+				return nil, fmt.Errorf("chroot subpath %q: %w", ro.Subpath, err)
+			}
+			subpath = "."
+		}
+	}
+
+	rc := xfs.Read(ctx, fsys, subpath)
+	rc = &mountReadCloser{
+		ReadCloser: rc,
+		unmount: func() {
+			_, _ = m.store.Unmount(layerId, false)
+		},
+	}
+	return rc, nil
+}
+
+type mountReadCloser struct {
+	io.ReadCloser
+	once    sync.Once
+	unmount func()
+}
+
+func (m *mountReadCloser) Close() error {
+	err := m.ReadCloser.Close()
+	m.once.Do(m.unmount)
 	return err
 }
 

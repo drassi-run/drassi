@@ -114,3 +114,14 @@ func WithPolicyContext(policyCtx *signature.PolicyContext) PullOption {
 		o.PolicyContext = policyCtx
 	}
 }
+
+type ReadOption func(*readOptions)
+type readOptions struct {
+	Subpath string
+}
+
+func WithSubpath(subpath string) ReadOption {
+	return func(o *readOptions) {
+		o.Subpath = subpath
+	}
+}

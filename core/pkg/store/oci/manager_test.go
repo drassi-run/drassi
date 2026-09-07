@@ -1,8 +1,18 @@
+/*
+ * SPDX-FileCopyrightText: (c) 2024 The Drassi Authors
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 package ocistore
 
 import (
+	"archive/tar"
 	"context"
 	"errors"
+	"io"
+	"os"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -368,6 +378,162 @@ func (s *ManagerTestSuite) TestUnmount() {
 		err := s.mgr.Unmount(s.T().Context(), "layer-cow-123")
 		s.Require().Error(err)
 		s.Require().Contains(err.Error(), "device busy")
+	})
+}
+
+func (s *ManagerTestSuite) assertTar(r io.Reader, expectedEntries, expectedSymlinks map[string]string) {
+	s.T().Helper()
+	entries := make(map[string]string)
+	symlinks := make(map[string]string)
+	tr := tar.NewReader(r)
+
+	for {
+		hdr, err := tr.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		s.Require().NoError(err)
+
+		if hdr.Typeflag == tar.TypeSymlink {
+			symlinks[hdr.Name] = hdr.Linkname
+		} else if hdr.Typeflag == tar.TypeReg {
+			content, err := io.ReadAll(tr)
+			s.Require().NoError(err)
+			entries[hdr.Name] = string(content)
+		}
+	}
+
+	if expectedEntries != nil {
+		s.Require().Equal(expectedEntries, entries)
+	} else {
+		s.Require().Empty(entries)
+	}
+
+	if expectedSymlinks != nil {
+		s.Require().Equal(expectedSymlinks, symlinks)
+	} else {
+		s.Require().Empty(symlinks)
+	}
+}
+
+func (s *ManagerTestSuite) TestRead() {
+	s.Run("full image success", func() {
+		tempDir := s.T().TempDir()
+		s.Require().NoError(os.WriteFile(filepath.Join(tempDir, "file1.txt"), []byte("content1"), 0o644))
+		s.Require().NoError(os.MkdirAll(filepath.Join(tempDir, "sub"), 0o755))
+		s.Require().NoError(os.WriteFile(filepath.Join(tempDir, "sub", "file2.txt"), []byte("content2"), 0o644))
+		s.Require().NoError(os.Symlink("file1.txt", filepath.Join(tempDir, "link1")))
+
+		img := &storage.Image{ID: "img-read-1", TopLayer: "layer-read-1"}
+		s.store.EXPECT().Mount("layer-read-1", "").Return(tempDir, nil)
+		s.store.EXPECT().Unmount("layer-read-1", false).Return(false, nil)
+
+		rc, err := s.mgr.Read(s.T().Context(), img)
+		s.Require().NoError(err)
+		defer rc.Close()
+
+		s.assertTar(rc, map[string]string{
+			"file1.txt":     "content1",
+			"sub/file2.txt": "content2",
+		}, map[string]string{
+			"link1": "file1.txt",
+		})
+	})
+
+	s.Run("subpath directory success", func() {
+		tempDir := s.T().TempDir()
+		appConfigDir := filepath.Join(tempDir, "app", "config")
+		s.Require().NoError(os.MkdirAll(appConfigDir, 0o755))
+		s.Require().NoError(os.WriteFile(filepath.Join(appConfigDir, "settings.json"), []byte(`{"port":8080}`), 0o644))
+		s.Require().NoError(os.WriteFile(filepath.Join(appConfigDir, "app.conf"), []byte("key=val"), 0o644))
+
+		img := &storage.Image{ID: "img-read-2", TopLayer: "layer-read-2"}
+		s.store.EXPECT().Mount("layer-read-2", "").Return(tempDir, nil)
+		s.store.EXPECT().Unmount("layer-read-2", false).Return(false, nil)
+
+		rc, err := s.mgr.Read(s.T().Context(), img, WithSubpath("app/config"))
+		s.Require().NoError(err)
+		defer rc.Close()
+
+		s.assertTar(rc, map[string]string{
+			"settings.json": `{"port":8080}`,
+			"app.conf":      "key=val",
+		}, nil)
+	})
+
+	s.Run("subpath single file success", func() {
+		tempDir := s.T().TempDir()
+		appDir := filepath.Join(tempDir, "app")
+		s.Require().NoError(os.MkdirAll(appDir, 0o755))
+		s.Require().NoError(os.WriteFile(filepath.Join(appDir, "config.yaml"), []byte("env: test"), 0o644))
+
+		img := &storage.Image{ID: "img-read-3", TopLayer: "layer-read-3"}
+		s.store.EXPECT().Mount("layer-read-3", "").Return(tempDir, nil)
+		s.store.EXPECT().Unmount("layer-read-3", false).Return(false, nil)
+
+		rc, err := s.mgr.Read(s.T().Context(), img, WithSubpath("/app/config.yaml"))
+		s.Require().NoError(err)
+		defer rc.Close()
+
+		s.assertTar(rc, map[string]string{
+			"config.yaml": "env: test",
+		}, nil)
+	})
+
+	s.Run("subpath not found error unmounts layer", func() {
+		tempDir := s.T().TempDir()
+
+		img := &storage.Image{ID: "img-read-4", TopLayer: "layer-read-4"}
+		s.store.EXPECT().Mount("layer-read-4", "").Return(tempDir, nil)
+		s.store.EXPECT().Unmount("layer-read-4", false).Return(false, nil)
+
+		rc, err := s.mgr.Read(s.T().Context(), img, WithSubpath("nonexistent"))
+		s.Require().Error(err)
+		s.Require().Nil(rc)
+		s.Require().Contains(err.Error(), "resolve subpath \"nonexistent\"")
+	})
+
+	s.Run("subpath escapes root error unmounts layer", func() {
+		tempDir := s.T().TempDir()
+
+		img := &storage.Image{ID: "img-read-5", TopLayer: "layer-read-5"}
+		s.store.EXPECT().Mount("layer-read-5", "").Return(tempDir, nil)
+		s.store.EXPECT().Unmount("layer-read-5", false).Return(false, nil)
+
+		rc, err := s.mgr.Read(s.T().Context(), img, WithSubpath("../../etc/passwd"))
+		s.Require().Error(err)
+		s.Require().Nil(rc)
+		s.Require().Contains(err.Error(), "resolve subpath \"../../etc/passwd\"")
+	})
+
+	s.Run("mount error", func() {
+		img := &storage.Image{ID: "img-read-6", TopLayer: "layer-read-6"}
+		s.store.EXPECT().Mount("layer-read-6", "").Return("", errors.New("mount failed"))
+
+		rc, err := s.mgr.Read(s.T().Context(), img)
+		s.Require().Error(err)
+		s.Require().Nil(rc)
+		s.Require().Contains(err.Error(), "mount image: mount failed")
+	})
+
+	s.Run("context cancellation during read", func() {
+		tempDir := s.T().TempDir()
+		s.Require().NoError(os.WriteFile(filepath.Join(tempDir, "file.txt"), []byte("data"), 0o644))
+
+		img := &storage.Image{ID: "img-read-7", TopLayer: "layer-read-7"}
+		s.store.EXPECT().Mount("layer-read-7", "").Return(tempDir, nil)
+		s.store.EXPECT().Unmount("layer-read-7", false).Return(false, nil)
+
+		ctx, cancel := context.WithCancel(s.T().Context())
+		cancel() // cancel immediately
+
+		rc, err := s.mgr.Read(ctx, img)
+		s.Require().NoError(err)
+		defer rc.Close()
+
+		_, readErr := io.ReadAll(rc)
+		s.Require().Error(readErr)
+		s.Require().True(errors.Is(readErr, context.Canceled) || errors.Is(readErr, io.ErrClosedPipe))
 	})
 }
 
