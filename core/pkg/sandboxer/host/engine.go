@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"drassi.run/core/config"
 	c "drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/container/docker"
 	"drassi.run/core/pkg/sandboxer"
@@ -20,7 +21,21 @@ import (
 	"drassi.run/core/util/fs"
 	"drassi.run/core/util/path"
 	"drassi.run/core/util/string"
+	"github.com/pelletier/go-toml/v2"
+	"github.com/pelletier/go-toml/v2/unstable"
 )
+
+func init() {
+	sandboxer.Register(config.ProviderHost, func(raw unstable.RawMessage) (sandboxer.Engine, error) {
+		cfg := DefaultConfig()
+		if len(raw) > 0 {
+			if err := toml.Unmarshal(raw, cfg); err != nil {
+				return nil, err
+			}
+		}
+		return New(cfg)
+	})
+}
 
 type Config struct {
 	RootDir    string `toml:"root_dir" json:"rootDir"`

@@ -11,6 +11,7 @@ import (
 	"path"
 	"strings"
 
+	"drassi.run/core/config"
 	c "drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/container/docker"
 	"drassi.run/core/pkg/model/records"
@@ -20,7 +21,21 @@ import (
 	incusclient "github.com/lxc/incus/v6/client"
 	incusapi "github.com/lxc/incus/v6/shared/api"
 	dockerclient "github.com/moby/moby/client"
+	"github.com/pelletier/go-toml/v2"
+	"github.com/pelletier/go-toml/v2/unstable"
 )
+
+func init() {
+	sandboxer.Register(config.ProviderIncus, func(raw unstable.RawMessage) (sandboxer.Engine, error) {
+		cfg := DefaultConfig()
+		if len(raw) > 0 {
+			if err := toml.Unmarshal(raw, cfg); err != nil {
+				return nil, err
+			}
+		}
+		return New(cfg)
+	})
+}
 
 type Config struct {
 	Endpoint string   `toml:"endpoint" json:"endpoint"`
