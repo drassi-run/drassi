@@ -22,6 +22,15 @@ import (
 	"github.com/go-git/go-billy/v5/util"
 )
 
+// Read archives the directory or file at src within fsys into a tar stream and returns an io.ReadCloser.
+//
+// NOTE (Entry naming convention):
+//   - If src is "." or "", all files in fsys are archived relative to the root (e.g. "file.txt", "sub/file.txt").
+//   - If src is a directory (e.g. "app/config"), the base folder name is preserved in tar headers
+//     (e.g. "config/settings.json", "config/app.conf"), matching Docker container archive API behavior.
+//   - If src is a single file (e.g. "app/config/settings.json"), the tar entry name is the file's basename ("settings.json").
+//
+// docker cp logic: https://docs.docker.com/reference/cli/docker/container/cp/
 func Read(ctx context.Context, fsys billy.Filesystem, src string) io.ReadCloser {
 	reader, writer := io.Pipe()
 	go readPipe(ctx, fsys, src, writer)
@@ -60,10 +69,10 @@ func readPipe(ctx context.Context, fsys billy.Filesystem, src string, writer *io
 		var hdr *tar.Header
 		if hdr, err = tar.FileInfoHeader(info, link); err != nil {
 			return err
-		} else {
-			// info only contains file's base, but we want the path
-			hdr.Name = strings.TrimPrefix(path, dir)
 		}
+
+		// info only contains file's base, but we want the path
+		hdr.Name = strings.TrimPrefix(path, dir)
 		if err = tw.WriteHeader(hdr); err != nil {
 			return err
 		}
@@ -88,6 +97,7 @@ func readPipe(ctx context.Context, fsys billy.Filesystem, src string, writer *io
 	_ = writer.CloseWithError(err)
 }
 
+// Write extracts a tar archive from reader into the dest directory on fsys.
 func Write(ctx context.Context, fsys billy.Filesystem, reader io.Reader, dest string) error {
 	h := writeHandler(ctx, fsys, dest)
 	return xtar.Untar(ctx, reader, h)
