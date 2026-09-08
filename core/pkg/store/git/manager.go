@@ -16,7 +16,6 @@ import (
 	"os"
 	"path"
 
-	"drassi.run/core/pkg/store/repository"
 	"drassi.run/core/util/fs"
 	"drassi.run/core/util/path"
 	"drassi.run/core/util/string"
@@ -35,15 +34,15 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 )
 
-type Store interface {
-	Fetch(ctx context.Context, repo *repository.Repository, token string) (rev string, err error)
-	Read(ctx context.Context, repo *repository.Repository, rev, dir string) (io.ReadCloser, error)
-	File(ctx context.Context, repo *repository.Repository, rev, path string) (io.ReadCloser, error)
+type Manager interface {
+	Fetch(ctx context.Context, repo *RepoReference, token string) (rev string, err error)
+	Read(ctx context.Context, repo *RepoReference, rev, dir string) (io.ReadCloser, error)
+	File(ctx context.Context, repo *RepoReference, rev, path string) (io.ReadCloser, error)
 }
 
 const remoteName string = "anonymous"
 
-func New(rootDir string) (Store, error) {
+func New(rootDir string) (Manager, error) {
 	if d, err := xpath.ResolveDir(rootDir); err != nil {
 		return nil, err
 	} else {
@@ -54,27 +53,27 @@ func New(rootDir string) (Store, error) {
 		return nil, err
 	}
 
-	rs := &store{
+	m := &manager{
 		// Using `billy.Filesystem` instead of `rootDir` to
 		// abstract from file system implementations and simplify testing.
 		fsys:  osfs.New(rootDir),
 		repos: make(map[string]*git.Repository),
 	}
-	return rs, nil
+	return m, nil
 }
 
-type store struct {
+type manager struct {
 	fsys  billy.Filesystem
 	repos map[string]*git.Repository
 }
 
-func (s *store) Fetch(ctx context.Context, repo *repository.Repository, token string) (string, error) {
-	path, err := s.ensureDir(repo)
+func (m *manager) Fetch(ctx context.Context, repo *RepoReference, token string) (string, error) {
+	path, err := m.ensureDir(repo)
 	if err != nil {
 		return "", err
 	}
 
-	gitRepo, err := s.ensureRepo(path, repo)
+	gitRepo, err := m.ensureRepo(path, repo)
 	if err != nil {
 		return "", err
 	}
@@ -82,7 +81,7 @@ func (s *store) Fetch(ctx context.Context, repo *repository.Repository, token st
 	tmpBranch := rand.String(12)
 	defer gitRepo.DeleteBranch(tmpBranch)
 
-	err = s.fetch(ctx, repo, token, tmpBranch)
+	err = m.fetch(ctx, repo, token, tmpBranch)
 	if err != nil {
 		return "", err
 	}
@@ -94,9 +93,9 @@ func (s *store) Fetch(ctx context.Context, repo *repository.Repository, token st
 	return hash.String(), nil
 }
 
-func (s *store) Read(ctx context.Context, repo *repository.Repository, rev string, dir string) (io.ReadCloser, error) {
-	id := repository.FullName(repo)
-	gitRepo, ok := s.repos[id]
+func (m *manager) Read(ctx context.Context, repo *RepoReference, rev string, dir string) (io.ReadCloser, error) {
+	id := FullName(repo)
+	gitRepo, ok := m.repos[id]
 	if !ok {
 		return nil, fmt.Errorf("repo %q not found", id)
 	}
@@ -133,9 +132,9 @@ func (s *store) Read(ctx context.Context, repo *repository.Repository, rev strin
 	return reader, nil
 }
 
-func (s *store) File(ctx context.Context, repo *repository.Repository, rev, path string) (io.ReadCloser, error) {
-	id := repository.FullName(repo)
-	gitRepo, ok := s.repos[id]
+func (m *manager) File(ctx context.Context, repo *RepoReference, rev, path string) (io.ReadCloser, error) {
+	id := FullName(repo)
+	gitRepo, ok := m.repos[id]
 	if !ok {
 		return nil, fmt.Errorf("repo %q not found", id)
 	}
@@ -161,8 +160,8 @@ func (s *store) File(ctx context.Context, repo *repository.Repository, rev, path
 	return file.Reader()
 }
 
-func (s *store) fetch(ctx context.Context, repo *repository.Repository, token, branch string) error {
-	gitRepo := s.repos[repository.FullName(repo)]
+func (m *manager) fetch(ctx context.Context, repo *RepoReference, token, branch string) error {
+	gitRepo := m.repos[FullName(repo)]
 
 	var auth transport.AuthMethod
 	if token != "" {
@@ -174,7 +173,7 @@ func (s *store) fetch(ctx context.Context, repo *repository.Repository, token, b
 
 	remoteConfig := &config.RemoteConfig{
 		Name: remoteName,
-		URLs: []string{repository.Url(repo)},
+		URLs: []string{Url(repo)},
 	}
 	remote, err := gitRepo.CreateRemoteAnonymous(remoteConfig)
 	if err != nil {
@@ -197,36 +196,36 @@ func (s *store) fetch(ctx context.Context, repo *repository.Repository, token, b
 	return remote.FetchContext(ctx, fetchOptions)
 }
 
-func (s *store) ensureDir(repo *repository.Repository) (string, error) {
-	path := repository.FullName(repo)
+func (m *manager) ensureDir(repo *RepoReference) (string, error) {
+	path := FullName(repo)
 	path = xstring.EnsureSuffix(path, ".git")
-	fileInfo, err := s.fsys.Stat(path)
+	fileInfo, err := m.fsys.Stat(path)
 
 	if err != nil {
 		if os.IsNotExist(err) {
-			return path, s.fsys.MkdirAll(path, xfs.DirPerm)
+			return path, m.fsys.MkdirAll(path, xfs.DirPerm)
 		}
 		return "", err
 	}
 
 	if !fileInfo.IsDir() {
-		if err = util.RemoveAll(s.fsys, path); err != nil {
+		if err = util.RemoveAll(m.fsys, path); err != nil {
 			return "", err
 		}
-		return path, s.fsys.MkdirAll(path, xfs.DirPerm)
+		return path, m.fsys.MkdirAll(path, xfs.DirPerm)
 	}
 
 	return path, nil
 }
 
-func (s *store) ensureRepo(path string, repo *repository.Repository) (*git.Repository, error) {
-	id := repository.FullName(repo)
-	if gitRepo, ok := s.repos[id]; ok {
+func (m *manager) ensureRepo(path string, repo *RepoReference) (*git.Repository, error) {
+	id := FullName(repo)
+	if gitRepo, ok := m.repos[id]; ok {
 		return gitRepo, nil
 	}
 
 	var storer storage.Storer
-	if dot, err := s.fsys.Chroot(path); err != nil {
+	if dot, err := m.fsys.Chroot(path); err != nil {
 		return nil, err
 	} else {
 		storer = filesystem.NewStorage(dot, cache.NewObjectLRUDefault())
@@ -239,7 +238,7 @@ func (s *store) ensureRepo(path string, repo *repository.Repository) (*git.Repos
 		gitRepo, err = git.Open(storer, nil)
 	}
 	if gitRepo != nil {
-		s.repos[id] = gitRepo
+		m.repos[id] = gitRepo
 	}
 	return gitRepo, err
 }

@@ -12,7 +12,7 @@ import (
 
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/model/workflows"
-	"drassi.run/core/pkg/store/repository"
+	"drassi.run/core/pkg/store/git"
 )
 
 func ToToken(token *TemplateToken) workflows.Token {
@@ -105,7 +105,7 @@ func ToStepSpec(step *JobStep) (*executor.StepSpec, error) {
 			return nil, fmt.Errorf("unsupported step %s with repo type %s", step.ContextName, ref.RepositoryType)
 		}
 		// TODO: support local action (ref.RepositoryType=self)
-		repo := &repository.Repository{
+		repo := &gitstore.RepoReference{
 			Scheme:   "https",
 			Endpoint: "github.com",
 			Name:     ref.Name,

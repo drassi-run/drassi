@@ -15,14 +15,14 @@ import (
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/scribe"
-	"drassi.run/core/pkg/store/repository"
+	"drassi.run/core/pkg/store/git"
 	"drassi.run/core/util/otel"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
 )
 
 type NodeActionSpec struct {
-	Repo    *repository.Repository
+	Repo    *gitstore.RepoReference
 	Inputs  workflows.Evaluable[map[string]string]
 	Outputs workflows.Evaluable[map[string]string]
 
@@ -57,7 +57,7 @@ func (e *nodeActionExecutor) StepExecutor() StepExecutor {
 }
 
 func (e *nodeActionExecutor) Name() workflows.Evaluable[string] {
-	name := repository.Location(e.spec.Repo)
+	name := gitstore.Location(e.spec.Repo)
 	return workflows.NewLiteralToken(name)
 }
 
@@ -139,7 +139,7 @@ func (e *nodeActionExecutor) computeScriptPath(layout *sandboxer.Layout, stage S
 		script = e.spec.Main
 	}
 
-	scriptPath := filepath.Join(layout.Actions, repository.Location(e.spec.Repo), script)
+	scriptPath := filepath.Join(layout.Actions, gitstore.Location(e.spec.Repo), script)
 	return scriptPath
 }
 
@@ -160,5 +160,5 @@ func (e *nodeActionExecutor) addSpanAttrs(ctx context.Context, stage Stage) {
 }
 
 func (e *nodeActionExecutor) repr() string {
-	return fmt.Sprintf("node action from %q", repository.Location(e.spec.Repo))
+	return fmt.Sprintf("node action from %q", gitstore.Location(e.spec.Repo))
 }

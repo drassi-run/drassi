@@ -16,14 +16,14 @@ import (
 	"drassi.run/core/pkg/expression/libraries"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/model/workflows"
-	"drassi.run/core/pkg/store/repository"
+	"drassi.run/core/pkg/store/git"
 	"drassi.run/core/util/dig"
 	"drassi.run/core/util/otel"
 	"go.uber.org/dig"
 )
 
 type CompositeActionSpec struct {
-	Repo    *repository.Repository
+	Repo    *gitstore.RepoReference
 	Inputs  workflows.Evaluable[map[string]string]
 	Outputs workflows.Evaluable[map[string]string]
 
@@ -86,7 +86,7 @@ func (e *compositeActionExecutor) StepExecutor() StepExecutor {
 }
 
 func (e *compositeActionExecutor) Name() workflows.Evaluable[string] {
-	name := repository.Location(e.spec.Repo)
+	name := gitstore.Location(e.spec.Repo)
 	return workflows.NewLiteralToken(name)
 }
 

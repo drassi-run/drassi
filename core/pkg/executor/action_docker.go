@@ -16,7 +16,7 @@ import (
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/runtime"
 	"drassi.run/core/pkg/scribe"
-	"drassi.run/core/pkg/store/repository"
+	"drassi.run/core/pkg/store/git"
 	"drassi.run/core/util/dig"
 	semconv "go.opentelemetry.io/otel/semconv/v1.27.0"
 	"go.opentelemetry.io/otel/trace"
@@ -24,7 +24,7 @@ import (
 )
 
 type DockerActionSpec struct {
-	Repo    *repository.Repository
+	Repo    *gitstore.RepoReference
 	Inputs  workflows.Evaluable[map[string]string]
 	Outputs workflows.Evaluable[map[string]string]
 	Env     workflows.Evaluable[map[string]string]
@@ -229,7 +229,7 @@ func (e *dockerActionExecutor) repr() string {
 		str += fmt.Sprintf(" with Dockerfile=%q", e.spec.Image)
 	}
 	if repo := e.spec.Repo; repo != nil {
-		str += fmt.Sprintf(" from %q", repository.Location(repo))
+		str += fmt.Sprintf(" from %q", gitstore.Location(repo))
 	}
 	return str
 }

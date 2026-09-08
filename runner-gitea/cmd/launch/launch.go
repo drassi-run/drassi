@@ -18,7 +18,7 @@ import (
 	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/sandboxer"
-	"drassi.run/core/pkg/store/repository/gitstore"
+	"drassi.run/core/pkg/store/git"
 	"drassi.run/core/util/dig"
 	"drassi.run/core/wire"
 	giteaconfig "drassi.run/gitea-runner/config"
@@ -36,7 +36,7 @@ type launcher struct {
 	concurrency int
 	client      gitea.Client
 	runtime     sandboxer.Engine
-	store       gitstore.Store
+	store       gitstore.Manager
 
 	// tasksVersion used to store the version of the last task fetched from the Gitea.
 	tasksVersion atomic.Int64

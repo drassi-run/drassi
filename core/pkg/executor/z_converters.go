@@ -14,7 +14,7 @@ import (
 	"drassi.run/core/pkg/model/actions"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/model/workflows"
-	"drassi.run/core/pkg/store/repository"
+	"drassi.run/core/pkg/store/git"
 	"github.com/google/uuid"
 )
 
@@ -95,7 +95,7 @@ func ToStepSpec(step workflows.Step) *StepSpec {
 				Image: s.Uses,
 			}
 		} else {
-			repo, _ := repository.Parse(s.Uses)
+			repo, _ := gitstore.Parse(s.Uses)
 			spec.Action = &ReferenceActionSpec{
 				Repo: repo,
 			}
@@ -104,7 +104,7 @@ func ToStepSpec(step workflows.Step) *StepSpec {
 	return spec
 }
 
-func ToActionSpec(action *actions.Action, repo *repository.Repository) (ActionSpec, error) {
+func ToActionSpec(action *actions.Action, repo *gitstore.RepoReference) (ActionSpec, error) {
 	var spec ActionSpec
 	switch r := action.Runs.(type) {
 	case *actions.NodeRuns:
