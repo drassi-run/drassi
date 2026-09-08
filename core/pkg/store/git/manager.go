@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"maps"
 	"os"
 	"path"
 	"strings"
@@ -42,6 +43,7 @@ type Manager interface {
 	Fetch(ctx context.Context, repo *RepoReference, token string) (rev string, err error)
 	Read(ctx context.Context, repo *RepoReference, rev, dir string) (io.ReadCloser, error)
 	File(ctx context.Context, repo *RepoReference, rev, path string) (io.ReadCloser, error)
+	Close() error
 }
 
 const remoteName string = "anonymous"
@@ -76,12 +78,12 @@ type manager struct {
 func (m *manager) Fetch(ctx context.Context, repo *RepoReference, token string) (string, error) {
 	key := Location(repo)
 	v, err, _ := m.sf.Do(key, func() (any, error) {
-		path, err := m.ensureDir(repo)
+		repoPath, err := m.ensureDir(repo)
 		if err != nil {
 			return "", err
 		}
 
-		gitRepo, err := m.ensureRepo(path, repo)
+		gitRepo, err := m.ensureRepo(repoPath, repo)
 		if err != nil {
 			return "", err
 		}
@@ -194,8 +196,8 @@ func (m *manager) getRepo(repo *RepoReference) (*git.Repository, error) {
 		return gitRepo, nil
 	}
 
-	path := xstring.EnsureSuffix(id, ".git")
-	dot, err := m.fsys.Chroot(path)
+	repoPath := xstring.EnsureSuffix(id, ".git")
+	dot, err := m.fsys.Chroot(repoPath)
 	if err != nil {
 		return nil, fmt.Errorf("repo %q not found: %w", id, err)
 	}
@@ -245,25 +247,25 @@ func (m *manager) fetch(ctx context.Context, gitRepo *git.Repository, repo *Repo
 }
 
 func (m *manager) ensureDir(repo *RepoReference) (string, error) {
-	path := FullName(repo)
-	path = xstring.EnsureSuffix(path, ".git")
-	fileInfo, err := m.fsys.Stat(path)
+	id := FullName(repo)
+	repoPath := xstring.EnsureSuffix(id, ".git")
+	fileInfo, err := m.fsys.Stat(repoPath)
 
 	if err != nil {
-		if os.IsNotExist(err) {
-			return path, m.fsys.MkdirAll(path, xfs.DirPerm)
+		if errors.Is(err, fs.ErrNotExist) {
+			return repoPath, m.fsys.MkdirAll(repoPath, xfs.DirPerm)
 		}
 		return "", err
 	}
 
 	if !fileInfo.IsDir() {
-		if err = util.RemoveAll(m.fsys, path); err != nil {
+		if err = util.RemoveAll(m.fsys, repoPath); err != nil {
 			return "", err
 		}
-		return path, m.fsys.MkdirAll(path, xfs.DirPerm)
+		return repoPath, m.fsys.MkdirAll(repoPath, xfs.DirPerm)
 	}
 
-	return path, nil
+	return repoPath, nil
 }
 
 func (m *manager) ensureRepo(path string, repo *RepoReference) (*git.Repository, error) {
@@ -337,6 +339,23 @@ func newTarHandler(tw *tar.Writer, dir string) tarHandler {
 		return err
 	}
 	return h
+}
+
+func (m *manager) Close() error {
+	m.mu.Lock()
+	repos := maps.Clone(m.repos)
+	clear(m.repos)
+	m.mu.Unlock()
+
+	var errs []error
+	for _, repo := range repos {
+		if c, ok := repo.Storer.(io.Closer); ok {
+			if err := c.Close(); err != nil {
+				errs = append(errs, err)
+			}
+		}
+	}
+	return errors.Join(errs...)
 }
 
 func notFoundErr(err error) bool {

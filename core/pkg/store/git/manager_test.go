@@ -510,3 +510,25 @@ func TestConcurrency(t *testing.T) {
 
 	wg.Wait()
 }
+
+func TestClose(t *testing.T) {
+	files := map[string]string{
+		"action.yml": "name: close-test",
+	}
+	repoInfo := initTestGitRepo(t, files, nil)
+
+	mgr, _ := newTestManager(t)
+	ref := makeLocalRepoRef(repoInfo.RepoDir, "HEAD")
+
+	// Fetch repository to ensure it is opened and stored in manager
+	_, err := mgr.Fetch(context.Background(), ref, "")
+	require.NoError(t, err)
+
+	// Close the manager
+	err = mgr.Close()
+	require.NoError(t, err)
+
+	// Calling Close again should also succeed without error
+	err = mgr.Close()
+	require.NoError(t, err)
+}
