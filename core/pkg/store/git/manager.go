@@ -14,11 +14,9 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"maps"
 	"os"
 	"path"
 	"strings"
-	"sync"
 
 	"drassi.run/core/util/fs"
 	"drassi.run/core/util/path"
@@ -35,6 +33,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/storage"
 	"github.com/go-git/go-git/v5/storage/filesystem"
+	"github.com/hashicorp/golang-lru/v2/expirable"
 	"golang.org/x/sync/singleflight"
 	"k8s.io/apimachinery/pkg/util/rand"
 )
@@ -48,7 +47,7 @@ type Manager interface {
 
 const remoteName string = "anonymous"
 
-func New(rootDir string) (Manager, error) {
+func New(rootDir string, opts ...Option) (Manager, error) {
 	if d, err := xpath.ResolveDir(rootDir); err != nil {
 		return nil, err
 	} else {
@@ -59,20 +58,33 @@ func New(rootDir string) (Manager, error) {
 		return nil, err
 	}
 
+	opt := &options{
+		size: defaultSize,
+		ttl:  defaultTTL,
+	}
+	for _, o := range opts {
+		o(opt)
+	}
+
 	m := &manager{
 		// Using `billy.Filesystem` instead of `rootDir` to
 		// abstract from file system implementations and simplify testing.
-		fsys:  osfs.New(rootDir),
-		repos: make(map[string]*git.Repository),
+		fsys: osfs.New(rootDir),
 	}
+	m.repos = expirable.NewLRU[string, *git.Repository](opt.size, m.onEvict, opt.ttl)
 	return m, nil
 }
 
 type manager struct {
 	fsys  billy.Filesystem
 	sf    singleflight.Group
-	mu    sync.RWMutex
-	repos map[string]*git.Repository
+	repos *expirable.LRU[string, *git.Repository]
+}
+
+func (m *manager) onEvict(_ string, repo *git.Repository) {
+	if closer, ok := repo.Storer.(io.Closer); ok {
+		_ = closer.Close()
+	}
 }
 
 func (m *manager) Fetch(ctx context.Context, repo *RepoReference, token string) (string, error) {
@@ -183,16 +195,7 @@ func (m *manager) File(ctx context.Context, repo *RepoReference, rev, filePath s
 
 func (m *manager) getRepo(repo *RepoReference) (*git.Repository, error) {
 	id := FullName(repo)
-	m.mu.RLock()
-	gitRepo, ok := m.repos[id]
-	m.mu.RUnlock()
-	if ok {
-		return gitRepo, nil
-	}
-
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if gitRepo, ok := m.repos[id]; ok {
+	if gitRepo, ok := m.repos.Get(id); ok {
 		return gitRepo, nil
 	}
 
@@ -203,12 +206,12 @@ func (m *manager) getRepo(repo *RepoReference) (*git.Repository, error) {
 	}
 
 	storer := filesystem.NewStorage(dot, cache.NewObjectLRUDefault())
-	gitRepo, err = git.Open(storer, nil)
+	gitRepo, err := git.Open(storer, nil)
 	if err != nil {
 		return nil, fmt.Errorf("repo %q not found: %w", id, err)
 	}
 
-	m.repos[id] = gitRepo
+	m.repos.Add(id, gitRepo)
 	return gitRepo, nil
 }
 
@@ -270,10 +273,7 @@ func (m *manager) ensureDir(repo *RepoReference) (string, error) {
 
 func (m *manager) ensureRepo(path string, repo *RepoReference) (*git.Repository, error) {
 	id := FullName(repo)
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if gitRepo, ok := m.repos[id]; ok {
+	if gitRepo, ok := m.repos.Get(id); ok {
 		return gitRepo, nil
 	}
 
@@ -293,7 +293,7 @@ func (m *manager) ensureRepo(path string, repo *RepoReference) (*git.Repository,
 	}
 
 	if gitRepo != nil {
-		m.repos[id] = gitRepo
+		m.repos.Add(id, gitRepo)
 	}
 	return gitRepo, err
 }
@@ -342,20 +342,8 @@ func newTarHandler(tw *tar.Writer, dir string) tarHandler {
 }
 
 func (m *manager) Close() error {
-	m.mu.Lock()
-	repos := maps.Clone(m.repos)
-	clear(m.repos)
-	m.mu.Unlock()
-
-	var errs []error
-	for _, repo := range repos {
-		if c, ok := repo.Storer.(io.Closer); ok {
-			if err := c.Close(); err != nil {
-				errs = append(errs, err)
-			}
-		}
-	}
-	return errors.Join(errs...)
+	m.repos.Purge()
+	return nil
 }
 
 func notFoundErr(err error) bool {
