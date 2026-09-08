@@ -24,7 +24,7 @@ type RepoReference struct {
 	Transport string // e.g. http, https, ssh
 	Endpoint  string // e.g. github.com
 	Name      string // e.g. actions/checkout
-	Path      string // e.g .github/actions/hello-world-action
+	Path      string // e.g. github/actions/checkout
 	Ref       string // e.g. v3
 }
 

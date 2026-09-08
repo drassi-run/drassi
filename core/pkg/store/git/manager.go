@@ -8,6 +8,7 @@ package gitstore
 
 import (
 	"archive/tar"
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -15,6 +16,8 @@ import (
 	"io/fs"
 	"os"
 	"path"
+	"strings"
+	"sync"
 
 	"drassi.run/core/util/fs"
 	"drassi.run/core/util/path"
@@ -31,6 +34,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/storage"
 	"github.com/go-git/go-git/v5/storage/filesystem"
+	"golang.org/x/sync/singleflight"
 	"k8s.io/apimachinery/pkg/util/rand"
 )
 
@@ -64,40 +68,48 @@ func New(rootDir string) (Manager, error) {
 
 type manager struct {
 	fsys  billy.Filesystem
+	sf    singleflight.Group
+	mu    sync.RWMutex
 	repos map[string]*git.Repository
 }
 
 func (m *manager) Fetch(ctx context.Context, repo *RepoReference, token string) (string, error) {
-	path, err := m.ensureDir(repo)
+	key := Location(repo)
+	v, err, _ := m.sf.Do(key, func() (any, error) {
+		path, err := m.ensureDir(repo)
+		if err != nil {
+			return "", err
+		}
+
+		gitRepo, err := m.ensureRepo(path, repo)
+		if err != nil {
+			return "", err
+		}
+
+		tmpBranch := rand.String(12)
+		defer gitRepo.DeleteBranch(tmpBranch)
+
+		err = m.fetch(ctx, gitRepo, repo, token, tmpBranch)
+		if err != nil {
+			return "", err
+		}
+
+		hash, err := gitRepo.ResolveRevision(plumbing.Revision(tmpBranch))
+		if err != nil {
+			return "", err
+		}
+		return hash.String(), nil
+	})
 	if err != nil {
 		return "", err
 	}
-
-	gitRepo, err := m.ensureRepo(path, repo)
-	if err != nil {
-		return "", err
-	}
-
-	tmpBranch := rand.String(12)
-	defer gitRepo.DeleteBranch(tmpBranch)
-
-	err = m.fetch(ctx, repo, token, tmpBranch)
-	if err != nil {
-		return "", err
-	}
-
-	hash, err := gitRepo.ResolveRevision(plumbing.Revision(tmpBranch))
-	if err != nil {
-		return "", err
-	}
-	return hash.String(), nil
+	return v.(string), nil
 }
 
 func (m *manager) Read(ctx context.Context, repo *RepoReference, rev string, dir string) (io.ReadCloser, error) {
-	id := FullName(repo)
-	gitRepo, ok := m.repos[id]
-	if !ok {
-		return nil, fmt.Errorf("repo %q not found", id)
+	gitRepo, err := m.getRepo(repo)
+	if err != nil {
+		return nil, err
 	}
 
 	commit, err := gitRepo.CommitObject(plumbing.NewHash(rev))
@@ -110,7 +122,7 @@ func (m *manager) Read(ctx context.Context, repo *RepoReference, rev string, dir
 	}
 
 	reader, writer := io.Pipe()
-	ch := make(chan int, 1)
+	ch := make(chan struct{})
 	go func() {
 		select {
 		case <-ctx.Done():
@@ -120,23 +132,22 @@ func (m *manager) Read(ctx context.Context, repo *RepoReference, rev string, dir
 	}()
 	go func() {
 		defer files.Close()
-		defer writer.Close()
 		defer close(ch)
+
 		tw := tar.NewWriter(writer)
-		defer tw.Close()
 		handler := newTarHandler(tw, dir)
 
 		err := files.ForEach(handler)
+		err = cmp.Or(err, tw.Close())
 		_ = writer.CloseWithError(err)
 	}()
 	return reader, nil
 }
 
-func (m *manager) File(ctx context.Context, repo *RepoReference, rev, path string) (io.ReadCloser, error) {
-	id := FullName(repo)
-	gitRepo, ok := m.repos[id]
-	if !ok {
-		return nil, fmt.Errorf("repo %q not found", id)
+func (m *manager) File(ctx context.Context, repo *RepoReference, rev, filePath string) (io.ReadCloser, error) {
+	gitRepo, err := m.getRepo(repo)
+	if err != nil {
+		return nil, err
 	}
 
 	commit, err := gitRepo.CommitObject(plumbing.NewHash(rev))
@@ -149,20 +160,57 @@ func (m *manager) File(ctx context.Context, repo *RepoReference, rev, path strin
 		return nil, err
 	}
 
-	file, err := tree.File(path)
+	cleanPath := strings.TrimPrefix(path.Clean(filePath), "/")
+	entry, err := tree.FindEntry(cleanPath)
 	if err != nil {
+		if notFoundErr(err) {
+			return nil, fs.ErrNotExist
+		}
 		return nil, err
 	}
-	if !file.Mode.IsFile() {
-		return nil, fmt.Errorf("%q is not a (regular) file", path)
+	if !entry.Mode.IsFile() {
+		return nil, fmt.Errorf("%q is not a (regular) file", filePath)
 	}
 
-	return file.Reader()
+	if file, err := tree.TreeEntryFile(entry); err != nil {
+		return nil, err
+	} else {
+		return file.Reader()
+	}
 }
 
-func (m *manager) fetch(ctx context.Context, repo *RepoReference, token, branch string) error {
-	gitRepo := m.repos[FullName(repo)]
+func (m *manager) getRepo(repo *RepoReference) (*git.Repository, error) {
+	id := FullName(repo)
+	m.mu.RLock()
+	gitRepo, ok := m.repos[id]
+	m.mu.RUnlock()
+	if ok {
+		return gitRepo, nil
+	}
 
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if gitRepo, ok := m.repos[id]; ok {
+		return gitRepo, nil
+	}
+
+	path := xstring.EnsureSuffix(id, ".git")
+	dot, err := m.fsys.Chroot(path)
+	if err != nil {
+		return nil, fmt.Errorf("repo %q not found: %w", id, err)
+	}
+
+	storer := filesystem.NewStorage(dot, cache.NewObjectLRUDefault())
+	gitRepo, err = git.Open(storer, nil)
+	if err != nil {
+		return nil, fmt.Errorf("repo %q not found: %w", id, err)
+	}
+
+	m.repos[id] = gitRepo
+	return gitRepo, nil
+}
+
+func (m *manager) fetch(ctx context.Context, gitRepo *git.Repository, repo *RepoReference, token, branch string) error {
 	var auth transport.AuthMethod
 	if token != "" {
 		auth = &http.BasicAuth{
@@ -184,7 +232,7 @@ func (m *manager) fetch(ctx context.Context, repo *RepoReference, token, branch 
 	// https://github.blog/2020-12-21-get-up-to-speed-with-partial-clone-and-shallow-clone/
 	fetchOptions := &git.FetchOptions{
 		RefSpecs: []config.RefSpec{
-			config.RefSpec(fmt.Sprintf("+%s:%s", repo.Ref, branch)),
+			config.RefSpec(fmt.Sprintf("+%s:refs/heads/%s", repo.Ref, branch)),
 		},
 
 		Auth:  auth,
@@ -220,6 +268,9 @@ func (m *manager) ensureDir(repo *RepoReference) (string, error) {
 
 func (m *manager) ensureRepo(path string, repo *RepoReference) (*git.Repository, error) {
 	id := FullName(repo)
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	if gitRepo, ok := m.repos[id]; ok {
 		return gitRepo, nil
 	}
@@ -231,12 +282,14 @@ func (m *manager) ensureRepo(path string, repo *RepoReference) (*git.Repository,
 		storer = filesystem.NewStorage(dot, cache.NewObjectLRUDefault())
 	}
 
-	//gitRepo, err := git.PlainInit(path, true)
 	gitRepo, err := git.Init(storer, nil)
 	if errors.Is(err, git.ErrRepositoryAlreadyExists) {
-		//gitRepo, err = git.PlainOpen(path)
 		gitRepo, err = git.Open(storer, nil)
 	}
+	if err != nil {
+		return nil, err
+	}
+
 	if gitRepo != nil {
 		m.repos[id] = gitRepo
 	}
@@ -259,6 +312,7 @@ func newTarHandler(tw *tar.Writer, dir string) tarHandler {
 		}
 
 		if mode&fs.ModeSymlink != 0 {
+			hdr.Typeflag = tar.TypeSymlink
 			content, err := f.Contents()
 			if err != nil {
 				return err
@@ -268,17 +322,25 @@ func newTarHandler(tw *tar.Writer, dir string) tarHandler {
 			return tw.WriteHeader(hdr)
 		}
 
+		hdr.Typeflag = tar.TypeReg
 		hdr.Size = f.Size
 		if err := tw.WriteHeader(hdr); err != nil {
 			return err
 		}
-		if reader, err := f.Reader(); err != nil {
-			return err
-		} else {
-			defer reader.Close()
-			_, err = io.Copy(tw, reader)
+		reader, err := f.Reader()
+		if err != nil {
 			return err
 		}
+		defer reader.Close()
+
+		_, err = io.Copy(tw, reader)
+		return err
 	}
 	return h
+}
+
+func notFoundErr(err error) bool {
+	return errors.Is(err, object.ErrFileNotFound) ||
+		errors.Is(err, object.ErrEntryNotFound) ||
+		errors.Is(err, object.ErrDirectoryNotFound)
 }
