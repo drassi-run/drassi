@@ -13,6 +13,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  GOFLAGS: -tags=containers_image_openpgp,exclude_graphdriver_btrfs
+
 jobs:
   test:
     runs-on: ${{ matrix.platform }}

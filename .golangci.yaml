@@ -13,6 +13,7 @@ linters:
         - (*github.com/spf13/pflag.FlagSet).SetAnnotation
         - (*github.com/spf13/pflag.FlagSet).MarkHidden
         - (*github.com/go-git/go-git/v5.Repository).DeleteBranch
+        - (*go.podman.io/image/v5/signature.PolicyContext).Destroy
 
   exclusions:
     generated: lax

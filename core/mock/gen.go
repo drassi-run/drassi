@@ -15,4 +15,5 @@
 //go:generate mockgen -typed -destination=executor/job_executor.go -source=../pkg/executor/job_executor.go
 //go:generate mockgen -typed -destination=executor/step_executor.go -source=../pkg/executor/step_executor.go
 //go:generate mockgen -typed -destination=stream/sink.go -source=../pkg/stream/sink.go
+//go:generate mockgen -typed -destination=podman/storage/store.go go.podman.io/storage Store
 package mock
