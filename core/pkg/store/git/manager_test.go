@@ -24,19 +24,33 @@ import (
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
 )
 
-// --- Helper Functions ---
-
-func newTestManager(t *testing.T) (Manager, string) {
-	t.Helper()
-	rootDir := t.TempDir()
-	mgr, err := New(rootDir)
-	require.NoError(t, err)
-	return mgr, rootDir
+func TestManagerSuite(t *testing.T) {
+	suite.Run(t, new(ManagerTestSuite))
 }
+
+type ManagerTestSuite struct {
+	suite.Suite
+	mgr     Manager
+	rootDir string
+}
+
+func (s *ManagerTestSuite) SetupTest() {
+	s.rootDir = s.T().TempDir()
+	mgr, err := New(s.rootDir)
+	s.Require().NoError(err)
+	s.mgr = mgr
+}
+
+func (s *ManagerTestSuite) TearDownTest() {
+	if s.mgr != nil {
+		_ = s.mgr.Close()
+	}
+}
+
+// --- Helper Methods ---
 
 type testGitRepoInfo struct {
 	RepoDir        string
@@ -46,35 +60,35 @@ type testGitRepoInfo struct {
 	BranchName     string
 }
 
-func initTestGitRepo(t *testing.T, files, symlinks map[string]string) *testGitRepoInfo {
-	t.Helper()
-	repoDir := t.TempDir()
+func (s *ManagerTestSuite) initTestGitRepo(files, symlinks map[string]string) *testGitRepoInfo {
+	s.T().Helper()
+	repoDir := s.T().TempDir()
 
 	gitRepo, err := git.PlainInit(repoDir, false)
-	require.NoError(t, err)
+	s.Require().NoError(err)
 
 	wt, err := gitRepo.Worktree()
-	require.NoError(t, err)
+	s.Require().NoError(err)
 
-	// Write files
+	// Write regular files
 	for relPath, content := range files {
 		fullPath := filepath.Join(repoDir, relPath)
-		require.NoError(t, os.MkdirAll(filepath.Dir(fullPath), 0o755))
-		require.NoError(t, os.WriteFile(fullPath, []byte(content), 0o644))
+		s.Require().NoError(os.MkdirAll(filepath.Dir(fullPath), 0o755))
+		s.Require().NoError(os.WriteFile(fullPath, []byte(content), 0o644))
 		_, err = wt.Add(relPath)
-		require.NoError(t, err)
+		s.Require().NoError(err)
 	}
 
 	// Write symlinks
 	for linkName, target := range symlinks {
 		fullPath := filepath.Join(repoDir, linkName)
-		require.NoError(t, os.MkdirAll(filepath.Dir(fullPath), 0o755))
-		require.NoError(t, os.Symlink(target, fullPath))
+		s.Require().NoError(os.MkdirAll(filepath.Dir(fullPath), 0o755))
+		s.Require().NoError(os.Symlink(target, fullPath))
 		_, err = wt.Add(linkName)
-		require.NoError(t, err)
+		s.Require().NoError(err)
 	}
 
-	// Commit on main/master
+	// Commit on default branch
 	sig := &object.Signature{
 		Name:  "Drassi Tester",
 		Email: "tester@drassi.run",
@@ -84,7 +98,7 @@ func initTestGitRepo(t *testing.T, files, symlinks map[string]string) *testGitRe
 		Author:    sig,
 		Committer: sig,
 	})
-	require.NoError(t, err)
+	s.Require().NoError(err)
 
 	// Create a tag
 	tagName := "v1.0.0"
@@ -92,37 +106,37 @@ func initTestGitRepo(t *testing.T, files, symlinks map[string]string) *testGitRe
 		Tagger:  sig,
 		Message: "Release v1.0.0",
 	})
-	require.NoError(t, err)
+	s.Require().NoError(err)
 
 	// Create and checkout a feature branch
 	branchName := "feature-test"
 	headRef, err := gitRepo.Head()
-	require.NoError(t, err)
+	s.Require().NoError(err)
 
 	err = wt.Checkout(&git.CheckoutOptions{
 		Hash:   headRef.Hash(),
 		Branch: plumbing.NewBranchReferenceName(branchName),
 		Create: true,
 	})
-	require.NoError(t, err)
+	s.Require().NoError(err)
 
 	// Add a file on the feature branch
 	featureFilePath := filepath.Join(repoDir, "feature.txt")
-	require.NoError(t, os.WriteFile(featureFilePath, []byte("feature branch content"), 0o644))
+	s.Require().NoError(os.WriteFile(featureFilePath, []byte("feature branch content"), 0o644))
 	_, err = wt.Add("feature.txt")
-	require.NoError(t, err)
+	s.Require().NoError(err)
 
 	featHash, err := wt.Commit("Feature commit", &git.CommitOptions{
 		Author:    sig,
 		Committer: sig,
 	})
-	require.NoError(t, err)
+	s.Require().NoError(err)
 
 	// Checkout back to main
 	err = wt.Checkout(&git.CheckoutOptions{
 		Branch: headRef.Name(),
 	})
-	require.NoError(t, err)
+	s.Require().NoError(err)
 
 	return &testGitRepoInfo{
 		RepoDir:        repoDir,
@@ -133,8 +147,8 @@ func initTestGitRepo(t *testing.T, files, symlinks map[string]string) *testGitRe
 	}
 }
 
-func assertTarEntries(t *testing.T, r io.Reader, expectedEntries, expectedSymlinks map[string]string) {
-	t.Helper()
+func (s *ManagerTestSuite) assertTarEntries(r io.Reader, expectedEntries, expectedSymlinks map[string]string) {
+	s.T().Helper()
 	entries := make(map[string]string)
 	symlinks := make(map[string]string)
 	tr := tar.NewReader(r)
@@ -144,32 +158,31 @@ func assertTarEntries(t *testing.T, r io.Reader, expectedEntries, expectedSymlin
 		if errors.Is(err, io.EOF) {
 			break
 		}
-		require.NoError(t, err)
+		s.Require().NoError(err)
 
 		if hdr.Typeflag == tar.TypeSymlink {
 			symlinks[hdr.Name] = hdr.Linkname
 		} else if hdr.Typeflag == tar.TypeReg {
 			content, err := io.ReadAll(tr)
-			require.NoError(t, err)
+			s.Require().NoError(err)
 			entries[hdr.Name] = string(content)
 		}
 	}
 
 	if expectedEntries != nil {
-		assert.Equal(t, expectedEntries, entries)
+		s.Assert().Equal(expectedEntries, entries)
 	} else {
-		assert.Empty(t, entries)
+		s.Assert().Empty(entries)
 	}
 
 	if expectedSymlinks != nil {
-		assert.Equal(t, expectedSymlinks, symlinks)
+		s.Assert().Equal(expectedSymlinks, symlinks)
 	} else {
-		assert.Empty(t, symlinks)
+		s.Assert().Empty(symlinks)
 	}
 }
 
-func makeLocalRepoRef(repoDir, ref string) *RepoReference {
-	// Trim leading slash to form a valid name
+func (s *ManagerTestSuite) makeLocalRepoRef(repoDir, ref string) *RepoReference {
 	trimmed := strings.TrimPrefix(repoDir, "/")
 	return &RepoReference{
 		Scheme:    "git",
@@ -180,35 +193,43 @@ func makeLocalRepoRef(repoDir, ref string) *RepoReference {
 	}
 }
 
+func (s *ManagerTestSuite) newTestManager() (Manager, string) {
+	s.T().Helper()
+	rootDir := s.T().TempDir()
+	mgr, err := New(rootDir)
+	s.Require().NoError(err)
+	return mgr, rootDir
+}
+
 // --- Tests ---
 
-func TestNew(t *testing.T) {
-	t.Run("success", func(t *testing.T) {
-		tempDir := t.TempDir()
+func (s *ManagerTestSuite) TestNew() {
+	s.Run("success", func() {
+		tempDir := s.T().TempDir()
 		storeDir := filepath.Join(tempDir, "store")
 		mgr, err := New(storeDir)
-		require.NoError(t, err)
-		require.NotNil(t, mgr)
+		s.Require().NoError(err)
+		s.Require().NotNil(mgr)
 
 		info, err := os.Stat(storeDir)
-		require.NoError(t, err)
-		assert.True(t, info.IsDir())
+		s.Require().NoError(err)
+		s.Assert().True(info.IsDir())
 	})
 
-	t.Run("invalid dir error", func(t *testing.T) {
-		tempDir := t.TempDir()
+	s.Run("invalid dir error", func() {
+		tempDir := s.T().TempDir()
 		filePath := filepath.Join(tempDir, "existing-file")
-		require.NoError(t, os.WriteFile(filePath, []byte("data"), 0o644))
+		s.Require().NoError(os.WriteFile(filePath, []byte("data"), 0o644))
 
 		// Attempting to create manager where root is a child of a file
 		invalidPath := filepath.Join(filePath, "child")
 		mgr, err := New(invalidPath)
-		assert.Error(t, err)
-		assert.Nil(t, mgr)
+		s.Assert().Error(err)
+		s.Assert().Nil(mgr)
 	})
 }
 
-func TestFetch(t *testing.T) {
+func (s *ManagerTestSuite) TestFetch() {
 	files := map[string]string{
 		"action.yml": "name: test action",
 		"index.js":   "console.log('hello')",
@@ -216,45 +237,41 @@ func TestFetch(t *testing.T) {
 	symlinks := map[string]string{
 		"link.js": "index.js",
 	}
-	repoInfo := initTestGitRepo(t, files, symlinks)
+	repoInfo := s.initTestGitRepo(files, symlinks)
 
-	t.Run("fetch default branch (HEAD)", func(t *testing.T) {
-		mgr, _ := newTestManager(t)
-		ref := makeLocalRepoRef(repoInfo.RepoDir, "HEAD")
+	s.Run("fetch default branch (HEAD)", func() {
+		ref := s.makeLocalRepoRef(repoInfo.RepoDir, "HEAD")
 
-		rev, err := mgr.Fetch(context.Background(), ref, "")
-		require.NoError(t, err)
-		assert.Equal(t, repoInfo.MainCommitHash, rev)
+		rev, err := s.mgr.Fetch(s.T().Context(), ref, "")
+		s.Require().NoError(err)
+		s.Assert().Equal(repoInfo.MainCommitHash, rev)
 	})
 
-	t.Run("fetch feature branch", func(t *testing.T) {
-		mgr, _ := newTestManager(t)
-		ref := makeLocalRepoRef(repoInfo.RepoDir, repoInfo.BranchName)
+	s.Run("fetch feature branch", func() {
+		ref := s.makeLocalRepoRef(repoInfo.RepoDir, repoInfo.BranchName)
 
-		rev, err := mgr.Fetch(context.Background(), ref, "")
-		require.NoError(t, err)
-		assert.Equal(t, repoInfo.FeatureCommit, rev)
+		rev, err := s.mgr.Fetch(s.T().Context(), ref, "")
+		s.Require().NoError(err)
+		s.Assert().Equal(repoInfo.FeatureCommit, rev)
 	})
 
-	t.Run("fetch tag", func(t *testing.T) {
-		mgr, _ := newTestManager(t)
-		ref := makeLocalRepoRef(repoInfo.RepoDir, repoInfo.TagName)
+	s.Run("fetch tag", func() {
+		ref := s.makeLocalRepoRef(repoInfo.RepoDir, repoInfo.TagName)
 
-		rev, err := mgr.Fetch(context.Background(), ref, "")
-		require.NoError(t, err)
-		assert.Equal(t, repoInfo.MainCommitHash, rev)
+		rev, err := s.mgr.Fetch(s.T().Context(), ref, "")
+		s.Require().NoError(err)
+		s.Assert().Equal(repoInfo.MainCommitHash, rev)
 	})
 
-	t.Run("fetch non-existent ref returns error", func(t *testing.T) {
-		mgr, _ := newTestManager(t)
-		ref := makeLocalRepoRef(repoInfo.RepoDir, "nonexistent-branch-404")
+	s.Run("fetch non-existent ref returns error", func() {
+		ref := s.makeLocalRepoRef(repoInfo.RepoDir, "nonexistent-branch-404")
 
-		rev, err := mgr.Fetch(context.Background(), ref, "")
-		assert.Error(t, err)
-		assert.Empty(t, rev)
+		rev, err := s.mgr.Fetch(s.T().Context(), ref, "")
+		s.Assert().Error(err)
+		s.Assert().Empty(rev)
 	})
 
-	t.Run("fetch with auth token propagates basic auth", func(t *testing.T) {
+	s.Run("fetch with auth token propagates basic auth", func() {
 		var receivedAuth string
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			receivedAuth = r.Header.Get("Authorization")
@@ -262,7 +279,6 @@ func TestFetch(t *testing.T) {
 		}))
 		defer server.Close()
 
-		mgr, _ := newTestManager(t)
 		ref := &RepoReference{
 			Transport: "http",
 			Endpoint:  strings.TrimPrefix(server.URL, "http://"),
@@ -271,23 +287,22 @@ func TestFetch(t *testing.T) {
 		}
 
 		const testToken = "secret-token-123"
-		_, err := mgr.Fetch(context.Background(), ref, testToken)
-		assert.Error(t, err) // server returns 401
+		_, err := s.mgr.Fetch(s.T().Context(), ref, testToken)
+		s.Assert().Error(err)
 		expectedAuth := "Basic " + base64.StdEncoding.EncodeToString([]byte("token:"+testToken))
-		assert.Equal(t, expectedAuth, receivedAuth)
+		s.Assert().Equal(expectedAuth, receivedAuth)
 	})
 
-	t.Run("fetch non-existent repository returns error", func(t *testing.T) {
-		mgr, _ := newTestManager(t)
-		ref := makeLocalRepoRef(filepath.Join(t.TempDir(), "does-not-exist"), "HEAD")
+	s.Run("fetch non-existent repository returns error", func() {
+		ref := s.makeLocalRepoRef(filepath.Join(s.T().TempDir(), "does-not-exist"), "HEAD")
 
-		rev, err := mgr.Fetch(context.Background(), ref, "")
-		assert.Error(t, err)
-		assert.Empty(t, rev)
+		rev, err := s.mgr.Fetch(s.T().Context(), ref, "")
+		s.Assert().Error(err)
+		s.Assert().Empty(rev)
 	})
 }
 
-func TestRead(t *testing.T) {
+func (s *ManagerTestSuite) TestRead() {
 	files := map[string]string{
 		"action.yml":         "name: test-action\ndescription: test",
 		"src/index.js":       "console.log('test');",
@@ -296,17 +311,16 @@ func TestRead(t *testing.T) {
 	symlinks := map[string]string{
 		"src/alias.js": "index.js",
 	}
-	repoInfo := initTestGitRepo(t, files, symlinks)
+	repoInfo := s.initTestGitRepo(files, symlinks)
 
-	mgr, _ := newTestManager(t)
-	ref := makeLocalRepoRef(repoInfo.RepoDir, "HEAD")
-	rev, err := mgr.Fetch(context.Background(), ref, "")
-	require.NoError(t, err)
+	ref := s.makeLocalRepoRef(repoInfo.RepoDir, "HEAD")
+	rev, err := s.mgr.Fetch(s.T().Context(), ref, "")
+	s.Require().NoError(err)
 
-	t.Run("read full archive with directory prefix", func(t *testing.T) {
+	s.Run("read full archive with directory prefix", func() {
 		prefix := "actions/my-action@v1"
-		rc, err := mgr.Read(context.Background(), ref, rev, prefix)
-		require.NoError(t, err)
+		rc, err := s.mgr.Read(s.T().Context(), ref, rev, prefix)
+		s.Require().NoError(err)
 		defer rc.Close()
 
 		expectedEntries := map[string]string{
@@ -318,73 +332,77 @@ func TestRead(t *testing.T) {
 			"actions/my-action@v1/src/alias.js": "index.js",
 		}
 
-		assertTarEntries(t, rc, expectedEntries, expectedSymlinks)
+		s.assertTarEntries(rc, expectedEntries, expectedSymlinks)
 	})
 
-	t.Run("read full archive with empty prefix", func(t *testing.T) {
-		rc, err := mgr.Read(context.Background(), ref, rev, "")
-		require.NoError(t, err)
+	s.Run("read full archive with empty prefix", func() {
+		rc, err := s.mgr.Read(s.T().Context(), ref, rev, "")
+		s.Require().NoError(err)
 		defer rc.Close()
 
-		assertTarEntries(t, rc, files, symlinks)
+		s.assertTarEntries(rc, files, symlinks)
 	})
 
-	t.Run("read non-existent revision error", func(t *testing.T) {
+	s.Run("read non-existent revision error", func() {
 		nonExistentRev := strings.Repeat("0", 40)
-		rc, err := mgr.Read(context.Background(), ref, nonExistentRev, "")
-		assert.Error(t, err)
-		assert.Nil(t, rc)
+		rc, err := s.mgr.Read(s.T().Context(), ref, nonExistentRev, "")
+		s.Assert().Error(err)
+		s.Assert().Nil(rc)
 	})
 
-	t.Run("read non-existent repo error", func(t *testing.T) {
+	s.Run("read non-existent repo error", func() {
 		unknownRef := &RepoReference{
 			Endpoint: "unknown.com",
 			Name:     "unknown/repo",
 			Ref:      "main",
 		}
-		rc, err := mgr.Read(context.Background(), unknownRef, rev, "")
-		assert.Error(t, err)
-		assert.Nil(t, rc)
+		rc, err := s.mgr.Read(s.T().Context(), unknownRef, rev, "")
+		s.Assert().Error(err)
+		s.Assert().Nil(rc)
 	})
 
-	t.Run("context cancellation during read", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
-		cancel() // cancel immediately
+	s.Run("context cancellation during read", func() {
+		cancelMgr, _ := s.newTestManager()
 
-		rc, err := mgr.Read(ctx, ref, rev, "")
-		require.NoError(t, err)
+		cancelRev, err := cancelMgr.Fetch(s.T().Context(), ref, "")
+		s.Require().NoError(err)
+
+		ctx, cancel := context.WithCancel(s.T().Context())
+		cancel()
+
+		rc, err := cancelMgr.Read(ctx, ref, cancelRev, "")
+		s.Require().NoError(err)
 		defer rc.Close()
 
 		_, readErr := io.ReadAll(rc)
-		assert.Error(t, readErr)
-		assert.True(t, errors.Is(readErr, context.Canceled) || errors.Is(readErr, io.ErrClosedPipe))
+		s.Assert().Error(readErr)
+		s.Assert().True(errors.Is(readErr, context.Canceled) || errors.Is(readErr, io.ErrClosedPipe))
 	})
 }
 
-func TestFile(t *testing.T) {
+func (s *ManagerTestSuite) TestFile() {
 	files := map[string]string{
 		"action.yml":           "name: my-action",
 		"src/index.js":         "console.log('ok')",
 		"nested/sub/data.json": `{"key": "value"}`,
 	}
-	repoInfo := initTestGitRepo(t, files, nil)
+	repoInfo := s.initTestGitRepo(files, nil)
 
-	mgr, _ := newTestManager(t)
-	ref := makeLocalRepoRef(repoInfo.RepoDir, "HEAD")
-	rev, err := mgr.Fetch(context.Background(), ref, "")
-	require.NoError(t, err)
+	ref := s.makeLocalRepoRef(repoInfo.RepoDir, "HEAD")
+	rev, err := s.mgr.Fetch(s.T().Context(), ref, "")
+	s.Require().NoError(err)
 
-	t.Run("read existing regular file", func(t *testing.T) {
-		rc, err := mgr.File(context.Background(), ref, rev, "action.yml")
-		require.NoError(t, err)
+	s.Run("read existing regular file", func() {
+		rc, err := s.mgr.File(s.T().Context(), ref, rev, "action.yml")
+		s.Require().NoError(err)
 		defer rc.Close()
 
 		content, err := io.ReadAll(rc)
-		require.NoError(t, err)
-		assert.Equal(t, files["action.yml"], string(content))
+		s.Require().NoError(err)
+		s.Assert().Equal(files["action.yml"], string(content))
 	})
 
-	t.Run("read nested file with leading slash and relative dots", func(t *testing.T) {
+	s.Run("read nested file with leading slash and relative dots", func() {
 		testPaths := []string{
 			"nested/sub/data.json",
 			"/nested/sub/data.json",
@@ -392,92 +410,91 @@ func TestFile(t *testing.T) {
 			"nested/../nested/sub/data.json",
 		}
 		for _, p := range testPaths {
-			rc, err := mgr.File(context.Background(), ref, rev, p)
-			require.NoError(t, err, "path: %s", p)
+			rc, err := s.mgr.File(s.T().Context(), ref, rev, p)
+			s.Require().NoError(err, "path: %s", p)
 			content, err := io.ReadAll(rc)
-			require.NoError(t, err)
-			assert.Equal(t, files["nested/sub/data.json"], string(content))
+			s.Require().NoError(err)
+			s.Assert().Equal(files["nested/sub/data.json"], string(content))
 			_ = rc.Close()
 		}
 	})
 
-	t.Run("read non-existent file error", func(t *testing.T) {
-		rc, err := mgr.File(context.Background(), ref, rev, "does-not-exist.txt")
-		assert.Error(t, err)
-		assert.Nil(t, rc)
-		assert.True(t, errors.Is(err, object.ErrFileNotFound))
+	s.Run("read non-existent file error", func() {
+		rc, err := s.mgr.File(s.T().Context(), ref, rev, "does-not-exist.txt")
+		s.Assert().Error(err)
+		s.Assert().Nil(rc)
+		s.Assert().True(os.IsNotExist(err) || notFoundErr(err))
 	})
 
-	t.Run("read directory as file error", func(t *testing.T) {
-		rc, err := mgr.File(context.Background(), ref, rev, "src")
-		assert.Error(t, err)
-		assert.Nil(t, rc)
-		assert.Contains(t, err.Error(), "not a (regular) file")
+	s.Run("read directory as file error", func() {
+		rc, err := s.mgr.File(s.T().Context(), ref, rev, "src")
+		s.Assert().Error(err)
+		s.Assert().Nil(rc)
+		s.Assert().Contains(err.Error(), "not a (regular) file")
 	})
 
-	t.Run("read file with invalid revision error", func(t *testing.T) {
+	s.Run("read file with invalid revision error", func() {
 		invalidRev := strings.Repeat("a", 40)
-		rc, err := mgr.File(context.Background(), ref, invalidRev, "action.yml")
-		assert.Error(t, err)
-		assert.Nil(t, rc)
+		rc, err := s.mgr.File(s.T().Context(), ref, invalidRev, "action.yml")
+		s.Assert().Error(err)
+		s.Assert().Nil(rc)
 	})
 
-	t.Run("read file from non-existent repo error", func(t *testing.T) {
+	s.Run("read file from non-existent repo error", func() {
 		unknownRef := &RepoReference{
 			Endpoint: "unknown.com",
 			Name:     "unknown/repo",
 			Ref:      "main",
 		}
-		rc, err := mgr.File(context.Background(), unknownRef, rev, "action.yml")
-		assert.Error(t, err)
-		assert.Nil(t, rc)
+		rc, err := s.mgr.File(s.T().Context(), unknownRef, rev, "action.yml")
+		s.Assert().Error(err)
+		s.Assert().Nil(rc)
 	})
 }
 
-func TestPersistence(t *testing.T) {
+func (s *ManagerTestSuite) TestPersistence() {
 	files := map[string]string{
 		"action.yml": "name: persistent-action",
 	}
-	repoInfo := initTestGitRepo(t, files, nil)
+	repoInfo := s.initTestGitRepo(files, nil)
 
-	rootDir := t.TempDir()
+	rootDir := s.T().TempDir()
 
 	// Manager 1: Fetches the repo
 	mgr1, err := New(rootDir)
-	require.NoError(t, err)
-	ref := makeLocalRepoRef(repoInfo.RepoDir, "HEAD")
-	rev, err := mgr1.Fetch(context.Background(), ref, "")
-	require.NoError(t, err)
+	s.Require().NoError(err)
+	ref := s.makeLocalRepoRef(repoInfo.RepoDir, "HEAD")
+	rev, err := mgr1.Fetch(s.T().Context(), ref, "")
+	s.Require().NoError(err)
 
 	// Manager 2: Created with the same rootDir without calling Fetch
 	mgr2, err := New(rootDir)
-	require.NoError(t, err)
+	s.Require().NoError(err)
 
 	// File lookup should succeed by reading from disk
-	rc, err := mgr2.File(context.Background(), ref, rev, "action.yml")
-	require.NoError(t, err)
+	rc, err := mgr2.File(s.T().Context(), ref, rev, "action.yml")
+	s.Require().NoError(err)
 	defer rc.Close()
 
 	content, err := io.ReadAll(rc)
-	require.NoError(t, err)
-	assert.Equal(t, files["action.yml"], string(content))
+	s.Require().NoError(err)
+	s.Assert().Equal(files["action.yml"], string(content))
 
 	// Read archive should also succeed
-	tarRc, err := mgr2.Read(context.Background(), ref, rev, "")
-	require.NoError(t, err)
+	tarRc, err := mgr2.Read(s.T().Context(), ref, rev, "")
+	s.Require().NoError(err)
 	defer tarRc.Close()
-	assertTarEntries(t, tarRc, files, nil)
+	s.assertTarEntries(tarRc, files, nil)
 }
 
-func TestConcurrency(t *testing.T) {
+func (s *ManagerTestSuite) TestConcurrency() {
 	files := map[string]string{
 		"file1.txt": "content1",
 		"file2.txt": "content2",
 	}
-	repoInfo := initTestGitRepo(t, files, nil)
+	repoInfo := s.initTestGitRepo(files, nil)
 
-	mgr, _ := newTestManager(t)
-	ref := makeLocalRepoRef(repoInfo.RepoDir, "HEAD")
+	ref := s.makeLocalRepoRef(repoInfo.RepoDir, "HEAD")
 
 	const workers = 10
 	var wg sync.WaitGroup
@@ -486,24 +503,24 @@ func TestConcurrency(t *testing.T) {
 	for i := 0; i < workers; i++ {
 		go func(id int) {
 			defer wg.Done()
-			ctx := context.Background()
+			ctx := s.T().Context()
 
 			// Concurrently fetch
-			rev, err := mgr.Fetch(ctx, ref, "")
-			require.NoError(t, err)
+			rev, err := s.mgr.Fetch(ctx, ref, "")
+			s.Require().NoError(err)
 
 			// Concurrently read file
-			rc, err := mgr.File(ctx, ref, rev, "file1.txt")
-			require.NoError(t, err)
+			rc, err := s.mgr.File(ctx, ref, rev, "file1.txt")
+			s.Require().NoError(err)
 			content, err := io.ReadAll(rc)
-			require.NoError(t, err)
-			assert.Equal(t, "content1", string(content))
+			s.Require().NoError(err)
+			s.Assert().Equal("content1", string(content))
 			_ = rc.Close()
 
 			// Concurrently read tar
-			tarRc, err := mgr.Read(ctx, ref, rev, "")
-			require.NoError(t, err)
-			assertTarEntries(t, tarRc, files, nil)
+			tarRc, err := s.mgr.Read(ctx, ref, rev, "")
+			s.Require().NoError(err)
+			s.assertTarEntries(tarRc, files, nil)
 			_ = tarRc.Close()
 		}(i)
 	}
@@ -511,24 +528,23 @@ func TestConcurrency(t *testing.T) {
 	wg.Wait()
 }
 
-func TestClose(t *testing.T) {
+func (s *ManagerTestSuite) TestClose() {
 	files := map[string]string{
 		"action.yml": "name: close-test",
 	}
-	repoInfo := initTestGitRepo(t, files, nil)
+	repoInfo := s.initTestGitRepo(files, nil)
 
-	mgr, _ := newTestManager(t)
-	ref := makeLocalRepoRef(repoInfo.RepoDir, "HEAD")
+	ref := s.makeLocalRepoRef(repoInfo.RepoDir, "HEAD")
 
 	// Fetch repository to ensure it is opened and stored in manager
-	_, err := mgr.Fetch(context.Background(), ref, "")
-	require.NoError(t, err)
+	_, err := s.mgr.Fetch(s.T().Context(), ref, "")
+	s.Require().NoError(err)
 
 	// Close the manager
-	err = mgr.Close()
-	require.NoError(t, err)
+	err = s.mgr.Close()
+	s.Require().NoError(err)
 
 	// Calling Close again should also succeed without error
-	err = mgr.Close()
-	require.NoError(t, err)
+	err = s.mgr.Close()
+	s.Require().NoError(err)
 }
