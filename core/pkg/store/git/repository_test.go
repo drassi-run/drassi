@@ -4,21 +4,25 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package repository
+package gitstore
 
 import (
-	"github.com/stretchr/testify/assert"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/suite"
 )
 
-func TestParse(t *testing.T) {
-	t.Run("scheme", testParseScheme)
-	t.Run("endpoint", testEndpoint)
+func TestRepositorySuite(t *testing.T) {
+	suite.Run(t, new(RepositoryTestSuite))
 }
 
-func testParseScheme(t *testing.T) {
-	t.Run("success", func(tt *testing.T) {
+type RepositoryTestSuite struct {
+	suite.Suite
+}
+
+func (s *RepositoryTestSuite) TestParseScheme() {
+	s.Run("success", func() {
 		tests := []struct {
 			input     string
 			scheme    string
@@ -41,12 +45,13 @@ func testParseScheme(t *testing.T) {
 		}
 		for _, test := range tests {
 			repo, err := Parse(test.input)
-			assert.NoError(tt, err, test.input)
-			assert.Equal(tt, test.scheme, repo.Scheme, test.input)
-			assert.Equal(tt, test.transport, repo.Transport, test.input)
+			s.Require().NoError(err, test.input)
+			s.Assert().Equal(test.scheme, repo.Scheme, test.input)
+			s.Assert().Equal(test.transport, repo.Transport, test.input)
 		}
 	})
-	t.Run("failure", func(tt *testing.T) {
+
+	s.Run("failure", func() {
 		tests := []string{
 			"+://github.com/action/checkout@main",
 			"git+://github.com/action/checkout@main",
@@ -54,18 +59,17 @@ func testParseScheme(t *testing.T) {
 		}
 		for _, test := range tests {
 			_, err := Parse(test)
-			assert.Error(tt, err, test)
+			s.Assert().Error(err, test)
 		}
 	})
 }
 
-func testEndpoint(t *testing.T) {
-	t.Run("success", func(tt *testing.T) {
+func (s *RepositoryTestSuite) TestEndpoint() {
+	s.Run("success", func() {
 		endpoints := []string{
 			"",
 			"gitserver.com", "gitserver.com:8080",
 			"1.2.3.4", "1.2.3.4:8080",
-			//"2002::1", "[2002::1]:8080",
 		}
 		paths := []string{"", "path/to/action"}
 		for _, ep := range endpoints {
@@ -73,14 +77,15 @@ func testEndpoint(t *testing.T) {
 				input := ep + "/action/checkout/" + p
 				input = strings.Trim(input, "/") + "@main"
 				repo, err := Parse(input)
-				assert.NoError(tt, err, input)
-				assert.Equal(tt, ep, repo.Endpoint, input)
-				assert.Equal(tt, "action/checkout", repo.Name, input)
-				assert.Equal(tt, p, repo.Path, input)
+				s.Require().NoError(err, input)
+				s.Assert().Equal(ep, repo.Endpoint, input)
+				s.Assert().Equal("action/checkout", repo.Name, input)
+				s.Assert().Equal(p, repo.Path, input)
 			}
 		}
 	})
-	t.Run("failure", func(tt *testing.T) {
+
+	s.Run("failure", func() {
 		tests := []string{
 			"actions@main",
 			"gitserver.com/actions@main",
@@ -92,7 +97,30 @@ func testEndpoint(t *testing.T) {
 		}
 		for _, test := range tests {
 			_, err := Parse(test)
-			assert.Error(tt, err, test)
+			s.Assert().Error(err, test)
 		}
 	})
+}
+
+func (s *RepositoryTestSuite) TestHelpers() {
+	ref := &RepoReference{
+		Endpoint:  "custom.git.org",
+		Name:      "actions/checkout",
+		Path:      "action.yml",
+		Ref:       "v3",
+		Transport: "https",
+	}
+
+	s.Assert().Equal("custom.git.org", Endpoint(ref))
+	s.Assert().Equal("custom.git.org/actions/checkout", FullName(ref))
+	s.Assert().Equal("https://custom.git.org/actions/checkout", Url(ref))
+	s.Assert().Equal("custom.git.org/actions/checkout@v3/action.yml", Location(ref))
+
+	defaultRef := &RepoReference{
+		Name: "actions/checkout",
+		Ref:  "main",
+	}
+	s.Assert().Equal("github.com", Endpoint(defaultRef))
+	s.Assert().Equal("github.com/actions/checkout", FullName(defaultRef))
+	s.Assert().Equal("https://github.com/actions/checkout", Url(defaultRef))
 }

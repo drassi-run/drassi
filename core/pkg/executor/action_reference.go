@@ -21,8 +21,7 @@ import (
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/scribe"
-	"drassi.run/core/pkg/store/repository"
-	"drassi.run/core/pkg/store/repository/gitstore"
+	"drassi.run/core/pkg/store/git"
 	"drassi.run/core/util/dig"
 	"drassi.run/core/util/otel"
 	"github.com/go-git/go-git/v5/plumbing/object"
@@ -36,13 +35,13 @@ type ReferenceActionSpec struct {
 	// + Using a public action: `uses: actions/aws@v2.0.1`
 	// + Using a public action in a subdirectory: `uses: actions/aws/ec2@main`
 	// + Using a local action: `uses: ./.github/actions/hello-world-action`
-	Repo *repository.Repository
+	Repo *gitstore.RepoReference
 
 	// cache resolved revision
 	rev string
 }
 
-func (spec *ReferenceActionSpec) Repository() *repository.Repository {
+func (spec *ReferenceActionSpec) Repository() *gitstore.RepoReference {
 	return spec.Repo
 }
 
@@ -53,11 +52,11 @@ func (spec *ReferenceActionSpec) CreateExecutor(
 
 	var (
 		forge *records.Forge
-		store gitstore.Store
+		store gitstore.Manager
 	)
 
 	span := trace.SpanFromContext(ctx)
-	span.SetAttributes(xotel.ActionRepo(repository.Location(spec.Repo)))
+	span.SetAttributes(xotel.ActionRepo(gitstore.Location(spec.Repo)))
 
 	if err := xdig.Populate(scope, &forge); err != nil {
 		return nil, err
@@ -72,14 +71,14 @@ func (spec *ReferenceActionSpec) CreateExecutor(
 	token := forge.Token
 	// If the action is located in different server than the job repo,
 	// unset the token to prevent an unauthenticated error.
-	if repository.Endpoint(spec.Repo) != spec.serverDomain(forge.ServerUrl) {
+	if gitstore.Endpoint(spec.Repo) != spec.serverDomain(forge.ServerUrl) {
 		token = ""
 	}
 
 	if rev, err := store.Fetch(ctx, spec.Repo, token); err != nil {
 		return nil, err
 	} else {
-		s.Writef("Download action repository %q (SHA:%s)", repository.Location(spec.Repo), rev)
+		s.Writef("Download action repository %q (SHA:%s)", gitstore.Location(spec.Repo), rev)
 		spec.rev = rev
 	}
 
@@ -92,7 +91,7 @@ func (spec *ReferenceActionSpec) CreateExecutor(
 	}
 }
 
-func (spec *ReferenceActionSpec) loadAction(ctx context.Context, s *scribe.Scribe, store gitstore.Store) (ActionSpec, error) {
+func (spec *ReferenceActionSpec) loadAction(ctx context.Context, s *scribe.Scribe, store gitstore.Manager) (ActionSpec, error) {
 	span := trace.SpanFromContext(ctx)
 
 	// 1. First, try reading "action.yml" or "action.yaml" file
@@ -154,8 +153,8 @@ func (spec *ReferenceActionSpec) createDockerfileAction(dockerfile string) (Acti
 	return action, nil
 }
 
-func (spec *ReferenceActionSpec) transferAction(ctx context.Context, store gitstore.Store, sandbox sandboxer.Sandbox) error {
-	location := repository.FullName(spec.Repo) + "@" + spec.Repo.Ref
+func (spec *ReferenceActionSpec) transferAction(ctx context.Context, store gitstore.Manager, sandbox sandboxer.Sandbox) error {
+	location := gitstore.FullName(spec.Repo) + "@" + spec.Repo.Ref
 	r, err := store.Read(ctx, spec.Repo, spec.rev, location)
 	if err != nil {
 		return err

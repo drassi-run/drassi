@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package repository
+package gitstore
 
 import (
 	"fmt"
@@ -19,27 +19,27 @@ var (
 	hostPortRegex = regexp.MustCompile(`^(?P<host>[^:\s]+)(?::(?P<port>\d{1,5}))?$`)
 )
 
-type Repository struct {
+type RepoReference struct {
 	Scheme    string // e.g. git
 	Transport string // e.g. http, https, ssh
 	Endpoint  string // e.g. github.com
 	Name      string // e.g. actions/checkout
-	Path      string // e.g .github/actions/hello-world-action
+	Path      string // e.g. github/actions/checkout
 	Ref       string // e.g. v3
 }
 
-func Endpoint(r *Repository) string {
+func Endpoint(r *RepoReference) string {
 	if r.Endpoint == "" {
 		return "github.com"
 	}
 	return r.Endpoint
 }
 
-func FullName(r *Repository) string {
+func FullName(r *RepoReference) string {
 	return fmt.Sprintf("%s/%s", Endpoint(r), r.Name)
 }
 
-func Url(repo *Repository) string {
+func Url(repo *RepoReference) string {
 	r := FullName(repo)
 	if repo.Transport == "" {
 		return "https://" + r
@@ -47,12 +47,12 @@ func Url(repo *Repository) string {
 	return repo.Transport + "://" + r
 }
 
-func Location(repo *Repository) string {
+func Location(repo *RepoReference) string {
 	r := FullName(repo) + "@" + repo.Ref
 	return filepath.Join(r, repo.Path)
 }
 
-func Parse(s string) (*Repository, error) {
+func Parse(s string) (*RepoReference, error) {
 	match := useRegex.FindStringSubmatch(s)
 	if match == nil {
 		return nil, fmt.Errorf("invalid action %q", s)
@@ -100,7 +100,7 @@ func Parse(s string) (*Repository, error) {
 		path = strings.Join(locParts[2:], "/")
 	}
 
-	r := Repository{
+	r := RepoReference{
 		Scheme:    scheme,
 		Transport: transport,
 		Endpoint:  endpoint,

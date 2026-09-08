@@ -19,7 +19,7 @@ import (
 	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/sandboxer"
-	"drassi.run/core/pkg/store/repository/gitstore"
+	"drassi.run/core/pkg/store/git"
 	"drassi.run/core/util/dig"
 	"drassi.run/core/util/oauth2/clientcredentials"
 	"drassi.run/core/wire"
@@ -43,7 +43,7 @@ type launcher struct {
 	Runner    *ghaconfig.Runner
 	Key       *rsa.PrivateKey
 	Sandboxer sandboxer.Engine
-	store     gitstore.Store
+	store     gitstore.Manager
 	hc        *http.Client
 
 	wm *worker.Manager

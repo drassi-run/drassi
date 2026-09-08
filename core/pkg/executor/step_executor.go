@@ -21,7 +21,7 @@ import (
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/scribe"
-	"drassi.run/core/pkg/store/repository"
+	"drassi.run/core/pkg/store/git"
 	"drassi.run/core/pkg/stream"
 	"drassi.run/core/util/context"
 	"drassi.run/core/util/dig"
@@ -200,7 +200,9 @@ func (e *stepExecutor) init(ctx context.Context, scope *dig.Scope) (ex error) {
 		e.aExec = exec
 	}
 
-	if r, ok := e.spec.Action.(interface{ Repository() *repository.Repository }); ok {
+	if r, ok := e.spec.Action.(interface {
+		Repository() *gitstore.RepoReference
+	}); ok {
 		repo := r.Repository()
 
 		e.forge.ActionRepository = repo.Name
