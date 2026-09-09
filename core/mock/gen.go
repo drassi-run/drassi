@@ -1,6 +1,7 @@
 //go:generate -command mockgen go tool mockgen
 
 //go:generate mockgen -typed -destination=sdk/io/io.go io Reader,Writer,ReadCloser,WriteCloser
+//go:generate mockgen -typed -destination=podman/storage/store.go go.podman.io/storage Store
 //go:generate mockgen -typed -destination=container/engine.go -source=../pkg/container/engine.go
 //go:generate mockgen -typed -destination=sandboxer/engine.go -source=../pkg/sandboxer/engine.go
 //go:generate mockgen -typed -destination=sandboxer/sandbox.go -source=../pkg/sandboxer/sandbox.go
@@ -15,5 +16,6 @@
 //go:generate mockgen -typed -destination=executor/job_executor.go -source=../pkg/executor/job_executor.go
 //go:generate mockgen -typed -destination=executor/step_executor.go -source=../pkg/executor/step_executor.go
 //go:generate mockgen -typed -destination=stream/sink.go -source=../pkg/stream/sink.go
-//go:generate mockgen -typed -destination=podman/storage/store.go go.podman.io/storage Store
+//go:generate mockgen -typed -destination=store/git/manager.go -source=../pkg/store/git/manager.go
+//go:generate mockgen -typed -destination=store/oci/manager.go -source=../pkg/store/oci/manager.go
 package mock
