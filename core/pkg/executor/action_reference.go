@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/url"
 	"path/filepath"
 
@@ -24,7 +25,6 @@ import (
 	"drassi.run/core/pkg/store/git"
 	"drassi.run/core/util/dig"
 	"drassi.run/core/util/otel"
-	"github.com/go-git/go-git/v5/plumbing/object"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
 	"gopkg.in/yaml.v3"
@@ -75,7 +75,12 @@ func (spec *ReferenceActionSpec) CreateExecutor(
 		token = ""
 	}
 
-	if rev, err := store.Fetch(ctx, spec.Repo, token); err != nil {
+	var fetchOpts []gitstore.FetchOption
+	if token != "" {
+		fetchOpts = append(fetchOpts, gitstore.WithToken(token))
+	}
+
+	if rev, err := store.Fetch(ctx, spec.Repo, fetchOpts...); err != nil {
 		return nil, err
 	} else {
 		s.Writef("Download action repository %q (SHA:%s)", gitstore.Location(spec.Repo), rev)
@@ -97,13 +102,13 @@ func (spec *ReferenceActionSpec) loadAction(ctx context.Context, s *scribe.Scrib
 	// 1. First, try reading "action.yml" or "action.yaml" file
 	for _, f := range []string{"action.yml", "action.yaml"} {
 		path := filepath.Join(spec.Repo.Path, f)
-		if r, err := store.File(ctx, spec.Repo, spec.rev, path); err == nil {
+		if r, err := store.Read(ctx, spec.Repo, spec.rev, gitstore.WithFile(path)); err == nil {
 			span.AddEvent("Loaded Action",
 				trace.WithAttributes(xotel.ActionPath(path)),
 			)
 			s.Debugf("Loading %q for action", path)
 			return spec.loadActionManifest(r)
-		} else if !errors.Is(err, object.ErrFileNotFound) {
+		} else if !errors.Is(err, fs.ErrNotExist) {
 			return nil, err
 		}
 	}
@@ -111,14 +116,14 @@ func (spec *ReferenceActionSpec) loadAction(ctx context.Context, s *scribe.Scrib
 	// 2. Second, try reading "Dockerfile" or "dockerfile"
 	for _, f := range []string{"Dockerfile", "dockerfile"} {
 		path := filepath.Join(spec.Repo.Path, f)
-		if r, err := store.File(ctx, spec.Repo, spec.rev, path); err == nil {
+		if r, err := store.Read(ctx, spec.Repo, spec.rev, gitstore.WithFile(path)); err == nil {
 			r.Close()
 			span.AddEvent("Loaded Action",
 				trace.WithAttributes(xotel.ActionPath(path)),
 			)
 			s.Debugf("Loading %q for action", path)
 			return spec.createDockerfileAction(path)
-		} else if !errors.Is(err, object.ErrFileNotFound) {
+		} else if !errors.Is(err, fs.ErrNotExist) {
 			return nil, err
 		}
 	}
@@ -154,8 +159,7 @@ func (spec *ReferenceActionSpec) createDockerfileAction(dockerfile string) (Acti
 }
 
 func (spec *ReferenceActionSpec) transferAction(ctx context.Context, store gitstore.Manager, sandbox sandboxer.Sandbox) error {
-	location := gitstore.FullName(spec.Repo) + "@" + spec.Repo.Ref
-	r, err := store.Read(ctx, spec.Repo, spec.rev, location)
+	r, err := store.Read(ctx, spec.Repo, spec.rev, gitstore.WithSubpath(spec.Repo.Path))
 	if err != nil {
 		return err
 	}
