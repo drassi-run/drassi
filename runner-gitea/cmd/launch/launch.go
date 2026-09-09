@@ -31,6 +31,7 @@ import (
 )
 
 type launcher struct {
+	cfg         *giteaconfig.Config
 	runnerName  string
 	concurrency int
 	client      gitea.Client
@@ -72,6 +73,7 @@ func (c *launcher) Init(ctx context.Context, o *options) error {
 	if err != nil {
 		return err
 	}
+	c.cfg = config
 
 	spec := config.Runner
 	c.runnerName = spec.Name
@@ -173,7 +175,7 @@ func (c *launcher) runTask(ctx context.Context, task *runnerv1.Task) {
 }
 
 func (c *launcher) runTaskE(ctx context.Context, task *runnerv1.Task) error {
-	w := worker.New(task)
+	w := worker.New(c.cfg, task)
 	return w.Run(ctx, c.module())
 }
 
