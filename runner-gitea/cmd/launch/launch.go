@@ -191,10 +191,12 @@ func (c *launcher) loadGitStore() error {
 func (c *launcher) loadSandboxer(config *giteaconfig.Config, name string) error {
 	if sbConfig, ok := config.Sandboxers[name]; !ok {
 		return fmt.Errorf("sandboxer %q not configured", name)
-	} else if engine, err := sandboxer.NewEngine(sbConfig); err != nil {
+	} else if factory, err := sandboxer.NewFactory(sbConfig); err != nil {
+		return err
+	} else if sb, err := factory.Create(); err != nil {
 		return err
 	} else {
-		c.runtime = engine
+		c.runtime = sb
 		return nil
 	}
 }

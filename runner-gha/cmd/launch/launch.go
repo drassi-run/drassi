@@ -91,7 +91,9 @@ func (l *launcher) Init(ctx context.Context, opts *options) (err error) {
 
 	if sbConfig, ok := cfg.Sandboxers[cfg.UseSandboxer]; !ok {
 		return fmt.Errorf("sandboxer %q not configured", cfg.UseSandboxer)
-	} else if sb, err := sandboxer.NewEngine(sbConfig); err != nil {
+	} else if factory, err := sandboxer.NewFactory(sbConfig); err != nil {
+		return err
+	} else if sb, err := factory.Create(); err != nil {
 		return err
 	} else {
 		l.Sandboxer = sb

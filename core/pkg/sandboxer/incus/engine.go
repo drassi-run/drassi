@@ -10,6 +10,7 @@ import (
 	"context"
 	"path"
 	"strings"
+	"sync"
 
 	"drassi.run/core/config"
 	c "drassi.run/core/pkg/container"
@@ -17,24 +18,52 @@ import (
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/sandboxer/container"
+	"drassi.run/core/pkg/store/oci"
 	"drassi.run/core/util/string"
 	incusclient "github.com/lxc/incus/v6/client"
 	incusapi "github.com/lxc/incus/v6/shared/api"
 	dockerclient "github.com/moby/moby/client"
-	"github.com/pelletier/go-toml/v2"
-	"github.com/pelletier/go-toml/v2/unstable"
 )
 
 func init() {
-	sandboxer.Register(config.ProviderIncus, func(raw unstable.RawMessage) (sandboxer.Engine, error) {
-		cfg := DefaultConfig()
-		if len(raw) > 0 {
-			if err := toml.Unmarshal(raw, cfg); err != nil {
-				return nil, err
-			}
-		}
-		return New(cfg)
-	})
+	sandboxer.Register(config.ProviderIncus, DefaultConfig, NewFactory)
+}
+
+func DefaultConfig() *Config {
+	return &Config{
+		Endpoint: "unix:///var/lib/incus/unix.socket",
+		Template: Template{
+			Image:     "ubuntu:latest",
+			Ephemeral: true,
+		},
+	}
+}
+
+func NewFactory(cfg *Config) sandboxer.Factory {
+	f := &factory{cfg: cfg}
+	f.create = sync.OnceValues(f.doCreate)
+	return f
+}
+
+type factory struct {
+	create func() (sandboxer.Engine, error)
+
+	cfg      *Config
+	store    ocistore.Manager
+	runtimes map[string]*config.Runtime
+}
+
+func (f *factory) ProvisionRuntime(store ocistore.Manager, config map[string]*config.Runtime) {
+	f.store = store
+	f.runtimes = config
+}
+
+func (f *factory) Create() (sandboxer.Engine, error) {
+	return f.create()
+}
+
+func (f *factory) doCreate() (sandboxer.Engine, error) {
+	return New(f.cfg)
 }
 
 type Config struct {
@@ -70,16 +99,6 @@ type Template struct {
 	// Whether the instance is ephemeral (deleted on shutdown)
 	// Example: false
 	Ephemeral bool `toml:"ephemeral" json:"ephemeral,omitempty"`
-}
-
-func DefaultConfig() *Config {
-	return &Config{
-		Endpoint: "unix:///var/lib/incus/unix.socket",
-		Template: Template{
-			Image:     "ubuntu:latest",
-			Ephemeral: true,
-		},
-	}
 }
 
 type engine struct {
