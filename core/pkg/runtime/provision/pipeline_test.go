@@ -11,76 +11,101 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type mockOp struct {
-	name            string
-	preCalled       bool
-	postCalled      bool
-	preErr          error
-	postErr         error
-	receivedPreCtx  *provision.Context
-	receivedPostCtx *provision.Context
-	receivedSb      sandboxer.Sandbox
-}
-
-func (m *mockOp) Name() string { return m.name }
-func (m *mockOp) PreLaunch(pctx *provision.Context) error {
-	m.preCalled = true
-	m.receivedPreCtx = pctx
-	return m.preErr
-}
-func (m *mockOp) PostLaunch(pctx *provision.Context, sb sandboxer.Sandbox) error {
-	m.postCalled = true
-	m.receivedPostCtx = pctx
-	m.receivedSb = sb
-	return m.postErr
-}
-
 func TestPipelineExecution(t *testing.T) {
-	op1 := &mockOp{name: "op1"}
-	op2 := &mockOp{name: "op2"}
+	var (
+		op1PreCalled, op2PreCalled   bool
+		op1PostCalled, op2PostCalled bool
+		op1PreCtx, op2PreCtx         *provision.Context
+		op1PostCtx, op2PostCtx       *provision.Context
+	)
+
+	op1 := &provision.OpFunc{
+		PreFunc: func(pctx *provision.Context) error {
+			op1PreCalled = true
+			op1PreCtx = pctx
+			return nil
+		},
+		PostFunc: func(pctx *provision.Context, _ sandboxer.Sandbox) error {
+			op1PostCalled = true
+			op1PostCtx = pctx
+			return nil
+		},
+	}
+	op2 := &provision.OpFunc{
+		PreFunc: func(pctx *provision.Context) error {
+			op2PreCalled = true
+			op2PreCtx = pctx
+			return nil
+		},
+		PostFunc: func(pctx *provision.Context, _ sandboxer.Sandbox) error {
+			op2PostCalled = true
+			op2PostCtx = pctx
+			return nil
+		},
+	}
 
 	p := provision.NewPipeline(op1, op2)
 	pctx := provision.NewContext(context.Background(), "node", &config.Runtime{}, "/target")
 
 	err := p.PreLaunch(pctx)
 	require.NoError(t, err)
-	require.True(t, op1.preCalled)
-	require.True(t, op2.preCalled)
-	require.Equal(t, pctx, op1.receivedPreCtx)
-	require.Equal(t, pctx, op2.receivedPreCtx)
+	require.True(t, op1PreCalled)
+	require.True(t, op2PreCalled)
+	require.Equal(t, pctx, op1PreCtx)
+	require.Equal(t, pctx, op2PreCtx)
 
 	err = p.PostLaunch(pctx, nil)
 	require.NoError(t, err)
-	require.True(t, op1.postCalled)
-	require.True(t, op2.postCalled)
-	require.Equal(t, pctx, op1.receivedPostCtx)
-	require.Equal(t, pctx, op2.receivedPostCtx)
+	require.True(t, op1PostCalled)
+	require.True(t, op2PostCalled)
+	require.Equal(t, pctx, op1PostCtx)
+	require.Equal(t, pctx, op2PostCtx)
 }
 
 func TestPipelinePreLaunchError(t *testing.T) {
-	op1 := &mockOp{name: "op1", preErr: errors.New("pre fail")}
-	op2 := &mockOp{name: "op2"}
+	op2PreCalled := false
+	op1 := &provision.OpFunc{
+		PreFunc: func(_ *provision.Context) error {
+			return errors.New("pre fail")
+		},
+	}
+	op2 := &provision.OpFunc{
+		PreFunc: func(_ *provision.Context) error {
+			op2PreCalled = true
+			return nil
+		},
+	}
 
 	p := provision.NewPipeline(op1, op2)
 	pctx := provision.NewContext(context.Background(), "node", &config.Runtime{}, "/target")
 
 	err := p.PreLaunch(pctx)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), `operation "op1" pre-launch failed for runtime "node": pre fail`)
-	require.False(t, op2.preCalled)
+	require.Contains(t, err.Error(), `operation "func" pre-launch failed for runtime "node": pre fail`)
+	require.False(t, op2PreCalled)
 }
 
 func TestPipelinePostLaunchError(t *testing.T) {
-	op1 := &mockOp{name: "op1"}
-	op2 := &mockOp{name: "op2", postErr: errors.New("post fail")}
+	op1PostCalled := false
+	op1 := &provision.OpFunc{
+		PostFunc: func(_ *provision.Context, _ sandboxer.Sandbox) error {
+			op1PostCalled = true
+			return nil
+		},
+	}
+	op2 := &provision.OpFunc{
+		PostFunc: func(_ *provision.Context, _ sandboxer.Sandbox) error {
+			return errors.New("post fail")
+		},
+	}
 
 	p := provision.NewPipeline(op1, op2)
 	pctx := provision.NewContext(context.Background(), "python", &config.Runtime{}, "/target")
 
 	err := p.PostLaunch(pctx, nil)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), `operation "op2" post-launch failed for runtime "python": post fail`)
-	require.False(t, op1.postCalled)
+	require.Contains(t, err.Error(), `operation "func" post-launch failed for runtime "python": post fail`)
+	require.False(t, op1PostCalled)
 }
 
 func TestPipelineEmpty(t *testing.T) {

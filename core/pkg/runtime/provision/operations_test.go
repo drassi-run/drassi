@@ -8,6 +8,7 @@ import (
 	"drassi.run/core/config"
 	mock_ocistore "drassi.run/core/mock/store/oci"
 	"drassi.run/core/pkg/runtime/provision"
+	"drassi.run/core/pkg/sandboxer"
 	ocistore "drassi.run/core/pkg/store/oci"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -36,7 +37,6 @@ func TestSharedOperations(t *testing.T) {
 	p := provision.NewPipeline(
 		provision.Pull(mgr),
 		provision.Mount(mgr, ocistore.WithWritable(true)),
-		provision.ConfigurePathEnv(),
 	)
 
 	err := p.PreLaunch(pctx)
@@ -157,5 +157,34 @@ func TestMountOperation(t *testing.T) {
 		require.False(t, ok)
 		_, ok = pctx.Get(provision.KeyMountID)
 		require.False(t, ok)
+	})
+}
+
+func TestOpFunc(t *testing.T) {
+	t.Run("metadata and default execution", func(t *testing.T) {
+		op := &provision.OpFunc{}
+		require.Equal(t, "func", op.Name())
+		require.NoError(t, op.PreLaunch(nil))
+		require.NoError(t, op.PostLaunch(nil, nil))
+	})
+
+	t.Run("custom callbacks", func(t *testing.T) {
+		preCalled, postCalled := false, false
+		op := &provision.OpFunc{
+			PreFunc: func(_ *provision.Context) error {
+				preCalled = true
+				return nil
+			},
+			PostFunc: func(_ *provision.Context, _ sandboxer.Sandbox) error {
+				postCalled = true
+				return nil
+			},
+		}
+
+		require.NoError(t, op.PreLaunch(nil))
+		require.True(t, preCalled)
+
+		require.NoError(t, op.PostLaunch(nil, nil))
+		require.True(t, postCalled)
 	})
 }
