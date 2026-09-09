@@ -111,7 +111,7 @@ func (l *launcher) Init(ctx context.Context, opts *options) (err error) {
 	}
 	src := config.TokenSource(ctx)
 	l.hc = oauth2.NewClient(ctx, src)
-	l.wm = worker.NewManager()
+	l.wm = worker.NewManager(cfg)
 
 	if s, err := gitstore.New(".cache"); err != nil {
 		return err

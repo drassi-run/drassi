@@ -18,6 +18,7 @@ import (
 	wire_scribe "drassi.run/core/wire/scribe"
 	wire_secret "drassi.run/core/wire/secret"
 	wire_stream "drassi.run/core/wire/stream"
+	ghaconfig "drassi.run/gha-runner/config"
 	"drassi.run/gha-runner/pkg/messages"
 	wire_core "drassi.run/gha-runner/wire/core"
 	wire_lease "drassi.run/gha-runner/wire/lease"
@@ -27,7 +28,12 @@ import (
 	"go.uber.org/dig"
 )
 
-func Synthetic(scope *dig.Scope, msg *messages.PipelineAgentJobRequest, extras ...*wire.Module) error {
+func Synthetic(
+	scope *dig.Scope,
+	cfg *ghaconfig.Config,
+	msg *messages.PipelineAgentJobRequest,
+	extras ...*wire.Module,
+) error {
 	modules := make([]*wire.Module, 0, 4)
 
 	// core modules
@@ -39,7 +45,9 @@ func Synthetic(scope *dig.Scope, msg *messages.PipelineAgentJobRequest, extras .
 		wire_command.UseDiscardIssueReporter(false),        // use [command.IssueReporter] instead
 		wire_command.UseBlackHoleAttachmentUploader(false), // use [command.xServiceAttacher] instead
 	))
-	modules = append(modules, wire_runtime.Module())
+	modules = append(modules, wire_runtime.Module(
+		wire_runtime.WithRuntimes(cfg.Runtimes),
+	))
 	modules = append(modules, wire_scribe.Module())
 	modules = append(modules, wire_secret.Module())
 	modules = append(modules, wire_stream.Module())
