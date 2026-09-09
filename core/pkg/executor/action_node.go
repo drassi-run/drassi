@@ -181,5 +181,5 @@ func (e *nodeActionExecutor) addSpanAttrs(ctx context.Context, stage Stage) {
 }
 
 func (e *nodeActionExecutor) repr() string {
-	return fmt.Sprintf("node action from %q", gitstore.Location(e.spec.Repo))
+	return fmt.Sprintf("%s action from %q", e.runtime.Name(), gitstore.Location(e.spec.Repo))
 }

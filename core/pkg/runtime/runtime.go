@@ -18,12 +18,14 @@ import (
 )
 
 type Runtime interface {
+	Name() string
 	Run(ctx context.Context, scriptPath string, paths []string, env map[string]string, workdir string, streams *stream.Streams) error
 }
 
 type runtime struct {
-	sandbox sandboxer.Sandbox
+	name    string
 	cmd     []string
+	sandbox sandboxer.Sandbox
 }
 
 func NewRuntime(name string, sandbox sandboxer.Sandbox, cfg *config.Runtime) (Runtime, error) {
@@ -49,10 +51,15 @@ func NewRuntime(name string, sandbox sandboxer.Sandbox, cfg *config.Runtime) (Ru
 	}
 
 	rt := &runtime{
-		sandbox: sandbox,
+		name:    name,
 		cmd:     cmd,
+		sandbox: sandbox,
 	}
 	return rt, nil
+}
+
+func (r *runtime) Name() string {
+	return r.name
 }
 
 func (r *runtime) Run(
