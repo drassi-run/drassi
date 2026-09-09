@@ -26,16 +26,19 @@ import (
 	"golang.org/x/sync/singleflight"
 )
 
+type Image = storage.Image
+type ImageReference = types.ImageReference
+
 // Manager manages OCI image storage and layer mounts for:
 // - Immutable Actions
 // - Pluggable runtimes
 // - Sandboxer images
 type Manager interface {
-	Image(ctx context.Context, imageRef string) (*storage.Image, error)
-	Pull(ctx context.Context, imageRef string, opts ...PullOption) (*storage.Image, error)
-	Mount(ctx context.Context, image *storage.Image, opts ...MountOption) (mountDir string, layerId string, err error)
+	Image(ctx context.Context, imageRef string) (*Image, error)
+	Pull(ctx context.Context, imageRef string, opts ...PullOption) (*Image, error)
+	Mount(ctx context.Context, image *Image, opts ...MountOption) (mountDir string, layerId string, err error)
 	Unmount(ctx context.Context, layerId string) error
-	Read(ctx context.Context, image *storage.Image, opts ...ReadOption) (io.ReadCloser, error)
+	Read(ctx context.Context, image *Image, opts ...ReadOption) (io.ReadCloser, error)
 	Close() error
 }
 
@@ -48,10 +51,10 @@ type manager struct {
 	sf    singleflight.Group
 	mu    sync.Mutex
 
-	pull func(ctx context.Context, destRef, srcRef types.ImageReference, opts ...PullOption) error
+	pull func(ctx context.Context, destRef, srcRef ImageReference, opts ...PullOption) error
 }
 
-func (m *manager) Image(_ context.Context, imageRef string) (*storage.Image, error) {
+func (m *manager) Image(_ context.Context, imageRef string) (*Image, error) {
 	img, err := m.store.Image(imageRef)
 	if err != nil {
 		if errors.Is(err, storage.ErrImageUnknown) {
@@ -62,7 +65,7 @@ func (m *manager) Image(_ context.Context, imageRef string) (*storage.Image, err
 	return img, nil
 }
 
-func (m *manager) Pull(ctx context.Context, imageRef string, opts ...PullOption) (*storage.Image, error) {
+func (m *manager) Pull(ctx context.Context, imageRef string, opts ...PullOption) (*Image, error) {
 	srcRef, err := docker.ParseReference(xstring.EnsurePrefix(imageRef, "//"))
 	if err != nil {
 		return nil, fmt.Errorf("parse source reference %q: %w", imageRef, err)
@@ -88,10 +91,10 @@ func (m *manager) Pull(ctx context.Context, imageRef string, opts ...PullOption)
 	if err != nil {
 		return nil, err
 	}
-	return v.(*storage.Image), nil
+	return v.(*Image), nil
 }
 
-func pull(ctx context.Context, destRef, srcRef types.ImageReference, opts ...PullOption) error {
+func pull(ctx context.Context, destRef, srcRef ImageReference, opts ...PullOption) error {
 	po := new(pullOptions)
 	for _, opt := range opts {
 		opt(po)
@@ -115,7 +118,7 @@ func pull(ctx context.Context, destRef, srcRef types.ImageReference, opts ...Pul
 	return err
 }
 
-func (m *manager) Mount(_ context.Context, image *storage.Image, opts ...MountOption) (string, string, error) {
+func (m *manager) Mount(_ context.Context, image *Image, opts ...MountOption) (string, string, error) {
 	mo := new(mountOptions)
 	for _, opt := range opts {
 		opt(mo)
@@ -140,7 +143,7 @@ func (m *manager) Mount(_ context.Context, image *storage.Image, opts ...MountOp
 }
 
 // Create writable layer on top of img.TopLayer
-func (m *manager) createCOWLayer(img *storage.Image) (string, error) {
+func (m *manager) createCOWLayer(img *Image) (string, error) {
 	layer, err := m.store.CreateLayer("", img.TopLayer, nil, "", true, nil)
 	if err != nil {
 		return "", fmt.Errorf("create COW layer: %w", err)
@@ -158,7 +161,7 @@ func (m *manager) Unmount(_ context.Context, layerId string) error {
 	return err
 }
 
-func (m *manager) Read(ctx context.Context, image *storage.Image, opts ...ReadOption) (io.ReadCloser, error) {
+func (m *manager) Read(ctx context.Context, image *Image, opts ...ReadOption) (io.ReadCloser, error) {
 	ro := new(readOptions)
 	for _, opt := range opts {
 		opt(ro)

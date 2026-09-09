@@ -60,10 +60,10 @@ func (s *ManagerTestSuite) newPolicyContext() *signature.PolicyContext {
 	return pCtx
 }
 
-func (s *ManagerTestSuite) capturePullOptions(targetImg *storage.Image, opts ...PullOption) *pullOptions {
+func (s *ManagerTestSuite) capturePullOptions(targetImg *Image, opts ...PullOption) *pullOptions {
 	s.T().Helper()
 	var capturedOpts []PullOption
-	s.mgr.pull = func(ctx context.Context, destRef, srcRef types.ImageReference, opts ...PullOption) error {
+	s.mgr.pull = func(ctx context.Context, destRef, srcRef ImageReference, opts ...PullOption) error {
 		capturedOpts = opts
 		return nil
 	}
@@ -89,11 +89,11 @@ func (s *ManagerTestSuite) mockCreateLayer(parent, layerID string, err error) *s
 	return layer
 }
 
-func (s *ManagerTestSuite) mockImageMount(layerID, mountDir string) *storage.Image {
+func (s *ManagerTestSuite) mockImageMount(layerID, mountDir string) *Image {
 	s.T().Helper()
 	s.store.EXPECT().Mount(layerID, "").Return(mountDir, nil)
 	s.store.EXPECT().Unmount(layerID, false).Return(false, nil)
-	return &storage.Image{ID: "img-" + layerID, TopLayer: layerID}
+	return &Image{ID: "img-" + layerID, TopLayer: layerID}
 }
 
 func (s *ManagerTestSuite) createTempDir(files, symlinks map[string]string) string {
@@ -149,7 +149,7 @@ func (s *ManagerTestSuite) assertTar(r io.Reader, expectedEntries, expectedSymli
 
 func (s *ManagerTestSuite) TestImage() {
 	s.Run("found", func() {
-		expectedImg := &storage.Image{
+		expectedImg := &Image{
 			ID:       "img-123",
 			TopLayer: "layer-abc",
 		}
@@ -171,13 +171,13 @@ func (s *ManagerTestSuite) TestImage() {
 
 func (s *ManagerTestSuite) TestPull() {
 	s.Run("success singleflight concurrent", func() {
-		expectedImg := &storage.Image{
+		expectedImg := &Image{
 			ID:       "img-pulled",
 			TopLayer: "layer-pulled",
 		}
 
 		var copyCount atomic.Int32
-		s.mgr.pull = func(ctx context.Context, destRef, srcRef types.ImageReference, opts ...PullOption) error {
+		s.mgr.pull = func(ctx context.Context, destRef, srcRef ImageReference, opts ...PullOption) error {
 			copyCount.Add(1)
 			time.Sleep(50 * time.Millisecond) // simulate copy latency
 			return nil
@@ -203,18 +203,18 @@ func (s *ManagerTestSuite) TestPull() {
 	})
 
 	s.Run("options and context propagation", func() {
-		expectedImg := &storage.Image{
+		expectedImg := &Image{
 			ID:       "img-custom",
 			TopLayer: "layer-custom",
 		}
 
 		var (
-			capturedSrcRef  types.ImageReference
-			capturedDestRef types.ImageReference
+			capturedSrcRef  ImageReference
+			capturedDestRef ImageReference
 			capturedOpts    []PullOption
 		)
 
-		s.mgr.pull = func(ctx context.Context, destRef, srcRef types.ImageReference, opts ...PullOption) error {
+		s.mgr.pull = func(ctx context.Context, destRef, srcRef ImageReference, opts ...PullOption) error {
 			capturedSrcRef = srcRef
 			capturedDestRef = destRef
 			capturedOpts = opts
@@ -264,7 +264,7 @@ func (s *ManagerTestSuite) TestPull() {
 	})
 
 	s.Run("individual arch and os options", func() {
-		po := s.capturePullOptions(&storage.Image{ID: "img-alpine"}, WithArchitecture("riscv64"), WithOS("freebsd"))
+		po := s.capturePullOptions(&Image{ID: "img-alpine"}, WithArchitecture("riscv64"), WithOS("freebsd"))
 		s.Require().Equal("riscv64", po.SystemContext.ArchitectureChoice)
 		s.Require().Equal("freebsd", po.SystemContext.OSChoice)
 	})
@@ -273,7 +273,7 @@ func (s *ManagerTestSuite) TestPull() {
 		customSys := &types.SystemContext{
 			DockerRegistryUserAgent: "custom-agent",
 		}
-		po := s.capturePullOptions(&storage.Image{ID: "img-alpine"}, WithSystemContext(customSys))
+		po := s.capturePullOptions(&Image{ID: "img-alpine"}, WithSystemContext(customSys))
 		s.Require().Equal(customSys, po.SystemContext)
 	})
 
@@ -285,7 +285,7 @@ func (s *ManagerTestSuite) TestPull() {
 	})
 
 	s.Run("copy error propagation", func() {
-		s.mgr.pull = func(ctx context.Context, destRef, srcRef types.ImageReference, opts ...PullOption) error {
+		s.mgr.pull = func(ctx context.Context, destRef, srcRef ImageReference, opts ...PullOption) error {
 			return errors.New("network timeout")
 		}
 
@@ -296,7 +296,7 @@ func (s *ManagerTestSuite) TestPull() {
 	})
 
 	s.Run("lookup after pull error", func() {
-		s.mgr.pull = func(ctx context.Context, destRef, srcRef types.ImageReference, opts ...PullOption) error {
+		s.mgr.pull = func(ctx context.Context, destRef, srcRef ImageReference, opts ...PullOption) error {
 			return nil
 		}
 
@@ -331,7 +331,7 @@ func (s *ManagerTestSuite) TestPullOptions_PolicyCtx() {
 }
 
 func (s *ManagerTestSuite) TestMount() {
-	img := &storage.Image{ID: "img-123", TopLayer: "layer-top-456"}
+	img := &Image{ID: "img-123", TopLayer: "layer-top-456"}
 
 	s.Run("read-only base mount success", func() {
 		s.store.EXPECT().Mount("layer-top-456", "").Return("/var/lib/oci/mounts/layer-top-456", nil)
@@ -471,7 +471,7 @@ func (s *ManagerTestSuite) TestRead() {
 	})
 
 	s.Run("mount error", func() {
-		img := &storage.Image{ID: "img-read-6", TopLayer: "layer-read-6"}
+		img := &Image{ID: "img-read-6", TopLayer: "layer-read-6"}
 		s.store.EXPECT().Mount("layer-read-6", "").Return("", errors.New("mount failed"))
 
 		rc, err := s.mgr.Read(s.T().Context(), img)
