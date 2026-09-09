@@ -29,8 +29,6 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/cache"
 	"github.com/go-git/go-git/v5/plumbing/object"
-	"github.com/go-git/go-git/v5/plumbing/transport"
-	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/storage"
 	"github.com/go-git/go-git/v5/storage/filesystem"
 	"github.com/hashicorp/golang-lru/v2/expirable"
@@ -39,9 +37,8 @@ import (
 )
 
 type Manager interface {
-	Fetch(ctx context.Context, repo *RepoReference, token string) (rev string, err error)
-	Read(ctx context.Context, repo *RepoReference, rev, dir string) (io.ReadCloser, error)
-	File(ctx context.Context, repo *RepoReference, rev, path string) (io.ReadCloser, error)
+	Fetch(ctx context.Context, repo *RepoReference, opts ...FetchOption) (rev string, err error)
+	Read(ctx context.Context, repo *RepoReference, rev string, opts ...ReadOption) (io.ReadCloser, error)
 	Close() error
 }
 
@@ -87,7 +84,7 @@ func (m *manager) onEvict(_ string, repo *git.Repository) {
 	}
 }
 
-func (m *manager) Fetch(ctx context.Context, repo *RepoReference, token string) (string, error) {
+func (m *manager) Fetch(ctx context.Context, repo *RepoReference, opts ...FetchOption) (string, error) {
 	key := Location(repo)
 	v, err, _ := m.sf.Do(key, func() (any, error) {
 		repoPath, err := m.ensureDir(repo)
@@ -103,7 +100,7 @@ func (m *manager) Fetch(ctx context.Context, repo *RepoReference, token string) 
 		tmpBranch := rand.String(12)
 		defer gitRepo.DeleteBranch(tmpBranch)
 
-		err = m.fetch(ctx, gitRepo, repo, token, tmpBranch)
+		err = m.fetch(ctx, gitRepo, repo, tmpBranch, opts...)
 		if err != nil {
 			return "", err
 		}
@@ -120,7 +117,16 @@ func (m *manager) Fetch(ctx context.Context, repo *RepoReference, token string) 
 	return v.(string), nil
 }
 
-func (m *manager) Read(ctx context.Context, repo *RepoReference, rev string, dir string) (io.ReadCloser, error) {
+func (m *manager) Read(ctx context.Context, repo *RepoReference, rev string, opts ...ReadOption) (io.ReadCloser, error) {
+	ro := new(readOptions)
+	for _, opt := range opts {
+		opt(ro)
+	}
+
+	if ro.file != "" && ro.subpath != "" {
+		return nil, errors.New("cannot specify both file and subpath")
+	}
+
 	gitRepo, err := m.getRepo(repo)
 	if err != nil {
 		return nil, err
@@ -130,6 +136,39 @@ func (m *manager) Read(ctx context.Context, repo *RepoReference, rev string, dir
 	if err != nil {
 		return nil, err
 	}
+
+	if ro.file != "" {
+		return m.readFile(commit, ro.file)
+	}
+	return m.readArchive(ctx, commit, ro.subpath)
+}
+
+func (m *manager) readFile(commit *object.Commit, filePath string) (io.ReadCloser, error) {
+	tree, err := commit.Tree()
+	if err != nil {
+		return nil, err
+	}
+
+	cleanPath := strings.TrimPrefix(path.Clean(filePath), "/")
+	entry, err := tree.FindEntry(cleanPath)
+	if err != nil {
+		if notFoundErr(err) {
+			return nil, fs.ErrNotExist
+		}
+		return nil, err
+	}
+	if !entry.Mode.IsFile() {
+		return nil, fmt.Errorf("%q is not a (regular) file", filePath)
+	}
+
+	file, err := tree.TreeEntryFile(entry)
+	if err != nil {
+		return nil, err
+	}
+	return file.Reader()
+}
+
+func (m *manager) readArchive(ctx context.Context, commit *object.Commit, subpath string) (io.ReadCloser, error) {
 	files, err := commit.Files()
 	if err != nil {
 		return nil, err
@@ -149,48 +188,13 @@ func (m *manager) Read(ctx context.Context, repo *RepoReference, rev string, dir
 		defer close(ch)
 
 		tw := tar.NewWriter(writer)
-		handler := newTarHandler(tw, dir)
+		handler := newTarHandler(tw, subpath)
 
 		err := files.ForEach(handler)
 		err = cmp.Or(err, tw.Close())
 		_ = writer.CloseWithError(err)
 	}()
 	return reader, nil
-}
-
-func (m *manager) File(ctx context.Context, repo *RepoReference, rev, filePath string) (io.ReadCloser, error) {
-	gitRepo, err := m.getRepo(repo)
-	if err != nil {
-		return nil, err
-	}
-
-	commit, err := gitRepo.CommitObject(plumbing.NewHash(rev))
-	if err != nil {
-		return nil, err
-	}
-
-	tree, err := commit.Tree()
-	if err != nil {
-		return nil, err
-	}
-
-	cleanPath := strings.TrimPrefix(path.Clean(filePath), "/")
-	entry, err := tree.FindEntry(cleanPath)
-	if err != nil {
-		if notFoundErr(err) {
-			return nil, fs.ErrNotExist
-		}
-		return nil, err
-	}
-	if !entry.Mode.IsFile() {
-		return nil, fmt.Errorf("%q is not a (regular) file", filePath)
-	}
-
-	if file, err := tree.TreeEntryFile(entry); err != nil {
-		return nil, err
-	} else {
-		return file.Reader()
-	}
 }
 
 func (m *manager) getRepo(repo *RepoReference) (*git.Repository, error) {
@@ -215,13 +219,10 @@ func (m *manager) getRepo(repo *RepoReference) (*git.Repository, error) {
 	return gitRepo, nil
 }
 
-func (m *manager) fetch(ctx context.Context, gitRepo *git.Repository, repo *RepoReference, token, branch string) error {
-	var auth transport.AuthMethod
-	if token != "" {
-		auth = &http.BasicAuth{
-			Username: "token",
-			Password: token,
-		}
+func (m *manager) fetch(ctx context.Context, gitRepo *git.Repository, repo *RepoReference, branch string, opts ...FetchOption) error {
+	fo := new(fetchOptions)
+	for _, opt := range opts {
+		opt(fo)
 	}
 
 	remoteConfig := &config.RemoteConfig{
@@ -235,18 +236,18 @@ func (m *manager) fetch(ctx context.Context, gitRepo *git.Repository, repo *Repo
 
 	// TODO: using treeless clone when go-git implement it
 	// https://github.blog/2020-12-21-get-up-to-speed-with-partial-clone-and-shallow-clone/
-	fetchOptions := &git.FetchOptions{
+	gfo := &git.FetchOptions{
 		RefSpecs: []config.RefSpec{
 			config.RefSpec(fmt.Sprintf("+%s:refs/heads/%s", repo.Ref, branch)),
 		},
 
-		Auth:  auth,
+		Auth:  fo.auth,
 		Tags:  git.NoTags,
 		Force: true,
 		Prune: true,
 	}
 
-	return remote.FetchContext(ctx, fetchOptions)
+	return remote.FetchContext(ctx, gfo)
 }
 
 func (m *manager) ensureDir(repo *RepoReference) (string, error) {

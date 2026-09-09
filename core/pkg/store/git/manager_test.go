@@ -242,7 +242,7 @@ func (s *ManagerTestSuite) TestFetch() {
 	s.Run("fetch default branch (HEAD)", func() {
 		ref := s.makeLocalRepoRef(repoInfo.RepoDir, "HEAD")
 
-		rev, err := s.mgr.Fetch(s.T().Context(), ref, "")
+		rev, err := s.mgr.Fetch(s.T().Context(), ref)
 		s.Require().NoError(err)
 		s.Assert().Equal(repoInfo.MainCommitHash, rev)
 	})
@@ -250,7 +250,7 @@ func (s *ManagerTestSuite) TestFetch() {
 	s.Run("fetch feature branch", func() {
 		ref := s.makeLocalRepoRef(repoInfo.RepoDir, repoInfo.BranchName)
 
-		rev, err := s.mgr.Fetch(s.T().Context(), ref, "")
+		rev, err := s.mgr.Fetch(s.T().Context(), ref)
 		s.Require().NoError(err)
 		s.Assert().Equal(repoInfo.FeatureCommit, rev)
 	})
@@ -258,7 +258,7 @@ func (s *ManagerTestSuite) TestFetch() {
 	s.Run("fetch tag", func() {
 		ref := s.makeLocalRepoRef(repoInfo.RepoDir, repoInfo.TagName)
 
-		rev, err := s.mgr.Fetch(s.T().Context(), ref, "")
+		rev, err := s.mgr.Fetch(s.T().Context(), ref)
 		s.Require().NoError(err)
 		s.Assert().Equal(repoInfo.MainCommitHash, rev)
 	})
@@ -266,7 +266,7 @@ func (s *ManagerTestSuite) TestFetch() {
 	s.Run("fetch non-existent ref returns error", func() {
 		ref := s.makeLocalRepoRef(repoInfo.RepoDir, "nonexistent-branch-404")
 
-		rev, err := s.mgr.Fetch(s.T().Context(), ref, "")
+		rev, err := s.mgr.Fetch(s.T().Context(), ref)
 		s.Assert().Error(err)
 		s.Assert().Empty(rev)
 	})
@@ -287,7 +287,7 @@ func (s *ManagerTestSuite) TestFetch() {
 		}
 
 		const testToken = "secret-token-123"
-		_, err := s.mgr.Fetch(s.T().Context(), ref, testToken)
+		_, err := s.mgr.Fetch(s.T().Context(), ref, WithToken(testToken))
 		s.Assert().Error(err)
 		expectedAuth := "Basic " + base64.StdEncoding.EncodeToString([]byte("token:"+testToken))
 		s.Assert().Equal(expectedAuth, receivedAuth)
@@ -296,7 +296,7 @@ func (s *ManagerTestSuite) TestFetch() {
 	s.Run("fetch non-existent repository returns error", func() {
 		ref := s.makeLocalRepoRef(filepath.Join(s.T().TempDir(), "does-not-exist"), "HEAD")
 
-		rev, err := s.mgr.Fetch(s.T().Context(), ref, "")
+		rev, err := s.mgr.Fetch(s.T().Context(), ref)
 		s.Assert().Error(err)
 		s.Assert().Empty(rev)
 	})
@@ -304,9 +304,10 @@ func (s *ManagerTestSuite) TestFetch() {
 
 func (s *ManagerTestSuite) TestRead() {
 	files := map[string]string{
-		"action.yml":         "name: test-action\ndescription: test",
-		"src/index.js":       "console.log('test');",
-		"nested/dir/file.md": "# Docs",
+		"action.yml":           "name: test-action\ndescription: test",
+		"src/index.js":         "console.log('test');",
+		"nested/dir/file.md":   "# Docs",
+		"nested/sub/data.json": `{"key": "value"}`,
 	}
 	symlinks := map[string]string{
 		"src/alias.js": "index.js",
@@ -314,19 +315,20 @@ func (s *ManagerTestSuite) TestRead() {
 	repoInfo := s.initTestGitRepo(files, symlinks)
 
 	ref := s.makeLocalRepoRef(repoInfo.RepoDir, "HEAD")
-	rev, err := s.mgr.Fetch(s.T().Context(), ref, "")
+	rev, err := s.mgr.Fetch(s.T().Context(), ref)
 	s.Require().NoError(err)
 
 	s.Run("read full archive with directory prefix", func() {
 		prefix := "actions/my-action@v1"
-		rc, err := s.mgr.Read(s.T().Context(), ref, rev, prefix)
+		rc, err := s.mgr.Read(s.T().Context(), ref, rev, WithSubpath(prefix))
 		s.Require().NoError(err)
 		defer rc.Close()
 
 		expectedEntries := map[string]string{
-			"actions/my-action@v1/action.yml":         files["action.yml"],
-			"actions/my-action@v1/src/index.js":       files["src/index.js"],
-			"actions/my-action@v1/nested/dir/file.md": files["nested/dir/file.md"],
+			"actions/my-action@v1/action.yml":           files["action.yml"],
+			"actions/my-action@v1/src/index.js":         files["src/index.js"],
+			"actions/my-action@v1/nested/dir/file.md":   files["nested/dir/file.md"],
+			"actions/my-action@v1/nested/sub/data.json": files["nested/sub/data.json"],
 		}
 		expectedSymlinks := map[string]string{
 			"actions/my-action@v1/src/alias.js": "index.js",
@@ -336,7 +338,7 @@ func (s *ManagerTestSuite) TestRead() {
 	})
 
 	s.Run("read full archive with empty prefix", func() {
-		rc, err := s.mgr.Read(s.T().Context(), ref, rev, "")
+		rc, err := s.mgr.Read(s.T().Context(), ref, rev)
 		s.Require().NoError(err)
 		defer rc.Close()
 
@@ -345,7 +347,7 @@ func (s *ManagerTestSuite) TestRead() {
 
 	s.Run("read non-existent revision error", func() {
 		nonExistentRev := strings.Repeat("0", 40)
-		rc, err := s.mgr.Read(s.T().Context(), ref, nonExistentRev, "")
+		rc, err := s.mgr.Read(s.T().Context(), ref, nonExistentRev)
 		s.Assert().Error(err)
 		s.Assert().Nil(rc)
 	})
@@ -356,44 +358,13 @@ func (s *ManagerTestSuite) TestRead() {
 			Name:     "unknown/repo",
 			Ref:      "main",
 		}
-		rc, err := s.mgr.Read(s.T().Context(), unknownRef, rev, "")
+		rc, err := s.mgr.Read(s.T().Context(), unknownRef, rev)
 		s.Assert().Error(err)
 		s.Assert().Nil(rc)
 	})
 
-	s.Run("context cancellation during read", func() {
-		cancelMgr, _ := s.newTestManager()
-
-		cancelRev, err := cancelMgr.Fetch(s.T().Context(), ref, "")
-		s.Require().NoError(err)
-
-		ctx, cancel := context.WithCancel(s.T().Context())
-		cancel()
-
-		rc, err := cancelMgr.Read(ctx, ref, cancelRev, "")
-		s.Require().NoError(err)
-		defer rc.Close()
-
-		_, readErr := io.ReadAll(rc)
-		s.Assert().Error(readErr)
-		s.Assert().True(errors.Is(readErr, context.Canceled) || errors.Is(readErr, io.ErrClosedPipe))
-	})
-}
-
-func (s *ManagerTestSuite) TestFile() {
-	files := map[string]string{
-		"action.yml":           "name: my-action",
-		"src/index.js":         "console.log('ok')",
-		"nested/sub/data.json": `{"key": "value"}`,
-	}
-	repoInfo := s.initTestGitRepo(files, nil)
-
-	ref := s.makeLocalRepoRef(repoInfo.RepoDir, "HEAD")
-	rev, err := s.mgr.Fetch(s.T().Context(), ref, "")
-	s.Require().NoError(err)
-
 	s.Run("read existing regular file", func() {
-		rc, err := s.mgr.File(s.T().Context(), ref, rev, "action.yml")
+		rc, err := s.mgr.Read(s.T().Context(), ref, rev, WithFile("action.yml"))
 		s.Require().NoError(err)
 		defer rc.Close()
 
@@ -410,7 +381,7 @@ func (s *ManagerTestSuite) TestFile() {
 			"nested/../nested/sub/data.json",
 		}
 		for _, p := range testPaths {
-			rc, err := s.mgr.File(s.T().Context(), ref, rev, p)
+			rc, err := s.mgr.Read(s.T().Context(), ref, rev, WithFile(p))
 			s.Require().NoError(err, "path: %s", p)
 			content, err := io.ReadAll(rc)
 			s.Require().NoError(err)
@@ -420,14 +391,14 @@ func (s *ManagerTestSuite) TestFile() {
 	})
 
 	s.Run("read non-existent file error", func() {
-		rc, err := s.mgr.File(s.T().Context(), ref, rev, "does-not-exist.txt")
+		rc, err := s.mgr.Read(s.T().Context(), ref, rev, WithFile("does-not-exist.txt"))
 		s.Assert().Error(err)
 		s.Assert().Nil(rc)
 		s.Assert().True(os.IsNotExist(err) || notFoundErr(err))
 	})
 
 	s.Run("read directory as file error", func() {
-		rc, err := s.mgr.File(s.T().Context(), ref, rev, "src")
+		rc, err := s.mgr.Read(s.T().Context(), ref, rev, WithFile("src"))
 		s.Assert().Error(err)
 		s.Assert().Nil(rc)
 		s.Assert().Contains(err.Error(), "not a (regular) file")
@@ -435,7 +406,7 @@ func (s *ManagerTestSuite) TestFile() {
 
 	s.Run("read file with invalid revision error", func() {
 		invalidRev := strings.Repeat("a", 40)
-		rc, err := s.mgr.File(s.T().Context(), ref, invalidRev, "action.yml")
+		rc, err := s.mgr.Read(s.T().Context(), ref, invalidRev, WithFile("action.yml"))
 		s.Assert().Error(err)
 		s.Assert().Nil(rc)
 	})
@@ -446,9 +417,34 @@ func (s *ManagerTestSuite) TestFile() {
 			Name:     "unknown/repo",
 			Ref:      "main",
 		}
-		rc, err := s.mgr.File(s.T().Context(), unknownRef, rev, "action.yml")
+		rc, err := s.mgr.Read(s.T().Context(), unknownRef, rev, WithFile("action.yml"))
 		s.Assert().Error(err)
 		s.Assert().Nil(rc)
+	})
+
+	s.Run("read with both file and subpath returns error", func() {
+		rc, err := s.mgr.Read(s.T().Context(), ref, rev, WithFile("action.yml"), WithSubpath("actions"))
+		s.Assert().Error(err)
+		s.Assert().Nil(rc)
+		s.Assert().Contains(err.Error(), "cannot specify both file and subpath")
+	})
+
+	s.Run("context cancellation during read", func() {
+		cancelMgr, _ := s.newTestManager()
+
+		cancelRev, err := cancelMgr.Fetch(s.T().Context(), ref)
+		s.Require().NoError(err)
+
+		ctx, cancel := context.WithCancel(s.T().Context())
+		cancel()
+
+		rc, err := cancelMgr.Read(ctx, ref, cancelRev)
+		s.Require().NoError(err)
+		defer rc.Close()
+
+		_, readErr := io.ReadAll(rc)
+		s.Assert().Error(readErr)
+		s.Assert().True(errors.Is(readErr, context.Canceled) || errors.Is(readErr, io.ErrClosedPipe))
 	})
 }
 
@@ -464,7 +460,7 @@ func (s *ManagerTestSuite) TestPersistence() {
 	mgr1, err := New(rootDir)
 	s.Require().NoError(err)
 	ref := s.makeLocalRepoRef(repoInfo.RepoDir, "HEAD")
-	rev, err := mgr1.Fetch(s.T().Context(), ref, "")
+	rev, err := mgr1.Fetch(s.T().Context(), ref)
 	s.Require().NoError(err)
 
 	// Manager 2: Created with the same rootDir without calling Fetch
@@ -472,7 +468,7 @@ func (s *ManagerTestSuite) TestPersistence() {
 	s.Require().NoError(err)
 
 	// File lookup should succeed by reading from disk
-	rc, err := mgr2.File(s.T().Context(), ref, rev, "action.yml")
+	rc, err := mgr2.Read(s.T().Context(), ref, rev, WithFile("action.yml"))
 	s.Require().NoError(err)
 	defer rc.Close()
 
@@ -481,7 +477,7 @@ func (s *ManagerTestSuite) TestPersistence() {
 	s.Assert().Equal(files["action.yml"], string(content))
 
 	// Read archive should also succeed
-	tarRc, err := mgr2.Read(s.T().Context(), ref, rev, "")
+	tarRc, err := mgr2.Read(s.T().Context(), ref, rev)
 	s.Require().NoError(err)
 	defer tarRc.Close()
 	s.assertTarEntries(tarRc, files, nil)
@@ -506,11 +502,11 @@ func (s *ManagerTestSuite) TestConcurrency() {
 			ctx := s.T().Context()
 
 			// Concurrently fetch
-			rev, err := s.mgr.Fetch(ctx, ref, "")
+			rev, err := s.mgr.Fetch(ctx, ref)
 			s.Require().NoError(err)
 
 			// Concurrently read file
-			rc, err := s.mgr.File(ctx, ref, rev, "file1.txt")
+			rc, err := s.mgr.Read(ctx, ref, rev, WithFile("file1.txt"))
 			s.Require().NoError(err)
 			content, err := io.ReadAll(rc)
 			s.Require().NoError(err)
@@ -518,7 +514,7 @@ func (s *ManagerTestSuite) TestConcurrency() {
 			_ = rc.Close()
 
 			// Concurrently read tar
-			tarRc, err := s.mgr.Read(ctx, ref, rev, "")
+			tarRc, err := s.mgr.Read(ctx, ref, rev)
 			s.Require().NoError(err)
 			s.assertTarEntries(tarRc, files, nil)
 			_ = tarRc.Close()
@@ -537,7 +533,7 @@ func (s *ManagerTestSuite) TestClose() {
 	ref := s.makeLocalRepoRef(repoInfo.RepoDir, "HEAD")
 
 	// Fetch repository to ensure it is opened and stored in manager
-	_, err := s.mgr.Fetch(s.T().Context(), ref, "")
+	_, err := s.mgr.Fetch(s.T().Context(), ref)
 	s.Require().NoError(err)
 
 	// Close the manager
