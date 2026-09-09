@@ -20,13 +20,14 @@ type ContainerStorage struct {
 //   - [github.com/moby/moby/api/types/container.MountPoint]
 //   - [github.com/compose-spec/compose-go/v2/types.ServiceVolumeConfig]
 type Mount struct {
-	Type     string // "bind", "volume", "tmpfs"
+	Type     string // "bind", "volume", "image", "tmpfs"
 	Source   string
 	Target   string
 	ReadOnly bool
 
 	BindOptions   *BindOptions
 	VolumeOptions *VolumeOptions
+	ImageOptions  *ImageOptions
 	TmpfsOptions  *TmpfsOptions
 }
 
@@ -52,6 +53,13 @@ type VolumeOptions struct {
 	// [github.com/moby/moby/api/types/mount.Driver]
 	Driver  string
 	Options map[string]string
+}
+
+// ImageOptions represents the options for a mount of type "image".
+//   - [github.com/moby/moby/api/types/mount.ImageOptions]
+//   - [github.com/compose-spec/compose-go/v2/types.ServiceVolumeImage]
+type ImageOptions struct {
+	Subpath string
 }
 
 // TmpfsOptions defines options specific to mounts of type "tmpfs".

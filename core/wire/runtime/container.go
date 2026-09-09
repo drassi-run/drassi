@@ -221,6 +221,19 @@ func chMount(m *types.Mount, mountPoint, subDir string) (*types.Mount, error) {
 				SubPath: subDir,
 			}
 		}
+	case "image":
+		if img := m.ImageOptions; img != nil {
+			mount.ImageOptions = &types.ImageOptions{
+				Subpath: img.Subpath,
+			}
+			if subDir != "" {
+				mount.ImageOptions.Subpath = path.Join(mount.ImageOptions.Subpath, subDir)
+			}
+		} else if subDir != "" {
+			mount.ImageOptions = &types.ImageOptions{
+				Subpath: subDir,
+			}
+		}
 	default:
 		return nil, fmt.Errorf("unsupported mount type: %s", typ)
 	}

@@ -119,6 +119,11 @@ func parseMount(m dockermount.Mount) *types.Mount {
 			mount.VolumeOptions.Options = dc.Options
 		}
 	}
+	if io := m.ImageOptions; io != nil {
+		mount.ImageOptions = &types.ImageOptions{
+			Subpath: io.Subpath,
+		}
+	}
 	if to := m.TmpfsOptions; to != nil {
 		mount.TmpfsOptions = &types.TmpfsOptions{
 			Size:    to.SizeBytes,
