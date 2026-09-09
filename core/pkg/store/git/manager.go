@@ -68,17 +68,17 @@ func New(rootDir string, opts ...Option) (Manager, error) {
 		// abstract from file system implementations and simplify testing.
 		fsys: osfs.New(rootDir),
 	}
-	m.repos = expirable.NewLRU[string, *git.Repository](opt.size, m.onEvict, opt.ttl)
+	m.repos = expirable.NewLRU[string, *Repository](opt.size, m.onEvict, opt.ttl)
 	return m, nil
 }
 
 type manager struct {
 	fsys  billy.Filesystem
 	sf    singleflight.Group
-	repos *expirable.LRU[string, *git.Repository]
+	repos *expirable.LRU[string, *Repository]
 }
 
-func (m *manager) onEvict(_ string, repo *git.Repository) {
+func (m *manager) onEvict(_ string, repo *Repository) {
 	if closer, ok := repo.Storer.(io.Closer); ok {
 		_ = closer.Close()
 	}
@@ -197,7 +197,7 @@ func (m *manager) readArchive(ctx context.Context, commit *object.Commit, subpat
 	return reader, nil
 }
 
-func (m *manager) getRepo(repo *RepoReference) (*git.Repository, error) {
+func (m *manager) getRepo(repo *RepoReference) (*Repository, error) {
 	id := FullName(repo)
 	if gitRepo, ok := m.repos.Get(id); ok {
 		return gitRepo, nil
@@ -219,7 +219,7 @@ func (m *manager) getRepo(repo *RepoReference) (*git.Repository, error) {
 	return gitRepo, nil
 }
 
-func (m *manager) fetch(ctx context.Context, gitRepo *git.Repository, repo *RepoReference, branch string, opts ...FetchOption) error {
+func (m *manager) fetch(ctx context.Context, gitRepo *Repository, repo *RepoReference, branch string, opts ...FetchOption) error {
 	fo := new(fetchOptions)
 	for _, opt := range opts {
 		opt(fo)
@@ -272,7 +272,7 @@ func (m *manager) ensureDir(repo *RepoReference) (string, error) {
 	return repoPath, nil
 }
 
-func (m *manager) ensureRepo(path string, repo *RepoReference) (*git.Repository, error) {
+func (m *manager) ensureRepo(path string, repo *RepoReference) (*Repository, error) {
 	id := FullName(repo)
 	if gitRepo, ok := m.repos.Get(id); ok {
 		return gitRepo, nil

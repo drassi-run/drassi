@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/go-git/go-git/v5"
 )
 
 var (
@@ -19,6 +21,7 @@ var (
 	hostPortRegex = regexp.MustCompile(`^(?P<host>[^:\s]+)(?::(?P<port>\d{1,5}))?$`)
 )
 
+type Repository = git.Repository
 type RepoReference struct {
 	Scheme    string // e.g. git
 	Transport string // e.g. http, https, ssh
