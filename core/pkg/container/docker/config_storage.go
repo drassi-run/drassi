@@ -43,6 +43,11 @@ func (cc *containerConfig) setMounts(volumes []*types.Mount) {
 				Subpath: volume.SubPath,
 			}
 		}
+		if image := v.ImageOptions; image != nil {
+			m.ImageOptions = &dockermount.ImageOptions{
+				Subpath: image.Subpath,
+			}
+		}
 		if tmpfs := v.TmpfsOptions; tmpfs != nil {
 			m.TmpfsOptions = &dockermount.TmpfsOptions{
 				SizeBytes: tmpfs.Size,
@@ -148,6 +153,12 @@ func (cs *containerSpec) setMounts(mounts []dockermount.Mount) {
 					opts := mount.VolumeOptions
 					opts.Driver = driver.Name
 					opts.Options = driver.Options
+				}
+			}
+		case dockermount.TypeImage:
+			if image := m.ImageOptions; image != nil {
+				mount.ImageOptions = &types.ImageOptions{
+					Subpath: image.Subpath,
 				}
 			}
 		case dockermount.TypeTmpfs:

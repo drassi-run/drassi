@@ -14,7 +14,6 @@ import (
 	"net/http"
 	"time"
 
-	coreconfig "drassi.run/core/config"
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/records"
@@ -92,7 +91,7 @@ func (l *launcher) Init(ctx context.Context, opts *options) (err error) {
 
 	if sbConfig, ok := cfg.Sandboxers[cfg.UseSandboxer]; !ok {
 		return fmt.Errorf("sandboxer %q not configured", cfg.UseSandboxer)
-	} else if sb, err := coreconfig.NewSandboxerEngine(sbConfig); err != nil {
+	} else if sb, err := sandboxer.NewEngine(sbConfig); err != nil {
 		return err
 	} else {
 		l.Sandboxer = sb

@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	coreconfig "drassi.run/core/config"
 	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/sandboxer"
@@ -190,7 +189,7 @@ func (c *launcher) loadGitStore() error {
 func (c *launcher) loadSandboxer(config *giteaconfig.Config, name string) error {
 	if sbConfig, ok := config.Sandboxers[name]; !ok {
 		return fmt.Errorf("sandboxer %q not configured", name)
-	} else if engine, err := coreconfig.NewSandboxerEngine(sbConfig); err != nil {
+	} else if engine, err := sandboxer.NewEngine(sbConfig); err != nil {
 		return err
 	} else {
 		c.runtime = engine

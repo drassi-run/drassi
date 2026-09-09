@@ -15,7 +15,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	coreconfig "drassi.run/core/config"
+	"drassi.run/core/pkg/sandboxer"
+	_ "drassi.run/core/pkg/sandboxer/host"
 	"drassi.run/gha-runner/cmd/migrate"
 	ghaconfig "drassi.run/gha-runner/config"
 	"drassi.run/gha-runner/pkg/dotnet"
@@ -98,7 +99,7 @@ func TestMigrateCommand(t *testing.T) {
 	// Check sandboxer engine instantiation
 	sb, ok := cfg.Sandboxers[cfg.UseSandboxer]
 	require.True(t, ok)
-	engine, err := coreconfig.NewSandboxerEngine(sb)
+	engine, err := sandboxer.NewEngine(sb)
 	require.NoError(t, err)
 	require.NotNil(t, engine)
 }

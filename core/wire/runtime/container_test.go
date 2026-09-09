@@ -74,6 +74,34 @@ func TestChMount(t *testing.T) {
 		assert.Equal(t, "foo/bar/subdir", mount.VolumeOptions.SubPath)
 		assert.Equal(t, "local", mount.VolumeOptions.Driver)
 	})
+
+	t.Run("image", func(t *testing.T) {
+		mountPath := "/path/to/container"
+		m := &types.Mount{
+			Type:   "image",
+			Source: "drassi/node:24",
+			Target: "/path/to/sandbox",
+		}
+		mount, err := chMount(m, mountPath, "")
+		assert.NoError(t, err)
+		assert.Equal(t, "image", mount.Type)
+		assert.Equal(t, "drassi/node:24", mount.Source)
+		assert.Equal(t, mountPath, mount.Target)
+
+		mount, err = chMount(m, mountPath, "subdir")
+		assert.NoError(t, err)
+		assert.Equal(t, "image", mount.Type)
+		assert.Equal(t, "drassi/node:24", mount.Source)
+		assert.Equal(t, mountPath, mount.Target)
+		assert.Equal(t, "subdir", mount.ImageOptions.Subpath)
+
+		m.ImageOptions = &types.ImageOptions{
+			Subpath: "opt/node",
+		}
+		mount, err = chMount(m, mountPath, "subdir")
+		assert.NoError(t, err)
+		assert.Equal(t, "opt/node/subdir", mount.ImageOptions.Subpath)
+	})
 }
 
 var (

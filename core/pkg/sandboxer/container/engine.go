@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 
+	"drassi.run/core/config"
 	"drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/container/cli"
 	"drassi.run/core/pkg/container/docker"
@@ -23,8 +24,22 @@ import (
 	"drassi.run/core/pkg/stream"
 	"drassi.run/core/util/string"
 	dockerclient "github.com/moby/moby/client"
+	"github.com/pelletier/go-toml/v2"
+	"github.com/pelletier/go-toml/v2/unstable"
 	"golang.org/x/sync/errgroup"
 )
+
+func init() {
+	sandboxer.Register(config.ProviderContainer, func(raw unstable.RawMessage) (sandboxer.Engine, error) {
+		cfg := DefaultConfig()
+		if len(raw) > 0 {
+			if err := toml.Unmarshal(raw, cfg); err != nil {
+				return nil, err
+			}
+		}
+		return New(cfg)
+	})
+}
 
 type Bootstrapper interface {
 	Bootstrap(ctx context.Context, sb sandboxer.Sandbox, req *sandboxer.LaunchRequest) (*sandboxer.LaunchResponse, error)
