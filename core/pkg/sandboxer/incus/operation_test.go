@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package incus_test
+package incus
 
 import (
 	"path/filepath"
@@ -12,7 +12,6 @@ import (
 
 	"drassi.run/core/config"
 	"drassi.run/core/pkg/runtime/provision"
-	"drassi.run/core/pkg/sandboxer/incus"
 	"github.com/stretchr/testify/require"
 )
 
@@ -21,10 +20,10 @@ func TestIncusDiskDevice(t *testing.T) {
 		pctx := provision.NewContext(t.Context(), "node", &config.Runtime{}, "/opt/drassi/runtimes/node")
 		pctx.Set(provision.KeyHostMountDir, "/var/lib/drassi/storage/overlay/merged")
 
-		op := incus.AddDiskDevice()
+		op := AddDiskDevice()
 		require.Equal(t, "incus/disk-device", op.Name())
 
-		tmpl := &incus.Template{}
+		tmpl := new(Template)
 		tmpl, err := op.PreLaunch(pctx, tmpl)
 		require.NoError(t, err)
 		require.Contains(t, tmpl.Devices, "runtime-node")
@@ -39,8 +38,8 @@ func TestIncusDiskDevice(t *testing.T) {
 		pctx := provision.NewContext(t.Context(), "node", &config.Runtime{ReadOnly: true}, "/opt/drassi/runtimes/node")
 		pctx.Set(provision.KeyHostMountDir, "/var/lib/drassi/storage/overlay/merged")
 
-		op := incus.AddDiskDevice()
-		tmpl := &incus.Template{}
+		op := AddDiskDevice()
+		tmpl := new(Template)
 		tmpl, err := op.PreLaunch(pctx, tmpl)
 		require.NoError(t, err)
 		require.Contains(t, tmpl.Devices, "runtime-node")
@@ -55,8 +54,8 @@ func TestIncusDiskDevice(t *testing.T) {
 		pctx := provision.NewContext(t.Context(), "python", &config.Runtime{Subpath: "opt/python"}, "/opt/drassi/runtimes/python")
 		pctx.Set(provision.KeyHostMountDir, "/var/lib/drassi/storage/overlay/merged")
 
-		op := incus.AddDiskDevice()
-		tmpl := &incus.Template{}
+		op := AddDiskDevice()
+		tmpl := new(Template)
 		tmpl, err := op.PreLaunch(pctx, tmpl)
 		require.NoError(t, err)
 		require.Contains(t, tmpl.Devices, "runtime-python")
@@ -69,8 +68,8 @@ func TestIncusDiskDevice(t *testing.T) {
 
 	t.Run("missing host mount dir", func(t *testing.T) {
 		pctx := provision.NewContext(t.Context(), "node", &config.Runtime{}, "/opt/drassi/runtimes/node")
-		op := incus.AddDiskDevice()
-		tmpl := &incus.Template{}
+		op := AddDiskDevice()
+		tmpl := new(Template)
 		_, err := op.PreLaunch(pctx, tmpl)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "host mount directory not set in context")

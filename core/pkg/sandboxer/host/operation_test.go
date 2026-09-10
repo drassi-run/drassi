@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package host_test
+package host
 
 import (
 	"os"
@@ -15,7 +15,6 @@ import (
 	mock_sandboxer "drassi.run/core/mock/sandboxer"
 	"drassi.run/core/pkg/runtime/provision"
 	"drassi.run/core/pkg/sandboxer"
-	"drassi.run/core/pkg/sandboxer/host"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
@@ -25,7 +24,7 @@ func TestHostSymlink(t *testing.T) {
 	runtimesDir := filepath.Join(t.TempDir(), "runtimes")
 	require.NoError(t, os.MkdirAll(runtimesDir, 0755))
 
-	op := host.Symlink[any]()
+	op := Symlink[any]()
 	require.Equal(t, "host/symlink", op.Name())
 
 	sb := mock_sandboxer.NewMockSandbox(ctrl)

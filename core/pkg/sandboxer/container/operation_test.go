@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package container_test
+package container
 
 import (
 	"path/filepath"
@@ -13,7 +13,6 @@ import (
 	"drassi.run/core/config"
 	"drassi.run/core/pkg/container/types"
 	"drassi.run/core/pkg/runtime/provision"
-	"drassi.run/core/pkg/sandboxer/container"
 	"github.com/stretchr/testify/require"
 )
 
@@ -22,10 +21,10 @@ func TestContainerBindMount(t *testing.T) {
 		pctx := provision.NewContext(t.Context(), "node", &config.Runtime{}, "/opt/drassi/runtimes/node")
 		pctx.Set(provision.KeyHostMountDir, "/var/lib/drassi/storage/overlay/merged")
 
-		op := container.AddBindMount()
+		op := AddBindMount()
 		require.Equal(t, "container/bind-mount", op.Name())
 
-		spec := &types.ContainerSpec{}
+		spec := new(types.ContainerSpec)
 		spec, err := op.PreLaunch(pctx, spec)
 		require.NoError(t, err)
 		require.Len(t, spec.Mounts, 1)
@@ -39,8 +38,8 @@ func TestContainerBindMount(t *testing.T) {
 		pctx := provision.NewContext(t.Context(), "node", &config.Runtime{ReadOnly: true}, "/opt/drassi/runtimes/node")
 		pctx.Set(provision.KeyHostMountDir, "/var/lib/drassi/storage/overlay/merged")
 
-		op := container.AddBindMount()
-		spec := &types.ContainerSpec{}
+		op := AddBindMount()
+		spec := new(types.ContainerSpec)
 		spec, err := op.PreLaunch(pctx, spec)
 		require.NoError(t, err)
 		require.Len(t, spec.Mounts, 1)
@@ -54,8 +53,8 @@ func TestContainerBindMount(t *testing.T) {
 		pctx := provision.NewContext(t.Context(), "python", &config.Runtime{Subpath: "opt/python"}, "/opt/drassi/runtimes/python")
 		pctx.Set(provision.KeyHostMountDir, "/var/lib/drassi/storage/overlay/merged")
 
-		op := container.AddBindMount()
-		spec := &types.ContainerSpec{}
+		op := AddBindMount()
+		spec := new(types.ContainerSpec)
 		spec, err := op.PreLaunch(pctx, spec)
 		require.NoError(t, err)
 		require.Len(t, spec.Mounts, 1)
@@ -67,8 +66,8 @@ func TestContainerBindMount(t *testing.T) {
 
 	t.Run("missing host mount dir", func(t *testing.T) {
 		pctx := provision.NewContext(t.Context(), "node", &config.Runtime{}, "/opt/drassi/runtimes/node")
-		op := container.AddBindMount()
-		spec := &types.ContainerSpec{}
+		op := AddBindMount()
+		spec := new(types.ContainerSpec)
 		_, err := op.PreLaunch(pctx, spec)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "host mount directory not set in context")

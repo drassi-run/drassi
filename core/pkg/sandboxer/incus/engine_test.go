@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package incus_test
+package incus
 
 import (
 	"context"
@@ -15,63 +15,74 @@ import (
 	mock_store "drassi.run/core/mock/store/oci"
 	"drassi.run/core/pkg/runtime/provision"
 	"drassi.run/core/pkg/sandboxer"
-	sandboxer_incus "drassi.run/core/pkg/sandboxer/incus"
 	ocistore "drassi.run/core/pkg/store/oci"
-	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
 )
 
-func TestIncusProvisionerIntegration(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	store := mock_store.NewMockManager(ctrl)
+func TestIncusEngineSuite(t *testing.T) {
+	suite.Run(t, new(IncusEngineTestSuite))
+}
 
+type IncusEngineTestSuite struct {
+	suite.Suite
+	ctrl  *gomock.Controller
+	store *mock_store.MockManager
+}
+
+func (s *IncusEngineTestSuite) SetupTest() {
+	s.ctrl = gomock.NewController(s.T())
+	s.store = mock_store.NewMockManager(s.ctrl)
+}
+
+func (s *IncusEngineTestSuite) TestProvisionerIntegration() {
 	img := &ocistore.Image{}
-	store.EXPECT().Image(gomock.Any(), "drassi/node:24").Return(img, nil).Times(1)
-	store.EXPECT().Mount(gomock.Any(), img, gomock.Any()).Return("/var/lib/drassi/node_mount", "layer-node", nil).Times(1)
-	store.EXPECT().Unmount(gomock.Any(), "layer-node").Return(nil).Times(1)
+	s.store.EXPECT().Image(gomock.Any(), "drassi/node:24").Return(img, nil).Times(1)
+	s.store.EXPECT().Mount(gomock.Any(), img, gomock.Any()).Return("/var/lib/drassi/node_mount", "layer-node", nil).Times(1)
+	s.store.EXPECT().Unmount(gomock.Any(), "layer-node").Return(nil).Times(1)
 
 	runtimes := map[string]*config.Runtime{
 		"node": {Image: "drassi/node:24"},
 	}
 
-	p := provision.New[*sandboxer_incus.Template](
+	p := provision.New[*Template](
 		runtimes,
-		provision.Pull[*sandboxer_incus.Template](store),
-		provision.Mount[*sandboxer_incus.Template](store),
-		sandboxer_incus.AddDiskDevice(),
+		provision.Pull[*Template](s.store),
+		provision.Mount[*Template](s.store),
+		AddDiskDevice(),
 	)
 
-	tmpl := &sandboxer_incus.Template{}
+	tmpl := &Template{}
 	launched := false
-	mockSb := mock_sandboxer.NewMockSandbox(ctrl)
+	mockSb := mock_sandboxer.NewMockSandbox(s.ctrl)
 	mockSb.EXPECT().Terminate(gomock.Any()).Return(nil).Times(1)
 
-	launcher := func(ctx context.Context, tmpl *sandboxer_incus.Template) (sandboxer.Sandbox, error) {
+	launcher := func(ctx context.Context, tmpl *Template) (sandboxer.Sandbox, error) {
 		launched = true
-		require.Contains(t, tmpl.Devices, "runtime-node")
-		require.Equal(t, "disk", tmpl.Devices["runtime-node"]["type"])
-		require.Equal(t, "/var/lib/drassi/node_mount", tmpl.Devices["runtime-node"]["source"])
-		require.Equal(t, "/opt/drassi/runtimes/node", tmpl.Devices["runtime-node"]["path"])
+		s.Require().Contains(tmpl.Devices, "runtime-node")
+		s.Require().Equal("disk", tmpl.Devices["runtime-node"]["type"])
+		s.Require().Equal("/var/lib/drassi/node_mount", tmpl.Devices["runtime-node"]["source"])
+		s.Require().Equal("/opt/drassi/runtimes/node", tmpl.Devices["runtime-node"]["path"])
 		return mockSb, nil
 	}
 
-	sb, err := p.Launch("/opt/drassi/runtimes", launcher)(t.Context(), tmpl)
-	require.NoError(t, err)
-	require.True(t, launched)
-	require.NotNil(t, sb)
+	sb, err := p.Launch("/opt/drassi/runtimes", launcher)(s.T().Context(), tmpl)
+	s.Require().NoError(err)
+	s.Require().True(launched)
+	s.Require().NotNil(sb)
 
 	// Verify unmount cleanup runs on terminate
-	require.NoError(t, sb.Terminate(t.Context()))
+	s.Require().NoError(sb.Terminate(s.T().Context()))
 }
 
-func TestTemplateClone(t *testing.T) {
-	t.Run("nil template", func(t *testing.T) {
-		var tmpl *sandboxer_incus.Template
-		require.Nil(t, tmpl.Clone())
+func (s *IncusEngineTestSuite) TestTemplateClone() {
+	s.Run("nil template", func() {
+		var tmpl *Template
+		s.Require().Nil(tmpl.Clone())
 	})
 
-	t.Run("deep copy fields", func(t *testing.T) {
-		orig := &sandboxer_incus.Template{
+	s.Run("deep copy fields", func() {
+		orig := &Template{
 			Name:         "test-instance",
 			Image:        "ubuntu:22.04",
 			Architecture: "x86_64",
@@ -90,74 +101,71 @@ func TestTemplateClone(t *testing.T) {
 		}
 
 		clone := orig.Clone()
-		require.NotNil(t, clone)
-		require.Equal(t, orig.Name, clone.Name)
-		require.Equal(t, orig.Image, clone.Image)
-		require.Equal(t, orig.Architecture, clone.Architecture)
-		require.Equal(t, orig.InstanceSize, clone.InstanceSize)
-		require.Equal(t, orig.Ephemeral, clone.Ephemeral)
-		require.Equal(t, orig.Profiles, clone.Profiles)
-		require.Equal(t, orig.Config, clone.Config)
-		require.Equal(t, orig.Devices, clone.Devices)
+		s.Require().NotNil(clone)
+		s.Require().Equal(orig.Name, clone.Name)
+		s.Require().Equal(orig.Image, clone.Image)
+		s.Require().Equal(orig.Architecture, clone.Architecture)
+		s.Require().Equal(orig.InstanceSize, clone.InstanceSize)
+		s.Require().Equal(orig.Ephemeral, clone.Ephemeral)
+		s.Require().Equal(orig.Profiles, clone.Profiles)
+		s.Require().Equal(orig.Config, clone.Config)
+		s.Require().Equal(orig.Devices, clone.Devices)
 
 		// Verify Profiles is deep copied
 		clone.Profiles[0] = "modified"
-		require.Equal(t, "default", orig.Profiles[0])
+		s.Require().Equal("default", orig.Profiles[0])
 
 		// Verify Config is deep copied
 		clone.Config["security.nesting"] = "false"
 		clone.Config["new.key"] = "val"
-		require.Equal(t, "true", orig.Config["security.nesting"])
-		require.NotContains(t, orig.Config, "new.key")
+		s.Require().Equal("true", orig.Config["security.nesting"])
+		s.Require().NotContains(orig.Config, "new.key")
 
 		// Verify Devices outer map is deep copied
 		clone.Devices["extra"] = map[string]string{"type": "nic"}
-		require.NotContains(t, orig.Devices, "extra")
+		s.Require().NotContains(orig.Devices, "extra")
 
 		// Verify Devices inner map is deep copied
 		clone.Devices["root"]["path"] = "/mnt"
-		require.Equal(t, "/", orig.Devices["root"]["path"])
+		s.Require().Equal("/", orig.Devices["root"]["path"])
 	})
 }
 
-func TestIncusFactory(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	store := mock_store.NewMockManager(ctrl)
-
-	t.Run("with runtimes and store", func(t *testing.T) {
-		f := sandboxer_incus.NewFactory(sandboxer_incus.DefaultConfig())
-		f.SetOciStore(store)
+func (s *IncusEngineTestSuite) TestFactory() {
+	s.Run("with runtimes and store", func() {
+		f := NewFactory(DefaultConfig())
+		f.SetOciStore(s.store)
 		f.ProvisionRuntime(map[string]*config.Runtime{
 			"node": {Image: "drassi/node:24"},
 		})
-		require.NotPanics(t, func() {
+		s.Require().NotPanics(func() {
 			_, _ = f.Create()
 		})
 	})
 
-	t.Run("with runtimes but missing store returns error", func(t *testing.T) {
-		f := sandboxer_incus.NewFactory(sandboxer_incus.DefaultConfig())
+	s.Run("with runtimes but missing store returns error", func() {
+		f := NewFactory(DefaultConfig())
 		f.ProvisionRuntime(map[string]*config.Runtime{
 			"node": {Image: "drassi/node:24"},
 		})
 		_, err := f.Create()
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "oci store is required")
+		s.Require().Error(err)
+		s.Require().Contains(err.Error(), "oci store is required")
 	})
 
-	t.Run("without runtimes", func(t *testing.T) {
-		f := sandboxer_incus.NewFactory(sandboxer_incus.DefaultConfig())
-		require.NotPanics(t, func() {
+	s.Run("without runtimes", func() {
+		f := NewFactory(DefaultConfig())
+		s.Require().NotPanics(func() {
 			_, _ = f.Create()
 		})
 	})
 }
 
-func TestNew(t *testing.T) {
-	t.Run("without panic when nil", func(t *testing.T) {
-		cfg := sandboxer_incus.DefaultConfig()
-		require.NotPanics(t, func() {
-			_, _ = sandboxer_incus.New(cfg, nil)
+func (s *IncusEngineTestSuite) TestNew() {
+	s.Run("without panic when nil", func() {
+		cfg := DefaultConfig()
+		s.Require().NotPanics(func() {
+			_, _ = New(cfg, nil)
 		})
 	})
 }
