@@ -9,6 +9,7 @@ package launch
 import (
 	"context"
 	"crypto/rsa"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -61,6 +62,7 @@ func New() *cobra.Command {
 			ctx := cmd.Context()
 			l := new(launcher)
 
+			defer l.Close()
 			if err := l.Init(ctx, &opts); err != nil {
 				return err
 			}
@@ -331,4 +333,18 @@ func (l *launcher) module() *wire.Module {
 func (l *launcher) runnerService(hc *http.Client) (*lease.RunnerService, error) {
 	runner := l.Runner
 	return lease.NewRunnerService(runner.ServerUrl, hc, runner.GroupId)
+}
+
+func (l *launcher) Close() error {
+	var errs []error
+	if l.Sandboxer != nil {
+		errs = append(errs, l.Sandboxer.Close())
+	}
+	if l.gitStore != nil {
+		errs = append(errs, l.gitStore.Close())
+	}
+	if l.ociStore != nil {
+		errs = append(errs, l.ociStore.Close())
+	}
+	return errors.Join(errs...)
 }

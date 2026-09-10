@@ -55,6 +55,7 @@ func New() *cobra.Command {
 			ctx := cmd.Context()
 			l := new(launcher)
 
+			defer l.Close()
 			if err := l.Init(ctx, &opts); err != nil {
 				return err
 			}
@@ -241,4 +242,18 @@ func (c *launcher) module() *wire.Module {
 		return nil
 	}
 	return wire.NewModule("gitea/launch", fn)
+}
+
+func (c *launcher) Close() error {
+	var errs []error
+	if c.runtime != nil {
+		errs = append(errs, c.runtime.Close())
+	}
+	if c.gitStore != nil {
+		errs = append(errs, c.gitStore.Close())
+	}
+	if c.ociStore != nil {
+		errs = append(errs, c.ociStore.Close())
+	}
+	return errors.Join(errs...)
 }
