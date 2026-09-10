@@ -30,6 +30,7 @@ var defaultLayout = sandboxer.Layout{
 	Temp:      filepath.Join(jobDir, "temp"),
 	Actions:   filepath.Join(jobDir, "actions"),
 	Tools:     filepath.Join(jobDir, "tools"),
+	Runtimes:  filepath.Join(jobDir, "runtimes"),
 }
 
 type sandbox struct {
