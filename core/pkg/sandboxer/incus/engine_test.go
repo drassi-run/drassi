@@ -124,14 +124,25 @@ func TestIncusFactory(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	store := mock_store.NewMockManager(ctrl)
 
-	t.Run("with runtimes", func(t *testing.T) {
+	t.Run("with runtimes and store", func(t *testing.T) {
 		f := sandboxer_incus.NewFactory(sandboxer_incus.DefaultConfig())
-		f.ProvisionRuntime(store, map[string]*config.Runtime{
+		f.SetOciStore(store)
+		f.ProvisionRuntime(map[string]*config.Runtime{
 			"node": {Image: "drassi/node:24"},
 		})
 		require.NotPanics(t, func() {
 			_, _ = f.Create()
 		})
+	})
+
+	t.Run("with runtimes but missing store returns error", func(t *testing.T) {
+		f := sandboxer_incus.NewFactory(sandboxer_incus.DefaultConfig())
+		f.ProvisionRuntime(map[string]*config.Runtime{
+			"node": {Image: "drassi/node:24"},
+		})
+		_, err := f.Create()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "oci store is required")
 	})
 
 	t.Run("without runtimes", func(t *testing.T) {
@@ -143,11 +154,8 @@ func TestIncusFactory(t *testing.T) {
 }
 
 func TestNew(t *testing.T) {
-	t.Run("without panic when nil or omitted", func(t *testing.T) {
+	t.Run("without panic when nil", func(t *testing.T) {
 		cfg := sandboxer_incus.DefaultConfig()
-		require.NotPanics(t, func() {
-			_, _ = sandboxer_incus.New(cfg)
-		})
 		require.NotPanics(t, func() {
 			_, _ = sandboxer_incus.New(cfg, nil)
 		})

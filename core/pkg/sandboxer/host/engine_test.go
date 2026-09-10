@@ -45,11 +45,11 @@ func TestHostEngineWithProvisioner(t *testing.T) {
 		"node": {Image: "drassi/node:24"},
 	}
 
-	p := provision.New[*sandboxer.LaunchRequest](
+	p := provision.New[string](
 		runtimes,
-		provision.Pull[*sandboxer.LaunchRequest](store),
-		provision.Mount[*sandboxer.LaunchRequest](store, ocistore.WithWritable(true)),
-		sandboxer_host.Symlink[*sandboxer.LaunchRequest](),
+		provision.Pull[string](store),
+		provision.Mount[string](store, ocistore.WithWritable(true)),
+		sandboxer_host.Symlink[string](),
 	)
 
 	eng, err := sandboxer_host.New(cfg, p)
@@ -87,27 +87,6 @@ func TestHostEngineWithoutProvisioner(t *testing.T) {
 		RuntimeDir: runtimeDir,
 	}
 
-	t.Run("omitted provisioner", func(t *testing.T) {
-		eng, err := sandboxer_host.New(cfg)
-		require.NoError(t, err)
-
-		req := &sandboxer.LaunchRequest{
-			Forge: &records.Forge{
-				Repository: "drassi/test",
-				Workflow:   "build.yml",
-				Job:        "test",
-				RunId:      "1",
-				RunAttempt: "1",
-			},
-		}
-
-		resp, err := eng.Launch(t.Context(), req)
-		require.NoError(t, err)
-		require.NotNil(t, resp.Sandbox)
-
-		require.NoError(t, resp.Sandbox.Terminate(t.Context()))
-	})
-
 	t.Run("nil provisioner", func(t *testing.T) {
 		eng, err := sandboxer_host.New(cfg, nil)
 		require.NoError(t, err)
@@ -134,18 +113,32 @@ func TestHostFactory(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	store := mock_store.NewMockManager(ctrl)
 
-	t.Run("with runtimes", func(t *testing.T) {
+	t.Run("with runtimes and store", func(t *testing.T) {
 		cfg := sandboxer_host.DefaultConfig()
 		cfg.RootDir = t.TempDir()
 		cfg.RuntimeDir = filepath.Join(cfg.RootDir, "runtimes")
 		f := sandboxer_host.NewFactory(cfg)
-		f.ProvisionRuntime(store, map[string]*config.Runtime{
+		f.SetOciStore(store)
+		f.ProvisionRuntime(map[string]*config.Runtime{
 			"node": {Image: "drassi/node:24"},
 		})
 		eng, err := f.Create()
 		require.NoError(t, err)
 		require.NotNil(t, eng)
 		_ = eng.Close()
+	})
+
+	t.Run("with runtimes but missing store returns error", func(t *testing.T) {
+		cfg := sandboxer_host.DefaultConfig()
+		cfg.RootDir = t.TempDir()
+		cfg.RuntimeDir = filepath.Join(cfg.RootDir, "runtimes")
+		f := sandboxer_host.NewFactory(cfg)
+		f.ProvisionRuntime(map[string]*config.Runtime{
+			"node": {Image: "drassi/node:24"},
+		})
+		_, err := f.Create()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "oci store is required")
 	})
 
 	t.Run("without runtimes", func(t *testing.T) {
@@ -161,17 +154,12 @@ func TestHostFactory(t *testing.T) {
 }
 
 func TestNew(t *testing.T) {
-	t.Run("without panic when nil or omitted", func(t *testing.T) {
+	t.Run("without panic when nil", func(t *testing.T) {
 		cfg := sandboxer_host.DefaultConfig()
 		cfg.RootDir = t.TempDir()
-		eng1, err := sandboxer_host.New(cfg)
+		eng, err := sandboxer_host.New(cfg, nil)
 		require.NoError(t, err)
-		require.NotNil(t, eng1)
-		_ = eng1.Close()
-
-		eng2, err := sandboxer_host.New(cfg, nil)
-		require.NoError(t, err)
-		require.NotNil(t, eng2)
-		_ = eng2.Close()
+		require.NotNil(t, eng)
+		_ = eng.Close()
 	})
 }

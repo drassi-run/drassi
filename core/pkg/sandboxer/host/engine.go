@@ -8,6 +8,7 @@ package host
 
 import (
 	"context"
+	"errors"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -51,8 +52,11 @@ type factory struct {
 	runtimes map[string]*config.Runtime
 }
 
-func (f *factory) ProvisionRuntime(store ocistore.Manager, config map[string]*config.Runtime) {
+func (f *factory) SetOciStore(store ocistore.Manager) {
 	f.store = store
+}
+
+func (f *factory) ProvisionRuntime(config map[string]*config.Runtime) {
 	f.runtimes = config
 }
 
@@ -62,7 +66,10 @@ func (f *factory) Create() (sandboxer.Engine, error) {
 
 func (f *factory) doCreate() (sandboxer.Engine, error) {
 	var prov *provision.Provisioner[string]
-	if len(f.runtimes) > 0 && f.store != nil {
+	if len(f.runtimes) > 0 {
+		if f.store == nil {
+			return nil, errors.New("oci store is required when runtimes are configured")
+		}
 		prov = provision.New[string](
 			f.runtimes,
 			provision.Pull[string](f.store),

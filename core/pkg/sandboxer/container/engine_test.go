@@ -98,17 +98,39 @@ func TestContainerEngineWithoutProvisioner(t *testing.T) {
 }
 
 func TestContainerFactory(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	store := mock_store.NewMockManager(ctrl)
+	t.Run("with runtimes and store", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		store := mock_store.NewMockManager(ctrl)
 
-	f := sandboxer_container.NewFactory(sandboxer_container.DefaultConfig())
-	f.ProvisionRuntime(store, map[string]*config.Runtime{
-		"node": {Image: "drassi/node:24"},
+		f := sandboxer_container.NewFactory(sandboxer_container.DefaultConfig())
+		f.SetOciStore(store)
+		f.ProvisionRuntime(map[string]*config.Runtime{
+			"node": {Image: "drassi/node:24"},
+		})
+
+		eng, err := f.Create()
+		require.NoError(t, err)
+		require.NotNil(t, eng)
+		_ = eng.Close()
 	})
 
-	eng, err := f.Create()
-	require.NoError(t, err)
-	require.NotNil(t, eng)
-	_ = eng.Close()
+	t.Run("with runtimes but missing store returns error", func(t *testing.T) {
+		f := sandboxer_container.NewFactory(sandboxer_container.DefaultConfig())
+		f.ProvisionRuntime(map[string]*config.Runtime{
+			"node": {Image: "drassi/node:24"},
+		})
+
+		_, err := f.Create()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "oci store is required")
+	})
+
+	t.Run("without runtimes", func(t *testing.T) {
+		f := sandboxer_container.NewFactory(sandboxer_container.DefaultConfig())
+		eng, err := f.Create()
+		require.NoError(t, err)
+		require.NotNil(t, eng)
+		_ = eng.Close()
+	})
 }
 
