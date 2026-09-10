@@ -9,6 +9,7 @@ package launch
 import (
 	"context"
 	"crypto/rsa"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -19,6 +20,7 @@ import (
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/store/git"
+	"drassi.run/core/pkg/store/oci"
 	"drassi.run/core/util/dig"
 	"drassi.run/core/util/oauth2/clientcredentials"
 	"drassi.run/core/wire"
@@ -42,7 +44,8 @@ type launcher struct {
 	Runner    *ghaconfig.Runner
 	Key       *rsa.PrivateKey
 	Sandboxer sandboxer.Engine
-	store     gitstore.Manager
+	gitStore  gitstore.Manager
+	ociStore  ocistore.Manager
 	hc        *http.Client
 
 	wm *worker.Manager
@@ -59,6 +62,7 @@ func New() *cobra.Command {
 			ctx := cmd.Context()
 			l := new(launcher)
 
+			defer l.Close()
 			if err := l.Init(ctx, &opts); err != nil {
 				return err
 			}
@@ -89,12 +93,29 @@ func (l *launcher) Init(ctx context.Context, opts *options) (err error) {
 		l.Key = key
 	}
 
-	if sbConfig, ok := cfg.Sandboxers[cfg.UseSandboxer]; !ok {
-		return fmt.Errorf("sandboxer %q not configured", cfg.UseSandboxer)
-	} else if sb, err := sandboxer.NewEngine(sbConfig); err != nil {
+	if store, err := gitstore.New(".cache"); err != nil {
 		return err
 	} else {
-		l.Sandboxer = sb
+		l.gitStore = store
+	}
+
+	if store, err := ocistore.Default(); err != nil {
+		return err
+	} else {
+		l.ociStore = store
+	}
+
+	if sbConfig, ok := cfg.Sandboxers[cfg.UseSandboxer]; !ok {
+		return fmt.Errorf("sandboxer %q not configured", cfg.UseSandboxer)
+	} else if factory, err := sandboxer.NewFactory(sbConfig); err != nil {
+		return err
+	} else {
+		factory.ProvisionRuntime(l.ociStore, cfg.Runtimes)
+		if sb, err := factory.Create(); err != nil {
+			return err
+		} else {
+			l.Sandboxer = sb
+		}
 	}
 
 	authz := cfg.Runner.Authorization
@@ -111,13 +132,7 @@ func (l *launcher) Init(ctx context.Context, opts *options) (err error) {
 	}
 	src := config.TokenSource(ctx)
 	l.hc = oauth2.NewClient(ctx, src)
-	l.wm = worker.NewManager()
-
-	if s, err := gitstore.New(".cache"); err != nil {
-		return err
-	} else {
-		l.store = s
-	}
+	l.wm = worker.NewManager(cfg)
 
 	return nil
 }
@@ -304,7 +319,7 @@ func (l *launcher) module() *wire.Module {
 		if err := xdig.Supply(scope, l.Sandboxer); err != nil {
 			return fmt.Errorf("provide sandboxer.Engine: %w", err)
 		}
-		if err := xdig.Supply(scope, l.store); err != nil {
+		if err := xdig.Supply(scope, l.gitStore); err != nil {
 			return fmt.Errorf("provide gitstore.Store: %w", err)
 		}
 		if err := scope.Provide(l.runnerService); err != nil {
@@ -318,4 +333,18 @@ func (l *launcher) module() *wire.Module {
 func (l *launcher) runnerService(hc *http.Client) (*lease.RunnerService, error) {
 	runner := l.Runner
 	return lease.NewRunnerService(runner.ServerUrl, hc, runner.GroupId)
+}
+
+func (l *launcher) Close() error {
+	var errs []error
+	if l.Sandboxer != nil {
+		errs = append(errs, l.Sandboxer.Close())
+	}
+	if l.gitStore != nil {
+		errs = append(errs, l.gitStore.Close())
+	}
+	if l.ociStore != nil {
+		errs = append(errs, l.ociStore.Close())
+	}
+	return errors.Join(errs...)
 }

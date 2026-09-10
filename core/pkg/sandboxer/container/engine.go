@@ -12,6 +12,7 @@ import (
 	"maps"
 	"strconv"
 	"strings"
+	"sync"
 
 	"drassi.run/core/config"
 	"drassi.run/core/pkg/container"
@@ -21,24 +22,49 @@ import (
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/pkg/store/oci"
 	"drassi.run/core/pkg/stream"
 	"drassi.run/core/util/string"
 	dockerclient "github.com/moby/moby/client"
-	"github.com/pelletier/go-toml/v2"
-	"github.com/pelletier/go-toml/v2/unstable"
 	"golang.org/x/sync/errgroup"
 )
 
 func init() {
-	sandboxer.Register(config.ProviderContainer, func(raw unstable.RawMessage) (sandboxer.Engine, error) {
-		cfg := DefaultConfig()
-		if len(raw) > 0 {
-			if err := toml.Unmarshal(raw, cfg); err != nil {
-				return nil, err
-			}
-		}
-		return New(cfg)
-	})
+	sandboxer.Register(config.ProviderContainer, DefaultConfig, NewFactory)
+}
+
+func DefaultConfig() *Config {
+	return &Config{
+		Implementation: "docker",
+		Image:          "ghcr.io/drassi-run/ubuntu:26.04",
+	}
+}
+
+func NewFactory(cfg *Config) sandboxer.Factory {
+	f := &factory{cfg: cfg}
+	f.create = sync.OnceValues(f.doCreate)
+	return f
+}
+
+type factory struct {
+	create func() (sandboxer.Engine, error)
+
+	cfg      *Config
+	store    ocistore.Manager
+	runtimes map[string]*config.Runtime
+}
+
+func (f *factory) ProvisionRuntime(store ocistore.Manager, config map[string]*config.Runtime) {
+	f.store = store
+	f.runtimes = config
+}
+
+func (f *factory) Create() (sandboxer.Engine, error) {
+	return f.create()
+}
+
+func (f *factory) doCreate() (sandboxer.Engine, error) {
+	return New(f.cfg)
 }
 
 type Bootstrapper interface {
@@ -49,13 +75,6 @@ type Config struct {
 	Implementation string `toml:"implementation" json:"implementation"`
 	Endpoint       string `toml:"endpoint" json:"endpoint,omitempty"`
 	Image          string `toml:"image" json:"image,omitempty"`
-}
-
-func DefaultConfig() *Config {
-	return &Config{
-		Implementation: "docker",
-		Image:          "ghcr.io/drassi-run/ubuntu:26.04",
-	}
 }
 
 type engine struct {

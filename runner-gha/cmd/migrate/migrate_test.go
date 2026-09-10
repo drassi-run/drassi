@@ -99,7 +99,10 @@ func TestMigrateCommand(t *testing.T) {
 	// Check sandboxer engine instantiation
 	sb, ok := cfg.Sandboxers[cfg.UseSandboxer]
 	require.True(t, ok)
-	engine, err := sandboxer.NewEngine(sb)
+	factory, err := sandboxer.NewFactory(sb)
+	require.NoError(t, err)
+	factory.ProvisionRuntime(nil, cfg.Runtimes)
+	engine, err := factory.Create()
 	require.NoError(t, err)
 	require.NotNil(t, engine)
 }

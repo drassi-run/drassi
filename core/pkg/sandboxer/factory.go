@@ -12,29 +12,64 @@ import (
 	"sync"
 
 	"drassi.run/core/config"
+	"drassi.run/core/pkg/store/oci"
+	"github.com/pelletier/go-toml/v2"
 	"github.com/pelletier/go-toml/v2/unstable"
 )
 
-type Factory func(cfg unstable.RawMessage) (Engine, error)
+type Factory interface {
+	// SupportContainer(config) // TODO
+
+	ProvisionRuntime(store ocistore.Manager, config map[string]*config.Runtime)
+	Create() (Engine, error)
+}
 
 var (
 	mu        sync.RWMutex
-	factories = make(map[string]Factory)
+	defaults  = make(map[string]func() any)
+	factories = make(map[string]func(cfg unstable.RawMessage) (Factory, error))
 )
 
-func Register(provider string, factory Factory) {
+func Register[T any](provider string, d func() T, fn func(cfg T) Factory) {
+	provider = strings.ToLower(provider)
 	mu.Lock()
 	defer mu.Unlock()
-	factories[strings.ToLower(provider)] = factory
+
+	defaults[provider] = func() any {
+		return d()
+	}
+	factories[provider] = func(raw unstable.RawMessage) (Factory, error) {
+		cfg := d()
+		if len(raw) > 0 {
+			if err := toml.Unmarshal(raw, cfg); err != nil {
+				return nil, fmt.Errorf("unmarshal provider %q config: %v", provider, err)
+			}
+		}
+
+		return fn(cfg), nil
+	}
 }
 
-func NewEngine(config *config.Sandboxer) (Engine, error) {
+func NewFactory(config *config.Sandboxer) (Factory, error) {
 	provider := strings.ToLower(config.Provider)
 	mu.RLock()
-	factory, ok := factories[provider]
+	fn, ok := factories[provider]
 	mu.RUnlock()
+
 	if !ok {
 		return nil, fmt.Errorf("unsupported sandboxer provider %q", config.Provider)
 	}
-	return factory(config.Config)
+	return fn(config.Config)
+}
+
+func DefaultConfig(provider string) any {
+	provider = strings.ToLower(provider)
+	mu.RLock()
+	fn, ok := defaults[provider]
+	mu.RUnlock()
+
+	if !ok {
+		return nil
+	}
+	return fn()
 }

@@ -42,6 +42,22 @@ type Manager interface {
 	Close() error
 }
 
+var defaultManager = sync.OnceValues(func() (Manager, error) {
+	opts, err := storage.DefaultStoreOptions()
+	if err != nil {
+		return nil, err
+	}
+	store, err := storage.GetStore(opts)
+	if err != nil {
+		return nil, err
+	}
+	return New(store), nil
+})
+
+func Default() (Manager, error) {
+	return defaultManager()
+}
+
 func New(store storage.Store) Manager {
 	return &manager{store: store, pull: pull}
 }

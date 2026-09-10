@@ -12,34 +12,21 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"drassi.run/core/config"
 	c "drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/container/docker"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/sandboxer/container"
+	"drassi.run/core/pkg/store/oci"
 	"drassi.run/core/util/fs"
 	"drassi.run/core/util/path"
 	"drassi.run/core/util/string"
-	"github.com/pelletier/go-toml/v2"
-	"github.com/pelletier/go-toml/v2/unstable"
 )
 
 func init() {
-	sandboxer.Register(config.ProviderHost, func(raw unstable.RawMessage) (sandboxer.Engine, error) {
-		cfg := DefaultConfig()
-		if len(raw) > 0 {
-			if err := toml.Unmarshal(raw, cfg); err != nil {
-				return nil, err
-			}
-		}
-		return New(cfg)
-	})
-}
-
-type Config struct {
-	RootDir    string `toml:"root_dir" json:"rootDir"`
-	RuntimeDir string `toml:"runtime_dir,omitempty" json:"runtimeDir,omitempty"`
+	sandboxer.Register(config.ProviderHost, DefaultConfig, NewFactory)
 }
 
 func DefaultConfig() *Config {
@@ -47,6 +34,38 @@ func DefaultConfig() *Config {
 		RootDir:    "/tmp",
 		RuntimeDir: "/opt/drassi",
 	}
+}
+
+func NewFactory(cfg *Config) sandboxer.Factory {
+	f := &factory{cfg: cfg}
+	f.create = sync.OnceValues(f.doCreate)
+	return f
+}
+
+type factory struct {
+	create func() (sandboxer.Engine, error)
+
+	cfg      *Config
+	store    ocistore.Manager
+	runtimes map[string]*config.Runtime
+}
+
+func (f *factory) ProvisionRuntime(store ocistore.Manager, config map[string]*config.Runtime) {
+	f.store = store
+	f.runtimes = config
+}
+
+func (f *factory) Create() (sandboxer.Engine, error) {
+	return f.create()
+}
+
+func (f *factory) doCreate() (sandboxer.Engine, error) {
+	return New(f.cfg)
+}
+
+type Config struct {
+	RootDir    string `toml:"root_dir" json:"rootDir"`
+	RuntimeDir string `toml:"runtime_dir,omitempty" json:"runtimeDir,omitempty"`
 }
 
 type engine struct {

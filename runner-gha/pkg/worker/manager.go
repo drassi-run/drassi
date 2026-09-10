@@ -15,6 +15,7 @@ import (
 
 	"drassi.run/core/util/context"
 	"drassi.run/core/wire"
+	ghaconfig "drassi.run/gha-runner/config"
 	"drassi.run/gha-runner/pkg/messages"
 	"github.com/chainguard-dev/clog"
 )
@@ -27,15 +28,17 @@ type flight struct {
 	DoneCh  chan struct{}
 }
 
-func NewManager() *Manager {
+func NewManager(cfg *ghaconfig.Config) *Manager {
 	return &Manager{
+		cfg:      cfg,
 		inflight: make(map[string]*flight),
 	}
 }
 
 type Manager struct {
-	mu sync.Mutex
-	wg sync.WaitGroup
+	mu  sync.Mutex
+	wg  sync.WaitGroup
+	cfg *ghaconfig.Config
 
 	inflight map[string]*flight
 }
@@ -48,7 +51,7 @@ func (m *Manager) Submit(req *messages.PipelineAgentJobRequest, modules ...*wire
 	ctx, cancel := context.WithCancelCause(ctx)
 	f := &flight{
 		JobId:   req.JobId,
-		Worker:  NewWorker(req),
+		Worker:  NewWorker(m.cfg, req),
 		Cancel:  cancel,
 		Context: ctx,
 		DoneCh:  make(chan struct{}),

@@ -19,6 +19,7 @@ import (
 	"drassi.run/core/util/error"
 	"drassi.run/core/util/otel"
 	"drassi.run/core/wire"
+	giteaconfig "drassi.run/gitea-runner/config"
 	"drassi.run/gitea-runner/pkg/reporter"
 	gitea_wire "drassi.run/gitea-runner/wire"
 	runnerv1 "gitea.dev/actionslib/runner/v1"
@@ -27,13 +28,14 @@ import (
 )
 
 type Worker struct {
+	cfg    *giteaconfig.Config
 	task   *runnerv1.Task
 	ctx    context.Context
 	cancel context.CancelCauseFunc
 }
 
-func New(task *runnerv1.Task) *Worker {
-	return &Worker{task: task}
+func New(cfg *giteaconfig.Config, task *runnerv1.Task) *Worker {
+	return &Worker{cfg: cfg, task: task}
 }
 
 func (w *Worker) Context() context.Context {
@@ -42,7 +44,7 @@ func (w *Worker) Context() context.Context {
 
 func (w *Worker) Run(ctx context.Context, modules ...*wire.Module) (err error) {
 	scope := dig.New().Scope("worker")
-	if err = gitea_wire.Synthetic(scope, w.task, modules...); err != nil {
+	if err = gitea_wire.Synthetic(scope, w.cfg, w.task, modules...); err != nil {
 		return
 	}
 

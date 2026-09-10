@@ -13,9 +13,11 @@ import (
 	"strings"
 
 	"drassi.run/core/pkg/model/workflows"
+	"drassi.run/core/pkg/runtime"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/scribe"
 	"drassi.run/core/pkg/store/git"
+	"drassi.run/core/util/dig"
 	"drassi.run/core/util/otel"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
@@ -40,12 +42,32 @@ func (spec *NodeActionSpec) CreateExecutor(
 	ctx context.Context, scope *dig.Scope, exec StepExecutor,
 ) (ActionExecutor, error) {
 	e := &nodeActionExecutor{spec: spec, sExec: exec}
+	if err := e.init(ctx, scope); err != nil {
+		return nil, err
+	}
 	return e, nil
 }
 
 type nodeActionExecutor struct {
 	spec  *NodeActionSpec
 	sExec StepExecutor
+
+	// injected values
+	runtime runtime.Runtime
+}
+
+func (e *nodeActionExecutor) init(ctx context.Context, scope *dig.Scope) error {
+	var provider runtime.Provider
+	if err := xdig.Populate(scope, &provider); err != nil {
+		return err
+	}
+
+	if rt, err := provider.Get(e.spec.Runtime); err != nil {
+		return err
+	} else {
+		e.runtime = rt
+	}
+	return nil
 }
 
 func (e *nodeActionExecutor) ActionSpec() ActionSpec {
@@ -106,7 +128,6 @@ func (e *nodeActionExecutor) execute(stage Stage) ActionRun {
 
 		sandbox := e.sExec.Sandbox()
 		scriptPath := e.computeScriptPath(sandbox.Layout(), stage)
-		cmd := []string{"node", scriptPath}
 		inputs := e.sExec.Inputs()
 
 		scribe.GroupDetails(ctx, "Run "+e.repr(),
@@ -123,7 +144,7 @@ func (e *nodeActionExecutor) execute(stage Stage) ActionRun {
 		paths := e.sExec.JobExecutor().Path()
 		streams := e.sExec.Streams(ctx, stage)
 		defer streams.Close()
-		return sandbox.Execute(ctx, cmd, paths, env, "", streams)
+		return e.runtime.Run(ctx, scriptPath, paths, env, "", streams)
 	}
 	return runActionE(fn)
 }
@@ -160,5 +181,5 @@ func (e *nodeActionExecutor) addSpanAttrs(ctx context.Context, stage Stage) {
 }
 
 func (e *nodeActionExecutor) repr() string {
-	return fmt.Sprintf("node action from %q", gitstore.Location(e.spec.Repo))
+	return fmt.Sprintf("%s action from %q", e.runtime.Name(), gitstore.Location(e.spec.Repo))
 }

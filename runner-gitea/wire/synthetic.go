@@ -18,13 +18,19 @@ import (
 	wire_scribe "drassi.run/core/wire/scribe"
 	wire_secret "drassi.run/core/wire/secret"
 	wire_stream "drassi.run/core/wire/stream"
+	giteaconfig "drassi.run/gitea-runner/config"
 	wire_core "drassi.run/gitea-runner/wire/core"
 	wire_reporter "drassi.run/gitea-runner/wire/reporter"
 	runnerv1 "gitea.dev/actionslib/runner/v1"
 	"go.uber.org/dig"
 )
 
-func Synthetic(scope *dig.Scope, task *runnerv1.Task, extras ...*wire.Module) error {
+func Synthetic(
+	scope *dig.Scope,
+	cfg *giteaconfig.Config,
+	task *runnerv1.Task,
+	extras ...*wire.Module,
+) error {
 	modules := make([]*wire.Module, 0, 4)
 
 	// core modules
@@ -34,7 +40,9 @@ func Synthetic(scope *dig.Scope, task *runnerv1.Task, extras ...*wire.Module) er
 		),
 	))
 	modules = append(modules, wire_command.Module())
-	modules = append(modules, wire_runtime.Module())
+	modules = append(modules, wire_runtime.Module(
+		wire_runtime.WithRuntimes(cfg.Runtimes),
+	))
 	modules = append(modules, wire_scribe.Module())
 	modules = append(modules, wire_secret.Module())
 	modules = append(modules, wire_stream.Module(

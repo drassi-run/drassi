@@ -1,0 +1,5 @@
+go.work.sum -diff
+**/go.sum -diff
+core/mock/**/*.go -diff
+runner-gha/mock/**/*.go -diff
+runner-gitea/mock/**/*.go -diff

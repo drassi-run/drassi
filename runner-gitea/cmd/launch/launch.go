@@ -18,6 +18,7 @@ import (
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/store/git"
+	"drassi.run/core/pkg/store/oci"
 	"drassi.run/core/util/dig"
 	"drassi.run/core/wire"
 	giteaconfig "drassi.run/gitea-runner/config"
@@ -31,11 +32,13 @@ import (
 )
 
 type launcher struct {
+	cfg         *giteaconfig.Config
 	runnerName  string
 	concurrency int
 	client      gitea.Client
 	runtime     sandboxer.Engine
-	store       gitstore.Manager
+	gitStore    gitstore.Manager
+	ociStore    ocistore.Manager
 
 	// tasksVersion used to store the version of the last task fetched from the Gitea.
 	tasksVersion atomic.Int64
@@ -52,6 +55,7 @@ func New() *cobra.Command {
 			ctx := cmd.Context()
 			l := new(launcher)
 
+			defer l.Close()
 			if err := l.Init(ctx, &opts); err != nil {
 				return err
 			}
@@ -72,6 +76,7 @@ func (c *launcher) Init(ctx context.Context, o *options) error {
 	if err != nil {
 		return err
 	}
+	c.cfg = config
 
 	spec := config.Runner
 	c.runnerName = spec.Name
@@ -93,6 +98,9 @@ func (c *launcher) Init(ctx context.Context, o *options) error {
 	}
 
 	if err = c.loadGitStore(); err != nil {
+		return err
+	}
+	if err = c.loadOciStore(); err != nil {
 		return err
 	}
 	return c.loadSandboxer(config, config.UseSandboxer)
@@ -173,7 +181,7 @@ func (c *launcher) runTask(ctx context.Context, task *runnerv1.Task) {
 }
 
 func (c *launcher) runTaskE(ctx context.Context, task *runnerv1.Task) error {
-	w := worker.New(task)
+	w := worker.New(c.cfg, task)
 	return w.Run(ctx, c.module())
 }
 
@@ -181,7 +189,16 @@ func (c *launcher) loadGitStore() error {
 	if store, err := gitstore.New(".cache"); err != nil {
 		return err
 	} else {
-		c.store = store
+		c.gitStore = store
+	}
+	return nil
+}
+
+func (c *launcher) loadOciStore() error {
+	if store, err := ocistore.Default(); err != nil {
+		return err
+	} else {
+		c.ociStore = store
 	}
 	return nil
 }
@@ -189,11 +206,16 @@ func (c *launcher) loadGitStore() error {
 func (c *launcher) loadSandboxer(config *giteaconfig.Config, name string) error {
 	if sbConfig, ok := config.Sandboxers[name]; !ok {
 		return fmt.Errorf("sandboxer %q not configured", name)
-	} else if engine, err := sandboxer.NewEngine(sbConfig); err != nil {
+	} else if factory, err := sandboxer.NewFactory(sbConfig); err != nil {
 		return err
 	} else {
-		c.runtime = engine
-		return nil
+		factory.ProvisionRuntime(c.ociStore, config.Runtimes)
+		if sb, err := factory.Create(); err != nil {
+			return err
+		} else {
+			c.runtime = sb
+			return nil
+		}
 	}
 }
 
@@ -211,7 +233,7 @@ func (c *launcher) module() *wire.Module {
 		if err := xdig.Supply(scope, c.runtime); err != nil {
 			return fmt.Errorf("provide sandboxer.Engine: %w", err)
 		}
-		if err := xdig.Supply(scope, c.store); err != nil {
+		if err := xdig.Supply(scope, c.gitStore); err != nil {
 			return fmt.Errorf("provide gitstore.Store: %w", err)
 		}
 		if err := xdig.Supply(scope, c.client); err != nil {
@@ -220,4 +242,18 @@ func (c *launcher) module() *wire.Module {
 		return nil
 	}
 	return wire.NewModule("gitea/launch", fn)
+}
+
+func (c *launcher) Close() error {
+	var errs []error
+	if c.runtime != nil {
+		errs = append(errs, c.runtime.Close())
+	}
+	if c.gitStore != nil {
+		errs = append(errs, c.gitStore.Close())
+	}
+	if c.ociStore != nil {
+		errs = append(errs, c.ociStore.Close())
+	}
+	return errors.Join(errs...)
 }

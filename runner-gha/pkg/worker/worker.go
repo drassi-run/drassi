@@ -21,6 +21,7 @@ import (
 	"drassi.run/core/util/error"
 	"drassi.run/core/util/otel"
 	"drassi.run/core/wire"
+	ghaconfig "drassi.run/gha-runner/config"
 	"drassi.run/gha-runner/pkg/lease"
 	"drassi.run/gha-runner/pkg/log"
 	"drassi.run/gha-runner/pkg/log/logtypes"
@@ -31,12 +32,13 @@ import (
 	"go.uber.org/dig"
 )
 
-func NewWorker(msg *messages.PipelineAgentJobRequest) *Worker {
-	return &Worker{msg: msg}
+func NewWorker(cfg *ghaconfig.Config, msg *messages.PipelineAgentJobRequest) *Worker {
+	return &Worker{msg: msg, cfg: cfg}
 }
 
 type Worker struct {
 	msg         *messages.PipelineAgentJobRequest
+	cfg         *ghaconfig.Config
 	lease       lease.Lease
 	timelineMgr *timeline.Manager
 
@@ -51,7 +53,7 @@ func (w *Worker) Context() context.Context {
 
 func (w *Worker) Run(ctx context.Context, modules ...*wire.Module) (err error) {
 	scope := dig.New().Scope("worker")
-	if err = gha_wire.Synthetic(scope, w.msg, modules...); err != nil {
+	if err = gha_wire.Synthetic(scope, w.cfg, w.msg, modules...); err != nil {
 		return
 	}
 
