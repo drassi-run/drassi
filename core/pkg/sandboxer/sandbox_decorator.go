@@ -68,3 +68,21 @@ func AddAfterCleanup(sb Sandbox, fns ...Cleanup) Sandbox {
 		afterCleanup: fns,
 	}
 }
+
+func (s *decoratedSandbox) Unwrap() Sandbox {
+	if s == nil {
+		return nil
+	}
+	return s.Sandbox
+}
+
+// Unwrap recursively unwraps decorated sandbox wrappers until reaching the base Sandbox.
+func Unwrap(sb Sandbox) Sandbox {
+	for {
+		if u, ok := sb.(interface{ Unwrap() Sandbox }); ok {
+			sb = u.Unwrap()
+		} else {
+			return sb
+		}
+	}
+}
