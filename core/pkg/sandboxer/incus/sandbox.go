@@ -48,6 +48,7 @@ func newSandbox(client incusclient.InstanceServer, inst string) (*sandbox, error
 			Temp:      filepath.Join(dir, "temp"),
 			Actions:   filepath.Join(dir, "actions"),
 			Tools:     filepath.Join(dir, "tools"),
+			Runtimes:  filepath.Join(dir, "runtimes"),
 		},
 	}
 

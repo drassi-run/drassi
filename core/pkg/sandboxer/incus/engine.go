@@ -8,7 +8,12 @@ package incus
 
 import (
 	"context"
+	"errors"
+	"maps"
+	"net"
 	"path"
+	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 
@@ -16,6 +21,7 @@ import (
 	c "drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/container/docker"
 	"drassi.run/core/pkg/model/records"
+	"drassi.run/core/pkg/runtime/provision"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/sandboxer/container"
 	"drassi.run/core/pkg/store/oci"
@@ -63,7 +69,20 @@ func (f *factory) Create() (sandboxer.Engine, error) {
 }
 
 func (f *factory) doCreate() (sandboxer.Engine, error) {
-	return New(f.cfg)
+	var p *provision.Provisioner[*Template]
+	if len(f.runtimes) > 0 && f.store != nil {
+		targetDirFn := func(name string) string {
+			return filepath.Join("/opt/drassi/runtimes", name)
+		}
+		p = provision.New[*Template](
+			f.runtimes,
+			targetDirFn,
+			provision.Pull[*Template](f.store),
+			provision.Mount[*Template](f.store, ocistore.WithWritable(true)),
+			AddDiskDevice(),
+		)
+	}
+	return New(f.cfg, p)
 }
 
 type Config struct {
@@ -74,6 +93,8 @@ type Config struct {
 // Template for create incus VM
 // [github.com/lxc/incus/v6/shared/api.InstancesPost]
 type Template struct {
+	Name string `toml:"name,omitempty" json:"name,omitempty"`
+
 	// OCI image name, e.g: ghcr.io/drassi-run/ubuntu:22.04
 	Image string `toml:"source" json:"image"`
 
@@ -101,22 +122,50 @@ type Template struct {
 	Ephemeral bool `toml:"ephemeral" json:"ephemeral,omitempty"`
 }
 
-type engine struct {
-	client   incusclient.InstanceServer
-	template *Template
-	source   *incusapi.InstanceSource
+func (t *Template) Clone() *Template {
+	if t == nil {
+		return nil
+	}
+	c := *t
+	if t.Profiles != nil {
+		c.Profiles = slices.Clone(t.Profiles)
+	}
+	if t.Config != nil {
+		c.Config = maps.Clone(t.Config)
+	}
+	if t.Devices != nil {
+		c.Devices = make(map[string]map[string]string, len(t.Devices))
+		for k, v := range t.Devices {
+			c.Devices[k] = maps.Clone(v)
+		}
+	}
+	return &c
 }
 
-func New(config *Config) (sandboxer.Engine, error) {
+type engine struct {
+	client      incusclient.InstanceServer
+	template    *Template
+	source      *incusapi.InstanceSource
+	provisioner *provision.Provisioner[*Template]
+}
+
+func New(config *Config, p ...*provision.Provisioner[*Template]) (sandboxer.Engine, error) {
 	if client, err := incusclient.ConnectIncusUnix(config.Endpoint, nil); err != nil {
 		return nil, err
 	} else if source, err := instanceSource(config.Template.Image); err != nil {
 		return nil, err
 	} else {
+		var prov *provision.Provisioner[*Template]
+		if len(p) > 0 && p[0] != nil {
+			prov = p[0]
+		} else {
+			prov = provision.New[*Template](nil, nil)
+		}
 		e := &engine{
-			client:   client,
-			template: &config.Template,
-			source:   source,
+			client:      client,
+			template:    &config.Template,
+			source:      source,
+			provisioner: prov,
 		}
 		return e, nil
 	}
@@ -127,20 +176,19 @@ func (e *engine) Close() error {
 	return nil
 }
 
-func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*sandboxer.LaunchResponse, error) {
-	name := e.sandboxName(req.Forge)
+func (e *engine) launch(ctx context.Context, tmpl *Template) (sandboxer.Sandbox, error) {
 	iReq := incusapi.InstancesPost{
-		Name:         name,
+		Name:         tmpl.Name,
 		Start:        true,
 		Source:       *e.source,
 		Type:         incusapi.InstanceTypeContainer,
-		InstanceType: e.template.InstanceSize,
+		InstanceType: tmpl.InstanceSize,
 		InstancePut: incusapi.InstancePut{
-			Architecture: e.template.Architecture,
-			Config:       e.template.Config,
-			Devices:      e.template.Devices,
-			Ephemeral:    e.template.Ephemeral,
-			Profiles:     e.template.Profiles,
+			Architecture: tmpl.Architecture,
+			Config:       tmpl.Config,
+			Devices:      tmpl.Devices,
+			Ephemeral:    tmpl.Ephemeral,
+			Profiles:     tmpl.Profiles,
 		},
 	}
 	if op, err := e.client.CreateInstance(iReq); err != nil {
@@ -149,14 +197,33 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*san
 		return nil, err
 	}
 
-	sb, err := newSandbox(e.client, name)
+	sb, err := newSandbox(e.client, tmpl.Name)
+	if err != nil {
+		return nil, err
+	}
+	return sb, nil
+}
+
+func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*sandboxer.LaunchResponse, error) {
+	tmpl := e.template.Clone()
+	tmpl.Name = e.sandboxName(req.Forge)
+
+	sb, err := e.provisioner.Launch(ctx, e.launch)(ctx, tmpl)
 	if err != nil {
 		return nil, err
 	}
 
-	dialer := sb.Dialer(docker.ProxyCommand(""))
+	d, ok := sandboxer.Unwrap(sb).(interface {
+		Dialer(cmd []string) func(ctx context.Context, network, addr string) (net.Conn, error)
+	})
+	if !ok {
+		_ = sb.Terminate(ctx)
+		return nil, errors.New("sandbox does not support dialer")
+	}
+	dialer := d.Dialer(docker.ProxyCommand(""))
 	client, err := docker.New(dockerclient.WithDialContext(dialer))
 	if err != nil {
+		_ = sb.Terminate(ctx)
 		return nil, err
 	}
 	client = c.WithTelemetry(client)
