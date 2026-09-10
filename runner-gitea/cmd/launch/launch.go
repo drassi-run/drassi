@@ -18,6 +18,7 @@ import (
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/store/git"
+	"drassi.run/core/pkg/store/oci"
 	"drassi.run/core/util/dig"
 	"drassi.run/core/wire"
 	giteaconfig "drassi.run/gitea-runner/config"
@@ -36,7 +37,8 @@ type launcher struct {
 	concurrency int
 	client      gitea.Client
 	runtime     sandboxer.Engine
-	store       gitstore.Manager
+	gitStore    gitstore.Manager
+	ociStore    ocistore.Manager
 
 	// tasksVersion used to store the version of the last task fetched from the Gitea.
 	tasksVersion atomic.Int64
@@ -95,6 +97,9 @@ func (c *launcher) Init(ctx context.Context, o *options) error {
 	}
 
 	if err = c.loadGitStore(); err != nil {
+		return err
+	}
+	if err = c.loadOciStore(); err != nil {
 		return err
 	}
 	return c.loadSandboxer(config, config.UseSandboxer)
@@ -183,7 +188,16 @@ func (c *launcher) loadGitStore() error {
 	if store, err := gitstore.New(".cache"); err != nil {
 		return err
 	} else {
-		c.store = store
+		c.gitStore = store
+	}
+	return nil
+}
+
+func (c *launcher) loadOciStore() error {
+	if store, err := ocistore.Default(); err != nil {
+		return err
+	} else {
+		c.ociStore = store
 	}
 	return nil
 }
@@ -193,11 +207,14 @@ func (c *launcher) loadSandboxer(config *giteaconfig.Config, name string) error 
 		return fmt.Errorf("sandboxer %q not configured", name)
 	} else if factory, err := sandboxer.NewFactory(sbConfig); err != nil {
 		return err
-	} else if sb, err := factory.Create(); err != nil {
-		return err
 	} else {
-		c.runtime = sb
-		return nil
+		factory.ProvisionRuntime(c.ociStore, config.Runtimes)
+		if sb, err := factory.Create(); err != nil {
+			return err
+		} else {
+			c.runtime = sb
+			return nil
+		}
 	}
 }
 
@@ -215,7 +232,7 @@ func (c *launcher) module() *wire.Module {
 		if err := xdig.Supply(scope, c.runtime); err != nil {
 			return fmt.Errorf("provide sandboxer.Engine: %w", err)
 		}
-		if err := xdig.Supply(scope, c.store); err != nil {
+		if err := xdig.Supply(scope, c.gitStore); err != nil {
 			return fmt.Errorf("provide gitstore.Store: %w", err)
 		}
 		if err := xdig.Supply(scope, c.client); err != nil {
