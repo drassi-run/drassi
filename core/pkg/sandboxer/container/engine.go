@@ -10,7 +10,6 @@ import (
 	"context"
 	"fmt"
 	"maps"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -66,20 +65,16 @@ func (f *factory) Create() (sandboxer.Engine, error) {
 }
 
 func (f *factory) doCreate() (sandboxer.Engine, error) {
-	var p *provision.Provisioner[*types.ContainerSpec]
+	var prov *provision.Provisioner[*types.ContainerSpec]
 	if len(f.runtimes) > 0 && f.store != nil {
-		targetDirFn := func(name string) string {
-			return filepath.Join(defaultLayout.Runtimes, name)
-		}
-		p = provision.New[*types.ContainerSpec](
+		prov = provision.New[*types.ContainerSpec](
 			f.runtimes,
-			targetDirFn,
 			provision.Pull[*types.ContainerSpec](f.store),
 			provision.Mount[*types.ContainerSpec](f.store, ocistore.WithWritable(true)),
 			AddBindMount(),
 		)
 	}
-	return New(f.cfg, p)
+	return New(f.cfg, prov)
 }
 
 type Bootstrapper interface {
@@ -98,7 +93,7 @@ type engine struct {
 	provisioner  *provision.Provisioner[*types.ContainerSpec]
 }
 
-func New(config *Config, p ...*provision.Provisioner[*types.ContainerSpec]) (sandboxer.Engine, error) {
+func New(config *Config, prov *provision.Provisioner[*types.ContainerSpec]) (sandboxer.Engine, error) {
 	if config.Implementation != "docker" {
 		return nil, fmt.Errorf("unsupported container implementation: %s", config.Implementation)
 	}
@@ -115,39 +110,19 @@ func New(config *Config, p ...*provision.Provisioner[*types.ContainerSpec]) (san
 	}
 	client = container.WithTelemetry(client)
 
-	var prov *provision.Provisioner[*types.ContainerSpec]
-	if len(p) > 0 {
-		prov = p[0]
-	}
 	return NewWithClient(client, config.Image, prov), nil
 }
 
-func NewWithClient(client container.Engine, defaultImage string, p *provision.Provisioner[*types.ContainerSpec]) sandboxer.Engine {
+func NewWithClient(client container.Engine, defaultImage string, prov *provision.Provisioner[*types.ContainerSpec]) sandboxer.Engine {
 	return &engine{
 		client:       client,
 		defaultImage: defaultImage,
-		provisioner:  p,
+		provisioner:  prov,
 	}
 }
 
 func NewBootstrapper(client container.Engine) Bootstrapper {
 	return &engine{client: client}
-}
-
-func (e *engine) Close() error {
-	return e.client.Close()
-}
-
-func (e *engine) launch(ctx context.Context, spec *types.ContainerSpec) (sandboxer.Sandbox, error) {
-	runOpts := &container.RunOptions{
-		Stdio:   new(types.Stdio),
-		Streams: new(stream.Streams),
-	}
-	cid, err := e.client.ContainerRun(ctx, spec, runOpts)
-	if err != nil {
-		return nil, err
-	}
-	return newSandbox(ctx, e.client, cid)
 }
 
 func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*sandboxer.LaunchResponse, error) {
@@ -165,8 +140,11 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*san
 		}
 
 		var err error
-		sb, err = e.provisioner.Launch(ctx, e.launch)(ctx, spec)
-		if err != nil {
+		launcher := e.launch
+		if prov := e.provisioner; prov != nil {
+			launcher = prov.Launch(defaultLayout.Runtimes, launcher)
+		}
+		if sb, err = launcher(ctx, spec); err != nil {
 			return nil, err
 		}
 	}
@@ -186,6 +164,18 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*san
 		}
 	}
 	return resp, nil
+}
+
+func (e *engine) launch(ctx context.Context, spec *types.ContainerSpec) (sandboxer.Sandbox, error) {
+	runOpts := &container.RunOptions{
+		Stdio:   new(types.Stdio),
+		Streams: new(stream.Streams),
+	}
+	cid, err := e.client.ContainerRun(ctx, spec, runOpts)
+	if err != nil {
+		return nil, err
+	}
+	return newSandbox(ctx, e.client, cid)
 }
 
 func (e *engine) Bootstrap(ctx context.Context, sb sandboxer.Sandbox, req *sandboxer.LaunchRequest) (resp *sandboxer.LaunchResponse, err error) {
@@ -281,6 +271,10 @@ func (e *engine) Bootstrap(ctx context.Context, sb sandboxer.Sandbox, req *sandb
 	}
 
 	return resp, nil
+}
+
+func (e *engine) Close() error {
+	return e.client.Close()
 }
 
 func (e *engine) parseContainer(def *workflows.Container, refiners []refiner) (spec *types.ContainerSpec, err error) {

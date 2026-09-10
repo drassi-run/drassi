@@ -8,7 +8,6 @@ package container_test
 
 import (
 	"context"
-	"path/filepath"
 	"testing"
 
 	"drassi.run/core/config"
@@ -38,12 +37,8 @@ func TestContainerEngineWithProvisioner(t *testing.T) {
 		"node": {Image: "drassi/node:24"},
 	}
 
-	targetDirFn := func(name string) string {
-		return filepath.Join("/opt/drassi/runtimes", name)
-	}
 	p := provision.New[*types.ContainerSpec](
 		runtimes,
-		targetDirFn,
 		provision.Pull[*types.ContainerSpec](store),
 		provision.Mount[*types.ContainerSpec](store, ocistore.WithWritable(true)),
 		sandboxer_container.AddBindMount(),

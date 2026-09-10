@@ -12,7 +12,6 @@ import (
 	"maps"
 	"net"
 	"path"
-	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -69,20 +68,16 @@ func (f *factory) Create() (sandboxer.Engine, error) {
 }
 
 func (f *factory) doCreate() (sandboxer.Engine, error) {
-	var p *provision.Provisioner[*Template]
+	var prov *provision.Provisioner[*Template]
 	if len(f.runtimes) > 0 && f.store != nil {
-		targetDirFn := func(name string) string {
-			return filepath.Join("/opt/drassi/runtimes", name)
-		}
-		p = provision.New[*Template](
+		prov = provision.New[*Template](
 			f.runtimes,
-			targetDirFn,
 			provision.Pull[*Template](f.store),
 			provision.Mount[*Template](f.store, ocistore.WithWritable(true)),
 			AddDiskDevice(),
 		)
 	}
-	return New(f.cfg, p)
+	return New(f.cfg, prov)
 }
 
 type Config struct {
@@ -149,18 +144,12 @@ type engine struct {
 	provisioner *provision.Provisioner[*Template]
 }
 
-func New(config *Config, p ...*provision.Provisioner[*Template]) (sandboxer.Engine, error) {
+func New(config *Config, prov *provision.Provisioner[*Template]) (sandboxer.Engine, error) {
 	if client, err := incusclient.ConnectIncusUnix(config.Endpoint, nil); err != nil {
 		return nil, err
 	} else if source, err := instanceSource(config.Template.Image); err != nil {
 		return nil, err
 	} else {
-		var prov *provision.Provisioner[*Template]
-		if len(p) > 0 && p[0] != nil {
-			prov = p[0]
-		} else {
-			prov = provision.New[*Template](nil, nil)
-		}
 		e := &engine{
 			client:      client,
 			template:    &config.Template,
@@ -171,44 +160,15 @@ func New(config *Config, p ...*provision.Provisioner[*Template]) (sandboxer.Engi
 	}
 }
 
-func (e *engine) Close() error {
-	e.client.Disconnect()
-	return nil
-}
-
-func (e *engine) launch(ctx context.Context, tmpl *Template) (sandboxer.Sandbox, error) {
-	iReq := incusapi.InstancesPost{
-		Name:         tmpl.Name,
-		Start:        true,
-		Source:       *e.source,
-		Type:         incusapi.InstanceTypeContainer,
-		InstanceType: tmpl.InstanceSize,
-		InstancePut: incusapi.InstancePut{
-			Architecture: tmpl.Architecture,
-			Config:       tmpl.Config,
-			Devices:      tmpl.Devices,
-			Ephemeral:    tmpl.Ephemeral,
-			Profiles:     tmpl.Profiles,
-		},
-	}
-	if op, err := e.client.CreateInstance(iReq); err != nil {
-		return nil, err
-	} else if err = op.WaitContext(ctx); err != nil {
-		return nil, err
-	}
-
-	sb, err := newSandbox(e.client, tmpl.Name)
-	if err != nil {
-		return nil, err
-	}
-	return sb, nil
-}
-
 func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*sandboxer.LaunchResponse, error) {
 	tmpl := e.template.Clone()
 	tmpl.Name = e.sandboxName(req.Forge)
 
-	sb, err := e.provisioner.Launch(ctx, e.launch)(ctx, tmpl)
+	launcher := e.launch
+	if prov := e.provisioner; prov != nil {
+		launcher = prov.Launch(defaultRuntimeDir, launcher)
+	}
+	sb, err := launcher(ctx, tmpl)
 	if err != nil {
 		return nil, err
 	}
@@ -238,6 +198,34 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*san
 		return nil, err
 	}
 	return resp, nil
+}
+
+func (e *engine) launch(ctx context.Context, tmpl *Template) (sandboxer.Sandbox, error) {
+	iReq := incusapi.InstancesPost{
+		Name:         tmpl.Name,
+		Start:        true,
+		Source:       *e.source,
+		Type:         incusapi.InstanceTypeContainer,
+		InstanceType: tmpl.InstanceSize,
+		InstancePut: incusapi.InstancePut{
+			Architecture: tmpl.Architecture,
+			Config:       tmpl.Config,
+			Devices:      tmpl.Devices,
+			Ephemeral:    tmpl.Ephemeral,
+			Profiles:     tmpl.Profiles,
+		},
+	}
+	if op, err := e.client.CreateInstance(iReq); err != nil {
+		return nil, err
+	} else if err = op.WaitContext(ctx); err != nil {
+		return nil, err
+	}
+
+	sb, err := newSandbox(e.client, tmpl.Name)
+	if err != nil {
+		return nil, err
+	}
+	return sb, nil
 }
 
 func (e *engine) sandboxName(forge *records.Forge) string {
@@ -274,4 +262,9 @@ func instanceSource(uri string) (*incusapi.InstanceSource, error) {
 		Protocol: "oci",
 	}
 	return source, nil
+}
+
+func (e *engine) Close() error {
+	e.client.Disconnect()
+	return nil
 }

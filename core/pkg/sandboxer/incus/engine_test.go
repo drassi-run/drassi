@@ -8,7 +8,6 @@ package incus_test
 
 import (
 	"context"
-	"path/filepath"
 	"testing"
 
 	"drassi.run/core/config"
@@ -35,12 +34,8 @@ func TestIncusProvisionerIntegration(t *testing.T) {
 		"node": {Image: "drassi/node:24"},
 	}
 
-	targetDirFn := func(name string) string {
-		return filepath.Join("/opt/drassi/runtimes", name)
-	}
 	p := provision.New[*sandboxer_incus.Template](
 		runtimes,
-		targetDirFn,
 		provision.Pull[*sandboxer_incus.Template](store),
 		provision.Mount[*sandboxer_incus.Template](store, ocistore.WithWritable(true)),
 		sandboxer_incus.AddDiskDevice(),
@@ -60,7 +55,7 @@ func TestIncusProvisionerIntegration(t *testing.T) {
 		return mockSb, nil
 	}
 
-	sb, err := p.Launch(t.Context(), launcher)(t.Context(), tmpl)
+	sb, err := p.Launch("/opt/drassi/runtimes", launcher)(t.Context(), tmpl)
 	require.NoError(t, err)
 	require.True(t, launched)
 	require.NotNil(t, sb)

@@ -61,20 +61,16 @@ func (f *factory) Create() (sandboxer.Engine, error) {
 }
 
 func (f *factory) doCreate() (sandboxer.Engine, error) {
-	var p *provision.Provisioner[*sandboxer.LaunchRequest]
+	var prov *provision.Provisioner[string]
 	if len(f.runtimes) > 0 && f.store != nil {
-		targetDirFn := func(name string) string {
-			return filepath.Join(f.cfg.RuntimeDir, name)
-		}
-		p = provision.New[*sandboxer.LaunchRequest](
+		prov = provision.New[string](
 			f.runtimes,
-			targetDirFn,
-			provision.Pull[*sandboxer.LaunchRequest](f.store),
-			provision.Mount[*sandboxer.LaunchRequest](f.store, ocistore.WithWritable(true)),
-			Symlink[*sandboxer.LaunchRequest](),
+			provision.Pull[string](f.store),
+			provision.Mount[string](f.store, ocistore.WithWritable(true)),
+			Symlink[string](),
 		)
 	}
-	return New(f.cfg, p)
+	return New(f.cfg, prov)
 }
 
 type Config struct {
@@ -84,10 +80,10 @@ type Config struct {
 
 type engine struct {
 	Config
-	provisioner *provision.Provisioner[*sandboxer.LaunchRequest]
+	provisioner *provision.Provisioner[string]
 }
 
-func New(config *Config, p ...*provision.Provisioner[*sandboxer.LaunchRequest]) (sandboxer.Engine, error) {
+func New(config *Config, prov *provision.Provisioner[string]) (sandboxer.Engine, error) {
 	if d, err := xpath.ResolveDir(config.RootDir); err != nil {
 		return nil, err
 	} else {
@@ -98,43 +94,22 @@ func New(config *Config, p ...*provision.Provisioner[*sandboxer.LaunchRequest]) 
 		return nil, err
 	}
 
-	var prov *provision.Provisioner[*sandboxer.LaunchRequest]
-	if len(p) > 0 && p[0] != nil {
-		prov = p[0]
-	} else {
-		prov = provision.New[*sandboxer.LaunchRequest](nil, nil)
-	}
-
 	return &engine{
 		Config:      *config,
 		provisioner: prov,
 	}, nil
 }
 
-func (e *engine) Close() error {
-	return nil
-}
-
-func (e *engine) launch(ctx context.Context, req *sandboxer.LaunchRequest) (sandboxer.Sandbox, error) {
+func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*sandboxer.LaunchResponse, error) {
 	sandboxDir := e.sandboxDir(req)
 	sandboxDir = filepath.Join(e.RootDir, sandboxDir)
 
-	sb, err := newSandbox(sandboxDir)
-	if err != nil {
-		return nil, err
+	launcher := e.launch
+	if prov := e.provisioner; prov != nil {
+		runtimeDir := filepath.Join(sandboxDir, "runtime")
+		launcher = prov.Launch(runtimeDir, launcher)
 	}
-	sb.layout.Runtimes = e.RuntimeDir
-	if sb.layout.Runtimes != "" {
-		if err := os.MkdirAll(sb.layout.Runtimes, xfs.DirPerm); err != nil {
-			_ = sb.Terminate(ctx)
-			return nil, err
-		}
-	}
-	return sb, nil
-}
-
-func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*sandboxer.LaunchResponse, error) {
-	sb, err := e.provisioner.Launch(ctx, e.launch)(ctx, req)
+	sb, err := launcher(ctx, sandboxDir)
 	if err != nil {
 		return nil, err
 	}
@@ -155,6 +130,21 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*san
 	return resp, nil
 }
 
+func (e *engine) launch(ctx context.Context, sandboxDir string) (sandboxer.Sandbox, error) {
+	sb, err := newSandbox(sandboxDir)
+	if err != nil {
+		return nil, err
+	}
+	sb.layout.Runtimes = e.RuntimeDir
+	if sb.layout.Runtimes != "" {
+		if err := os.MkdirAll(sb.layout.Runtimes, xfs.DirPerm); err != nil {
+			_ = sb.Terminate(ctx)
+			return nil, err
+		}
+	}
+	return sb, nil
+}
+
 func (e *engine) sandboxDir(req *sandboxer.LaunchRequest) string {
 	var server string
 	if u, err := url.Parse(req.Forge.ServerUrl); err == nil {
@@ -173,4 +163,8 @@ func (e *engine) sandboxDir(req *sandboxer.LaunchRequest) string {
 
 	path := filepath.Join(server, repo, workflow, job, run+"_"+attempt)
 	return path
+}
+
+func (e *engine) Close() error {
+	return nil
 }

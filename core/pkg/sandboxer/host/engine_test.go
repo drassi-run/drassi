@@ -47,7 +47,6 @@ func TestHostEngineWithProvisioner(t *testing.T) {
 
 	p := provision.New[*sandboxer.LaunchRequest](
 		runtimes,
-		func(name string) string { return filepath.Join(runtimeDir, name) },
 		provision.Pull[*sandboxer.LaunchRequest](store),
 		provision.Mount[*sandboxer.LaunchRequest](store, ocistore.WithWritable(true)),
 		sandboxer_host.Symlink[*sandboxer.LaunchRequest](),

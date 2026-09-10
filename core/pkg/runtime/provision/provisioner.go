@@ -7,8 +7,10 @@
 package provision
 
 import (
+	"cmp"
 	"context"
 	"fmt"
+	"path/filepath"
 	"slices"
 	"sync"
 
@@ -23,32 +25,29 @@ type Launcher[Req any] func(ctx context.Context, req Req) (sandboxer.Sandbox, er
 // Provisioner orchestrates multi-runtime provisioning as a Launcher decorator.
 // It is completely stateless and safe for concurrent use across multiple launches.
 type Provisioner[Req any] struct {
-	runtimes    map[string]*config.Runtime
-	targetDirFn func(name string) string
-	ops         []Operation[Req]
+	runtimes map[string]*config.Runtime
+	ops      []Operation[Req]
 }
 
 // New creates a new Provisioner with explicitly provided operations. Zero default ops are added.
 func New[Req any](
 	runtimes map[string]*config.Runtime,
-	targetDirFn func(name string) string,
 	ops ...Operation[Req],
 ) *Provisioner[Req] {
 	return &Provisioner[Req]{
-		runtimes:    runtimes,
-		targetDirFn: targetDirFn,
-		ops:         ops,
+		runtimes: runtimes,
+		ops:      ops,
 	}
 }
 
 // Launch decorates an inner Launcher with parallel preparation, sequential request transformation,
 // inner execution, sequential post-launch actions, and automatic cleanup registration/rollback.
-func (p *Provisioner[Req]) Launch(ctx context.Context, l Launcher[Req]) Launcher[Req] {
-	return func(launchCtx context.Context, req Req) (sandboxer.Sandbox, error) {
-		if p == nil || len(p.runtimes) == 0 || len(p.ops) == 0 {
-			return l(launchCtx, req)
-		}
+func (p *Provisioner[Req]) Launch(runtimeDir string, l Launcher[Req]) Launcher[Req] {
+	if p.Empty() {
+		return l
+	}
 
+	return func(ctx context.Context, req Req) (sb sandboxer.Sandbox, err error) {
 		// 1. Deterministic ordering of runtimes by name
 		names := make([]string, 0, len(p.runtimes))
 		for name := range p.runtimes {
@@ -58,11 +57,8 @@ func (p *Provisioner[Req]) Launch(ctx context.Context, l Launcher[Req]) Launcher
 
 		contexts := make([]*Context, len(names))
 		for i, name := range names {
-			targetDir := ""
-			if p.targetDirFn != nil {
-				targetDir = p.targetDirFn(name)
-			}
-			contexts[i] = NewContext(launchCtx, name, p.runtimes[name], targetDir)
+			targetDir := filepath.Join(runtimeDir, name)
+			contexts[i] = NewContext(ctx, name, p.runtimes[name], targetDir)
 		}
 
 		var (
@@ -70,75 +66,65 @@ func (p *Provisioner[Req]) Launch(ctx context.Context, l Launcher[Req]) Launcher
 			cleanups []sandboxer.Cleanup
 		)
 
-		rollback := func() {
-			cleanupCtx := context.WithoutCancel(launchCtx)
+		rollback := func(ctx context.Context) {
+			ctx = context.WithoutCancel(ctx)
 			for _, cleanup := range slices.Backward(cleanups) {
-				_ = cleanup(cleanupCtx)
+				_ = cleanup(ctx)
 			}
 		}
 
 		// 2. Parallel Prepare across all runtimes: parallel(pull -> mount)
-		g, groupCtx := errgroup.WithContext(launchCtx)
+		g, groupCtx := errgroup.WithContext(ctx)
 		for _, pctx := range contexts {
 			pctx.Context = groupCtx
-			pctx := pctx
 			g.Go(func() error {
 				for _, op := range p.ops {
-					cleanup, err := op.Prepare(pctx)
-					if err != nil {
+					if c, err := op.Prepare(pctx); err != nil {
 						return fmt.Errorf("operation %q prepare failed for runtime %q: %w", op.Name(), pctx.RuntimeName, err)
-					}
-					if cleanup != nil {
+					} else if c != nil {
 						mu.Lock()
-						cleanups = append(cleanups, cleanup)
+						cleanups = append(cleanups, c)
 						mu.Unlock()
 					}
 				}
 				return nil
 			})
 		}
-		if err := g.Wait(); err != nil {
-			rollback()
-			return nil, err
+		if err = g.Wait(); err != nil {
+			rollback(ctx)
+			return
 		}
 		for _, pctx := range contexts {
-			pctx.Context = launchCtx
+			pctx.Context = ctx
 		}
 
 		// 3. Sequential PreLaunch request mutation
-		var err error
 		for _, pctx := range contexts {
 			for _, op := range p.ops {
-				req, err = op.PreLaunch(pctx, req)
-				if err != nil {
-					rollback()
+				if req, err = op.PreLaunch(pctx, req); err != nil {
+					rollback(ctx)
 					return nil, fmt.Errorf("operation %q pre-launch failed for runtime %q: %w", op.Name(), pctx.RuntimeName, err)
 				}
 			}
 		}
 
 		// 4. Invoke inner launcher with mutated request
-		sb, err := l(launchCtx, req)
-		if err != nil {
-			rollback()
-			return nil, err
+		if sb, err = l(ctx, req); err != nil {
+			rollback(ctx)
+			return
 		}
 
 		// 5. Sequential PostLaunch actions
 		for _, pctx := range contexts {
 			for _, op := range p.ops {
-				nextSb, err := op.PostLaunch(pctx, sb)
+				next, err := op.PostLaunch(pctx, sb)
 				if err != nil {
-					cleanupCtx := context.WithoutCancel(launchCtx)
-					if nextSb != nil {
-						_ = nextSb.Terminate(cleanupCtx)
-					} else if sb != nil {
-						_ = sb.Terminate(cleanupCtx)
-					}
-					rollback()
+					sb = cmp.Or(next, sb)
+					_ = sb.Terminate(context.WithoutCancel(ctx))
+					rollback(ctx)
 					return nil, fmt.Errorf("operation %q post-launch failed for runtime %q: %w", op.Name(), pctx.RuntimeName, err)
 				}
-				sb = nextSb
+				sb = next
 			}
 		}
 
@@ -148,6 +134,10 @@ func (p *Provisioner[Req]) Launch(ctx context.Context, l Launcher[Req]) Launcher
 			sb = sandboxer.AddAfterCleanup(sb, cleanups...)
 		}
 
-		return sb, nil
+		return
 	}
+}
+
+func (p *Provisioner[Req]) Empty() bool {
+	return p == nil || len(p.runtimes) == 0 || len(p.ops) == 0
 }

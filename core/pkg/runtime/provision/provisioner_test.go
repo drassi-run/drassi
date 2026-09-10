@@ -70,6 +70,7 @@ func TestProvisionerSuccess(t *testing.T) {
 			return cleanupFn, nil
 		},
 		preLaunchFn: func(pctx *provision.Context, req *testRequest) (*testRequest, error) {
+			require.Equal(t, "/opt/runtimes/"+pctx.RuntimeName, pctx.TargetDir)
 			req.Items = append(req.Items, pctx.RuntimeName)
 			return req, nil
 		},
@@ -82,7 +83,6 @@ func TestProvisionerSuccess(t *testing.T) {
 
 	p := provision.New[*testRequest](
 		runtimes,
-		func(name string) string { return "/opt/" + name },
 		op,
 	)
 
@@ -94,7 +94,7 @@ func TestProvisionerSuccess(t *testing.T) {
 	}
 
 	req := &testRequest{}
-	decorated := p.Launch(t.Context(), innerLauncher)
+	decorated := p.Launch("/opt/runtimes", innerLauncher)
 	sb, err := decorated(t.Context(), req)
 	require.NoError(t, err)
 	require.True(t, innerLauncherCalled)
@@ -126,13 +126,13 @@ func TestProvisionerPrepareFailureRollback(t *testing.T) {
 		"python": {},
 	}
 
-	p := provision.New[*testRequest](runtimes, nil, op)
+	p := provision.New[*testRequest](runtimes, op)
 	innerLauncher := func(ctx context.Context, req *testRequest) (sandboxer.Sandbox, error) {
 		t.Fatal("inner launcher should not be called on prepare failure")
 		return nil, nil
 	}
 
-	_, err := p.Launch(t.Context(), innerLauncher)(t.Context(), &testRequest{})
+	_, err := p.Launch("/opt/runtimes", innerLauncher)(t.Context(), &testRequest{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "pull failed")
 	require.True(t, cleanup1Called.Load(), "rollback should execute cleanup for succeeded runtimes")
@@ -151,13 +151,13 @@ func TestProvisionerInnerLauncherFailureRollback(t *testing.T) {
 	}
 
 	runtimes := map[string]*config.Runtime{"node": {}}
-	p := provision.New[*testRequest](runtimes, nil, op)
+	p := provision.New[*testRequest](runtimes, op)
 
 	innerLauncher := func(ctx context.Context, req *testRequest) (sandboxer.Sandbox, error) {
 		return nil, errors.New("container run error")
 	}
 
-	_, err := p.Launch(t.Context(), innerLauncher)(t.Context(), &testRequest{})
+	_, err := p.Launch("/opt/runtimes", innerLauncher)(t.Context(), &testRequest{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "container run error")
 	require.True(t, cleanupCalled.Load(), "rollback should execute cleanups when inner launcher fails")
@@ -179,14 +179,14 @@ func TestProvisionerPreLaunchFailureRollback(t *testing.T) {
 	}
 
 	runtimes := map[string]*config.Runtime{"node": {}}
-	p := provision.New[*testRequest](runtimes, nil, op)
+	p := provision.New[*testRequest](runtimes, op)
 
 	innerLauncher := func(ctx context.Context, req *testRequest) (sandboxer.Sandbox, error) {
 		t.Fatal("inner launcher should not be called on prelaunch failure")
 		return nil, nil
 	}
 
-	_, err := p.Launch(t.Context(), innerLauncher)(t.Context(), &testRequest{})
+	_, err := p.Launch("/opt/runtimes", innerLauncher)(t.Context(), &testRequest{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "prelaunch mutation failed")
 	require.True(t, cleanupCalled.Load(), "rollback should execute cleanups when pre-launch fails")
@@ -211,7 +211,7 @@ func TestProvisionerPostLaunchFailureRollback(t *testing.T) {
 	}
 
 	runtimes := map[string]*config.Runtime{"node": {}}
-	p := provision.New[*testRequest](runtimes, nil, op)
+	p := provision.New[*testRequest](runtimes, op)
 
 	baseSb.EXPECT().Terminate(gomock.Any()).Return(nil)
 
@@ -219,7 +219,7 @@ func TestProvisionerPostLaunchFailureRollback(t *testing.T) {
 		return baseSb, nil
 	}
 
-	_, err := p.Launch(t.Context(), innerLauncher)(t.Context(), &testRequest{})
+	_, err := p.Launch("/opt/runtimes", innerLauncher)(t.Context(), &testRequest{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "postlaunch failed")
 	require.True(t, cleanupCalled.Load(), "rollback should execute cleanups when post-launch fails")
@@ -235,19 +235,19 @@ func TestProvisionerPassthrough(t *testing.T) {
 
 	// 1. Nil provisioner
 	var pNil *provision.Provisioner[*testRequest]
-	sb, err := pNil.Launch(t.Context(), innerLauncher)(t.Context(), &testRequest{})
+	sb, err := pNil.Launch("/opt/runtimes", innerLauncher)(t.Context(), &testRequest{})
 	require.NoError(t, err)
 	require.Equal(t, baseSb, sb)
 
 	// 2. Empty runtimes
-	pEmptyRuntimes := provision.New[*testRequest](nil, nil)
-	sb, err = pEmptyRuntimes.Launch(t.Context(), innerLauncher)(t.Context(), &testRequest{})
+	pEmptyRuntimes := provision.New[*testRequest](nil)
+	sb, err = pEmptyRuntimes.Launch("/opt/runtimes", innerLauncher)(t.Context(), &testRequest{})
 	require.NoError(t, err)
 	require.Equal(t, baseSb, sb)
 
 	// 3. Empty ops
-	pEmptyOps := provision.New[*testRequest](map[string]*config.Runtime{"node": {}}, nil)
-	sb, err = pEmptyOps.Launch(t.Context(), innerLauncher)(t.Context(), &testRequest{})
+	pEmptyOps := provision.New[*testRequest](map[string]*config.Runtime{"node": {}})
+	sb, err = pEmptyOps.Launch("/opt/runtimes", innerLauncher)(t.Context(), &testRequest{})
 	require.NoError(t, err)
 	require.Equal(t, baseSb, sb)
 }
@@ -284,7 +284,6 @@ func TestProvisionerLIFOCleanupOrder(t *testing.T) {
 
 	p := provision.New[*testRequest](
 		map[string]*config.Runtime{"node": {}},
-		nil,
 		op1,
 		op2,
 	)
@@ -294,7 +293,7 @@ func TestProvisionerLIFOCleanupOrder(t *testing.T) {
 		return baseSb, nil
 	}
 
-	sb, err := p.Launch(t.Context(), innerLauncher)(t.Context(), &testRequest{})
+	sb, err := p.Launch("/opt/runtimes", innerLauncher)(t.Context(), &testRequest{})
 	require.NoError(t, err)
 
 	require.NoError(t, sb.Terminate(t.Context()))
@@ -329,11 +328,10 @@ func TestProvisionerPrepareCancellation(t *testing.T) {
 			"fast-fail": {},
 			"slow":      {},
 		},
-		nil,
 		op,
 	)
 
-	_, err := p.Launch(t.Context(), func(ctx context.Context, req *testRequest) (sandboxer.Sandbox, error) {
+	_, err := p.Launch("/opt/runtimes", func(ctx context.Context, req *testRequest) (sandboxer.Sandbox, error) {
 		return nil, nil
 	})(t.Context(), &testRequest{})
 
