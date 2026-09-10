@@ -19,47 +19,48 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-func newTestSetup(t *testing.T, name string, cfg *config.Runtime) (provision.Operation, *provision.Context, *mock_sandboxer.MockSandbox, string) {
-	t.Helper()
-	if cfg == nil {
-		cfg = new(config.Runtime)
-	}
+func TestHostSymlink(t *testing.T) {
+	ctrl := gomock.NewController(t)
 	runtimesDir := filepath.Join(t.TempDir(), "runtimes")
 	require.NoError(t, os.MkdirAll(runtimesDir, 0755))
 
-	pctx := provision.NewContext(t.Context(), name, cfg, filepath.Join(runtimesDir, name))
-	op := Symlink()
-	sb := mock_sandboxer.NewMockSandbox(gomock.NewController(t))
+	op := Symlink[any]()
+	require.Equal(t, "host/symlink", op.Name())
+
+	sb := mock_sandboxer.NewMockSandbox(ctrl)
 	sb.EXPECT().Layout().Return(&sandboxer.Layout{Runtimes: runtimesDir}).AnyTimes()
-	return op, pctx, sb, runtimesDir
-}
 
-func TestHostSymlink(t *testing.T) {
 	t.Run("basic symlink", func(t *testing.T) {
-		op, pctx, sb, runtimesDir := newTestSetup(t, "node", nil)
-		require.Equal(t, "host/symlink", op.Name())
-		require.NoError(t, op.PreLaunch(pctx))
-
 		mountDir := filepath.Join(t.TempDir(), "mount_merged")
 		require.NoError(t, os.MkdirAll(mountDir, 0755))
+
+		pctx := provision.NewContext(t.Context(), "node", &config.Runtime{}, filepath.Join(runtimesDir, "node"))
 		pctx.Set(provision.KeyHostMountDir, mountDir)
 
-		require.NoError(t, op.PostLaunch(pctx, sb))
+		resSb, err := op.PostLaunch(pctx, sb)
+		require.NoError(t, err)
+		require.Equal(t, sb, sandboxer.Unwrap(resSb))
 
 		target := filepath.Join(runtimesDir, "node")
 		targetInfo, err := os.Lstat(target)
 		require.NoError(t, err)
 		require.True(t, targetInfo.Mode()&os.ModeSymlink != 0)
+
+		sb.EXPECT().Terminate(gomock.Any()).Return(nil)
+		require.NoError(t, resSb.Terminate(t.Context()))
+		_, err = os.Lstat(target)
+		require.True(t, os.IsNotExist(err))
 	})
 
 	t.Run("with subpath", func(t *testing.T) {
-		op, pctx, sb, runtimesDir := newTestSetup(t, "custom", &config.Runtime{Subpath: "custom/sub"})
-
 		subMountDir := filepath.Join(t.TempDir(), "sub_merged")
 		require.NoError(t, os.MkdirAll(filepath.Join(subMountDir, "custom/sub"), 0755))
+
+		pctx := provision.NewContext(t.Context(), "custom", &config.Runtime{Subpath: "custom/sub"}, filepath.Join(runtimesDir, "custom"))
 		pctx.Set(provision.KeyHostMountDir, subMountDir)
 
-		require.NoError(t, op.PostLaunch(pctx, sb))
+		_, err := op.PostLaunch(pctx, sb)
+		require.NoError(t, err)
 
 		targetSub := filepath.Join(runtimesDir, "custom")
 		linkTarget, err := os.Readlink(targetSub)
@@ -68,10 +69,9 @@ func TestHostSymlink(t *testing.T) {
 	})
 
 	t.Run("missing host mount dir", func(t *testing.T) {
-		op, pctx, sb, _ := newTestSetup(t, "missing", nil)
-
-		err := op.PostLaunch(pctx, sb)
+		pctx := provision.NewContext(t.Context(), "missing", &config.Runtime{}, filepath.Join(runtimesDir, "missing"))
+		_, err := op.PostLaunch(pctx, sb)
 		require.Error(t, err)
-		require.ErrorContains(t, err, "host mount directory not set in context")
+		require.Contains(t, err.Error(), "host mount directory not set in context")
 	})
 }

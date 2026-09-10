@@ -20,4 +20,5 @@
 //go:generate mockgen -typed -destination=store/oci/manager.go -source=../pkg/store/oci/manager.go
 //go:generate mockgen -typed -destination=runtime/provider.go -source=../pkg/runtime/provider.go
 //go:generate mockgen -typed -destination=runtime/runtime.go -source=../pkg/runtime/runtime.go
+//go:generate mockgen -typed -destination=runtime/provision/operations.go -source=../pkg/runtime/provision/operations.go
 package mock

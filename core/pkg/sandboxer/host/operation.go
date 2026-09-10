@@ -7,6 +7,7 @@
 package host
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,22 +16,22 @@ import (
 	"drassi.run/core/pkg/sandboxer"
 )
 
-type symlinkOp struct {
-	provision.Noop
+type symlinkOp[Req any] struct {
+	provision.Noop[Req]
 }
 
 // Symlink returns a provision.Operation that symlinks the runtime directory in the sandbox
 // to the host mount directory.
-func Symlink() provision.Operation {
-	return symlinkOp{}
+func Symlink[Req any]() provision.Operation[Req] {
+	return symlinkOp[Req]{}
 }
 
-func (op symlinkOp) Name() string { return "host/symlink" }
+func (op symlinkOp[Req]) Name() string { return "host/symlink" }
 
-func (op symlinkOp) PostLaunch(pctx *provision.Context, sb sandboxer.Sandbox) error {
+func (op symlinkOp[Req]) PostLaunch(pctx *provision.Context, sb sandboxer.Sandbox) (sandboxer.Sandbox, error) {
 	hostMountDir, ok := pctx.Get(provision.KeyHostMountDir)
 	if !ok {
-		return fmt.Errorf("host mount directory not set in context")
+		return sb, fmt.Errorf("host mount directory not set in context")
 	}
 
 	runtimeDir := sb.Layout().Runtimes
@@ -40,5 +41,11 @@ func (op symlinkOp) PostLaunch(pctx *provision.Context, sb sandboxer.Sandbox) er
 	}
 
 	_ = os.Remove(target) // Remove existing symlink if present
-	return os.Symlink(hostMountDir, target)
+	if err := os.Symlink(hostMountDir, target); err != nil {
+		return sb, err
+	}
+	sb = sandboxer.AddBeforeCleanup(sb, func(context.Context) error {
+		return os.Remove(target)
+	})
+	return sb, nil
 }

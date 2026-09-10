@@ -8,6 +8,7 @@ package host
 
 import (
 	"context"
+	"errors"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -17,12 +18,13 @@ import (
 	"drassi.run/core/config"
 	c "drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/container/docker"
+	"drassi.run/core/pkg/runtime/provision"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/sandboxer/container"
-	"drassi.run/core/pkg/store/oci"
-	"drassi.run/core/util/fs"
-	"drassi.run/core/util/path"
-	"drassi.run/core/util/string"
+	ocistore "drassi.run/core/pkg/store/oci"
+	xfs "drassi.run/core/util/fs"
+	xpath "drassi.run/core/util/path"
+	xstring "drassi.run/core/util/string"
 )
 
 func init() {
@@ -50,8 +52,11 @@ type factory struct {
 	runtimes map[string]*config.Runtime
 }
 
-func (f *factory) ProvisionRuntime(store ocistore.Manager, config map[string]*config.Runtime) {
+func (f *factory) SetOciStore(store ocistore.Manager) {
 	f.store = store
+}
+
+func (f *factory) ProvisionRuntime(config map[string]*config.Runtime) {
 	f.runtimes = config
 }
 
@@ -60,7 +65,19 @@ func (f *factory) Create() (sandboxer.Engine, error) {
 }
 
 func (f *factory) doCreate() (sandboxer.Engine, error) {
-	return New(f.cfg)
+	var prov *provision.Provisioner[string]
+	if len(f.runtimes) > 0 {
+		if f.store == nil {
+			return nil, errors.New("oci store is required when runtimes are configured")
+		}
+		prov = provision.New[string](
+			f.runtimes,
+			provision.Pull[string](f.store),
+			provision.Mount[string](f.store),
+			Symlink[string](),
+		)
+	}
+	return New(f.cfg, prov)
 }
 
 type Config struct {
@@ -70,9 +87,10 @@ type Config struct {
 
 type engine struct {
 	Config
+	provisioner *provision.Provisioner[string]
 }
 
-func New(config *Config) (sandboxer.Engine, error) {
+func New(config *Config, prov *provision.Provisioner[string]) (sandboxer.Engine, error) {
 	if d, err := xpath.ResolveDir(config.RootDir); err != nil {
 		return nil, err
 	} else {
@@ -83,31 +101,55 @@ func New(config *Config) (sandboxer.Engine, error) {
 		return nil, err
 	}
 
-	return &engine{Config: *config}, nil
-}
-
-func (e *engine) Close() error {
-	return nil
+	return &engine{
+		Config:      *config,
+		provisioner: prov,
+	}, nil
 }
 
 func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*sandboxer.LaunchResponse, error) {
 	sandboxDir := e.sandboxDir(req)
 	sandboxDir = filepath.Join(e.RootDir, sandboxDir)
 
-	sb, err := newSandbox(sandboxDir)
+	launcher := e.launch
+	if prov := e.provisioner; prov != nil {
+		runtimeDir := filepath.Join(sandboxDir, "runtime")
+		launcher = prov.Launch(runtimeDir, launcher)
+	}
+	sb, err := launcher(ctx, sandboxDir)
 	if err != nil {
 		return nil, err
 	}
-	sb.layout.Runtimes = e.RuntimeDir
 
 	client, err := docker.New()
 	if err != nil {
+		_ = sb.Terminate(ctx)
 		return nil, err
 	}
 	client = c.WithTelemetry(client)
 
 	b := container.NewBootstrapper(client)
-	return b.Bootstrap(ctx, sb, req)
+	resp, err := b.Bootstrap(ctx, sb, req)
+	if err != nil {
+		_ = sb.Terminate(ctx)
+		return nil, err
+	}
+	return resp, nil
+}
+
+func (e *engine) launch(ctx context.Context, sandboxDir string) (sandboxer.Sandbox, error) {
+	sb, err := newSandbox(sandboxDir)
+	if err != nil {
+		return nil, err
+	}
+	sb.layout.Runtimes = e.RuntimeDir
+	if sb.layout.Runtimes != "" {
+		if err := os.MkdirAll(sb.layout.Runtimes, xfs.DirPerm); err != nil {
+			_ = sb.Terminate(ctx)
+			return nil, err
+		}
+	}
+	return sb, nil
 }
 
 func (e *engine) sandboxDir(req *sandboxer.LaunchRequest) string {
@@ -128,4 +170,8 @@ func (e *engine) sandboxDir(req *sandboxer.LaunchRequest) string {
 
 	path := filepath.Join(server, repo, workflow, job, run+"_"+attempt)
 	return path
+}
+
+func (e *engine) Close() error {
+	return nil
 }

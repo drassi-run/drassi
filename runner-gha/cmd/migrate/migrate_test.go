@@ -101,7 +101,7 @@ func TestMigrateCommand(t *testing.T) {
 	require.True(t, ok)
 	factory, err := sandboxer.NewFactory(sb)
 	require.NoError(t, err)
-	factory.ProvisionRuntime(nil, cfg.Runtimes)
+	factory.ProvisionRuntime(cfg.Runtimes)
 	engine, err := factory.Create()
 	require.NoError(t, err)
 	require.NotNil(t, engine)

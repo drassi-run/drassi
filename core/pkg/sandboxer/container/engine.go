@@ -8,6 +8,7 @@ package container
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"strconv"
@@ -21,6 +22,7 @@ import (
 	"drassi.run/core/pkg/container/types"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/model/workflows"
+	"drassi.run/core/pkg/runtime/provision"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/store/oci"
 	"drassi.run/core/pkg/stream"
@@ -54,8 +56,11 @@ type factory struct {
 	runtimes map[string]*config.Runtime
 }
 
-func (f *factory) ProvisionRuntime(store ocistore.Manager, config map[string]*config.Runtime) {
+func (f *factory) SetOciStore(store ocistore.Manager) {
 	f.store = store
+}
+
+func (f *factory) ProvisionRuntime(config map[string]*config.Runtime) {
 	f.runtimes = config
 }
 
@@ -64,7 +69,19 @@ func (f *factory) Create() (sandboxer.Engine, error) {
 }
 
 func (f *factory) doCreate() (sandboxer.Engine, error) {
-	return New(f.cfg)
+	var prov *provision.Provisioner[*types.ContainerSpec]
+	if len(f.runtimes) > 0 {
+		if f.store == nil {
+			return nil, errors.New("oci store is required when runtimes are configured")
+		}
+		prov = provision.New[*types.ContainerSpec](
+			f.runtimes,
+			provision.Pull[*types.ContainerSpec](f.store),
+			provision.Mount[*types.ContainerSpec](f.store),
+			AddBindMount(),
+		)
+	}
+	return New(f.cfg, prov)
 }
 
 type Bootstrapper interface {
@@ -80,9 +97,10 @@ type Config struct {
 type engine struct {
 	client       container.Engine
 	defaultImage string
+	provisioner  *provision.Provisioner[*types.ContainerSpec]
 }
 
-func New(config *Config) (sandboxer.Engine, error) {
+func New(config *Config, prov *provision.Provisioner[*types.ContainerSpec]) (sandboxer.Engine, error) {
 	if config.Implementation != "docker" {
 		return nil, fmt.Errorf("unsupported container implementation: %s", config.Implementation)
 	}
@@ -99,19 +117,19 @@ func New(config *Config) (sandboxer.Engine, error) {
 	}
 	client = container.WithTelemetry(client)
 
-	e := &engine{
+	return NewWithClient(client, config.Image, prov), nil
+}
+
+func NewWithClient(client container.Engine, defaultImage string, prov *provision.Provisioner[*types.ContainerSpec]) sandboxer.Engine {
+	return &engine{
 		client:       client,
-		defaultImage: config.Image,
+		defaultImage: defaultImage,
+		provisioner:  prov,
 	}
-	return e, nil
 }
 
 func NewBootstrapper(client container.Engine) Bootstrapper {
 	return &engine{client: client}
-}
-
-func (e *engine) Close() error {
-	return e.client.Close()
 }
 
 func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*sandboxer.LaunchResponse, error) {
@@ -122,21 +140,19 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*san
 
 	if req.JobContainer == nil {
 		spec := &types.ContainerSpec{
-			Image:      e.defaultImage,
-			Entrypoint: []string{"sleep"},
-			Command:    []string{"infinity"},
+			Image:       e.defaultImage,
+			Entrypoint:  []string{"sleep"},
+			Command:     []string{"infinity"},
+			NetworkMode: "host",
 		}
-		spec.NetworkMode = "host"
-		runOpts := &container.RunOptions{
-			Stdio:   new(types.Stdio),
-			Streams: new(stream.Streams),
+
+		var err error
+		launcher := e.launch
+		if prov := e.provisioner; prov != nil {
+			launcher = prov.Launch(defaultLayout.Runtimes, launcher)
 		}
-		if cid, err := e.client.ContainerRun(ctx, spec, runOpts); err != nil {
+		if sb, err = launcher(ctx, spec); err != nil {
 			return nil, err
-		} else if sb, err = newSandbox(ctx, e.client, cid); err != nil {
-			return nil, err
-		} else {
-			containerId = cid
 		}
 	}
 
@@ -144,12 +160,29 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*san
 	if err != nil {
 		return nil, err
 	}
+	if req.JobContainer == nil && sb != nil {
+		if s, ok := sandboxer.Unwrap(sb).(*sandbox); ok {
+			containerId = s.containerId
+		}
+	}
 	if containerId != "" {
 		resp.JobContainer = &records.ContainerInfo{
 			Id: containerId,
 		}
 	}
 	return resp, nil
+}
+
+func (e *engine) launch(ctx context.Context, spec *types.ContainerSpec) (sandboxer.Sandbox, error) {
+	runOpts := &container.RunOptions{
+		Stdio:   new(types.Stdio),
+		Streams: new(stream.Streams),
+	}
+	cid, err := e.client.ContainerRun(ctx, spec, runOpts)
+	if err != nil {
+		return nil, err
+	}
+	return newSandbox(ctx, e.client, cid)
 }
 
 func (e *engine) Bootstrap(ctx context.Context, sb sandboxer.Sandbox, req *sandboxer.LaunchRequest) (resp *sandboxer.LaunchResponse, err error) {
@@ -245,6 +278,10 @@ func (e *engine) Bootstrap(ctx context.Context, sb sandboxer.Sandbox, req *sandb
 	}
 
 	return resp, nil
+}
+
+func (e *engine) Close() error {
+	return e.client.Close()
 }
 
 func (e *engine) parseContainer(def *workflows.Container, refiners []refiner) (spec *types.ContainerSpec, err error) {

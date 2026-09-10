@@ -8,7 +8,11 @@ package incus
 
 import (
 	"context"
+	"errors"
+	"maps"
+	"net"
 	"path"
+	"slices"
 	"strings"
 	"sync"
 
@@ -16,6 +20,7 @@ import (
 	c "drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/container/docker"
 	"drassi.run/core/pkg/model/records"
+	"drassi.run/core/pkg/runtime/provision"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/sandboxer/container"
 	"drassi.run/core/pkg/store/oci"
@@ -53,8 +58,11 @@ type factory struct {
 	runtimes map[string]*config.Runtime
 }
 
-func (f *factory) ProvisionRuntime(store ocistore.Manager, config map[string]*config.Runtime) {
+func (f *factory) SetOciStore(store ocistore.Manager) {
 	f.store = store
+}
+
+func (f *factory) ProvisionRuntime(config map[string]*config.Runtime) {
 	f.runtimes = config
 }
 
@@ -63,7 +71,19 @@ func (f *factory) Create() (sandboxer.Engine, error) {
 }
 
 func (f *factory) doCreate() (sandboxer.Engine, error) {
-	return New(f.cfg)
+	var prov *provision.Provisioner[*Template]
+	if len(f.runtimes) > 0 {
+		if f.store == nil {
+			return nil, errors.New("oci store is required when runtimes are configured")
+		}
+		prov = provision.New[*Template](
+			f.runtimes,
+			provision.Pull[*Template](f.store),
+			provision.Mount[*Template](f.store),
+			AddDiskDevice(),
+		)
+	}
+	return New(f.cfg, prov)
 }
 
 type Config struct {
@@ -74,6 +94,8 @@ type Config struct {
 // Template for create incus VM
 // [github.com/lxc/incus/v6/shared/api.InstancesPost]
 type Template struct {
+	Name string `toml:"name,omitempty" json:"name,omitempty"`
+
 	// OCI image name, e.g: ghcr.io/drassi-run/ubuntu:22.04
 	Image string `toml:"source" json:"image"`
 
@@ -101,62 +123,73 @@ type Template struct {
 	Ephemeral bool `toml:"ephemeral" json:"ephemeral,omitempty"`
 }
 
-type engine struct {
-	client   incusclient.InstanceServer
-	template *Template
-	source   *incusapi.InstanceSource
+func (t *Template) Clone() *Template {
+	if t == nil {
+		return nil
+	}
+	c := *t
+	if t.Profiles != nil {
+		c.Profiles = slices.Clone(t.Profiles)
+	}
+	if t.Config != nil {
+		c.Config = maps.Clone(t.Config)
+	}
+	if t.Devices != nil {
+		c.Devices = make(map[string]map[string]string, len(t.Devices))
+		for k, v := range t.Devices {
+			c.Devices[k] = maps.Clone(v)
+		}
+	}
+	return &c
 }
 
-func New(config *Config) (sandboxer.Engine, error) {
+type engine struct {
+	client      incusclient.InstanceServer
+	template    *Template
+	source      *incusapi.InstanceSource
+	provisioner *provision.Provisioner[*Template]
+}
+
+func New(config *Config, prov *provision.Provisioner[*Template]) (sandboxer.Engine, error) {
 	if client, err := incusclient.ConnectIncusUnix(config.Endpoint, nil); err != nil {
 		return nil, err
 	} else if source, err := instanceSource(config.Template.Image); err != nil {
 		return nil, err
 	} else {
 		e := &engine{
-			client:   client,
-			template: &config.Template,
-			source:   source,
+			client:      client,
+			template:    &config.Template,
+			source:      source,
+			provisioner: prov,
 		}
 		return e, nil
 	}
 }
 
-func (e *engine) Close() error {
-	e.client.Disconnect()
-	return nil
-}
-
 func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*sandboxer.LaunchResponse, error) {
-	name := e.sandboxName(req.Forge)
-	iReq := incusapi.InstancesPost{
-		Name:         name,
-		Start:        true,
-		Source:       *e.source,
-		Type:         incusapi.InstanceTypeContainer,
-		InstanceType: e.template.InstanceSize,
-		InstancePut: incusapi.InstancePut{
-			Architecture: e.template.Architecture,
-			Config:       e.template.Config,
-			Devices:      e.template.Devices,
-			Ephemeral:    e.template.Ephemeral,
-			Profiles:     e.template.Profiles,
-		},
-	}
-	if op, err := e.client.CreateInstance(iReq); err != nil {
-		return nil, err
-	} else if err = op.WaitContext(ctx); err != nil {
-		return nil, err
-	}
+	tmpl := e.template.Clone()
+	tmpl.Name = e.sandboxName(req.Forge)
 
-	sb, err := newSandbox(e.client, name)
+	launcher := e.launch
+	if prov := e.provisioner; prov != nil {
+		launcher = prov.Launch(defaultRuntimeDir, launcher)
+	}
+	sb, err := launcher(ctx, tmpl)
 	if err != nil {
 		return nil, err
 	}
 
-	dialer := sb.Dialer(docker.ProxyCommand(""))
+	d, ok := sandboxer.Unwrap(sb).(interface {
+		Dialer(cmd []string) func(ctx context.Context, network, addr string) (net.Conn, error)
+	})
+	if !ok {
+		_ = sb.Terminate(ctx)
+		return nil, errors.New("sandbox does not support dialer")
+	}
+	dialer := d.Dialer(docker.ProxyCommand(""))
 	client, err := docker.New(dockerclient.WithDialContext(dialer))
 	if err != nil {
+		_ = sb.Terminate(ctx)
 		return nil, err
 	}
 	client = c.WithTelemetry(client)
@@ -165,7 +198,40 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*san
 		return client.Close()
 	})
 	b := container.NewBootstrapper(client)
-	return b.Bootstrap(ctx, s, req)
+	resp, err := b.Bootstrap(ctx, s, req)
+	if err != nil {
+		_ = s.Terminate(ctx)
+		return nil, err
+	}
+	return resp, nil
+}
+
+func (e *engine) launch(ctx context.Context, tmpl *Template) (sandboxer.Sandbox, error) {
+	iReq := incusapi.InstancesPost{
+		Name:         tmpl.Name,
+		Start:        true,
+		Source:       *e.source,
+		Type:         incusapi.InstanceTypeContainer,
+		InstanceType: tmpl.InstanceSize,
+		InstancePut: incusapi.InstancePut{
+			Architecture: tmpl.Architecture,
+			Config:       tmpl.Config,
+			Devices:      tmpl.Devices,
+			Ephemeral:    tmpl.Ephemeral,
+			Profiles:     tmpl.Profiles,
+		},
+	}
+	if op, err := e.client.CreateInstance(iReq); err != nil {
+		return nil, err
+	} else if err = op.WaitContext(ctx); err != nil {
+		return nil, err
+	}
+
+	sb, err := newSandbox(e.client, tmpl.Name)
+	if err != nil {
+		return nil, err
+	}
+	return sb, nil
 }
 
 func (e *engine) sandboxName(forge *records.Forge) string {
@@ -202,4 +268,9 @@ func instanceSource(uri string) (*incusapi.InstanceSource, error) {
 		Protocol: "oci",
 	}
 	return source, nil
+}
+
+func (e *engine) Close() error {
+	e.client.Disconnect()
+	return nil
 }

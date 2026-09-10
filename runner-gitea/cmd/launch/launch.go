@@ -209,7 +209,8 @@ func (c *launcher) loadSandboxer(config *giteaconfig.Config, name string) error 
 	} else if factory, err := sandboxer.NewFactory(sbConfig); err != nil {
 		return err
 	} else {
-		factory.ProvisionRuntime(c.ociStore, config.Runtimes)
+		factory.SetOciStore(c.ociStore)
+		factory.ProvisionRuntime(config.Runtimes)
 		if sb, err := factory.Create(); err != nil {
 			return err
 		} else {

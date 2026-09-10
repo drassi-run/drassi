@@ -7,6 +7,7 @@
 package container
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 
@@ -15,20 +16,23 @@ import (
 )
 
 type addBindMountOp struct {
-	provision.Noop
-	spec *types.ContainerSpec
+	provision.Noop[*types.ContainerSpec]
 }
 
-func AddBindMount(spec *types.ContainerSpec) provision.Operation {
-	return &addBindMountOp{spec: spec}
+// AddBindMount returns an Operation that appends a runtime bind mount to types.ContainerSpec.Mounts.
+func AddBindMount() provision.Operation[*types.ContainerSpec] {
+	return addBindMountOp{}
 }
 
-func (op *addBindMountOp) Name() string { return "container/bind-mount" }
+func (op addBindMountOp) Name() string { return "container/bind-mount" }
 
-func (op *addBindMountOp) PreLaunch(pctx *provision.Context) error {
+func (op addBindMountOp) PreLaunch(pctx *provision.Context, spec *types.ContainerSpec) (*types.ContainerSpec, error) {
+	if spec == nil {
+		return nil, errors.New("container spec cannot be nil")
+	}
 	hostMountDir, ok := pctx.Get(provision.KeyHostMountDir)
 	if !ok {
-		return fmt.Errorf("host mount directory not set in context")
+		return spec, fmt.Errorf("host mount directory not set in context")
 	}
 
 	sourcePath := hostMountDir
@@ -36,36 +40,11 @@ func (op *addBindMountOp) PreLaunch(pctx *provision.Context) error {
 		sourcePath = filepath.Join(sourcePath, pctx.Config.Subpath)
 	}
 
-	op.spec.Mounts = append(op.spec.Mounts, &types.Mount{
-		Type:   "bind",
-		Source: sourcePath,
-		Target: pctx.TargetDir,
+	spec.Mounts = append(spec.Mounts, &types.Mount{
+		Type:     "bind",
+		Source:   sourcePath,
+		Target:   pctx.TargetDir,
+		ReadOnly: pctx.Config.ReadOnly,
 	})
-	return nil
-}
-
-type addImageMountOp struct {
-	provision.Noop
-	spec *types.ContainerSpec
-}
-
-func AddImageMount(spec *types.ContainerSpec) provision.Operation {
-	return &addImageMountOp{spec: spec}
-}
-
-func (op *addImageMountOp) Name() string { return "container/image-mount" }
-
-func (op *addImageMountOp) PreLaunch(pctx *provision.Context) error {
-	mount := &types.Mount{
-		Type:   "image",
-		Source: pctx.Config.Image,
-		Target: pctx.TargetDir,
-	}
-	if pctx.Config.Subpath != "" {
-		mount.ImageOptions = &types.ImageOptions{
-			Subpath: pctx.Config.Subpath,
-		}
-	}
-	op.spec.Mounts = append(op.spec.Mounts, mount)
-	return nil
+	return spec, nil
 }

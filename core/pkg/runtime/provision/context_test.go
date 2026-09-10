@@ -14,66 +14,74 @@ import (
 	"drassi.run/core/config"
 	"drassi.run/core/pkg/runtime/provision"
 	ocistore "drassi.run/core/pkg/store/oci"
-	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
 )
 
-func TestContextGenericState(t *testing.T) {
-	ctx := context.Background()
+func TestContextSuite(t *testing.T) {
+	suite.Run(t, new(ContextTestSuite))
+}
+
+type ContextTestSuite struct {
+	suite.Suite
+}
+
+func (s *ContextTestSuite) TestGenericState() {
+	ctx := s.T().Context()
 	rtCfg := &config.Runtime{Image: "drassi/node:24"}
 	pctx := provision.NewContext(ctx, "node", rtCfg, "/opt/drassi/runtimes/node")
 
-	require.Equal(t, "node", pctx.RuntimeName)
-	require.Equal(t, "/opt/drassi/runtimes/node", pctx.TargetDir)
-	require.Equal(t, rtCfg, pctx.Config)
+	s.Require().Equal("node", pctx.RuntimeName)
+	s.Require().Equal("/opt/drassi/runtimes/node", pctx.TargetDir)
+	s.Require().Equal(rtCfg, pctx.Config)
 
 	// Test typed key string
 	pctx.Set(provision.KeyHostMountDir, "/var/lib/drassi/storage/overlay/merged")
 	val, ok := pctx.Get(provision.KeyHostMountDir)
-	require.True(t, ok)
-	require.Equal(t, "/var/lib/drassi/storage/overlay/merged", val)
-	require.Equal(t, "/var/lib/drassi/storage/overlay/merged", pctx.MustGet(provision.KeyHostMountDir))
+	s.Require().True(ok)
+	s.Require().Equal("/var/lib/drassi/storage/overlay/merged", val)
+	s.Require().Equal("/var/lib/drassi/storage/overlay/merged", pctx.MustGet(provision.KeyHostMountDir))
 
 	// Test KeyMountID
 	pctx.Set(provision.KeyMountID, "mount-12345")
 	mountID, ok := pctx.Get(provision.KeyMountID)
-	require.True(t, ok)
-	require.Equal(t, "mount-12345", mountID)
-	require.Equal(t, "mount-12345", pctx.MustGet(provision.KeyMountID))
+	s.Require().True(ok)
+	s.Require().Equal("mount-12345", mountID)
+	s.Require().Equal("mount-12345", pctx.MustGet(provision.KeyMountID))
 
 	// Test KeyImage
 	img := &ocistore.Image{ID: "img-node"}
 	pctx.Set(provision.KeyImage, img)
 	gotImg, ok := pctx.Get(provision.KeyImage)
-	require.True(t, ok)
-	require.Equal(t, img, gotImg)
-	require.Equal(t, img, pctx.MustGet(provision.KeyImage))
+	s.Require().True(ok)
+	s.Require().Equal(img, gotImg)
+	s.Require().Equal(img, pctx.MustGet(provision.KeyImage))
 
 	// Test missing key
 	const keyMissing = provision.StateKey[int]("missing_key")
 	intVal, ok := pctx.Get(keyMissing)
-	require.False(t, ok)
-	require.Equal(t, 0, intVal)
-	require.Panics(t, func() {
+	s.Require().False(ok)
+	s.Require().Equal(0, intVal)
+	s.Require().Panics(func() {
 		pctx.MustGet(keyMissing)
 	})
 
 	// Test type mismatch
 	const keyMismatch = provision.StateKey[int]("host_mount_dir")
 	mismatchVal, ok := pctx.Get(keyMismatch)
-	require.False(t, ok)
-	require.Equal(t, 0, mismatchVal)
-	require.Panics(t, func() {
+	s.Require().False(ok)
+	s.Require().Equal(0, mismatchVal)
+	s.Require().Panics(func() {
 		pctx.MustGet(keyMismatch)
 	})
 }
 
-func TestContextCancellation(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+func (s *ContextTestSuite) TestCancellation() {
+	ctx, cancel := context.WithCancel(s.T().Context())
 	pctx := provision.NewContext(ctx, "node", nil, "")
 
 	select {
 	case <-pctx.Done():
-		t.Fatal("context should not be done yet")
+		s.T().Fatal("context should not be done yet")
 	default:
 	}
 
@@ -81,8 +89,8 @@ func TestContextCancellation(t *testing.T) {
 
 	select {
 	case <-pctx.Done():
-		require.Equal(t, context.Canceled, pctx.Err())
+		s.Require().Equal(context.Canceled, pctx.Err())
 	case <-time.After(time.Second):
-		t.Fatal("timed out waiting for context cancellation")
+		s.T().Fatal("timed out waiting for context cancellation")
 	}
 }

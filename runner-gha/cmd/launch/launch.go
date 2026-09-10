@@ -110,7 +110,8 @@ func (l *launcher) Init(ctx context.Context, opts *options) (err error) {
 	} else if factory, err := sandboxer.NewFactory(sbConfig); err != nil {
 		return err
 	} else {
-		factory.ProvisionRuntime(l.ociStore, cfg.Runtimes)
+		factory.SetOciStore(l.ociStore)
+		factory.ProvisionRuntime(cfg.Runtimes)
 		if sb, err := factory.Create(); err != nil {
 			return err
 		} else {

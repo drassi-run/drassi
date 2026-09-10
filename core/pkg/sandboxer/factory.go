@@ -20,7 +20,8 @@ import (
 type Factory interface {
 	// SupportContainer(config) // TODO
 
-	ProvisionRuntime(store ocistore.Manager, config map[string]*config.Runtime)
+	SetOciStore(store ocistore.Manager)
+	ProvisionRuntime(config map[string]*config.Runtime)
 	Create() (Engine, error)
 }
 
