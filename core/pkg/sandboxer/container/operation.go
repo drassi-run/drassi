@@ -7,6 +7,7 @@
 package container
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 
@@ -26,6 +27,9 @@ func AddBindMount() provision.Operation[*types.ContainerSpec] {
 func (op *addBindMountOp) Name() string { return "container/bind-mount" }
 
 func (op *addBindMountOp) PreLaunch(pctx *provision.Context, spec *types.ContainerSpec) (*types.ContainerSpec, error) {
+	if spec == nil {
+		return nil, errors.New("container spec cannot be nil")
+	}
 	hostMountDir, ok := pctx.Get(provision.KeyHostMountDir)
 	if !ok {
 		return spec, fmt.Errorf("host mount directory not set in context")

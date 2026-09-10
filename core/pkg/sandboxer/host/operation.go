@@ -7,6 +7,7 @@
 package host
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -43,5 +44,8 @@ func (op *symlinkOp[Req]) PostLaunch(pctx *provision.Context, sb sandboxer.Sandb
 	if err := os.Symlink(hostMountDir, target); err != nil {
 		return sb, err
 	}
+	sb = sandboxer.AddBeforeCleanup(sb, func(context.Context) error {
+		return os.Remove(target)
+	})
 	return sb, nil
 }

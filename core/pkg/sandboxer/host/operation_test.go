@@ -40,12 +40,17 @@ func TestHostSymlink(t *testing.T) {
 
 		resSb, err := op.PostLaunch(pctx, sb)
 		require.NoError(t, err)
-		require.Equal(t, sb, resSb)
+		require.Equal(t, sb, sandboxer.Unwrap(resSb))
 
 		target := filepath.Join(runtimesDir, "node")
 		targetInfo, err := os.Lstat(target)
 		require.NoError(t, err)
 		require.True(t, targetInfo.Mode()&os.ModeSymlink != 0)
+
+		sb.EXPECT().Terminate(gomock.Any()).Return(nil)
+		require.NoError(t, resSb.Terminate(t.Context()))
+		_, err = os.Lstat(target)
+		require.True(t, os.IsNotExist(err))
 	})
 
 	t.Run("with subpath", func(t *testing.T) {

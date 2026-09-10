@@ -9,8 +9,10 @@ package provision_test
 import (
 	"context"
 	"errors"
+	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"drassi.run/core/config"
 	mock_sandboxer "drassi.run/core/mock/sandboxer"
@@ -248,4 +250,98 @@ func TestProvisionerPassthrough(t *testing.T) {
 	sb, err = pEmptyOps.Launch(t.Context(), innerLauncher)(t.Context(), &testRequest{})
 	require.NoError(t, err)
 	require.Equal(t, baseSb, sb)
+}
+
+func TestProvisionerLIFOCleanupOrder(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	baseSb := mock_sandboxer.NewMockSandbox(ctrl)
+
+	var mu sync.Mutex
+	var order []int
+
+	op1 := &mockOp{
+		name: "op1",
+		prepareFn: func(pctx *provision.Context) (sandboxer.Cleanup, error) {
+			return func(ctx context.Context) error {
+				mu.Lock()
+				order = append(order, 1)
+				mu.Unlock()
+				return nil
+			}, nil
+		},
+	}
+	op2 := &mockOp{
+		name: "op2",
+		prepareFn: func(pctx *provision.Context) (sandboxer.Cleanup, error) {
+			return func(ctx context.Context) error {
+				mu.Lock()
+				order = append(order, 2)
+				mu.Unlock()
+				return nil
+			}, nil
+		},
+	}
+
+	p := provision.New[*testRequest](
+		map[string]*config.Runtime{"node": {}},
+		nil,
+		op1,
+		op2,
+	)
+
+	baseSb.EXPECT().Terminate(gomock.Any()).Return(nil)
+	innerLauncher := func(ctx context.Context, req *testRequest) (sandboxer.Sandbox, error) {
+		return baseSb, nil
+	}
+
+	sb, err := p.Launch(t.Context(), innerLauncher)(t.Context(), &testRequest{})
+	require.NoError(t, err)
+
+	require.NoError(t, sb.Terminate(t.Context()))
+
+	mu.Lock()
+	defer mu.Unlock()
+	require.Equal(t, []int{2, 1}, order, "cleanups should execute in LIFO order (reverse of registration)")
+}
+
+func TestProvisionerPrepareCancellation(t *testing.T) {
+	canceled := make(chan struct{})
+
+	op := &mockOp{
+		name: "cancel-test-op",
+		prepareFn: func(pctx *provision.Context) (sandboxer.Cleanup, error) {
+			if pctx.RuntimeName == "fast-fail" {
+				return nil, errors.New("boom")
+			}
+			// sibling runtime should see cancellation
+			select {
+			case <-pctx.Done():
+				close(canceled)
+			case <-time.After(2 * time.Second):
+				t.Error("timed out waiting for sibling context cancellation")
+			}
+			return nil, nil
+		},
+	}
+
+	p := provision.New[*testRequest](
+		map[string]*config.Runtime{
+			"fast-fail": {},
+			"slow":      {},
+		},
+		nil,
+		op,
+	)
+
+	_, err := p.Launch(t.Context(), func(ctx context.Context, req *testRequest) (sandboxer.Sandbox, error) {
+		return nil, nil
+	})(t.Context(), &testRequest{})
+
+	require.Error(t, err)
+	select {
+	case <-canceled:
+		// success: sibling was canceled
+	default:
+		t.Fatal("expected sibling runtime to receive context cancellation")
+	}
 }

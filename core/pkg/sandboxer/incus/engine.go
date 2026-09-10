@@ -232,7 +232,12 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*san
 		return client.Close()
 	})
 	b := container.NewBootstrapper(client)
-	return b.Bootstrap(ctx, s, req)
+	resp, err := b.Bootstrap(ctx, s, req)
+	if err != nil {
+		_ = s.Terminate(ctx)
+		return nil, err
+	}
+	return resp, nil
 }
 
 func (e *engine) sandboxName(forge *records.Forge) string {

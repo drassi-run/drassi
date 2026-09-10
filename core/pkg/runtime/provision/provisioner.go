@@ -71,14 +71,16 @@ func (p *Provisioner[Req]) Launch(ctx context.Context, l Launcher[Req]) Launcher
 		)
 
 		rollback := func() {
+			cleanupCtx := context.WithoutCancel(launchCtx)
 			for _, cleanup := range slices.Backward(cleanups) {
-				_ = cleanup(launchCtx)
+				_ = cleanup(cleanupCtx)
 			}
 		}
 
 		// 2. Parallel Prepare across all runtimes: parallel(pull -> mount)
-		g, _ := errgroup.WithContext(launchCtx)
+		g, groupCtx := errgroup.WithContext(launchCtx)
 		for _, pctx := range contexts {
+			pctx.Context = groupCtx
 			pctx := pctx
 			g.Go(func() error {
 				for _, op := range p.ops {
@@ -98,6 +100,9 @@ func (p *Provisioner[Req]) Launch(ctx context.Context, l Launcher[Req]) Launcher
 		if err := g.Wait(); err != nil {
 			rollback()
 			return nil, err
+		}
+		for _, pctx := range contexts {
+			pctx.Context = launchCtx
 		}
 
 		// 3. Sequential PreLaunch request mutation
@@ -124,10 +129,11 @@ func (p *Provisioner[Req]) Launch(ctx context.Context, l Launcher[Req]) Launcher
 			for _, op := range p.ops {
 				nextSb, err := op.PostLaunch(pctx, sb)
 				if err != nil {
+					cleanupCtx := context.WithoutCancel(launchCtx)
 					if nextSb != nil {
-						_ = nextSb.Terminate(launchCtx)
+						_ = nextSb.Terminate(cleanupCtx)
 					} else if sb != nil {
-						_ = sb.Terminate(launchCtx)
+						_ = sb.Terminate(cleanupCtx)
 					}
 					rollback()
 					return nil, fmt.Errorf("operation %q post-launch failed for runtime %q: %w", op.Name(), pctx.RuntimeName, err)
@@ -138,6 +144,7 @@ func (p *Provisioner[Req]) Launch(ctx context.Context, l Launcher[Req]) Launcher
 
 		// 6. Success: attach all cleanups to sandbox in LIFO order
 		if len(cleanups) > 0 {
+			slices.Reverse(cleanups)
 			sb = sandboxer.AddAfterCleanup(sb, cleanups...)
 		}
 

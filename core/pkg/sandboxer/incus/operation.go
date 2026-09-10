@@ -7,6 +7,7 @@
 package incus
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 
@@ -25,6 +26,9 @@ func AddDiskDevice() provision.Operation[*Template] {
 func (op *addDiskDeviceOp) Name() string { return "incus/disk-device" }
 
 func (op *addDiskDeviceOp) PreLaunch(pctx *provision.Context, tmpl *Template) (*Template, error) {
+	if tmpl == nil {
+		return nil, errors.New("template cannot be nil")
+	}
 	hostMountDir, ok := pctx.Get(provision.KeyHostMountDir)
 	if !ok {
 		return tmpl, fmt.Errorf("host mount directory not set in context")
