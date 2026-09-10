@@ -35,14 +35,14 @@ func DefaultConfig[R any]() *Config[R] {
 		Runner: nil,
 		Sandboxers: map[string]*Sandboxer{
 			"host":   {Provider: ProviderHost},
-			"docker": {Provider: ProviderContainer},
+			"docker": {Provider: ProviderDocker},
 		},
 		UseSandboxer: "host",
 	}
 }
 
 const (
-	ProviderContainer = "container"
-	ProviderHost      = "host"
-	ProviderIncus     = "incus"
+	ProviderDocker = "docker"
+	ProviderHost   = "host"
+	ProviderIncus  = "incus"
 )
