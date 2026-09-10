@@ -40,7 +40,7 @@ func TestContainerEngineWithProvisioner(t *testing.T) {
 	p := provision.New[*types.ContainerSpec](
 		runtimes,
 		provision.Pull[*types.ContainerSpec](store),
-		provision.Mount[*types.ContainerSpec](store, ocistore.WithWritable(true)),
+		provision.Mount[*types.ContainerSpec](store),
 		sandboxer_container.AddBindMount(),
 	)
 
@@ -133,4 +133,3 @@ func TestContainerFactory(t *testing.T) {
 		_ = eng.Close()
 	})
 }
-

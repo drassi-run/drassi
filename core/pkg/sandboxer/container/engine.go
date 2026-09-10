@@ -77,7 +77,7 @@ func (f *factory) doCreate() (sandboxer.Engine, error) {
 		prov = provision.New[*types.ContainerSpec](
 			f.runtimes,
 			provision.Pull[*types.ContainerSpec](f.store),
-			provision.Mount[*types.ContainerSpec](f.store, ocistore.WithWritable(true)),
+			provision.Mount[*types.ContainerSpec](f.store),
 			AddBindMount(),
 		)
 	}

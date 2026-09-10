@@ -32,6 +32,22 @@ func TestContainerBindMount(t *testing.T) {
 		require.Equal(t, "bind", spec.Mounts[0].Type)
 		require.Equal(t, "/var/lib/drassi/storage/overlay/merged", spec.Mounts[0].Source)
 		require.Equal(t, "/opt/drassi/runtimes/node", spec.Mounts[0].Target)
+		require.False(t, spec.Mounts[0].ReadOnly)
+	})
+
+	t.Run("readonly bind mount", func(t *testing.T) {
+		pctx := provision.NewContext(t.Context(), "node", &config.Runtime{ReadOnly: true}, "/opt/drassi/runtimes/node")
+		pctx.Set(provision.KeyHostMountDir, "/var/lib/drassi/storage/overlay/merged")
+
+		op := container.AddBindMount()
+		spec := &types.ContainerSpec{}
+		spec, err := op.PreLaunch(pctx, spec)
+		require.NoError(t, err)
+		require.Len(t, spec.Mounts, 1)
+		require.Equal(t, "bind", spec.Mounts[0].Type)
+		require.Equal(t, "/var/lib/drassi/storage/overlay/merged", spec.Mounts[0].Source)
+		require.Equal(t, "/opt/drassi/runtimes/node", spec.Mounts[0].Target)
+		require.True(t, spec.Mounts[0].ReadOnly)
 	})
 
 	t.Run("with subpath", func(t *testing.T) {
@@ -46,6 +62,7 @@ func TestContainerBindMount(t *testing.T) {
 		require.Equal(t, "bind", spec.Mounts[0].Type)
 		require.Equal(t, filepath.Join("/var/lib/drassi/storage/overlay/merged", "opt/python"), spec.Mounts[0].Source)
 		require.Equal(t, "/opt/drassi/runtimes/python", spec.Mounts[0].Target)
+		require.False(t, spec.Mounts[0].ReadOnly)
 	})
 
 	t.Run("missing host mount dir", func(t *testing.T) {

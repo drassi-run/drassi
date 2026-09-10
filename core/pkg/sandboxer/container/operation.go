@@ -21,12 +21,12 @@ type addBindMountOp struct {
 
 // AddBindMount returns an Operation that appends a runtime bind mount to types.ContainerSpec.Mounts.
 func AddBindMount() provision.Operation[*types.ContainerSpec] {
-	return &addBindMountOp{}
+	return addBindMountOp{}
 }
 
-func (op *addBindMountOp) Name() string { return "container/bind-mount" }
+func (op addBindMountOp) Name() string { return "container/bind-mount" }
 
-func (op *addBindMountOp) PreLaunch(pctx *provision.Context, spec *types.ContainerSpec) (*types.ContainerSpec, error) {
+func (op addBindMountOp) PreLaunch(pctx *provision.Context, spec *types.ContainerSpec) (*types.ContainerSpec, error) {
 	if spec == nil {
 		return nil, errors.New("container spec cannot be nil")
 	}
@@ -41,9 +41,10 @@ func (op *addBindMountOp) PreLaunch(pctx *provision.Context, spec *types.Contain
 	}
 
 	spec.Mounts = append(spec.Mounts, &types.Mount{
-		Type:   "bind",
-		Source: sourcePath,
-		Target: pctx.TargetDir,
+		Type:     "bind",
+		Source:   sourcePath,
+		Target:   pctx.TargetDir,
+		ReadOnly: pctx.Config.ReadOnly,
 	})
 	return spec, nil
 }

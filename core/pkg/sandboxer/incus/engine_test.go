@@ -37,7 +37,7 @@ func TestIncusProvisionerIntegration(t *testing.T) {
 	p := provision.New[*sandboxer_incus.Template](
 		runtimes,
 		provision.Pull[*sandboxer_incus.Template](store),
-		provision.Mount[*sandboxer_incus.Template](store, ocistore.WithWritable(true)),
+		provision.Mount[*sandboxer_incus.Template](store),
 		sandboxer_incus.AddDiskDevice(),
 	)
 

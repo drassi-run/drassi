@@ -73,7 +73,7 @@ func (f *factory) doCreate() (sandboxer.Engine, error) {
 		prov = provision.New[string](
 			f.runtimes,
 			provision.Pull[string](f.store),
-			provision.Mount[string](f.store, ocistore.WithWritable(true)),
+			provision.Mount[string](f.store),
 			Symlink[string](),
 		)
 	}

@@ -7,6 +7,7 @@
 package provision_test
 
 import (
+	"context"
 	"testing"
 
 	"drassi.run/core/config"
@@ -92,6 +93,35 @@ func TestMountOperation(t *testing.T) {
 
 		// Executing cleanup unmounts layer
 		store.EXPECT().Unmount(gomock.Any(), "layer-123").Return(nil)
+		require.NoError(t, cleanup(t.Context()))
+	})
+
+	t.Run("readonly runtime mounts as non-writable", func(t *testing.T) {
+		roCfg := &config.Runtime{Image: "drassi/node:24", ReadOnly: true}
+		roCtx := provision.NewContext(t.Context(), "node", roCfg, "/opt/drassi/runtimes/node")
+		img := &ocistore.Image{}
+		roCtx.Set(provision.KeyImage, img)
+
+		store.EXPECT().Mount(roCtx, img, gomock.Any()).DoAndReturn(
+			func(_ context.Context, _ *ocistore.Image, opts ...ocistore.MountOption) (string, string, error) {
+				require.NotEmpty(t, opts)
+				return "/var/lib/drassi/mount-ro", "layer-ro", nil
+			},
+		)
+
+		cleanup, err := op.Prepare(roCtx)
+		require.NoError(t, err)
+		require.NotNil(t, cleanup)
+
+		hostDir, ok := roCtx.Get(provision.KeyHostMountDir)
+		require.True(t, ok)
+		require.Equal(t, "/var/lib/drassi/mount-ro", hostDir)
+
+		mountID, ok := roCtx.Get(provision.KeyMountID)
+		require.True(t, ok)
+		require.Equal(t, "layer-ro", mountID)
+
+		store.EXPECT().Unmount(gomock.Any(), "layer-ro").Return(nil)
 		require.NoError(t, cleanup(t.Context()))
 	})
 }

@@ -79,7 +79,7 @@ func (f *factory) doCreate() (sandboxer.Engine, error) {
 		prov = provision.New[*Template](
 			f.runtimes,
 			provision.Pull[*Template](f.store),
-			provision.Mount[*Template](f.store, ocistore.WithWritable(true)),
+			provision.Mount[*Template](f.store),
 			AddDiskDevice(),
 		)
 	}

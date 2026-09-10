@@ -23,12 +23,12 @@ type symlinkOp[Req any] struct {
 // Symlink returns a provision.Operation that symlinks the runtime directory in the sandbox
 // to the host mount directory.
 func Symlink[Req any]() provision.Operation[Req] {
-	return &symlinkOp[Req]{}
+	return symlinkOp[Req]{}
 }
 
-func (op *symlinkOp[Req]) Name() string { return "host/symlink" }
+func (op symlinkOp[Req]) Name() string { return "host/symlink" }
 
-func (op *symlinkOp[Req]) PostLaunch(pctx *provision.Context, sb sandboxer.Sandbox) (sandboxer.Sandbox, error) {
+func (op symlinkOp[Req]) PostLaunch(pctx *provision.Context, sb sandboxer.Sandbox) (sandboxer.Sandbox, error) {
 	hostMountDir, ok := pctx.Get(provision.KeyHostMountDir)
 	if !ok {
 		return sb, fmt.Errorf("host mount directory not set in context")

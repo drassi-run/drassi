@@ -27,6 +27,7 @@ type Runtime struct {
 	Executable string   `toml:"executable" json:"executable,omitempty"` // relative path to the binary
 	Cmd        []string `toml:"cmd" json:"cmd,omitempty"`
 	Paths      []string `toml:"paths" json:"paths,omitempty"` // (optional) extra directories added to PATH variable, MUST be relative
+	ReadOnly   bool     `toml:"read_only" json:"read_only,omitempty"`
 }
 
 func DefaultConfig[R any]() *Config[R] {

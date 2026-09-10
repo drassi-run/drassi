@@ -9,6 +9,7 @@ package provision
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/store/oci"
@@ -82,7 +83,8 @@ func (op *mountOp[Req]) Prepare(pctx *Context) (sandboxer.Cleanup, error) {
 	if !ok || img == nil {
 		return nil, fmt.Errorf("image %q not found in context: pull operation must be used first", pctx.Config.Image)
 	}
-	mountDir, id, err := op.store.Mount(pctx, img, op.opts...)
+	opts := append(slices.Clone(op.opts), ocistore.WithWritable(!pctx.Config.ReadOnly))
+	mountDir, id, err := op.store.Mount(pctx, img, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("mount image %q: %w", pctx.Config.Image, err)
 	}

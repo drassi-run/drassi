@@ -48,7 +48,7 @@ func TestHostEngineWithProvisioner(t *testing.T) {
 	p := provision.New[string](
 		runtimes,
 		provision.Pull[string](store),
-		provision.Mount[string](store, ocistore.WithWritable(true)),
+		provision.Mount[string](store),
 		sandboxer_host.Symlink[string](),
 	)
 
