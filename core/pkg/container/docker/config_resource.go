@@ -17,7 +17,7 @@ func (cc *containerConfig) setResources(conf *types.ContainerResource) error {
 	res := dockercontainer.Resources{
 		//// Applicable to all platforms
 		CPUShares: conf.CPUShares,
-		Memory:    conf.Memory,
+		Memory:    int64(conf.Memory),
 
 		//// Applicable to Windows
 		CPUCount:           conf.CPUCount,
@@ -32,8 +32,8 @@ func (cc *containerConfig) setResources(conf *types.ContainerResource) error {
 		CPURealtimeRuntime: conf.CPURTRuntime,
 		CpusetCpus:         conf.CpusetCpus,
 		CpusetMems:         conf.CpusetMems,
-		MemoryReservation:  conf.MemReservation,
-		MemorySwap:         conf.MemSwapLimit,
+		MemoryReservation:  int64(conf.MemReservation),
+		MemorySwap:         int64(conf.MemSwapLimit),
 		MemorySwappiness:   &conf.MemSwappiness,
 		OomKillDisable:     &conf.OomKillDisable,
 		PidsLimit:          &conf.PidsLimit,
@@ -58,7 +58,7 @@ func (cc *containerConfig) setResources(conf *types.ContainerResource) error {
 
 	hc := cc.HostConfig
 	hc.Resources = res
-	hc.ShmSize = conf.ShmSize
+	hc.ShmSize = int64(conf.ShmSize)
 	hc.OomScoreAdj = int(conf.OomScoreAdj)
 
 	return nil
@@ -99,7 +99,7 @@ func (cs *containerSpec) setResources(hc *dockercontainer.HostConfig) {
 		//// Applicable to all platforms
 		CPUShares: res.CPUShares,
 		CPUS:      cpu.String(),
-		Memory:    res.Memory,
+		Memory:    types.UnitBytes(res.Memory),
 
 		//// Applicable to Windows
 		CPUCount:           res.CPUCount,
@@ -114,8 +114,8 @@ func (cs *containerSpec) setResources(hc *dockercontainer.HostConfig) {
 		CPURTRuntime:   res.CPURealtimeRuntime,
 		CpusetCpus:     res.CpusetCpus,
 		CpusetMems:     res.CpusetMems,
-		MemReservation: res.MemoryReservation,
-		MemSwapLimit:   res.MemorySwap,
+		MemReservation: types.UnitBytes(res.MemoryReservation),
+		MemSwapLimit:   types.UnitBytes(res.MemorySwap),
 	}
 	r := &cs.Spec.ContainerResource
 	if res.MemorySwappiness != nil {
@@ -127,7 +127,7 @@ func (cs *containerSpec) setResources(hc *dockercontainer.HostConfig) {
 	if res.PidsLimit != nil {
 		r.PidsLimit = *res.PidsLimit
 	}
-	r.ShmSize = hc.ShmSize
+	r.ShmSize = types.UnitBytes(hc.ShmSize)
 	r.OomScoreAdj = int64(hc.OomScoreAdj)
 
 	r.Ulimits = res.Ulimits

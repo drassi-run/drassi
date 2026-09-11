@@ -18,7 +18,7 @@ func (fm *flagMapper) mapResource(copts *containerOptions) error {
 	//// Applicable to all platforms
 	res.CPUShares = copts.cpuShares
 	res.CPUS = copts.cpus.String()
-	res.Memory = int64(copts.memory)
+	res.Memory = types.UnitBytes(copts.memory)
 	//// Applicable to Windows
 	res.CPUCount = copts.cpuCount
 	res.CPUPercent = float32(copts.cpuPercent) / 100.0
@@ -29,10 +29,10 @@ func (fm *flagMapper) mapResource(copts *containerOptions) error {
 	res.CPURTRuntime = copts.cpuRealtimeRuntime
 	res.CpusetCpus = copts.cpusetCpus
 	res.CpusetMems = copts.cpusetMems
-	res.MemReservation = int64(copts.memoryReservation)
-	res.MemSwapLimit = int64(copts.memorySwap)
+	res.MemReservation = types.UnitBytes(copts.memoryReservation)
+	res.MemSwapLimit = types.UnitBytes(copts.memorySwap)
 	res.MemSwappiness = copts.swappiness
-	res.ShmSize = int64(copts.shmSize)
+	res.ShmSize = types.UnitBytes(copts.shmSize)
 	res.OomKillDisable = copts.oomKillDisable
 	res.OomScoreAdj = int64(copts.oomScoreAdj)
 	res.PidsLimit = copts.pidsLimit

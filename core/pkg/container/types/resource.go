@@ -14,9 +14,9 @@ import (
 
 type ContainerResource struct {
 	//// Applicable to all platforms
-	CPUShares int64  `json:"cpu_shares,omitempty"`
-	CPUS      string `json:"cpus,omitempty"`
-	Memory    int64  `json:"memory,omitempty"`
+	CPUShares int64     `json:"cpu_shares,omitempty"`
+	CPUS      string    `json:"cpus,omitempty"`
+	Memory    UnitBytes `json:"memory,omitempty"`
 
 	//// Applicable to Windows
 	CPUCount           int64   `json:"cpu_count,omitempty"`
@@ -25,19 +25,19 @@ type ContainerResource struct {
 	IOMaximumBandwidth uint64  `json:"io_max_bandwidth,omitempty"`
 
 	//// Applicable to UNIX
-	CPUPeriod      int64  `json:"cpu_period,omitempty"`
-	CPUQuota       int64  `json:"cpu_quota,omitempty"`
-	CPURTPeriod    int64  `json:"cpu_rt_period,omitempty"`
-	CPURTRuntime   int64  `json:"cpu_rt_runtime,omitempty"`
-	CpusetCpus     string `json:"cpuset_cpus,omitempty"`
-	CpusetMems     string `json:"cpuset_mems,omitempty"`
-	MemReservation int64  `json:"mem_reservation,omitempty"`
-	MemSwapLimit   int64  `json:"mem_swap_limit,omitempty"`
-	MemSwappiness  int64  `json:"mem_swappiness,omitempty"`
-	ShmSize        int64  `json:"shm_size,omitempty"`
-	OomKillDisable bool   `json:"oom_kill_disable,omitempty"`
-	OomScoreAdj    int64  `json:"oom_score_adj,omitempty"`
-	PidsLimit      int64  `json:"pids_limit,omitempty"`
+	CPUPeriod      int64     `json:"cpu_period,omitempty"`
+	CPUQuota       int64     `json:"cpu_quota,omitempty"`
+	CPURTPeriod    int64     `json:"cpu_rt_period,omitempty"`
+	CPURTRuntime   int64     `json:"cpu_rt_runtime,omitempty"`
+	CpusetCpus     string    `json:"cpuset_cpus,omitempty"`
+	CpusetMems     string    `json:"cpuset_mems,omitempty"`
+	MemReservation UnitBytes `json:"mem_reservation,omitempty"`
+	MemSwapLimit   UnitBytes `json:"mem_swap_limit,omitempty"`
+	MemSwappiness  int64     `json:"mem_swappiness,omitempty"`
+	ShmSize        UnitBytes `json:"shm_size,omitempty"`
+	OomKillDisable bool      `json:"oom_kill_disable,omitempty"`
+	OomScoreAdj    int64     `json:"oom_score_adj,omitempty"`
+	PidsLimit      int64     `json:"pids_limit,omitempty"`
 
 	BlkioConfig *BlkioConfig    `json:"blkio_config,omitempty"`
 	Ulimits     []*units.Ulimit `json:"ulimits,omitempty"`

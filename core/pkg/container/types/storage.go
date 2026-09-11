@@ -16,10 +16,10 @@ import (
 )
 
 type ContainerStorage struct {
-	Mounts         []*Mount          `json:"volumes,omitempty"`
-	VolumesFrom    []string          `json:"volumes_from,omitempty"`
-	StorageOpt     map[string]string `json:"storage_opt,omitempty"`
-	ReadonlyRootfs bool              `json:"readonly_rootfs,omitempty"`
+	Mounts         []*Mount `json:"volumes,omitempty"`
+	VolumesFrom    []string `json:"volumes_from,omitempty"`
+	StorageOpt     Mapping  `json:"storage_opt,omitempty"`
+	ReadonlyRootfs bool     `json:"readonly_rootfs,omitempty"`
 }
 
 // Mount represents a mount (volume).

@@ -17,11 +17,11 @@ type ContainerSecurity struct {
 	CgroupParent string `json:"cgroup_parent,omitempty"`
 
 	// Security
-	User        string            `json:"user,omitempty"`
-	GroupAdd    []string          `json:"group_add,omitempty"`
-	CapAdd      []string          `json:"cap_add,omitempty"`
-	CapDrop     []string          `json:"cap_drop,omitempty"`
-	Privileged  bool              `json:"privileged,omitempty"`
-	SecurityOpt []string          `json:"security_opt,omitempty"`
-	Sysctls     map[string]string `json:"sysctls,omitempty"`
+	User        string   `json:"user,omitempty"`
+	GroupAdd    []string `json:"group_add,omitempty"`
+	CapAdd      []string `json:"cap_add,omitempty"`
+	CapDrop     []string `json:"cap_drop,omitempty"`
+	Privileged  bool     `json:"privileged,omitempty"`
+	SecurityOpt []string `json:"security_opt,omitempty"`
+	Sysctls     Mapping  `json:"sysctls,omitempty"`
 }
