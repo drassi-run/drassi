@@ -35,19 +35,22 @@ type Bootstrapper interface {
 }
 
 type engine struct {
-	client       container.Engine
-	defaultImage string
-	provisioner  *provision.Provisioner[*types.ContainerSpec]
+	client      container.Engine
+	template    *Template
+	provisioner *provision.Provisioner[*types.ContainerSpec]
 }
 
-func New(client container.Engine, defaultImage string, prov *provision.Provisioner[*types.ContainerSpec]) sandboxer.Engine {
-	if defaultImage == "" {
-		defaultImage = DefaultImage
+func New(client container.Engine, template *Template, prov *provision.Provisioner[*types.ContainerSpec]) sandboxer.Engine {
+	if template == nil {
+		template = &Template{Image: DefaultImage}
+	} else if template.Image == "" {
+		template = template.Copy()
+		template.Image = DefaultImage
 	}
 	return &engine{
-		client:       client,
-		defaultImage: defaultImage,
-		provisioner:  prov,
+		client:      client,
+		template:    template,
+		provisioner: prov,
 	}
 }
 
@@ -77,12 +80,22 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*san
 	)
 
 	if req.JobContainer == nil {
-		spec := &types.ContainerSpec{
-			Image:       e.defaultImage,
-			Entrypoint:  []string{"sleep"},
-			Command:     []string{"infinity"},
-			NetworkMode: "host",
+		tmpl := e.template.Copy()
+		if tmpl == nil {
+			tmpl = &Template{Image: DefaultImage}
 		}
+		if len(tmpl.Entrypoint) == 0 && len(tmpl.Command) == 0 {
+			tmpl.Entrypoint = []string{"sleep"}
+			tmpl.Command = []string{"infinity"}
+		} else if len(tmpl.Entrypoint) == 0 {
+			tmpl.Entrypoint = []string{"sleep"}
+		} else if len(tmpl.Command) == 0 {
+			tmpl.Command = []string{"infinity"}
+		}
+		if tmpl.NetworkMode == "" {
+			tmpl.NetworkMode = "host"
+		}
+		spec := (*types.ContainerSpec)(tmpl)
 
 		var err error
 		launcher := e.launch

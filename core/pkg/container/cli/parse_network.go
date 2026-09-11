@@ -122,7 +122,7 @@ func (fm *flagMapper) mapEndpoints(copts *containerOptions) error {
 }
 
 func (fm *flagMapper) mapDNS(copts *containerOptions) error {
-	dns := &fm.Spec.DNS
+	dns := fm.Spec.DNS
 	if copts.dns.Len() > 0 {
 		servers := make([]netip.Addr, 0, copts.dns.Len())
 		for _, s := range copts.dns.GetAllOrEmpty() {
@@ -179,61 +179,7 @@ func ParseExpose(str string) (*types.Port, uint16, error) {
 //   - [github.com/docker/go-connections/nat.ParsePortSpec]
 //   - [github.com/containers/podman/v5/pkg/specgenutil.CreatePortBindings]
 func ParsePublish(str string) (*types.PortBinding, uint16, error) {
-	remains := str
-	var hostIP, hostPort, containerPort, proto string
-
-	if r, p, err := SplitProto(remains); err != nil {
-		return nil, 0, err
-	} else {
-		remains, proto = r, p
-	}
-
-	if idx := strings.LastIndexByte(remains, ':'); idx != -1 {
-		remains, containerPort = remains[:idx], remains[idx+1:]
-	} else {
-		remains, containerPort = "", remains
-	}
-
-	if remains != "" {
-		if !strings.ContainsRune(remains, ':') {
-			remains, hostPort = "", remains
-		} else if host, port, err := net.SplitHostPort(remains); err != nil {
-			return nil, 0, fmt.Errorf("invalid publish: %s - %s", str, err)
-		} else {
-			remains, hostIP, hostPort = "", host, port
-		}
-	}
-
-	length := uint16(0)
-	publish := &types.PortBinding{
-		HostIP:   hostIP,
-		Protocol: proto,
-	}
-
-	if port, portRange, err := ParsePortRange(containerPort); err != nil {
-		return nil, 0, err
-	} else {
-		publish.ContainerPort = port
-		length = portRange
-	}
-
-	if hostPort == "" {
-		return publish, length, nil
-	}
-
-	if port, portRange, err := ParsePortRange(hostPort); err != nil {
-		return nil, 0, err
-	} else {
-		publish.HostPort = port
-		if portRange > 1 {
-			if length > 1 && length != portRange {
-				return nil, 0, fmt.Errorf("invalid publish %q : port-range mismatch", str)
-			}
-			length = portRange
-		}
-	}
-
-	return publish, length, nil
+	return types.ParsePublish(str)
 }
 
 var hostListSeparators = []string{"=", ":"}
