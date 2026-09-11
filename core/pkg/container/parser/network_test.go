@@ -4,14 +4,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package cli
+package parser_test
 
 import (
-	"drassi.run/core/pkg/container/types"
-	"github.com/stretchr/testify/assert"
 	"iter"
 	"strings"
 	"testing"
+
+	"drassi.run/core/pkg/container/parser"
+	"drassi.run/core/pkg/container/types"
+	"github.com/stretchr/testify/assert"
 )
 
 // https://github.com/containers/podman/blob/v5.2.5/pkg/specgenutil/util_test.go#L8
@@ -33,7 +35,7 @@ func testParseExposeSuccess(t *testing.T) {
 		"99-100/udp": {Port: types.Port{Number: 99, Protocol: "udp"}, Range: 2},
 	}
 	for input, expected := range tc {
-		actualPort, actualLength, err := ParseExpose(input)
+		actualPort, actualLength, err := parser.ParseExpose(input)
 		assert.NoError(t, err, input)
 		assert.EqualValues(t, &expected.Port, actualPort, input)
 		assert.EqualValues(t, expected.Range, actualLength, input)
@@ -49,7 +51,7 @@ func testParseExposeFailure(t *testing.T) {
 		"999999999",
 	}
 	for _, input := range tc {
-		_, _, err := ParseExpose(input)
+		_, _, err := parser.ParseExpose(input)
 		assert.ErrorContains(t, err, "invalid", input)
 	}
 }
@@ -73,7 +75,7 @@ func testParsePublishSuccess(t *testing.T) {
 	var tcGen iter.Seq2[string, rangedPortBinding] = func(yield func(string, rangedPortBinding) bool) {
 		for _, cPort := range containerPort {
 			in, pm, length := cPort, types.PortBinding{}, uint16(0)
-			pm.ContainerPort, length, _ = ParsePortRange(cPort)
+			pm.ContainerPort, length, _ = parser.ParsePortRange(cPort)
 
 			for _, proto := range protocol {
 				in, pm := in, pm
@@ -88,7 +90,7 @@ func testParsePublishSuccess(t *testing.T) {
 					in, pm, length := in, pm, length
 					if hPort != "" {
 						in = hPort + ":" + in
-						port, portRange, _ := ParsePortRange(hPort)
+						port, portRange, _ := parser.ParsePortRange(hPort)
 						pm.HostPort = port
 						if portRange > 1 {
 							length = portRange
@@ -116,7 +118,7 @@ func testParsePublishSuccess(t *testing.T) {
 	}
 
 	for input, expected := range tcGen {
-		actualPortBinding, actualLength, err := ParsePublish(input)
+		actualPortBinding, actualLength, err := parser.ParsePublish(input)
 		assert.NoError(t, err, input)
 		assert.EqualValues(t, &expected.PortBinding, actualPortBinding, input)
 		assert.EqualValues(t, expected.Range, actualLength, input)
@@ -130,7 +132,7 @@ func testParsePublishFailure(t *testing.T) {
 		"80-90:8000-9000", // port-range mismatch
 	}
 	for _, input := range tc {
-		_, _, err := ParsePublish(input)
+		_, _, err := parser.ParsePublish(input)
 		assert.ErrorContains(t, err, "invalid", input)
 	}
 }
@@ -143,7 +145,7 @@ func TestSplitProto(t *testing.T) {
 			"80/udp": {"80", "udp"},
 		}
 		for input, expected := range tc {
-			remains, proto, err := SplitProto(input)
+			remains, proto, err := parser.SplitProto(input)
 			assert.NoError(t, err, input)
 			assert.Equal(t, expected[0], remains, input)
 			assert.Equal(t, expected[1], proto, input)
@@ -154,7 +156,7 @@ func TestSplitProto(t *testing.T) {
 			"80/tcp/udp",
 		}
 		for _, input := range tc {
-			_, _, err := SplitProto(input)
+			_, _, err := parser.SplitProto(input)
 			assert.ErrorContains(t, err, "invalid protocol", input)
 		}
 	})
@@ -168,7 +170,7 @@ func TestParsePortRange(t *testing.T) {
 			"8080-8088": {8080, 9},
 		}
 		for input, expected := range tc {
-			start, length, err := ParsePortRange(input)
+			start, length, err := parser.ParsePortRange(input)
 			assert.NoError(t, err, input)
 			assert.EqualValues(t, expected[0], start, input)
 			assert.EqualValues(t, expected[1], length, input)
@@ -189,8 +191,29 @@ func TestParsePortRange(t *testing.T) {
 			"-8000-",
 		}
 		for _, input := range tc {
-			_, _, err := ParsePortRange(input)
+			_, _, err := parser.ParsePortRange(input)
 			assert.ErrorContains(t, err, "invalid", input)
 		}
+	})
+}
+
+func TestParseHost(t *testing.T) {
+	t.Run("success colon", func(t *testing.T) {
+		host, ips, err := parser.ParseHost("example.com:192.168.1.1,192.168.1.2")
+		assert.NoError(t, err)
+		assert.Equal(t, "example.com", host)
+		assert.Equal(t, []string{"192.168.1.1", "192.168.1.2"}, ips)
+	})
+
+	t.Run("success equals", func(t *testing.T) {
+		host, ips, err := parser.ParseHost("example.com=10.0.0.1")
+		assert.NoError(t, err)
+		assert.Equal(t, "example.com", host)
+		assert.Equal(t, []string{"10.0.0.1"}, ips)
+	})
+
+	t.Run("failure missing ip", func(t *testing.T) {
+		_, _, err := parser.ParseHost("invalidhost")
+		assert.ErrorContains(t, err, "missing IP")
 	})
 }

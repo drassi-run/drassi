@@ -17,6 +17,7 @@ import (
 	"drassi.run/core/config"
 	"drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/container/cli"
+	"drassi.run/core/pkg/container/parser"
 	"drassi.run/core/pkg/container/types"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/model/workflows"
@@ -247,14 +248,14 @@ func (e *engine) parseContainer(def *workflows.Container, refiners []refiner) (s
 		maps.Copy(spec.Environment, env)
 	}
 	for _, v := range def.Volumes {
-		if vol, err := cli.ParseVolume(v); err != nil {
+		if vol, err := parser.ParseVolume(v); err != nil {
 			return nil, err
 		} else {
 			spec.Mounts = append(spec.Mounts, vol)
 		}
 	}
 	for _, p := range def.Ports {
-		if pb, length, err := cli.ParsePublish(p); err != nil {
+		if pb, length, err := parser.ParsePublish(p); err != nil {
 			return nil, err
 		} else {
 			for i := range length {

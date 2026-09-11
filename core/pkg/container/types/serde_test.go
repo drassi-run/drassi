@@ -10,6 +10,7 @@ import (
 	"encoding/json/v2"
 	"testing"
 
+	_ "drassi.run/core/pkg/container/parser"
 	"drassi.run/core/pkg/container/types"
 	"github.com/stretchr/testify/require"
 )

@@ -7,15 +7,11 @@
 package cli
 
 import (
-	"errors"
 	"fmt"
-	"io/fs"
-	"path/filepath"
-	"strconv"
 	"strings"
 
+	"drassi.run/core/pkg/container/parser"
 	"drassi.run/core/pkg/container/types"
-	"github.com/docker/go-units"
 	dockermount "github.com/moby/moby/api/types/mount"
 )
 
@@ -25,14 +21,14 @@ func (fm *flagMapper) mapStorage(copts *containerOptions) error {
 		fm.Spec.Mounts = append(fm.Spec.Mounts, mount)
 	}
 	for _, v := range copts.volumes.GetAllOrEmpty() {
-		if mount, err := ParseVolume(v); err != nil {
+		if mount, err := parser.ParseVolume(v); err != nil {
 			return err
 		} else {
 			fm.Spec.Mounts = append(fm.Spec.Mounts, mount)
 		}
 	}
 	for _, t := range copts.tmpfs.GetAllOrEmpty() {
-		if mount, err := ParseTmpfs(t); err != nil {
+		if mount, err := parser.ParseTmpfs(t); err != nil {
 			return err
 		} else {
 			fm.Spec.Mounts = append(fm.Spec.Mounts, mount)
@@ -60,12 +56,6 @@ func (fm *flagMapper) mapStorage(copts *containerOptions) error {
 	fm.Spec.VolumesFrom = copts.volumesFrom.GetAllOrEmpty()
 	fm.Spec.ReadonlyRootfs = copts.readonlyRootfs
 	return nil
-}
-
-// ParseVolume parses user-provided volume definitions into types.Mount format
-//   - [github.com/containers/podman/v5/pkg/specgen.GenVolumeMounts]
-func ParseVolume(v string) (*types.Mount, error) {
-	return types.ParseVolume(v)
 }
 
 func parseMount(m dockermount.Mount) *types.Mount {
@@ -107,54 +97,6 @@ func parseMount(m dockermount.Mount) *types.Mount {
 	return mount
 }
 
-// ParseTmpfs parses user-provided tmpfs definitions into types.Mount format
-//   - https://github.com/containers/podman/blob/v5.2.5/pkg/specgenutil/volumes.go#L645
-func ParseTmpfs(t string) (*types.Mount, error) {
-	split := strings.Split(t, ":")
-	target := split[0]
-	if err := validateVolumeContainerDir(target); err != nil {
-		return nil, err
-	}
-	mount := &types.Mount{
-		Type:   "tmpfs",
-		Target: target,
-	}
-
-	if len(split) > 1 {
-		options := strings.Split(split[1], ",")
-		mount.TmpfsOptions = &types.TmpfsOptions{}
-		for _, opt := range options {
-			k, v, _ := strings.Cut(opt, "=")
-			k = strings.ToLower(k)
-			switch k {
-			case "size":
-				if size, err := units.RAMInBytes(v); err != nil {
-					return nil, err
-				} else {
-					mount.TmpfsOptions.Size = size
-				}
-			case "readonly", "ro":
-				mount.ReadOnly = true
-			case "readwrite", "rw":
-				mount.ReadOnly = false
-			case "mode":
-				if ui64, err := strconv.ParseUint(v, 8, 32); err != nil {
-					return nil, err
-				} else {
-					mount.TmpfsOptions.Mode = fs.FileMode(ui64)
-				}
-			default:
-				o := []string{k}
-				if v != "" {
-					o = append(o, v)
-				}
-				mount.TmpfsOptions.Options = append(mount.TmpfsOptions.Options, o)
-			}
-		}
-	}
-	return mount, nil
-}
-
 // parses storage options per container into a map
 // https://github.com/docker/cli/blob/v29.7.2/cli/command/container/opts.go#L981-L992
 func parseStorageOpts(storageOpts []string) (map[string]string, error) {
@@ -167,15 +109,4 @@ func parseStorageOpts(storageOpts []string) (map[string]string, error) {
 		m[k] = v
 	}
 	return m, nil
-}
-
-// ValidateVolumeCtrDir validates a volume mount's destination directory.
-func validateVolumeContainerDir(path string) error {
-	if path == "" {
-		return errors.New("container directory cannot be empty")
-	}
-	if !filepath.IsAbs(path) {
-		return fmt.Errorf("invalid container path %q, must be an absolute path", path)
-	}
-	return nil
 }

@@ -9,10 +9,9 @@ package types
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"errors"
 	"fmt"
 	"io/fs"
-
-	"github.com/docker/cli/cli/compose/loader"
 )
 
 type ContainerStorage struct {
@@ -38,12 +37,17 @@ type Mount struct {
 	TmpfsOptions  *TmpfsOptions  `json:"tmpfs,omitempty"`
 }
 
+var ParseVolume func(v string) (*Mount, error)
+
 func (m *Mount) UnmarshalJSONFrom(d *jsontext.Decoder) error {
 	switch k := d.PeekKind(); k {
 	case jsontext.KindString:
 		var s string
 		if err := json.UnmarshalDecode(d, &s); err != nil {
 			return err
+		}
+		if ParseVolume == nil {
+			return errors.New("types: volume parser not registered (import _ \"drassi.run/core/pkg/container/parser\")")
 		}
 		parsed, err := ParseVolume(s)
 		if err != nil {
@@ -57,37 +61,6 @@ func (m *Mount) UnmarshalJSONFrom(d *jsontext.Decoder) error {
 	default:
 		return fmt.Errorf("expected string or object for Mount, got %v", k)
 	}
-}
-
-// ParseVolume parses user-provided volume definitions into types.Mount format
-func ParseVolume(v string) (*Mount, error) {
-	parsed, err := loader.ParseVolume(v)
-	if err != nil {
-		return nil, err
-	}
-	mount := &Mount{
-		Type:     parsed.Type,
-		Source:   parsed.Source,
-		Target:   parsed.Target,
-		ReadOnly: parsed.ReadOnly,
-	}
-	if bind := parsed.Bind; bind != nil {
-		mount.BindOptions = &BindOptions{
-			Propagation: bind.Propagation,
-			Consistency: parsed.Consistency,
-		}
-	}
-	if volume := parsed.Volume; volume != nil {
-		mount.VolumeOptions = &VolumeOptions{
-			NoCopy: volume.NoCopy,
-		}
-	}
-	if tmp := parsed.Tmpfs; tmp != nil {
-		mount.TmpfsOptions = &TmpfsOptions{
-			Size: tmp.Size,
-		}
-	}
-	return mount, nil
 }
 
 // BindOptions defines options specific to mounts of type "bind".

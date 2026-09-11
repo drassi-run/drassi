@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"drassi.run/core/pkg/container"
-	"drassi.run/core/pkg/container/cli"
+	"drassi.run/core/pkg/container/parser"
 	"drassi.run/core/pkg/container/types"
 	"drassi.run/core/pkg/stream"
 	xcontext "drassi.run/core/util/context"
@@ -146,7 +146,7 @@ func (e *engine) ContainerExec(ctx context.Context, id string, opts *container.E
 	idResp, err := e.client.ExecCreate(ctx, id, dockerclient.ExecCreateOptions{
 		Cmd:          opts.Cmd,
 		WorkingDir:   opts.Workdir,
-		Env:          cli.ConvertMapToKVString(opts.Env),
+		Env:          parser.ConvertMapToKVString(opts.Env),
 		TTY:          stdio.Tty,
 		AttachStdin:  stdio.AttachStdin(),
 		AttachStdout: stdio.AttachStdout(),

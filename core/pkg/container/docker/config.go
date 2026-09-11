@@ -7,7 +7,7 @@
 package docker
 
 import (
-	"drassi.run/core/pkg/container/cli"
+	"drassi.run/core/pkg/container/parser"
 	"drassi.run/core/pkg/container/types"
 	dockercontainer "github.com/moby/moby/api/types/container"
 	dockernetwork "github.com/moby/moby/api/types/network"
@@ -32,7 +32,7 @@ func (cc *containerConfig) From(spec *types.ContainerSpec, stdio *types.Stdio) e
 		Entrypoint: spec.Entrypoint,
 		Cmd:        spec.Command,
 		WorkingDir: spec.WorkingDir,
-		Env:        cli.ConvertMapToKVString(spec.Environment),
+		Env:        parser.ConvertMapToKVString(spec.Environment),
 		Labels:     spec.Labels,
 	}
 
@@ -79,7 +79,7 @@ func (cs *containerSpec) From(info dockercontainer.InspectResponse) error {
 		Command:     c.Cmd,
 		Entrypoint:  c.Entrypoint,
 		WorkingDir:  c.WorkingDir,
-		Environment: cli.ConvertKVStringsToMap(c.Env),
+		Environment: parser.ConvertKVStringsToMap(c.Env),
 		Labels:      c.Labels,
 		Annotations: hc.Annotations,
 	}
