@@ -13,12 +13,10 @@ import (
 	"maps"
 	"strconv"
 	"strings"
-	"sync"
 
 	"drassi.run/core/config"
 	"drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/container/cli"
-	"drassi.run/core/pkg/container/docker"
 	"drassi.run/core/pkg/container/types"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/model/workflows"
@@ -27,71 +25,13 @@ import (
 	"drassi.run/core/pkg/store/oci"
 	"drassi.run/core/pkg/stream"
 	"drassi.run/core/util/string"
-	dockerclient "github.com/moby/moby/client"
 	"golang.org/x/sync/errgroup"
 )
 
-func init() {
-	sandboxer.Register(config.ProviderContainer, DefaultConfig, NewFactory)
-}
-
-func DefaultConfig() *Config {
-	return &Config{
-		Implementation: "docker",
-		Image:          "ghcr.io/drassi-run/ubuntu:26.04",
-	}
-}
-
-func NewFactory(cfg *Config) sandboxer.Factory {
-	f := &factory{cfg: cfg}
-	f.create = sync.OnceValues(f.doCreate)
-	return f
-}
-
-type factory struct {
-	create func() (sandboxer.Engine, error)
-
-	cfg      *Config
-	store    ocistore.Manager
-	runtimes map[string]*config.Runtime
-}
-
-func (f *factory) SetOciStore(store ocistore.Manager) {
-	f.store = store
-}
-
-func (f *factory) ProvisionRuntime(config map[string]*config.Runtime) {
-	f.runtimes = config
-}
-
-func (f *factory) Create() (sandboxer.Engine, error) {
-	return f.create()
-}
-
-func (f *factory) doCreate() (sandboxer.Engine, error) {
-	var prov *provision.Provisioner[*types.ContainerSpec]
-	if len(f.runtimes) > 0 {
-		if f.store == nil {
-			return nil, errors.New("oci store is required when runtimes are configured")
-		}
-		prov = provision.New[*types.ContainerSpec](
-			f.runtimes,
-			provision.Pull[*types.ContainerSpec](f.store),
-			provision.Mount[*types.ContainerSpec](f.store),
-			AddBindMount(),
-		)
-	}
-	return New(f.cfg, prov)
-}
+const DefaultImage = "ghcr.io/drassi-run/ubuntu:26.04"
 
 type Bootstrapper interface {
 	Bootstrap(ctx context.Context, sb sandboxer.Sandbox, req *sandboxer.LaunchRequest) (*sandboxer.LaunchResponse, error)
-}
-
-type Config struct {
-	Implementation string `toml:"implementation" json:"implementation"`
-	Endpoint       string `toml:"endpoint" json:"endpoint,omitempty"`
-	Image          string `toml:"image" json:"image,omitempty"`
 }
 
 type engine struct {
@@ -100,27 +40,10 @@ type engine struct {
 	provisioner  *provision.Provisioner[*types.ContainerSpec]
 }
 
-func New(config *Config, prov *provision.Provisioner[*types.ContainerSpec]) (sandboxer.Engine, error) {
-	if config.Implementation != "docker" {
-		return nil, fmt.Errorf("unsupported container implementation: %s", config.Implementation)
+func New(client container.Engine, defaultImage string, prov *provision.Provisioner[*types.ContainerSpec]) sandboxer.Engine {
+	if defaultImage == "" {
+		defaultImage = DefaultImage
 	}
-
-	opts := make([]dockerclient.Opt, 0)
-	if ep := config.Endpoint; ep != "" {
-		opt := dockerclient.WithHost(ep)
-		opts = append(opts, opt)
-	}
-
-	client, err := docker.New(opts...)
-	if err != nil {
-		return nil, err
-	}
-	client = container.WithTelemetry(client)
-
-	return NewWithClient(client, config.Image, prov), nil
-}
-
-func NewWithClient(client container.Engine, defaultImage string, prov *provision.Provisioner[*types.ContainerSpec]) sandboxer.Engine {
 	return &engine{
 		client:       client,
 		defaultImage: defaultImage,
@@ -130,6 +53,21 @@ func NewWithClient(client container.Engine, defaultImage string, prov *provision
 
 func NewBootstrapper(client container.Engine) Bootstrapper {
 	return &engine{client: client}
+}
+
+func NewProvisioner(store ocistore.Manager, runtimes map[string]*config.Runtime) (*provision.Provisioner[*types.ContainerSpec], error) {
+	if len(runtimes) == 0 {
+		return nil, nil
+	}
+	if store == nil {
+		return nil, errors.New("oci store is required when runtimes are configured")
+	}
+	return provision.New[*types.ContainerSpec](
+		runtimes,
+		provision.Pull[*types.ContainerSpec](store),
+		provision.Mount[*types.ContainerSpec](store),
+		AddBindMount(),
+	), nil
 }
 
 func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*sandboxer.LaunchResponse, error) {

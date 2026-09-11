@@ -15,7 +15,6 @@ import (
 	mock_store "drassi.run/core/mock/store/oci"
 	"drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/container/types"
-	"drassi.run/core/pkg/runtime/provision"
 	"drassi.run/core/pkg/sandboxer"
 	ocistore "drassi.run/core/pkg/store/oci"
 	"github.com/stretchr/testify/suite"
@@ -74,12 +73,9 @@ func (s *ContainerEngineTestSuite) TestLaunch() {
 			"node": {Image: "drassi/node:24"},
 		}
 
-		p := provision.New[*types.ContainerSpec](
-			runtimes,
-			provision.Pull[*types.ContainerSpec](s.store),
-			provision.Mount[*types.ContainerSpec](s.store),
-			AddBindMount(),
-		)
+		p, err := NewProvisioner(s.store, runtimes)
+		s.Require().NoError(err)
+		s.Require().NotNil(p)
 
 		s.mockContainerLifecycle("c-123", func(spec *types.ContainerSpec) {
 			s.Require().Len(spec.Mounts, 1)
@@ -87,7 +83,7 @@ func (s *ContainerEngineTestSuite) TestLaunch() {
 			s.Require().Equal("/opt/drassi/runtimes/node", spec.Mounts[0].Target)
 		})
 
-		eng := NewWithClient(s.mockClient, "default:image", p)
+		eng := New(s.mockClient, "default:image", p)
 		sb := s.assertLaunch(eng, "c-123")
 		s.Require().NoError(sb.Terminate(s.T().Context()))
 	})
@@ -97,42 +93,35 @@ func (s *ContainerEngineTestSuite) TestLaunch() {
 			s.Require().Empty(spec.Mounts)
 		})
 
-		eng := NewWithClient(s.mockClient, "default:image", nil)
+		eng := New(s.mockClient, "default:image", nil)
 		sb := s.assertLaunch(eng, "c-456")
 		s.Require().NoError(sb.Terminate(s.T().Context()))
 	})
 }
 
-func (s *ContainerEngineTestSuite) TestFactory() {
+func (s *ContainerEngineTestSuite) TestNewProvisioner() {
 	s.Run("with runtimes and store", func() {
-		f := NewFactory(DefaultConfig())
-		f.SetOciStore(s.store)
-		f.ProvisionRuntime(map[string]*config.Runtime{
+		runtimes := map[string]*config.Runtime{
 			"node": {Image: "drassi/node:24"},
-		})
-
-		eng, err := f.Create()
+		}
+		p, err := NewProvisioner(s.store, runtimes)
 		s.Require().NoError(err)
-		s.Require().NotNil(eng)
-		_ = eng.Close()
+		s.Require().NotNil(p)
 	})
 
 	s.Run("with runtimes but missing store returns error", func() {
-		f := NewFactory(DefaultConfig())
-		f.ProvisionRuntime(map[string]*config.Runtime{
+		runtimes := map[string]*config.Runtime{
 			"node": {Image: "drassi/node:24"},
-		})
-
-		_, err := f.Create()
+		}
+		p, err := NewProvisioner(nil, runtimes)
 		s.Require().Error(err)
+		s.Require().Nil(p)
 		s.Require().Contains(err.Error(), "oci store is required")
 	})
 
-	s.Run("without runtimes", func() {
-		f := NewFactory(DefaultConfig())
-		eng, err := f.Create()
+	s.Run("without runtimes returns nil provisioner", func() {
+		p, err := NewProvisioner(s.store, nil)
 		s.Require().NoError(err)
-		s.Require().NotNil(eng)
-		_ = eng.Close()
+		s.Require().Nil(p)
 	})
 }
