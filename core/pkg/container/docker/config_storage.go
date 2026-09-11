@@ -7,7 +7,7 @@
 package docker
 
 import (
-	"drassi.run/core/pkg/container/cli"
+	"drassi.run/core/pkg/container/parser"
 	"drassi.run/core/pkg/container/types"
 	dockercontainer "github.com/moby/moby/api/types/container"
 	dockermount "github.com/moby/moby/api/types/mount"
@@ -91,7 +91,7 @@ func (cs *containerSpec) setStorage(info dockercontainer.InspectResponse) error 
 
 func (cs *containerSpec) setTmpfs(tmpfs map[string]string) error {
 	for k, v := range tmpfs {
-		if mount, err := cli.ParseTmpfs(k + ":" + v); err != nil {
+		if mount, err := parser.ParseTmpfs(k + ":" + v); err != nil {
 			return err
 		} else {
 			cs.Spec.Mounts = append(cs.Spec.Mounts, mount)
@@ -102,7 +102,7 @@ func (cs *containerSpec) setTmpfs(tmpfs map[string]string) error {
 
 func (cs *containerSpec) setVolumes(volumes []string) error {
 	for _, v := range volumes {
-		if mount, err := cli.ParseVolume(v); err != nil {
+		if mount, err := parser.ParseVolume(v); err != nil {
 			return err
 		} else {
 			cs.Spec.Mounts = append(cs.Spec.Mounts, mount)

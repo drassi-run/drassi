@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"time"
 
+	"drassi.run/core/pkg/container/parser"
 	"drassi.run/core/pkg/container/types"
 	"github.com/spf13/pflag"
 )
@@ -40,7 +41,7 @@ func (fm *flagMapper) mapLogging(copts *containerOptions) error {
 
 	// https://github.com/docker/cli/blob/v29.7.2/cli/command/container/opts.go#L920-L926
 	driver := copts.loggingDriver
-	options := ConvertKVStringsToMap(copts.loggingOpts.GetAllOrEmpty())
+	options := parser.ConvertKVStringsToMap(copts.loggingOpts.GetAllOrEmpty())
 	if driver == "none" && len(options) > 0 {
 		return fmt.Errorf("invalid logging opts for driver %s", driver)
 	}

@@ -17,6 +17,7 @@ import (
 	"drassi.run/core/config"
 	"drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/container/cli"
+	"drassi.run/core/pkg/container/parser"
 	"drassi.run/core/pkg/container/types"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/model/workflows"
@@ -35,19 +36,22 @@ type Bootstrapper interface {
 }
 
 type engine struct {
-	client       container.Engine
-	defaultImage string
-	provisioner  *provision.Provisioner[*types.ContainerSpec]
+	client      container.Engine
+	template    *Template
+	provisioner *provision.Provisioner[*types.ContainerSpec]
 }
 
-func New(client container.Engine, defaultImage string, prov *provision.Provisioner[*types.ContainerSpec]) sandboxer.Engine {
-	if defaultImage == "" {
-		defaultImage = DefaultImage
+func New(client container.Engine, template *Template, prov *provision.Provisioner[*types.ContainerSpec]) sandboxer.Engine {
+	if template == nil {
+		template = &Template{Image: DefaultImage}
+	} else if template.Image == "" {
+		template = template.Copy()
+		template.Image = DefaultImage
 	}
 	return &engine{
-		client:       client,
-		defaultImage: defaultImage,
-		provisioner:  prov,
+		client:      client,
+		template:    template,
+		provisioner: prov,
 	}
 }
 
@@ -77,12 +81,22 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*san
 	)
 
 	if req.JobContainer == nil {
-		spec := &types.ContainerSpec{
-			Image:       e.defaultImage,
-			Entrypoint:  []string{"sleep"},
-			Command:     []string{"infinity"},
-			NetworkMode: "host",
+		tmpl := e.template.Copy()
+		if tmpl == nil {
+			tmpl = &Template{Image: DefaultImage}
 		}
+		if len(tmpl.Entrypoint) == 0 && len(tmpl.Command) == 0 {
+			tmpl.Entrypoint = []string{"sleep"}
+			tmpl.Command = []string{"infinity"}
+		} else if len(tmpl.Entrypoint) == 0 {
+			tmpl.Entrypoint = []string{"sleep"}
+		} else if len(tmpl.Command) == 0 {
+			tmpl.Command = []string{"infinity"}
+		}
+		if tmpl.NetworkMode == "" {
+			tmpl.NetworkMode = "host"
+		}
+		spec := (*types.ContainerSpec)(tmpl)
 
 		var err error
 		launcher := e.launch
@@ -194,7 +208,6 @@ func (e *engine) Bootstrap(ctx context.Context, sb sandboxer.Sandbox, req *sandb
 		g, ctx := errgroup.WithContext(ctx)
 		g.SetLimit(8)
 		for name, def := range req.ServiceContainers {
-			name, def := name, def
 			g.Go(func() error {
 				if containerId, err := e.runContainer(ctx, def, refiners); err != nil {
 					return err
@@ -235,14 +248,14 @@ func (e *engine) parseContainer(def *workflows.Container, refiners []refiner) (s
 		maps.Copy(spec.Environment, env)
 	}
 	for _, v := range def.Volumes {
-		if vol, err := cli.ParseVolume(v); err != nil {
+		if vol, err := parser.ParseVolume(v); err != nil {
 			return nil, err
 		} else {
 			spec.Mounts = append(spec.Mounts, vol)
 		}
 	}
 	for _, p := range def.Ports {
-		if pb, length, err := cli.ParsePublish(p); err != nil {
+		if pb, length, err := parser.ParsePublish(p); err != nil {
 			return nil, err
 		} else {
 			for i := range length {

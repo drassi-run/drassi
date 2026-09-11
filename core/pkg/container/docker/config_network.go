@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"strings"
 
-	"drassi.run/core/pkg/container/cli"
+	"drassi.run/core/pkg/container/parser"
 	"drassi.run/core/pkg/container/types"
 	dockercontainer "github.com/moby/moby/api/types/container"
 	dockernetwork "github.com/moby/moby/api/types/network"
@@ -24,7 +24,7 @@ func (cc *containerConfig) setNetwork(conf *types.ContainerNetwork) {
 	cc.setExpose(conf.Exposes)
 	cc.setPublish(conf.Publish)
 	cc.HostConfig.PublishAllPorts = conf.PublishAll
-	cc.setDNS(&conf.DNS)
+	cc.setDNS(conf.DNS)
 	cc.setNetworkEndpoints(conf.Endpoints)
 }
 
@@ -176,7 +176,7 @@ func (cs *containerSpec) setPublish(publishes dockernetwork.PortMap) error {
 }
 
 func (cs *containerSpec) setDNS(c *dockercontainer.Config, hc *dockercontainer.HostConfig) error {
-	cs.Spec.DNS = types.DNS{
+	cs.Spec.DNS = &types.DNS{
 		Servers:    hc.DNS,
 		Options:    hc.DNSOptions,
 		Search:     hc.DNSSearch,
@@ -189,7 +189,7 @@ func (cs *containerSpec) setDNS(c *dockercontainer.Config, hc *dockercontainer.H
 
 	extraHost := make(map[string][]string)
 	for _, h := range hc.ExtraHosts {
-		if host, ips, err := cli.ParseHost(h); err != nil {
+		if host, ips, err := parser.ParseHost(h); err != nil {
 			return err
 		} else if exist, ok := extraHost[host]; ok {
 			extraHost[host] = append(exist, ips...)
