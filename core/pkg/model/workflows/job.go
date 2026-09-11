@@ -77,7 +77,7 @@ func (j *BaseJob) Base() *BaseJob {
 }
 
 type NormalJob struct {
-	BaseJob `json:",inline"`
+	BaseJob `json:",embed"`
 
 	// The type of machine to run the job on. The machine can be either a GitHub-hosted runner, or a self-hosted runner.
 	// https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idruns-on
@@ -149,7 +149,7 @@ type NormalJob struct {
 // The <job_id> must start with a letter or _ and contain only alphanumeric characters, -, or _.", type: "object
 // https://docs.github.com/en/actions/using-workflows/reusing-workflows#calling-a-reusable-workflow
 type ReusableWorkflowCallJob struct {
-	BaseJob `json:",inline"`
+	BaseJob `json:",embed"`
 
 	// The location and version of a reusable workflow file to run as a job, of the form './{path/to}/{localfile}.yml'
 	// or '{owner}/{repo}/{path}/{filename}@{ref}'. {ref} can be a SHA, a release tag, or a branch name.

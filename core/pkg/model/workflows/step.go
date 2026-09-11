@@ -88,7 +88,7 @@ func (s *ActionStep) ActionBase() *ActionStep {
 }
 
 type UsesActionStep struct {
-	ActionStep `json:",inline"`
+	ActionStep `json:",embed"`
 
 	// Selects an action to run as part of a step in your job. An action is a reusable unit of code.
 	// You can use an action defined in the same repository as the workflow, a public repository, or in a published Docker container image (https://hub.docker.com/).
@@ -115,7 +115,7 @@ type UsesActionStep struct {
 }
 
 type RunActionStep struct {
-	ActionStep `json:",inline"`
+	ActionStep `json:",embed"`
 
 	// Runs command-line programs using the operating system's shell. If you do not provide a name, the step name will default to the text specified in the run command.
 	// Commands run using non-login shells by default. You can choose a different shell and customize the shell used to run commands.
