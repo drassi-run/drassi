@@ -24,7 +24,7 @@ func (cc *containerConfig) setNetwork(conf *types.ContainerNetwork) {
 	cc.setExpose(conf.Exposes)
 	cc.setPublish(conf.Publish)
 	cc.HostConfig.PublishAllPorts = conf.PublishAll
-	cc.setDNS(&conf.DNS)
+	cc.setDNS(conf.DNS)
 	cc.setNetworkEndpoints(conf.Endpoints)
 }
 
@@ -176,7 +176,7 @@ func (cs *containerSpec) setPublish(publishes dockernetwork.PortMap) error {
 }
 
 func (cs *containerSpec) setDNS(c *dockercontainer.Config, hc *dockercontainer.HostConfig) error {
-	cs.Spec.DNS = types.DNS{
+	cs.Spec.DNS = &types.DNS{
 		Servers:    hc.DNS,
 		Options:    hc.DNSOptions,
 		Search:     hc.DNSSearch,

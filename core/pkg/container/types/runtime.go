@@ -9,15 +9,15 @@ package types
 import "time"
 
 type ContainerRuntime struct {
-	Runtime       string
-	Platform      string
-	Isolation     string
-	RestartPolicy *RestartPolicy
-	AutoRemove    bool
-	StopSignal    string
-	StopTimeout   *time.Duration
-	Logging       *LoggingConfig
-	HealthCheck   *HealthCheckConfig
+	Runtime       string             `json:"runtime,omitempty"`
+	Platform      string             `json:"platform,omitempty"`
+	Isolation     string             `json:"isolation,omitempty"`
+	RestartPolicy *RestartPolicy     `json:"restart,omitempty"`
+	AutoRemove    bool               `json:"auto_remove,omitempty"`
+	StopSignal    string             `json:"stop_signal,omitempty"`
+	StopTimeout   *time.Duration     `json:"stop_timeout,omitempty"`
+	Logging       *LoggingConfig     `json:"logging,omitempty"`
+	HealthCheck   *HealthCheckConfig `json:"healthcheck,omitempty"`
 }
 
 // RestartPolicy represents the restart policies of the container.
@@ -26,16 +26,16 @@ type ContainerRuntime struct {
 //   - [github.com/docker/cli/cli/compose/types.RestartPolicy]
 //   - [github.com/compose-spec/compose-go/v2/types.RestartPolicy]
 type RestartPolicy struct {
-	Name     string // "no", "on-failure", "always", "unless-stopped"
-	MaxRetry int
+	Name     string `json:"name,omitempty"` // "no", "on-failure", "always", "unless-stopped"
+	MaxRetry int    `json:"max_retry,omitempty"`
 }
 
 // LoggingConfig is identical with compose LoggingConfig
 //   - [github.com/moby/moby/api/types/container.LogConfig]
 //   - [github.com/compose-spec/compose-go/v2/types.LoggingConfig]
 type LoggingConfig struct {
-	Driver  string
-	Options map[string]string
+	Driver  string            `json:"driver,omitempty"`
+	Options map[string]string `json:"options,omitempty"`
 }
 
 // HealthCheckConfig is identical with docker's HealthConfig
@@ -43,10 +43,10 @@ type LoggingConfig struct {
 //   - [github.com/compose-spec/compose-go/v2/types.HealthCheckConfig]
 //   - [github.com/containers/image/v5/manifest.Schema2HealthConfig]
 type HealthCheckConfig struct {
-	Test          []string
-	Timeout       time.Duration
-	Interval      time.Duration
-	Retries       int
-	StartPeriod   time.Duration
-	StartInterval time.Duration
+	Test          []string      `json:"test,omitempty"`
+	Timeout       time.Duration `json:"timeout,omitempty"`
+	Interval      time.Duration `json:"interval,omitempty"`
+	Retries       int           `json:"retries,omitempty"`
+	StartPeriod   time.Duration `json:"start_period,omitempty"`
+	StartInterval time.Duration `json:"start_interval,omitempty"`
 }

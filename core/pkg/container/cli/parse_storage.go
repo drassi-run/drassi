@@ -15,7 +15,6 @@ import (
 	"strings"
 
 	"drassi.run/core/pkg/container/types"
-	"github.com/docker/cli/cli/compose/loader"
 	"github.com/docker/go-units"
 	dockermount "github.com/moby/moby/api/types/mount"
 )
@@ -66,33 +65,7 @@ func (fm *flagMapper) mapStorage(copts *containerOptions) error {
 // ParseVolume parses user-provided volume definitions into types.Mount format
 //   - [github.com/containers/podman/v5/pkg/specgen.GenVolumeMounts]
 func ParseVolume(v string) (*types.Mount, error) {
-	parsed, err := loader.ParseVolume(v)
-	if err != nil {
-		return nil, err
-	}
-	mount := &types.Mount{
-		Type:     parsed.Type,
-		Source:   parsed.Source,
-		Target:   parsed.Target,
-		ReadOnly: parsed.ReadOnly,
-	}
-	if bind := parsed.Bind; bind != nil {
-		mount.BindOptions = &types.BindOptions{
-			Propagation: bind.Propagation,
-			Consistency: parsed.Consistency,
-		}
-	}
-	if volume := parsed.Volume; volume != nil {
-		mount.VolumeOptions = &types.VolumeOptions{
-			NoCopy: volume.NoCopy,
-		}
-	}
-	if tmp := parsed.Tmpfs; tmp != nil {
-		mount.TmpfsOptions = &types.TmpfsOptions{
-			Size: tmp.Size,
-		}
-	}
-	return mount, nil
+	return types.ParseVolume(v)
 }
 
 func parseMount(m dockermount.Mount) *types.Mount {

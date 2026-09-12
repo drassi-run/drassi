@@ -83,7 +83,7 @@ func (s *ContainerEngineTestSuite) TestLaunch() {
 			s.Require().Equal("/opt/drassi/runtimes/node", spec.Mounts[0].Target)
 		})
 
-		eng := New(s.mockClient, "default:image", p)
+		eng := New(s.mockClient, &Template{Image: "default:image"}, p)
 		sb := s.assertLaunch(eng, "c-123")
 		s.Require().NoError(sb.Terminate(s.T().Context()))
 	})
@@ -93,8 +93,39 @@ func (s *ContainerEngineTestSuite) TestLaunch() {
 			s.Require().Empty(spec.Mounts)
 		})
 
-		eng := New(s.mockClient, "default:image", nil)
+		eng := New(s.mockClient, &Template{Image: "default:image"}, nil)
 		sb := s.assertLaunch(eng, "c-456")
+		s.Require().NoError(sb.Terminate(s.T().Context()))
+	})
+
+	s.Run("with template options", func() {
+		tmpl := &Template{
+			Image:       "custom:image",
+			NetworkMode: "host",
+			Privileged:  true,
+			User:        "1000:1000",
+			Environment: map[string]string{"FOO": "BAR"},
+			ContainerStorage: types.ContainerStorage{
+				Mounts: []*types.Mount{
+					{Type: "bind", Source: "/host", Target: "/container"},
+				},
+			},
+		}
+
+		s.mockContainerLifecycle("c-789", func(spec *types.ContainerSpec) {
+			s.Require().Equal("custom:image", spec.Image)
+			s.Require().Equal("host", spec.NetworkMode)
+			s.Require().True(spec.Privileged)
+			s.Require().Equal("1000:1000", spec.User)
+			s.Require().Equal("BAR", spec.Environment["FOO"])
+			s.Require().Equal([]string{"sleep"}, spec.Entrypoint)
+			s.Require().Equal([]string{"infinity"}, spec.Command)
+			s.Require().Len(spec.Mounts, 1)
+			s.Require().Equal("/host", spec.Mounts[0].Source)
+		})
+
+		eng := New(s.mockClient, tmpl, nil)
+		sb := s.assertLaunch(eng, "c-789")
 		s.Require().NoError(sb.Terminate(s.T().Context()))
 	})
 }

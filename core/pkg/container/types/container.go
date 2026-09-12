@@ -14,25 +14,25 @@ import (
 )
 
 type ContainerSpec struct {
-	Name       string
-	Image      string
-	PullPolicy string
+	Name       string `json:"name,omitempty"`
+	Image      string `json:"image,omitempty"`
+	PullPolicy string `json:"pull_policy,omitempty"`
 
-	Command     []string
-	Entrypoint  []string
-	WorkingDir  string
-	Environment map[string]string
-	Labels      map[string]string
-	Annotations map[string]string
+	Command     []string          `json:"command,omitempty"`
+	Entrypoint  []string          `json:"entrypoint,omitempty"`
+	WorkingDir  string            `json:"working_dir,omitempty"`
+	Environment map[string]string `json:"environment,omitempty"`
+	Labels      map[string]string `json:"labels,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty"`
 
-	ContainerNetwork
-	ContainerStorage
-	Devices           []string
-	DeviceCgroupRules []string
+	ContainerNetwork  `json:",embed"`
+	ContainerStorage  `json:",embed"`
+	Devices           []string `json:"devices,omitempty"`
+	DeviceCgroupRules []string `json:"device_cgroup_rules,omitempty"`
 
-	ContainerRuntime
-	ContainerResource
-	ContainerSecurity
+	ContainerRuntime  `json:",embed"`
+	ContainerResource `json:",embed"`
+	ContainerSecurity `json:",embed"`
 }
 
 const (
