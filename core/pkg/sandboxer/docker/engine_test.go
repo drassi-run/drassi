@@ -11,6 +11,7 @@ import (
 
 	"drassi.run/core/config"
 	mock_store "drassi.run/core/mock/store/oci"
+	"drassi.run/core/pkg/container/types"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/sandboxer/container"
 	"github.com/stretchr/testify/require"
@@ -84,7 +85,58 @@ memory = 2147483648
 	require.Equal(t, []string{"SYS_ADMIN"}, tmpl.CapAdd)
 	require.Equal(t, []string{"/dev/kvm"}, tmpl.Devices)
 	require.Equal(t, "2", tmpl.CPUS)
-	require.Equal(t, int64(2147483648), tmpl.Memory)
+	require.Equal(t, types.UnitBytes(2147483648), tmpl.Memory)
+}
+
+func TestFactoryWithShortFormTemplateConfig(t *testing.T) {
+	rawToml := `
+endpoint = "unix:///var/run/docker.sock"
+[template]
+image = "ghcr.io/drassi-run/ubuntu:26.04"
+environment = [
+    "APP_ENV=production",
+    "DEBUG=false"
+]
+labels = [
+    "org.drassi.env=prod"
+]
+annotations = [
+    "note=short-form"
+]
+sysctls = [
+    "net.ipv4.ip_forward=1"
+]
+expose = [
+    "80/tcp",
+    53
+]
+memory = "4g"
+shm_size = "256m"
+`
+	sbConfig := &config.Sandboxer{
+		Provider: config.ProviderDocker,
+		Config:   []byte(rawToml),
+	}
+	f, err := sandboxer.NewFactory(sbConfig)
+	require.NoError(t, err)
+	require.NotNil(t, f)
+
+	fact, ok := f.(*factory)
+	require.True(t, ok)
+	require.NotNil(t, fact.cfg.Template)
+	tmpl := fact.cfg.Template
+	require.Equal(t, "production", tmpl.Environment["APP_ENV"])
+	require.Equal(t, "false", tmpl.Environment["DEBUG"])
+	require.Equal(t, "prod", tmpl.Labels["org.drassi.env"])
+	require.Equal(t, "short-form", tmpl.Annotations["note"])
+	require.Equal(t, "1", tmpl.Sysctls["net.ipv4.ip_forward"])
+	require.Len(t, tmpl.Exposes, 2)
+	require.Equal(t, uint16(80), tmpl.Exposes[0].Number)
+	require.Equal(t, "tcp", tmpl.Exposes[0].Protocol)
+	require.Equal(t, uint16(53), tmpl.Exposes[1].Number)
+	require.Equal(t, "tcp", tmpl.Exposes[1].Protocol)
+	require.Equal(t, types.UnitBytes(4*1024*1024*1024), tmpl.Memory)
+	require.Equal(t, types.UnitBytes(256*1024*1024), tmpl.ShmSize)
 }
 
 func TestFactoryCreate(t *testing.T) {

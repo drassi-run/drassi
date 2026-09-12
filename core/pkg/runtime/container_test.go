@@ -151,7 +151,7 @@ func TestContainerRun(t *testing.T) {
 	cmd := []string{"--flag", "with", "some", "arg"}
 	engine.EXPECT().ContainerRun(ctx, gomock.Any(), gomock.Any()).
 		DoAndReturn(func(_ context.Context, spec *types.ContainerSpec, _ *container.RunOptions) (string, error) {
-			assert.Equal(t, labels, spec.Labels)
+			assert.EqualValues(t, labels, spec.Labels)
 			assert.Equal(t, workdir, spec.WorkingDir)
 			assert.Equal(t, network, spec.Endpoints[0].Target)
 			assert.Equal(t, image, spec.Image)
@@ -163,7 +163,7 @@ func TestContainerRun(t *testing.T) {
 				"A_NORMAL_ENV":   "hello-world",
 				"A_SANDBOX_PATH": "/mnt/third/foobar",
 			}
-			assert.Equal(t, e, spec.Environment)
+			assert.EqualValues(t, e, spec.Environment)
 
 			expectedMounts := make(map[string]*types.Mount)
 			for _, m := range mounts {

@@ -158,20 +158,7 @@ func (fm *flagMapper) mapDNS(copts *containerOptions) error {
 // ParseExpose parses user-provided exposed port definitions into types.Port format
 //   - [github.com/containers/podman/v5/pkg/specgenutil.CreateExpose]
 func ParseExpose(str string) (*types.Port, uint16, error) {
-	remains, expose := str, new(types.Port)
-
-	if r, p, err := SplitProto(remains); err != nil {
-		return nil, 0, err
-	} else {
-		remains, expose.Protocol = r, p
-	}
-
-	if port, length, err := ParsePortRange(remains); err != nil {
-		return nil, 0, err
-	} else {
-		expose.Number = port
-		return expose, length, nil
-	}
+	return types.ParseExpose(str)
 }
 
 // ParsePublish parses user-provided publish definitions into types.PortBinding format

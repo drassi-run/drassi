@@ -60,9 +60,9 @@ memory = 1073741824
 		require.Equal(t, "/app", tmpl.WorkingDir)
 		require.Equal(t, []string{"run", "app"}, tmpl.Command)
 		require.Equal(t, []string{"/entrypoint.sh"}, tmpl.Entrypoint)
-		require.Equal(t, map[string]string{"FOO": "bar", "BAZ": "qux"}, tmpl.Environment)
-		require.Equal(t, map[string]string{"org.drassi.env": "test"}, tmpl.Labels)
-		require.Equal(t, map[string]string{"note": "template"}, tmpl.Annotations)
+		require.Equal(t, types.Mapping{"FOO": "bar", "BAZ": "qux"}, tmpl.Environment)
+		require.Equal(t, types.Mapping{"org.drassi.env": "test"}, tmpl.Labels)
+		require.Equal(t, types.Mapping{"note": "template"}, tmpl.Annotations)
 		require.Len(t, tmpl.Mounts, 2)
 		require.Equal(t, "/host/path", tmpl.Mounts[0].Source)
 		require.Equal(t, "/container/path", tmpl.Mounts[0].Target)
@@ -84,12 +84,65 @@ memory = 1073741824
 		require.Equal(t, []string{"SYS_ADMIN"}, tmpl.CapAdd)
 		require.Equal(t, []string{"NET_RAW"}, tmpl.CapDrop)
 		require.Equal(t, []string{"no-new-privileges:true"}, tmpl.SecurityOpt)
-		require.Equal(t, map[string]string{"net.ipv4.ip_forward": "1"}, tmpl.Sysctls)
+		require.Equal(t, types.Mapping{"net.ipv4.ip_forward": "1"}, tmpl.Sysctls)
 		require.Equal(t, []string{"other-container:ro"}, tmpl.VolumesFrom)
-		require.Equal(t, map[string]string{"size": "20G"}, tmpl.StorageOpt)
+		require.Equal(t, types.Mapping{"size": "20G"}, tmpl.StorageOpt)
 		require.Equal(t, []string{"wheel"}, tmpl.GroupAdd)
 		require.Equal(t, "1.5", tmpl.CPUS)
-		require.Equal(t, int64(1073741824), tmpl.Memory)
+		require.Equal(t, types.UnitBytes(1073741824), tmpl.Memory)
+	})
+
+	t.Run("unmarshals template with short-form compose syntax", func(t *testing.T) {
+		tomlData := []byte(`
+image = "ghcr.io/drassi-run/ubuntu:26.04"
+environment = [
+    "FOO=bar",
+    "BAZ=qux",
+    "ENABLE_FLAG"
+]
+labels = [
+    "org.drassi.env=test",
+    "tier=backend"
+]
+annotations = [
+    "note=template"
+]
+sysctls = [
+    "net.ipv4.ip_forward=1"
+]
+storage_opt = [
+    "size=20G"
+]
+expose = [
+    "80",
+    "53/udp",
+    443
+]
+memory = "2g"
+mem_reservation = "1g"
+shm_size = "64m"
+`)
+		var tmpl Template
+		err := tmpl.UnmarshalTOML(tomlData)
+		require.NoError(t, err)
+
+		require.Equal(t, types.Mapping{"FOO": "bar", "BAZ": "qux", "ENABLE_FLAG": ""}, tmpl.Environment)
+		require.Equal(t, types.Mapping{"org.drassi.env": "test", "tier": "backend"}, tmpl.Labels)
+		require.Equal(t, types.Mapping{"note": "template"}, tmpl.Annotations)
+		require.Equal(t, types.Mapping{"net.ipv4.ip_forward": "1"}, tmpl.Sysctls)
+		require.Equal(t, types.Mapping{"size": "20G"}, tmpl.StorageOpt)
+
+		require.Len(t, tmpl.Exposes, 3)
+		require.Equal(t, uint16(80), tmpl.Exposes[0].Number)
+		require.Equal(t, "tcp", tmpl.Exposes[0].Protocol)
+		require.Equal(t, uint16(53), tmpl.Exposes[1].Number)
+		require.Equal(t, "udp", tmpl.Exposes[1].Protocol)
+		require.Equal(t, uint16(443), tmpl.Exposes[2].Number)
+		require.Equal(t, "tcp", tmpl.Exposes[2].Protocol)
+
+		require.Equal(t, types.UnitBytes(2*1024*1024*1024), tmpl.Memory)
+		require.Equal(t, types.UnitBytes(1024*1024*1024), tmpl.MemReservation)
+		require.Equal(t, types.UnitBytes(64*1024*1024), tmpl.ShmSize)
 	})
 
 	t.Run("decodes via toml.Decoder with EnableUnmarshalerInterface", func(t *testing.T) {

@@ -201,12 +201,61 @@ type Port struct {
 	Protocol string `json:"protocol,omitempty"`
 }
 
+var _ json.UnmarshalerFrom = (*Port)(nil)
+
 func (e *Port) String() string {
 	s := strconv.Itoa(int(e.Number))
 	if e.Protocol != "" {
 		s += "/" + e.Protocol
 	}
 	return s
+}
+
+// ParseExpose parses user-provided exposed port definitions into types.Port format
+//   - [github.com/containers/podman/v5/pkg/specgenutil.CreateExpose]
+func ParseExpose(str string) (*Port, uint16, error) {
+	remains, expose := str, new(Port)
+
+	if r, p, err := SplitProto(remains); err != nil {
+		return nil, 0, err
+	} else {
+		remains, expose.Protocol = r, p
+	}
+
+	if port, length, err := ParsePortRange(remains); err != nil {
+		return nil, 0, err
+	} else {
+		expose.Number = port
+		return expose, length, nil
+	}
+}
+
+func (p *Port) UnmarshalJSONFrom(d *jsontext.Decoder) error {
+	switch k := d.PeekKind(); k {
+	case jsontext.KindString:
+		var s string
+		if err := json.UnmarshalDecode(d, &s); err != nil {
+			return err
+		}
+		parsed, _, err := ParseExpose(s)
+		if err != nil {
+			return err
+		}
+		*p = *parsed
+		return nil
+	case jsontext.KindNumber:
+		var num uint16
+		if err := json.UnmarshalDecode(d, &num); err != nil {
+			return err
+		}
+		*p = Port{Number: num, Protocol: "tcp"}
+		return nil
+	case jsontext.KindBeginObject:
+		type alias Port
+		return json.UnmarshalDecode(d, (*alias)(p))
+	default:
+		return fmt.Errorf("expected string, number, or object for Port, got %v", k)
+	}
 }
 
 // Endpoint represents the container's networking configuration for each of its interfaces
