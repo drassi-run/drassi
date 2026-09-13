@@ -14,7 +14,6 @@ import (
 	"net"
 	"net/netip"
 	"strconv"
-	"strings"
 )
 
 type ContainerNetwork struct {
@@ -37,12 +36,17 @@ type PortBinding struct {
 	Protocol      string `json:"protocol,omitempty"`
 }
 
+var ParsePublish func(str string) (*PortBinding, uint16, error)
+
 func (pb *PortBinding) UnmarshalJSONFrom(d *jsontext.Decoder) error {
 	switch k := d.PeekKind(); k {
 	case jsontext.KindString:
 		var s string
 		if err := json.UnmarshalDecode(d, &s); err != nil {
 			return err
+		}
+		if ParsePublish == nil {
+			return errors.New("types: publish parser not registered (import _ \"drassi.run/core/pkg/container/parser\")")
 		}
 		parsed, _, err := ParsePublish(s)
 		if err != nil {
@@ -56,123 +60,6 @@ func (pb *PortBinding) UnmarshalJSONFrom(d *jsontext.Decoder) error {
 	default:
 		return fmt.Errorf("expected string or object for PortBinding, got %v", k)
 	}
-}
-
-// ParsePublish parses user-provided publish definition into types.PortBinding format
-func ParsePublish(str string) (*PortBinding, uint16, error) {
-	remains := str
-	var hostIP, hostPort, containerPort, proto string
-
-	if r, p, err := SplitProto(remains); err != nil {
-		return nil, 0, err
-	} else {
-		remains, proto = r, p
-	}
-
-	if idx := strings.LastIndexByte(remains, ':'); idx != -1 {
-		remains, containerPort = remains[:idx], remains[idx+1:]
-	} else {
-		remains, containerPort = "", remains
-	}
-
-	if remains != "" {
-		if !strings.ContainsRune(remains, ':') {
-			remains, hostPort = "", remains
-		} else if host, port, err := net.SplitHostPort(remains); err != nil {
-			return nil, 0, fmt.Errorf("invalid publish: %s - %s", str, err)
-		} else {
-			remains, hostIP, hostPort = "", host, port
-		}
-	}
-
-	length := uint16(0)
-	publish := &PortBinding{
-		HostIP:   hostIP,
-		Protocol: proto,
-	}
-
-	if port, portRange, err := ParsePortRange(containerPort); err != nil {
-		return nil, 0, err
-	} else {
-		publish.ContainerPort = port
-		length = portRange
-	}
-
-	if hostPort == "" {
-		return publish, length, nil
-	}
-
-	if port, portRange, err := ParsePortRange(hostPort); err != nil {
-		return nil, 0, err
-	} else {
-		publish.HostPort = port
-		if portRange > 1 {
-			if length > 1 && length != portRange {
-				return nil, 0, fmt.Errorf("invalid publish %q : port-range mismatch", str)
-			}
-			length = portRange
-		}
-	}
-
-	return publish, length, nil
-}
-
-func SplitProto(s string) (string, string, error) {
-	splits := strings.SplitN(s, "/", 3)
-	if len(splits) > 2 {
-		return "", "", fmt.Errorf("invalid protocol: %s - multiple protocols", s)
-	} else if len(splits) == 2 {
-		remains, proto := splits[0], splits[1]
-		if proto == "" {
-			proto = "tcp"
-		}
-		return remains, proto, nil
-	}
-	return s, "tcp", nil
-}
-
-func ParsePortRange(portRange string) (uint16, uint16, error) {
-	var (
-		port    string  = portRange
-		endPort *string = nil
-	)
-
-	if splits := strings.SplitN(portRange, "-", 3); len(splits) > 2 {
-		return 0, 0, fmt.Errorf("invalid portRange: %s - too many parts", portRange)
-	} else if len(splits) == 2 {
-		port, endPort = splits[0], &splits[1]
-	}
-
-	var portNum uint16
-	if num, err := ParsePort(port); err != nil {
-		return 0, 0, err
-	} else {
-		portNum = num
-	}
-
-	if endPort != nil {
-		if num, err := ParsePort(*endPort); err != nil {
-			return 0, 0, err
-		} else if portNum >= num {
-			return 0, 0, fmt.Errorf("invalid portRange: %s - startPort >= endPort", portRange)
-		} else {
-			length := num - portNum + 1
-			return portNum, length, nil
-		}
-	}
-
-	return portNum, 1, nil
-}
-
-func ParsePort(port string) (uint16, error) {
-	num, err := strconv.ParseUint(port, 10, 16)
-	if err != nil {
-		if errors.Is(err, strconv.ErrRange) {
-			return 0, fmt.Errorf("invalid port: %s - must be in range [1, 65535]", port)
-		}
-		return 0, fmt.Errorf("invalid port: %s - %w", port, err)
-	}
-	return uint16(num), nil
 }
 
 func (pb *PortBinding) String() string {
@@ -211,24 +98,7 @@ func (e *Port) String() string {
 	return s
 }
 
-// ParseExpose parses user-provided exposed port definitions into types.Port format
-//   - [github.com/containers/podman/v5/pkg/specgenutil.CreateExpose]
-func ParseExpose(str string) (*Port, uint16, error) {
-	remains, expose := str, new(Port)
-
-	if r, p, err := SplitProto(remains); err != nil {
-		return nil, 0, err
-	} else {
-		remains, expose.Protocol = r, p
-	}
-
-	if port, length, err := ParsePortRange(remains); err != nil {
-		return nil, 0, err
-	} else {
-		expose.Number = port
-		return expose, length, nil
-	}
-}
+var ParseExpose func(str string) (*Port, uint16, error)
 
 func (p *Port) UnmarshalJSONFrom(d *jsontext.Decoder) error {
 	switch k := d.PeekKind(); k {
@@ -236,6 +106,9 @@ func (p *Port) UnmarshalJSONFrom(d *jsontext.Decoder) error {
 		var s string
 		if err := json.UnmarshalDecode(d, &s); err != nil {
 			return err
+		}
+		if ParseExpose == nil {
+			return errors.New("types: expose parser not registered (import _ \"drassi.run/core/pkg/container/parser\")")
 		}
 		parsed, _, err := ParseExpose(s)
 		if err != nil {

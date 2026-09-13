@@ -4,14 +4,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package cli
+package parser
 
 import (
-	"drassi.run/core/pkg/container/types"
-	"github.com/stretchr/testify/assert"
 	"iter"
 	"strings"
 	"testing"
+
+	"drassi.run/core/pkg/container/types"
+	"github.com/stretchr/testify/assert"
 )
 
 // https://github.com/containers/podman/blob/v5.2.5/pkg/specgenutil/util_test.go#L8
@@ -192,5 +193,26 @@ func TestParsePortRange(t *testing.T) {
 			_, _, err := ParsePortRange(input)
 			assert.ErrorContains(t, err, "invalid", input)
 		}
+	})
+}
+
+func TestParseHost(t *testing.T) {
+	t.Run("success colon", func(t *testing.T) {
+		host, ips, err := ParseHost("example.com:192.168.1.1,192.168.1.2")
+		assert.NoError(t, err)
+		assert.Equal(t, "example.com", host)
+		assert.Equal(t, []string{"192.168.1.1", "192.168.1.2"}, ips)
+	})
+
+	t.Run("success equals", func(t *testing.T) {
+		host, ips, err := ParseHost("example.com=10.0.0.1")
+		assert.NoError(t, err)
+		assert.Equal(t, "example.com", host)
+		assert.Equal(t, []string{"10.0.0.1"}, ips)
+	})
+
+	t.Run("failure missing ip", func(t *testing.T) {
+		_, _, err := ParseHost("invalidhost")
+		assert.ErrorContains(t, err, "missing IP")
 	})
 }
