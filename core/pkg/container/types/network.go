@@ -39,7 +39,7 @@ type PortBinding struct {
 var ParsePublish func(str string) (*PortBinding, uint16, error)
 
 func (pb *PortBinding) UnmarshalJSONFrom(d *jsontext.Decoder) error {
-	switch k := d.PeekKind(); k {
+	switch kind := d.PeekKind(); kind {
 	case jsontext.KindString:
 		var s string
 		if err := json.UnmarshalDecode(d, &s); err != nil {
@@ -48,17 +48,17 @@ func (pb *PortBinding) UnmarshalJSONFrom(d *jsontext.Decoder) error {
 		if ParsePublish == nil {
 			return errors.New("types: publish parser not registered (import _ \"drassi.run/core/pkg/container/parser\")")
 		}
-		parsed, _, err := ParsePublish(s)
-		if err != nil {
+		if parsed, _, err := ParsePublish(s); err != nil {
 			return err
+		} else {
+			*pb = *parsed
+			return nil
 		}
-		*pb = *parsed
-		return nil
 	case jsontext.KindBeginObject:
 		type alias PortBinding
 		return json.UnmarshalDecode(d, (*alias)(pb))
 	default:
-		return fmt.Errorf("expected string or object for PortBinding, got %v", k)
+		return fmt.Errorf("expected string or object for PortBinding, got %v", kind)
 	}
 }
 
@@ -77,9 +77,9 @@ func (pb *PortBinding) String() string {
 	}
 	if hostPart != "" {
 		return hostPart + ":" + containerPart
-	} else {
-		return containerPart
 	}
+
+	return containerPart
 }
 
 // Port defines the (incoming) port and protocol
@@ -88,20 +88,10 @@ type Port struct {
 	Protocol string `json:"protocol,omitempty"`
 }
 
-var _ json.UnmarshalerFrom = (*Port)(nil)
-
-func (e *Port) String() string {
-	s := strconv.Itoa(int(e.Number))
-	if e.Protocol != "" {
-		s += "/" + e.Protocol
-	}
-	return s
-}
-
 var ParseExpose func(str string) (*Port, uint16, error)
 
 func (p *Port) UnmarshalJSONFrom(d *jsontext.Decoder) error {
-	switch k := d.PeekKind(); k {
+	switch kind := d.PeekKind(); kind {
 	case jsontext.KindString:
 		var s string
 		if err := json.UnmarshalDecode(d, &s); err != nil {
@@ -110,12 +100,12 @@ func (p *Port) UnmarshalJSONFrom(d *jsontext.Decoder) error {
 		if ParseExpose == nil {
 			return errors.New("types: expose parser not registered (import _ \"drassi.run/core/pkg/container/parser\")")
 		}
-		parsed, _, err := ParseExpose(s)
-		if err != nil {
+		if parsed, _, err := ParseExpose(s); err != nil {
 			return err
+		} else {
+			*p = *parsed
+			return nil
 		}
-		*p = *parsed
-		return nil
 	case jsontext.KindNumber:
 		var num uint16
 		if err := json.UnmarshalDecode(d, &num); err != nil {
@@ -127,8 +117,16 @@ func (p *Port) UnmarshalJSONFrom(d *jsontext.Decoder) error {
 		type alias Port
 		return json.UnmarshalDecode(d, (*alias)(p))
 	default:
-		return fmt.Errorf("expected string, number, or object for Port, got %v", k)
+		return fmt.Errorf("expected string, number, or object for Port, got %v", kind)
 	}
+}
+
+func (p *Port) String() string {
+	s := strconv.Itoa(int(p.Number))
+	if p.Protocol != "" {
+		s += "/" + p.Protocol
+	}
+	return s
 }
 
 // Endpoint represents the container's networking configuration for each of its interfaces

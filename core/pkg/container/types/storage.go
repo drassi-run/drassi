@@ -40,7 +40,7 @@ type Mount struct {
 var ParseVolume func(v string) (*Mount, error)
 
 func (m *Mount) UnmarshalJSONFrom(d *jsontext.Decoder) error {
-	switch k := d.PeekKind(); k {
+	switch kind := d.PeekKind(); kind {
 	case jsontext.KindString:
 		var s string
 		if err := json.UnmarshalDecode(d, &s); err != nil {
@@ -59,7 +59,7 @@ func (m *Mount) UnmarshalJSONFrom(d *jsontext.Decoder) error {
 		type alias Mount
 		return json.UnmarshalDecode(d, (*alias)(m))
 	default:
-		return fmt.Errorf("expected string or object for Mount, got %v", k)
+		return fmt.Errorf("expected string or object for Mount, got %v", kind)
 	}
 }
 
