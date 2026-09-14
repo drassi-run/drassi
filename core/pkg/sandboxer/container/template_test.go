@@ -178,7 +178,6 @@ func TestTemplateCopy(t *testing.T) {
 	t.Run("nil receiver returns nil", func(t *testing.T) {
 		var tmpl *Template
 		require.Nil(t, tmpl.Copy())
-		require.Nil(t, tmpl.Clone())
 		require.Nil(t, tmpl.ContainerSpec())
 	})
 

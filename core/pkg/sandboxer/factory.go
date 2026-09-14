@@ -43,7 +43,11 @@ func Register[T any](provider string, d func() T, fn func(cfg T) Factory) {
 	factories[provider] = func(raw unstable.RawMessage) (Factory, error) {
 		cfg := d()
 		if len(raw) > 0 {
-			if err := toml.NewDecoder(bytes.NewReader(raw)).EnableUnmarshalerInterface().Decode(cfg); err != nil {
+			r := bytes.NewReader(raw)
+			dec := toml.NewDecoder(r).
+				EnableUnmarshalerInterface()
+
+			if err := dec.Decode(cfg); err != nil {
 				return nil, fmt.Errorf("unmarshal provider %q config: %v", provider, err)
 			}
 		}

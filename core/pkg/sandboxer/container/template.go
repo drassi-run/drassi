@@ -13,10 +13,7 @@ import (
 	"drassi.run/core/pkg/container/types"
 	"drassi.run/core/pkg/model"
 	"github.com/pelletier/go-toml/v2"
-	"github.com/pelletier/go-toml/v2/unstable"
 )
-
-var _ unstable.Unmarshaler = (*Template)(nil)
 
 type Template types.ContainerSpec
 
@@ -32,82 +29,25 @@ func (t *Template) Copy() *Template {
 	if t == nil {
 		return nil
 	}
-	spec := (*types.ContainerSpec)(t)
-	clone := *spec
-	if spec.Command != nil {
-		clone.Command = slices.Clone(spec.Command)
-	}
-	if spec.Entrypoint != nil {
-		clone.Entrypoint = slices.Clone(spec.Entrypoint)
-	}
-	if spec.Environment != nil {
-		clone.Environment = maps.Clone(spec.Environment)
-	}
-	if spec.Labels != nil {
-		clone.Labels = maps.Clone(spec.Labels)
-	}
-	if spec.Annotations != nil {
-		clone.Annotations = maps.Clone(spec.Annotations)
-	}
-	if spec.Devices != nil {
-		clone.Devices = slices.Clone(spec.Devices)
-	}
-	if spec.DeviceCgroupRules != nil {
-		clone.DeviceCgroupRules = slices.Clone(spec.DeviceCgroupRules)
-	}
-	if spec.Exposes != nil {
-		clone.Exposes = make([]*types.Port, len(spec.Exposes))
-		for i, p := range spec.Exposes {
-			if p != nil {
-				cp := *p
-				clone.Exposes[i] = &cp
-			}
-		}
-	}
-	if spec.Publish != nil {
-		clone.Publish = make([]*types.PortBinding, len(spec.Publish))
-		for i, pb := range spec.Publish {
-			if pb != nil {
-				cpb := *pb
-				clone.Publish[i] = &cpb
-			}
-		}
-	}
-	if spec.Mounts != nil {
-		clone.Mounts = make([]*types.Mount, len(spec.Mounts))
-		for i, m := range spec.Mounts {
-			if m != nil {
-				cm := *m
-				clone.Mounts[i] = &cm
-			}
-		}
-	}
-	if spec.VolumesFrom != nil {
-		clone.VolumesFrom = slices.Clone(spec.VolumesFrom)
-	}
-	if spec.StorageOpt != nil {
-		clone.StorageOpt = maps.Clone(spec.StorageOpt)
-	}
-	if spec.GroupAdd != nil {
-		clone.GroupAdd = slices.Clone(spec.GroupAdd)
-	}
-	if spec.CapAdd != nil {
-		clone.CapAdd = slices.Clone(spec.CapAdd)
-	}
-	if spec.CapDrop != nil {
-		clone.CapDrop = slices.Clone(spec.CapDrop)
-	}
-	if spec.SecurityOpt != nil {
-		clone.SecurityOpt = slices.Clone(spec.SecurityOpt)
-	}
-	if spec.Sysctls != nil {
-		clone.Sysctls = maps.Clone(spec.Sysctls)
-	}
-	return (*Template)(&clone)
-}
-
-func (t *Template) Clone() *Template {
-	return t.Copy()
+	s := *t
+	s.Command = slices.Clone(t.Command)
+	s.Entrypoint = slices.Clone(t.Entrypoint)
+	s.Environment = maps.Clone(t.Environment)
+	s.Labels = maps.Clone(t.Labels)
+	s.Annotations = maps.Clone(t.Annotations)
+	s.Devices = slices.Clone(t.Devices)
+	s.DeviceCgroupRules = slices.Clone(t.DeviceCgroupRules)
+	s.Exposes = clone(t.Exposes)
+	s.Publish = clone(t.Publish)
+	s.Mounts = clone(t.Mounts)
+	s.VolumesFrom = slices.Clone(t.VolumesFrom)
+	s.StorageOpt = maps.Clone(t.StorageOpt)
+	s.GroupAdd = slices.Clone(t.GroupAdd)
+	s.CapAdd = slices.Clone(t.CapAdd)
+	s.CapDrop = slices.Clone(t.CapDrop)
+	s.SecurityOpt = slices.Clone(t.SecurityOpt)
+	s.Sysctls = maps.Clone(t.Sysctls)
+	return &s
 }
 
 func (t *Template) ContainerSpec() *types.ContainerSpec {
@@ -115,4 +55,19 @@ func (t *Template) ContainerSpec() *types.ContainerSpec {
 		return nil
 	}
 	return (*types.ContainerSpec)(t.Copy())
+}
+
+func clone[S ~[]*E, E any](s S) S {
+	if s == nil {
+		return nil
+	}
+
+	s2 := make(S, len(s))
+	for idx, i := range s {
+		if i != nil {
+			j := *i
+			s2[idx] = &j
+		}
+	}
+	return s2
 }
