@@ -76,7 +76,7 @@ func NewContainerRuntime(
 }
 
 func labelsOpt(forge *records.Forge) runtime.ContainerRuntimeOption {
-	labels := types.LabelsFor(forge)
+	labels := forge.WellKnownLabels()
 	return runtime.WithLabels(labels)
 }
 

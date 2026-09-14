@@ -24,7 +24,6 @@ import (
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/sandboxer/container"
 	"drassi.run/core/pkg/store/oci"
-	"drassi.run/core/util/string"
 	incusclient "github.com/lxc/incus/v6/client"
 	incusapi "github.com/lxc/incus/v6/shared/api"
 	dockerclient "github.com/moby/moby/client"
@@ -235,18 +234,7 @@ func (e *engine) launch(ctx context.Context, tmpl *Template) (sandboxer.Sandbox,
 }
 
 func (e *engine) sandboxName(forge *records.Forge) string {
-	repo := xstring.Normalize(forge.Repository)
-	repo = strings.ToLower(repo)
-
-	workflow := strings.TrimSuffix(forge.Workflow, ".yml")
-	workflow = strings.TrimSuffix(workflow, ".yaml")
-	workflow = xstring.Normalize(workflow)
-
-	job := xstring.Normalize(forge.Job)
-	run := xstring.Normalize(forge.RunId)
-	attempt := xstring.Normalize(forge.RunAttempt)
-
-	name := strings.Join([]string{repo, workflow, job, run, attempt}, "-")
+	name := forge.CanonicalName()
 	name = strings.ReplaceAll(name, "_", "-")
 	return name
 }

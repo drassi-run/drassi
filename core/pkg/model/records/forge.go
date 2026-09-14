@@ -6,6 +6,14 @@
 
 package records
 
+import (
+	"net/url"
+	"path/filepath"
+	"strings"
+
+	"drassi.run/core/util/string"
+)
+
 // Forge (a.k.a `github`) is the context contains information about the workflow run and the event that triggered the run.
 // https://docs.github.com/en/actions/learn-github-actions/contexts#github-context
 type Forge struct {
@@ -70,3 +78,69 @@ const (
 	SecretSourceCodespaces SecretSource = "Codespaces"
 	SecretSourceDependabot SecretSource = "Dependabot"
 )
+
+const (
+	LabelRepository = "run.drassi.repository"
+	LabelReference  = "run.drassi.reference"
+	LabelWorkflow   = "run.drassi.workflow"
+	LabelJob        = "run.drassi.job"
+	LabelAttempt    = "run.drassi.attempt"
+	LabelRun        = "run.drassi.run"
+)
+
+func (f *Forge) WellKnownLabels() map[string]string {
+	repo := f.Repository
+	if u, err := url.Parse(f.ServerUrl); err == nil {
+		if server := u.Host; server != "" {
+			server = strings.ToLower(server)
+			server = strings.TrimRight(server, "/")
+			repo = server + "/" + repo
+		}
+	}
+
+	labels := map[string]string{
+		LabelRepository: repo,         // e.g: github.com/drassi-run/drassi
+		LabelReference:  f.Ref,        // e.g: refs/heads/main
+		LabelWorkflow:   f.Workflow,   // e.g: test
+		LabelJob:        f.Job,        // e.g: unittests
+		LabelAttempt:    f.RunAttempt, // e.g: 1
+		LabelRun:        f.RunId,      // e.g: 11208400917
+	}
+	return labels
+}
+
+func (f *Forge) CanonicalName() string {
+	repo := xstring.Normalize(f.Repository)
+	repo = strings.ToLower(repo)
+
+	workflow := strings.TrimSuffix(f.Workflow, ".yml")
+	workflow = strings.TrimSuffix(workflow, ".yaml")
+	workflow = xstring.Normalize(workflow)
+
+	job := xstring.Normalize(f.Job)
+	run := xstring.Normalize(f.RunId)
+	attempt := xstring.Normalize(f.RunAttempt)
+
+	name := strings.Join([]string{repo, workflow, job, run, attempt}, "-")
+	return name
+}
+
+func (f *Forge) StandardPath() string {
+	var server string
+	if u, err := url.Parse(f.ServerUrl); err == nil {
+		server = u.Host
+	}
+	server = strings.ToLower(server)
+	repo := strings.ToLower(f.Repository)
+
+	workflow := strings.TrimSuffix(f.Workflow, ".yml")
+	workflow = strings.TrimSuffix(workflow, ".yaml")
+	workflow = xstring.Normalize(workflow)
+
+	job := xstring.Normalize(f.Job)
+	run := xstring.Normalize(f.RunId)
+	attempt := xstring.Normalize(f.RunAttempt)
+
+	path := filepath.Join(server, repo, workflow, job, run+"_"+attempt)
+	return path
+}

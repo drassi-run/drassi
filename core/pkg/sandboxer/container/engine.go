@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"maps"
 	"strconv"
-	"strings"
 
 	"drassi.run/core/config"
 	"drassi.run/core/pkg/container"
@@ -25,7 +24,6 @@ import (
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/store/oci"
 	"drassi.run/core/pkg/stream"
-	"drassi.run/core/util/string"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -150,7 +148,7 @@ func (e *engine) Bootstrap(ctx context.Context, sb sandboxer.Sandbox, req *sandb
 		return resp, nil
 	}
 
-	labels := types.LabelsFor(req.Forge)
+	labels := req.Forge.WellKnownLabels()
 	// cleanup order is matter
 	cleanups := []sandboxer.Cleanup{
 		cleanup(labels, e.client.ContainerRemove),
@@ -160,7 +158,7 @@ func (e *engine) Bootstrap(ctx context.Context, sb sandboxer.Sandbox, req *sandb
 
 	// Create network for job container, services containers and all container actions
 	networkId, err := e.client.NetworkCreate(ctx, &types.NetworkSpec{
-		Name:   e.nameFor(req.Forge),
+		Name:   req.Forge.CanonicalName(),
 		Driver: "bridge",
 		Labels: labels,
 	})
@@ -298,22 +296,6 @@ func (e *engine) runContainer(ctx context.Context, def *workflows.Container, ref
 		Streams: new(stream.Streams),
 	}
 	return e.client.ContainerRun(ctx, spec, runOpts)
-}
-
-func (e *engine) nameFor(forge *records.Forge) string {
-	repo := xstring.Normalize(forge.Repository)
-	repo = strings.ToLower(repo)
-
-	workflow := strings.TrimSuffix(forge.Workflow, ".yml")
-	workflow = strings.TrimSuffix(workflow, ".yaml")
-	workflow = xstring.Normalize(workflow)
-
-	job := xstring.Normalize(forge.Job)
-	run := xstring.Normalize(forge.RunId)
-	attempt := xstring.Normalize(forge.RunAttempt)
-
-	name := strings.Join([]string{repo, workflow, job, run, attempt}, "-")
-	return name
 }
 
 func (e *engine) getPortsMap(ctx context.Context, id string) (map[string]string, error) {

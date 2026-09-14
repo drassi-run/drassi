@@ -9,10 +9,8 @@ package host
 import (
 	"context"
 	"errors"
-	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 
 	"drassi.run/core/config"
@@ -24,7 +22,6 @@ import (
 	ocistore "drassi.run/core/pkg/store/oci"
 	xfs "drassi.run/core/util/fs"
 	xpath "drassi.run/core/util/path"
-	xstring "drassi.run/core/util/string"
 )
 
 func init() {
@@ -108,7 +105,7 @@ func New(config *Config, prov *provision.Provisioner[string]) (sandboxer.Engine,
 }
 
 func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*sandboxer.LaunchResponse, error) {
-	sandboxDir := e.sandboxDir(req)
+	sandboxDir := req.Forge.StandardPath()
 	sandboxDir = filepath.Join(e.RootDir, sandboxDir)
 
 	launcher := e.launch
@@ -150,26 +147,6 @@ func (e *engine) launch(ctx context.Context, sandboxDir string) (sandboxer.Sandb
 		}
 	}
 	return sb, nil
-}
-
-func (e *engine) sandboxDir(req *sandboxer.LaunchRequest) string {
-	var server string
-	if u, err := url.Parse(req.Forge.ServerUrl); err == nil {
-		server = u.Host
-	}
-	server = strings.ToLower(server)
-	repo := strings.ToLower(req.Forge.Repository)
-
-	workflow := strings.TrimSuffix(req.Forge.Workflow, ".yml")
-	workflow = strings.TrimSuffix(workflow, ".yaml")
-	workflow = xstring.Normalize(workflow)
-
-	job := xstring.Normalize(req.Forge.Job)
-	run := xstring.Normalize(req.Forge.RunId)
-	attempt := xstring.Normalize(req.Forge.RunAttempt)
-
-	path := filepath.Join(server, repo, workflow, job, run+"_"+attempt)
-	return path
 }
 
 func (e *engine) Close() error {
