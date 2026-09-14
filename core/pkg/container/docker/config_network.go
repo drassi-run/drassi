@@ -66,6 +66,9 @@ func (cc *containerConfig) setPublish(publishes []*types.PortBinding) {
 }
 
 func (cc *containerConfig) setDNS(dns *types.DNS) {
+	if dns == nil {
+		return
+	}
 	c, hc := cc.Config, cc.HostConfig
 
 	hc.DNS = dns.Servers

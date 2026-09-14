@@ -120,7 +120,16 @@ func (fm *flagMapper) mapEndpoints(copts *containerOptions) error {
 }
 
 func (fm *flagMapper) mapDNS(copts *containerOptions) error {
-	dns := fm.Spec.DNS
+	if copts.dns.Len() == 0 &&
+		copts.dnsOptions.Len() == 0 &&
+		copts.dnsSearch.Len() == 0 &&
+		copts.hostname == "" &&
+		copts.domainname == "" &&
+		copts.extraHosts.Len() == 0 {
+		return nil
+	}
+
+	dns := new(types.DNS)
 	if copts.dns.Len() > 0 {
 		servers := make([]netip.Addr, 0, copts.dns.Len())
 		for _, s := range copts.dns.GetAllOrEmpty() {
@@ -150,5 +159,6 @@ func (fm *flagMapper) mapDNS(copts *containerOptions) error {
 		}
 	}
 
+	fm.Spec.DNS = dns
 	return nil
 }
