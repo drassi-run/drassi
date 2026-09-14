@@ -15,13 +15,13 @@ import (
 	"drassi.run/core/pkg/runtime/provision"
 )
 
-type addDiskDeviceOp struct {
-	provision.Noop[*Template]
-}
-
 // AddDiskDevice returns an Operation that injects a runtime disk device into Template.Devices.
 func AddDiskDevice() provision.Operation[*Template] {
 	return addDiskDeviceOp{}
+}
+
+type addDiskDeviceOp struct {
+	provision.Noop[*Template]
 }
 
 func (op addDiskDeviceOp) Name() string { return "incus/disk-device" }

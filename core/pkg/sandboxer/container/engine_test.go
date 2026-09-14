@@ -73,8 +73,7 @@ func (s *ContainerEngineTestSuite) TestLaunch() {
 			"node": {Image: "drassi/node:24"},
 		}
 
-		p, err := NewProvisioner(s.store, runtimes)
-		s.Require().NoError(err)
+		p := NewProvisioner(s.store, runtimes)
 		s.Require().NotNil(p)
 
 		s.mockContainerLifecycle("c-123", func(spec *types.ContainerSpec) {
@@ -135,24 +134,21 @@ func (s *ContainerEngineTestSuite) TestNewProvisioner() {
 		runtimes := map[string]*config.Runtime{
 			"node": {Image: "drassi/node:24"},
 		}
-		p, err := NewProvisioner(s.store, runtimes)
-		s.Require().NoError(err)
+		p := NewProvisioner(s.store, runtimes)
 		s.Require().NotNil(p)
 	})
 
-	s.Run("with runtimes but missing store returns error", func() {
+	s.Run("with runtimes but missing store panics", func() {
 		runtimes := map[string]*config.Runtime{
 			"node": {Image: "drassi/node:24"},
 		}
-		p, err := NewProvisioner(nil, runtimes)
-		s.Require().Error(err)
-		s.Require().Nil(p)
-		s.Require().Contains(err.Error(), "oci store is required")
+		s.Require().Panics(func() {
+			_ = NewProvisioner(nil, runtimes)
+		})
 	})
 
 	s.Run("without runtimes returns nil provisioner", func() {
-		p, err := NewProvisioner(s.store, nil)
-		s.Require().NoError(err)
+		p := NewProvisioner(s.store, nil)
 		s.Require().Nil(p)
 	})
 }

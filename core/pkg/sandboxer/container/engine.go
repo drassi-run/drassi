@@ -8,12 +8,10 @@ package container
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"maps"
 	"strconv"
 
-	"drassi.run/core/config"
 	"drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/container/cli"
 	"drassi.run/core/pkg/container/parser"
@@ -22,7 +20,6 @@ import (
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/runtime/provision"
 	"drassi.run/core/pkg/sandboxer"
-	"drassi.run/core/pkg/store/oci"
 	"drassi.run/core/pkg/stream"
 	"golang.org/x/sync/errgroup"
 )
@@ -55,21 +52,6 @@ func New(client container.Engine, template *Template, prov *provision.Provisione
 
 func NewBootstrapper(client container.Engine) Bootstrapper {
 	return &engine{client: client}
-}
-
-func NewProvisioner(store ocistore.Manager, runtimes map[string]*config.Runtime) (*provision.Provisioner[*types.ContainerSpec], error) {
-	if len(runtimes) == 0 {
-		return nil, nil
-	}
-	if store == nil {
-		return nil, errors.New("oci store is required when runtimes are configured")
-	}
-	return provision.New[*types.ContainerSpec](
-		runtimes,
-		provision.Pull[*types.ContainerSpec](store),
-		provision.Mount[*types.ContainerSpec](store),
-		AddBindMount(),
-	), nil
 }
 
 func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*sandboxer.LaunchResponse, error) {

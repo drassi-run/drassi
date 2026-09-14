@@ -72,9 +72,6 @@ func (f *factory) Create() (sandboxer.Engine, error) {
 func (f *factory) doCreate() (sandboxer.Engine, error) {
 	var prov *provision.Provisioner[*Template]
 	if len(f.runtimes) > 0 {
-		if f.store == nil {
-			return nil, errors.New("oci store is required when runtimes are configured")
-		}
 		prov = provision.New[*Template](
 			f.runtimes,
 			provision.Pull[*Template](f.store),

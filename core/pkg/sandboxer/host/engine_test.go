@@ -108,7 +108,6 @@ func (s *HostEngineTestSuite) TestLaunch() {
 	})
 }
 
-
 func (s *HostEngineTestSuite) TestFactory() {
 	s.Run("with runtimes and store", func() {
 		cfg := DefaultConfig()
@@ -125,17 +124,16 @@ func (s *HostEngineTestSuite) TestFactory() {
 		_ = eng.Close()
 	})
 
-	s.Run("with runtimes but missing store returns error", func() {
+	s.Run("with runtimes but missing store panics", func() {
 		cfg := DefaultConfig()
 		cfg.RootDir = s.T().TempDir()
-		cfg.RuntimeDir = filepath.Join(cfg.RootDir, "runtimes")
 		f := NewFactory(cfg)
 		f.ProvisionRuntime(map[string]*config.Runtime{
 			"node": {Image: "drassi/node:24"},
 		})
-		_, err := f.Create()
-		s.Require().Error(err)
-		s.Require().Contains(err.Error(), "oci store is required")
+		s.Panicsf(func() {
+			_, _ = f.Create()
+		}, "oci store required")
 	})
 
 	s.Run("without runtimes", func() {

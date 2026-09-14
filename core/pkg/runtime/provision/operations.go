@@ -45,6 +45,9 @@ type pullOp[Req any] struct {
 // Pull returns an Operation that checks if the configured image is locally available,
 // and pulls it using the provided ocistore.Manager if missing.
 func Pull[Req any](store ocistore.Manager) Operation[Req] {
+	if store == nil {
+		panic("oci store required")
+	}
 	return &pullOp[Req]{store: store}
 }
 
@@ -73,6 +76,9 @@ type mountOp[Req any] struct {
 // Mount returns an Operation that mounts the configured runtime image with the given MountOptions,
 // records KeyHostMountDir and KeyMountID in Context, and returns an unmount Cleanup closure.
 func Mount[Req any](store ocistore.Manager, opts ...ocistore.MountOption) Operation[Req] {
+	if store == nil {
+		panic("oci store required")
+	}
 	return &mountOp[Req]{store: store, opts: opts}
 }
 

@@ -8,7 +8,6 @@ package host
 
 import (
 	"context"
-	"errors"
 	"os"
 	"path/filepath"
 	"sync"
@@ -64,9 +63,6 @@ func (f *factory) Create() (sandboxer.Engine, error) {
 func (f *factory) doCreate() (sandboxer.Engine, error) {
 	var prov *provision.Provisioner[string]
 	if len(f.runtimes) > 0 {
-		if f.store == nil {
-			return nil, errors.New("oci store is required when runtimes are configured")
-		}
 		prov = provision.New[string](
 			f.runtimes,
 			provision.Pull[string](f.store),
