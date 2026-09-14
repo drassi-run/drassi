@@ -14,25 +14,25 @@ import (
 )
 
 type ContainerSpec struct {
-	Name       string
-	Image      string
-	PullPolicy string
+	Name       string `json:"name,omitempty"`
+	Image      string `json:"image,omitempty"`
+	PullPolicy string `json:"pull_policy,omitempty"`
 
-	Command     []string
-	Entrypoint  []string
-	WorkingDir  string
-	Environment map[string]string
-	Labels      map[string]string
-	Annotations map[string]string
+	Command     []string `json:"command,omitempty"`
+	Entrypoint  []string `json:"entrypoint,omitempty"`
+	WorkingDir  string   `json:"working_dir,omitempty"`
+	Environment Mapping  `json:"environment,omitempty"`
+	Labels      Mapping  `json:"labels,omitempty"`
+	Annotations Mapping  `json:"annotations,omitempty"`
 
-	ContainerNetwork
-	ContainerStorage
-	Devices           []string
-	DeviceCgroupRules []string
+	ContainerNetwork  `json:",embed"`
+	ContainerStorage  `json:",embed"`
+	Devices           []string `json:"devices,omitempty"`
+	DeviceCgroupRules []string `json:"device_cgroup_rules,omitempty"`
 
-	ContainerRuntime
-	ContainerResource
-	ContainerSecurity
+	ContainerRuntime  `json:",embed"`
+	ContainerResource `json:",embed"`
+	ContainerSecurity `json:",embed"`
 }
 
 const (
@@ -44,7 +44,7 @@ const (
 	LabelRun        = "run.drassi.run"
 )
 
-func LabelsFor(forge *records.Forge) map[string]string {
+func LabelsFor(forge *records.Forge) Mapping {
 	repo := forge.Repository
 	if u, err := url.Parse(forge.ServerUrl); err == nil {
 		if server := u.Host; server != "" {
@@ -54,7 +54,7 @@ func LabelsFor(forge *records.Forge) map[string]string {
 		}
 	}
 
-	labels := map[string]string{
+	labels := Mapping{
 		LabelRepository: repo,             // e.g: github.com/drassi-run/drassi
 		LabelReference:  forge.Ref,        // e.g: refs/heads/main
 		LabelWorkflow:   forge.Workflow,   // e.g: test

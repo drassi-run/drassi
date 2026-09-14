@@ -25,13 +25,15 @@ func init() {
 }
 
 type Config struct {
-	Endpoint string `toml:"endpoint" json:"endpoint,omitempty"`
-	Image    string `toml:"image" json:"image,omitempty"`
+	Endpoint string              `toml:"endpoint" json:"endpoint,omitempty"`
+	Template *container.Template `toml:"template" json:"template,omitempty"`
 }
 
 func DefaultConfig() *Config {
 	return &Config{
-		Image: container.DefaultImage,
+		Template: &container.Template{
+			Image: container.DefaultImage,
+		},
 	}
 }
 
@@ -84,5 +86,5 @@ func New(cfg *Config, prov *provision.Provisioner[*types.ContainerSpec]) (sandbo
 	}
 	client = c.WithTelemetry(client)
 
-	return container.New(client, cfg.Image, prov), nil
+	return container.New(client, cfg.Template, prov), nil
 }

@@ -7,9 +7,7 @@
 package cli
 
 import (
-	"fmt"
-	"strings"
-
+	"drassi.run/core/pkg/container/parser"
 	"drassi.run/core/pkg/container/types"
 	"github.com/google/shlex"
 	"github.com/spf13/pflag"
@@ -69,8 +67,8 @@ func (fm *flagMapper) mapContainerSpec(flags *pflag.FlagSet, copts *containerOpt
 		Name:        copts.name,
 		PullPolicy:  copts.pull,
 		WorkingDir:  copts.workingDir,
-		Environment: ConvertKVStringsToMap(copts.env.GetAllOrEmpty()),
-		Labels:      ConvertKVStringsToMap(copts.labels.GetAllOrEmpty()),
+		Environment: parser.ConvertKVStringsToMap(copts.env.GetAllOrEmpty()),
+		Labels:      parser.ConvertKVStringsToMap(copts.labels.GetAllOrEmpty()),
 		Annotations: copts.annotations.GetAll(),
 	}
 	spec := fm.Spec
@@ -103,28 +101,4 @@ func (fm *flagMapper) mapContainerSpec(flags *pflag.FlagSet, copts *containerOpt
 	}
 
 	return nil
-}
-
-// ConvertMapToKVString converts {"key":"value"} to ["key=value"]
-func ConvertMapToKVString(m map[string]string) []string {
-	if len(m) == 0 {
-		return nil
-	}
-
-	r := make([]string, 0, len(m))
-	for k, v := range m {
-		r = append(r, fmt.Sprintf("%s=%s", k, v))
-	}
-	return r
-}
-
-// ConvertKVStringsToMap converts ["key=value"] to {"key":"value"}
-func ConvertKVStringsToMap(values []string) map[string]string {
-	result := make(map[string]string, len(values))
-	for _, value := range values {
-		k, v, _ := strings.Cut(value, "=")
-		result[k] = v
-	}
-
-	return result
 }
