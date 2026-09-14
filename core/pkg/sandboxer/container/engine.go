@@ -137,8 +137,10 @@ func (e *engine) launch(ctx context.Context, spec *types.ContainerSpec) (sandbox
 
 func (e *engine) Bootstrap(ctx context.Context, sb sandboxer.Sandbox, req *sandboxer.LaunchRequest) (resp *sandboxer.LaunchResponse, err error) {
 	resp = &sandboxer.LaunchResponse{
-		Sandbox:         sb,
-		ContainerEngine: e.client,
+		Sandbox: sb,
+		ContainerEngine: func(ctx context.Context) (container.Engine, error) {
+			return e.client, nil
+		},
 	}
 
 	if req.JobContainer == nil && len(req.ServiceContainers) == 0 {

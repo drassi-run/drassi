@@ -15,6 +15,8 @@ import (
 	"drassi.run/core/pkg/stream"
 )
 
+type Provider func(ctx context.Context) (Engine, error)
+
 type Engine interface {
 	io.Closer
 	Address() string

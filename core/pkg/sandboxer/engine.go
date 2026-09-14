@@ -31,7 +31,7 @@ type LaunchRequest struct {
 
 type LaunchResponse struct {
 	Sandbox         Sandbox
-	ContainerEngine container.Engine
+	ContainerEngine container.Provider
 
 	JobContainer      *records.ContainerInfo
 	ServiceContainers map[string]*records.ContainerInfo

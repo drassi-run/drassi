@@ -11,7 +11,6 @@ import (
 	"io"
 	"io/fs"
 
-	"drassi.run/core/pkg/container/types"
 	"drassi.run/core/pkg/stream"
 )
 
@@ -24,13 +23,6 @@ type Sandbox interface {
 	Execute(ctx context.Context, cmd, path []string, env map[string]string, workdir string, streams *stream.Streams) error
 
 	Terminate(ctx context.Context) error
-}
-
-type ContainerInfo struct {
-	Id      string
-	Network string
-	Mounts  []*types.Mount
-	Labels  map[string]string
 }
 
 type Layout struct {
