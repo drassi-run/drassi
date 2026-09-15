@@ -18,6 +18,8 @@ import (
 
 var _ unstable.Unmarshaler = (*Template)(nil)
 
+const DefaultImage = "ghcr.io/drassi-run/ubuntu:26.04"
+
 type Template types.ContainerSpec
 
 func (t *Template) UnmarshalTOML(data []byte) error {

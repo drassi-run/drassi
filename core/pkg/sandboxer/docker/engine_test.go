@@ -23,7 +23,7 @@ func TestDefaultConfig(t *testing.T) {
 	require.NotNil(t, cfg)
 	require.NotNil(t, cfg.Template)
 	require.Equal(t, container.DefaultImage, cfg.Template.Image)
-	require.Empty(t, cfg.Endpoint)
+	require.Equal(t, cfg.Endpoint, "unix:///var/run/docker.sock")
 }
 
 func TestFactoryRegistration(t *testing.T) {

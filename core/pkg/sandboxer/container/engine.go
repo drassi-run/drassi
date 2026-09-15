@@ -24,8 +24,6 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-const DefaultImage = "ghcr.io/drassi-run/ubuntu:26.04"
-
 type Bootstrapper interface {
 	Bootstrap(ctx context.Context, sb sandboxer.Sandbox, req *sandboxer.LaunchRequest) (*sandboxer.LaunchResponse, error)
 }
@@ -79,9 +77,10 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*san
 		spec := (*types.ContainerSpec)(tmpl)
 
 		var err error
-		launcher := e.launch
+		layout := DefaultLayout("")
+		launcher := e.launch(layout)
 		if prov := e.provisioner; prov != nil {
-			launcher = prov.Launch(defaultLayout.Runtimes, launcher)
+			launcher = prov.Launch(layout.Runtimes, launcher)
 		}
 		if sb, err = launcher(ctx, spec); err != nil {
 			return nil, err
@@ -105,16 +104,18 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*san
 	return resp, nil
 }
 
-func (e *engine) launch(ctx context.Context, spec *types.ContainerSpec) (sandboxer.Sandbox, error) {
-	runOpts := &container.RunOptions{
-		Stdio:   new(types.Stdio),
-		Streams: new(stream.Streams),
+func (e *engine) launch(layout *sandboxer.Layout) provision.Launcher[*types.ContainerSpec] {
+	return func(ctx context.Context, spec *types.ContainerSpec) (sandboxer.Sandbox, error) {
+		runOpts := &container.RunOptions{
+			Stdio:   new(types.Stdio),
+			Streams: new(stream.Streams),
+		}
+		if cid, err := e.client.ContainerRun(ctx, spec, runOpts); err != nil {
+			return nil, err
+		} else {
+			return NewSandbox(ctx, e.client, cid, layout)
+		}
 	}
-	cid, err := e.client.ContainerRun(ctx, spec, runOpts)
-	if err != nil {
-		return nil, err
-	}
-	return newSandbox(ctx, e.client, cid)
 }
 
 func (e *engine) Bootstrap(ctx context.Context, sb sandboxer.Sandbox, req *sandboxer.LaunchRequest) (resp *sandboxer.LaunchResponse, err error) {
@@ -150,11 +151,12 @@ func (e *engine) Bootstrap(ctx context.Context, sb sandboxer.Sandbox, req *sandb
 		return nil, err
 	}
 
+	layout := DefaultLayout("")
 	// Run job container
 	if def := req.JobContainer; def != nil {
 		refiners := []refiner{
 			setCmd([]string{"sleep"}, []string{"infinity"}),
-			setWorkdir(defaultLayout.Workspace),
+			setWorkdir(layout.Workspace),
 			setNetwork(networkId),
 			addSandboxMounts(sb),
 			addContainerSocketMounts(e.client),
@@ -170,7 +172,7 @@ func (e *engine) Bootstrap(ctx context.Context, sb sandboxer.Sandbox, req *sandb
 			Network: networkId,
 		}
 
-		if sb, err = newSandbox(ctx, e.client, containerId); err != nil {
+		if sb, err = NewSandbox(ctx, e.client, containerId, layout); err != nil {
 			return nil, err
 		}
 		sb = sandboxer.AddAfterCleanup(sb, cleanups...)

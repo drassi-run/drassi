@@ -90,14 +90,14 @@ func addSandboxMounts(sb sandboxer.Sandbox) refiner {
 		m := &types.Mount{
 			Type:   "volume",
 			Source: "", // anonymous volume
-			Target: jobDir,
+			Target: DefaultJobDir,
 		}
 		mounts = append(mounts, m)
 	} else {
 		layout := sb.Layout()
 		dir := map[string]string{
-			defaultLayout.Workspace: layout.Workspace,
-			defaultLayout.Temp:      layout.Temp,
+			layout.Workspace: layout.Workspace,
+			layout.Temp:      layout.Temp,
 		}
 		for k, v := range dir {
 			m := &types.Mount{
