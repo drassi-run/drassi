@@ -24,10 +24,6 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-type Bootstrapper interface {
-	Bootstrap(ctx context.Context, sb sandboxer.Sandbox, req *sandboxer.LaunchRequest) (*sandboxer.LaunchResponse, error)
-}
-
 type engine struct {
 	client      container.Engine
 	template    *Template
@@ -46,10 +42,6 @@ func New(client container.Engine, template *Template, prov *provision.Provisione
 		template:    template,
 		provisioner: prov,
 	}
-}
-
-func NewBootstrapper(client container.Engine) Bootstrapper {
-	return &engine{client: client}
 }
 
 func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*sandboxer.LaunchResponse, error) {
@@ -154,14 +146,14 @@ func (e *engine) Bootstrap(ctx context.Context, sb sandboxer.Sandbox, req *sandb
 	layout := DefaultLayout("")
 	// Run job container
 	if def := req.JobContainer; def != nil {
-		refiners := []refiner{
-			setCmd([]string{"sleep"}, []string{"infinity"}),
-			setWorkdir(layout.Workspace),
-			setNetwork(networkId),
+		refiners := []Option{
+			SetCmd([]string{"sleep"}, []string{"infinity"}),
+			SetWorkdir(layout.Workspace),
+			SetNetwork(networkId),
 			addSandboxMounts(sb),
-			addContainerSocketMounts(e.client),
-			setLabels(labels),
-			setCIEnv(),
+			MountApiSocket(e.client),
+			SetLabels(labels),
+			SetCIEnv(),
 		}
 		containerId, err := e.runContainer(ctx, def, refiners)
 		if err != nil {
@@ -185,9 +177,9 @@ func (e *engine) Bootstrap(ctx context.Context, sb sandboxer.Sandbox, req *sandb
 
 	// Run services container in parallel
 	if len(req.ServiceContainers) > 0 {
-		refiners := []refiner{
-			setNetwork(networkId),
-			setLabels(labels),
+		refiners := []Option{
+			SetNetwork(networkId),
+			SetLabels(labels),
 		}
 		g, ctx := errgroup.WithContext(ctx)
 		g.SetLimit(8)
@@ -219,7 +211,7 @@ func (e *engine) Close() error {
 	return e.client.Close()
 }
 
-func (e *engine) parseContainer(def *workflows.Container, refiners []refiner) (spec *types.ContainerSpec, err error) {
+func (e *engine) parseContainer(def *workflows.Container, refiners []Option) (spec *types.ContainerSpec, err error) {
 	if spec, _, err = cli.Parse(def.Options); err != nil {
 		return
 	}
@@ -261,7 +253,7 @@ func (e *engine) parseContainer(def *workflows.Container, refiners []refiner) (s
 	return
 }
 
-func (e *engine) runContainer(ctx context.Context, def *workflows.Container, refiners []refiner) (string, error) {
+func (e *engine) runContainer(ctx context.Context, def *workflows.Container, refiners []Option) (string, error) {
 	spec, err := e.parseContainer(def, refiners)
 	if err != nil {
 		return "", err

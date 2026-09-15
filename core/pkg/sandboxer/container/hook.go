@@ -23,9 +23,9 @@ func cleanup(labels map[string]string, fn func(context.Context, *container.Remov
 	}
 }
 
-type refiner = func(*types.ContainerSpec) error
+type Option func(*types.ContainerSpec) error
 
-func setLabels(labels map[string]string) refiner {
+func SetLabels(labels map[string]string) Option {
 	return func(spec *types.ContainerSpec) error {
 		// set labels for container
 		if spec.Labels == nil {
@@ -53,7 +53,7 @@ func setLabels(labels map[string]string) refiner {
 	}
 }
 
-func setCmd(entrypoint, command []string) refiner {
+func SetCmd(entrypoint, command []string) Option {
 	return func(spec *types.ContainerSpec) error {
 		if len(entrypoint) > 0 {
 			spec.Entrypoint = entrypoint
@@ -65,7 +65,7 @@ func setCmd(entrypoint, command []string) refiner {
 	}
 }
 
-func setNetwork(id string) refiner {
+func SetNetwork(id string) Option {
 	return func(spec *types.ContainerSpec) error {
 		switch len(spec.Endpoints) {
 		case 0:
@@ -84,7 +84,7 @@ func setNetwork(id string) refiner {
 	}
 }
 
-func addSandboxMounts(sb sandboxer.Sandbox) refiner {
+func addSandboxMounts(sb sandboxer.Sandbox) Option {
 	mounts := make([]*types.Mount, 0)
 	if sb == nil {
 		m := &types.Mount{
@@ -115,7 +115,7 @@ func addSandboxMounts(sb sandboxer.Sandbox) refiner {
 	}
 }
 
-func addContainerSocketMounts(c container.Engine) refiner {
+func MountApiSocket(c container.Engine) Option {
 	socket := c.Address()
 	if proto, loc, ok := strings.Cut(socket, "://"); ok {
 		if proto == "unix" {
@@ -135,7 +135,7 @@ func addContainerSocketMounts(c container.Engine) refiner {
 	}
 }
 
-func setWorkdir(dir string) refiner {
+func SetWorkdir(dir string) Option {
 	return func(spec *types.ContainerSpec) error {
 		if spec.WorkingDir != "" {
 			spec.WorkingDir = dir
@@ -144,7 +144,7 @@ func setWorkdir(dir string) refiner {
 	}
 }
 
-func setCIEnv() refiner {
+func SetCIEnv() Option {
 	return func(spec *types.ContainerSpec) error {
 		if spec.Environment == nil {
 			spec.Environment = make(map[string]string)
