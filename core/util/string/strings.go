@@ -10,7 +10,9 @@ import (
 	"math/rand"
 	"regexp"
 	"strings"
+	"sync"
 	"unicode"
+	"unicode/utf8"
 
 	"golang.org/x/text/runes"
 	"golang.org/x/text/transform"
@@ -112,36 +114,61 @@ var transliterations = map[rune]string{
 	'χ': "ch", 'Χ': "Ch",
 	'ψ': "ps", 'Ψ': "Ps",
 	'ω': "o", 'Ω': "O",
+
+	// NOTE: Greek vowels with tonos / dialytika (monotonic Greek).
+	'ά': "a", 'Ά': "A",
+	'έ': "e", 'Έ': "E",
+	'ή': "e", 'Ή': "E",
+	'ί': "i", 'Ί': "I", 'ϊ': "i", 'Ϊ': "I", 'ΐ': "i",
+	'ό': "o", 'Ό': "O",
+	'ύ': "y", 'Ύ': "Y", 'ϋ': "y", 'Ϋ': "Y", 'ΰ': "y",
+	'ώ': "o", 'Ώ': "O",
 }
 
-var diacriticTransformer = transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
+// transliterator is a transform.Transformer that maps Unicode characters
+// (Latin ligatures/strokes, Cyrillic, and Greek) to their closest basic Latin/ASCII representations.
+type transliterator struct {
+	transform.NopResetter
+}
 
-func transliterate(s string) string {
-	var b strings.Builder
-	b.Grow(len(s))
-	for _, r := range s {
+func (transliterator) Transform(dst, src []byte, atEOF bool) (nDst, nSrc int, err error) {
+	for nSrc < len(src) {
+		r, size := utf8.DecodeRune(src[nSrc:])
+		if r == utf8.RuneError && size == 1 {
+			if !atEOF && !utf8.FullRune(src[nSrc:]) {
+				err = transform.ErrShortSrc
+				break
+			}
+		}
+
 		if sub, ok := transliterations[r]; ok {
-			b.WriteString(sub)
+			if len(dst)-nDst < len(sub) {
+				err = transform.ErrShortDst
+				break
+			}
+			nDst += copy(dst[nDst:], sub)
+			nSrc += size
 		} else {
-			b.WriteRune(r)
+			if len(dst)-nDst < size {
+				err = transform.ErrShortDst
+				break
+			}
+			nDst += copy(dst[nDst:], src[nSrc:nSrc+size])
+			nSrc += size
 		}
 	}
-	s = b.String()
+	return nDst, nSrc, err
+}
 
-	if stripped, _, err := transform.String(diacriticTransformer, s); err == nil {
-		s = stripped
-	}
-
-	b.Reset()
-	b.Grow(len(s))
-	for _, r := range s {
-		if sub, ok := transliterations[r]; ok {
-			b.WriteString(sub)
-		} else {
-			b.WriteRune(r)
-		}
-	}
-	return b.String()
+var transliteratorPool = sync.Pool{
+	New: func() any {
+		return transform.Chain(
+			new(transliterator),
+			norm.NFD,
+			runes.Remove(runes.In(unicode.Mn)),
+			norm.NFC,
+		)
+	},
 }
 
 var nonAlphanumericRegex = regexp.MustCompile(`[^a-zA-Z0-9.\-_]+`)
@@ -166,7 +193,9 @@ var nonAlphanumericRegex = regexp.MustCompile(`[^a-zA-Z0-9.\-_]+`)
 // • Also transliterates Cyrillic and Greek characters to their Latin/ASCII equivalents.
 // • Note: CJK and other non-phonetic scripts are not transliterated.
 func Normalize(s string) string {
-	s = transliterate(s)
+	t := transliteratorPool.Get().(transform.Transformer)
+	s, _, _ = transform.String(t, s)
+	transliteratorPool.Put(t)
 	s = nonAlphanumericRegex.ReplaceAllString(s, "-")
 	s = strings.ToLower(s)
 	return s

@@ -7,9 +7,14 @@
 package xstring
 
 import (
+	"io"
+	"strings"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/text/transform"
 )
 
 func TestNormalize(t *testing.T) {
@@ -96,4 +101,39 @@ func TestNormalize(t *testing.T) {
 			assert.Equal(t, tt.expected, actual)
 		})
 	}
+}
+
+func TestTransliterator(t *testing.T) {
+	t.Run("transform.String with NewTransliterator", func(t *testing.T) {
+		res, _, err := transform.String(NewTransliterator(), "Київ, Αθήνα, Đặng, München")
+		require.NoError(t, err)
+		assert.Equal(t, "Kiyiv, Athena, Dang, Munchen", res)
+	})
+
+	t.Run("streaming with io.Reader", func(t *testing.T) {
+		r := transform.NewReader(strings.NewReader("Україна & München"), NewTransliterator())
+		out, err := io.ReadAll(r)
+		require.NoError(t, err)
+		assert.Equal(t, "Ukrayina & Munchen", string(out))
+	})
+
+	t.Run("empty string", func(t *testing.T) {
+		res, _, err := transform.String(NewTransliterator(), "")
+		require.NoError(t, err)
+		assert.Equal(t, "", res)
+	})
+
+	t.Run("concurrent usage of Normalize", func(t *testing.T) {
+		var wg sync.WaitGroup
+		for i := 0; i < 50; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				assert.Equal(t, "kiyiv-ukrayina", Normalize("Київ Україна"))
+				assert.Equal(t, "athena-ellenike-demokratia", Normalize("Αθήνα Ελληνική Δημοκρατία"))
+				assert.Equal(t, "dang-minh-dung", Normalize("Đặng Minh Dũng"))
+			}()
+		}
+		wg.Wait()
+	})
 }
