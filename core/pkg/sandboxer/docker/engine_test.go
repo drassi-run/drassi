@@ -7,14 +7,21 @@
 package docker
 
 import (
+	"context"
+	"errors"
 	"testing"
 
 	"drassi.run/core/config"
+	mock_container "drassi.run/core/mock/container"
 	mock_store "drassi.run/core/mock/store/oci"
+	c "drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/container/types"
+	"drassi.run/core/pkg/model/records"
+	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/sandboxer/container"
 	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
 )
 
@@ -23,7 +30,7 @@ func TestDefaultConfig(t *testing.T) {
 	require.NotNil(t, cfg)
 	require.NotNil(t, cfg.Template)
 	require.Equal(t, container.DefaultImage, cfg.Template.Image)
-	require.Equal(t, cfg.Endpoint, "unix:///var/run/docker.sock")
+	require.Equal(t, "unix:///var/run/docker.sock", cfg.Endpoint)
 }
 
 func TestFactoryRegistration(t *testing.T) {
@@ -181,4 +188,148 @@ func TestNew(t *testing.T) {
 		require.NotNil(t, eng)
 		_ = eng.Close()
 	})
+}
+
+func TestDockerEngineLifecycleSuite(t *testing.T) {
+	suite.Run(t, new(DockerEngineLifecycleTestSuite))
+}
+
+type DockerEngineLifecycleTestSuite struct {
+	suite.Suite
+	ctrl       *gomock.Controller
+	mockClient *mock_container.MockEngine
+	forge      *records.Forge
+}
+
+func (s *DockerEngineLifecycleTestSuite) SetupTest() {
+	s.ctrl = gomock.NewController(s.T())
+	s.mockClient = mock_container.NewMockEngine(s.ctrl)
+	s.forge = &records.Forge{
+		Repository: "drassi/test",
+		Workflow:   "test.yml",
+		Job:        "build",
+		RunId:      "100",
+		RunAttempt: "1",
+	}
+}
+
+func (s *DockerEngineLifecycleTestSuite) TestLaunch_Case1_NoJobContainer() {
+	s.mockClient.EXPECT().NetworkCreate(gomock.Any(), gomock.Any()).Return("net-docker-1", nil)
+	s.mockClient.EXPECT().Address().Return("unix:///var/run/docker.sock")
+	s.mockClient.EXPECT().ContainerRun(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, spec *types.ContainerSpec, _ *c.RunOptions) (string, error) {
+			s.Require().Equal(container.DefaultImage, spec.Image)
+			s.Require().Equal([]string{"sleep"}, spec.Entrypoint)
+			s.Require().Equal([]string{"infinity"}, spec.Command)
+			s.Require().Len(spec.Endpoints, 1)
+			s.Require().Equal("net-docker-1", spec.Endpoints[0].Target)
+			return "c-sb-1", nil
+		},
+	)
+	s.mockClient.EXPECT().CopyIn(gomock.Any(), "c-sb-1", gomock.Any()).Return(nil)
+	s.mockClient.EXPECT().ContainerInspect(gomock.Any(), "c-sb-1").Return(&types.ContainerSpec{
+		Environment: map[string]string{"PATH": "/bin"},
+	}, nil)
+
+	eng := &engine{client: s.mockClient, template: DefaultConfig().Template}
+	resp, err := eng.Launch(s.T().Context(), &sandboxer.LaunchRequest{Forge: s.forge})
+	s.Require().NoError(err)
+	s.Require().NotNil(resp)
+	s.Require().NotNil(resp.Sandbox)
+	s.Require().NotNil(resp.JobContainer)
+	s.Require().Equal("c-sb-1", resp.JobContainer.Id)
+	s.Require().NotNil(resp.ContainerEngine)
+	ce, err := resp.ContainerEngine(s.T().Context())
+	s.Require().NoError(err)
+	s.Require().Equal(s.mockClient, ce)
+
+	s.mockClient.EXPECT().ContainerRemove(gomock.Any(), &c.RemoveOptions{Id: "c-sb-1"}).Return(nil)
+	s.mockClient.EXPECT().ContainerRemove(gomock.Any(), &c.RemoveOptions{Labels: s.forge.WellKnownLabels()}).Return(nil)
+	s.mockClient.EXPECT().VolumeRemove(gomock.Any(), &c.RemoveOptions{Labels: s.forge.WellKnownLabels()}).Return(nil)
+	s.mockClient.EXPECT().NetworkRemove(gomock.Any(), &c.RemoveOptions{Id: "net-docker-1"}).Return(nil)
+	s.Require().NoError(resp.Sandbox.Terminate(s.T().Context()))
+}
+
+func (s *DockerEngineLifecycleTestSuite) TestLaunch_Case2_WithJobContainer() {
+	s.mockClient.EXPECT().NetworkCreate(gomock.Any(), gomock.Any()).Return("net-docker-2", nil)
+	s.mockClient.EXPECT().Address().Return("unix:///var/run/docker.sock")
+	s.mockClient.EXPECT().ContainerRun(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, spec *types.ContainerSpec, _ *c.RunOptions) (string, error) {
+			s.Require().Equal("node:18", spec.Image)
+			s.Require().Equal("custom-val", spec.Environment["CUSTOM_ENV"])
+			return "c-node-1", nil
+		},
+	)
+	s.mockClient.EXPECT().CopyIn(gomock.Any(), "c-node-1", gomock.Any()).Return(nil)
+	s.mockClient.EXPECT().ContainerInspect(gomock.Any(), "c-node-1").Return(&types.ContainerSpec{
+		Environment: map[string]string{"PATH": "/bin"},
+	}, nil)
+
+	eng := &engine{client: s.mockClient, template: DefaultConfig().Template}
+	req := &sandboxer.LaunchRequest{
+		Forge: s.forge,
+		JobContainer: &workflows.Container{
+			Image: "node:18",
+			Env:   map[string]string{"CUSTOM_ENV": "custom-val"},
+		},
+	}
+	resp, err := eng.Launch(s.T().Context(), req)
+	s.Require().NoError(err)
+	s.Require().NotNil(resp)
+	s.Require().Equal("c-node-1", resp.JobContainer.Id)
+
+	s.mockClient.EXPECT().ContainerRemove(gomock.Any(), &c.RemoveOptions{Id: "c-node-1"}).Return(nil)
+	s.mockClient.EXPECT().ContainerRemove(gomock.Any(), &c.RemoveOptions{Labels: s.forge.WellKnownLabels()}).Return(nil)
+	s.mockClient.EXPECT().VolumeRemove(gomock.Any(), &c.RemoveOptions{Labels: s.forge.WellKnownLabels()}).Return(nil)
+	s.mockClient.EXPECT().NetworkRemove(gomock.Any(), &c.RemoveOptions{Id: "net-docker-2"}).Return(nil)
+	s.Require().NoError(resp.Sandbox.Terminate(s.T().Context()))
+}
+
+func (s *DockerEngineLifecycleTestSuite) TestLaunch_Case2b_WithServices() {
+	s.mockClient.EXPECT().NetworkCreate(gomock.Any(), gomock.Any()).Return("net-docker-3", nil)
+	s.mockClient.EXPECT().Address().Return("unix:///var/run/docker.sock")
+	s.mockClient.EXPECT().ContainerRun(gomock.Any(), gomock.Any(), gomock.Any()).Return("c-main", nil)
+	s.mockClient.EXPECT().CopyIn(gomock.Any(), "c-main", gomock.Any()).Return(nil)
+	s.mockClient.EXPECT().ContainerInspect(gomock.Any(), "c-main").Return(&types.ContainerSpec{
+		Environment: map[string]string{"PATH": "/bin"},
+	}, nil)
+
+	// Bootstrap for service container
+	s.mockClient.EXPECT().ImagePull(gomock.Any(), "redis:7", gomock.Any()).Return(nil)
+	s.mockClient.EXPECT().ContainerRun(gomock.Any(), gomock.Any(), gomock.Any()).Return("c-redis-svc", nil)
+	s.mockClient.EXPECT().ContainerInspect(gomock.Any(), "c-redis-svc").Return(&types.ContainerSpec{}, nil)
+
+	eng := &engine{client: s.mockClient, template: DefaultConfig().Template}
+	req := &sandboxer.LaunchRequest{
+		Forge: s.forge,
+		ServiceContainers: map[string]*workflows.Container{
+			"redis": {Image: "redis:7"},
+		},
+	}
+	resp, err := eng.Launch(s.T().Context(), req)
+	s.Require().NoError(err)
+	s.Require().NotNil(resp)
+	s.Require().Contains(resp.ServiceContainers, "redis")
+	s.Require().Equal("c-redis-svc", resp.ServiceContainers["redis"].Id)
+
+	s.mockClient.EXPECT().ContainerRemove(gomock.Any(), &c.RemoveOptions{Id: "c-main"}).Return(nil)
+	s.mockClient.EXPECT().ContainerRemove(gomock.Any(), &c.RemoveOptions{Labels: s.forge.WellKnownLabels()}).Return(nil)
+	s.mockClient.EXPECT().VolumeRemove(gomock.Any(), &c.RemoveOptions{Labels: s.forge.WellKnownLabels()}).Return(nil)
+	s.mockClient.EXPECT().NetworkRemove(gomock.Any(), &c.RemoveOptions{Id: "net-docker-3"}).Return(nil)
+	s.Require().NoError(resp.Sandbox.Terminate(s.T().Context()))
+}
+
+func (s *DockerEngineLifecycleTestSuite) TestLaunch_FailureRollback() {
+	s.mockClient.EXPECT().NetworkCreate(gomock.Any(), gomock.Any()).Return("net-fail", nil)
+	s.mockClient.EXPECT().Address().Return("unix:///var/run/docker.sock")
+	s.mockClient.EXPECT().ContainerRun(gomock.Any(), gomock.Any(), gomock.Any()).Return("", errors.New("run failed"))
+	s.mockClient.EXPECT().ContainerRemove(gomock.Any(), &c.RemoveOptions{Labels: s.forge.WellKnownLabels()}).Return(nil)
+	s.mockClient.EXPECT().VolumeRemove(gomock.Any(), &c.RemoveOptions{Labels: s.forge.WellKnownLabels()}).Return(nil)
+	s.mockClient.EXPECT().NetworkRemove(gomock.Any(), &c.RemoveOptions{Id: "net-fail"}).Return(nil)
+
+	eng := &engine{client: s.mockClient, template: DefaultConfig().Template}
+	resp, err := eng.Launch(s.T().Context(), &sandboxer.LaunchRequest{Forge: s.forge})
+	s.Require().Error(err)
+	s.Require().Nil(resp)
+	s.Require().Contains(err.Error(), "run failed")
 }
