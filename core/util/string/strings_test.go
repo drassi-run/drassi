@@ -68,6 +68,26 @@ func TestNormalize(t *testing.T) {
 			input:    "Þórður",
 			expected: "thordur",
 		},
+		{
+			name:     "Russian Cyrillic",
+			input:    "Москва Россия Привет мир",
+			expected: "moskva-rossiya-privet-mir",
+		},
+		{
+			name:     "Ukrainian Cyrillic",
+			input:    "Київ Україна",
+			expected: "kiyiv-ukrayina",
+		},
+		{
+			name:     "Greek alphabet with accents",
+			input:    "Αθήνα Ελληνική Δημοκρατία",
+			expected: "athena-ellenike-demokratia",
+		},
+		{
+			name:     "Greek mixed letters and sigma variants",
+			input:    "Οδυσσέας Ψυχώ",
+			expected: "odysseas-psycho",
+		},
 	}
 
 	for _, tt := range tests {
