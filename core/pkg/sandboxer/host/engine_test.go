@@ -103,6 +103,30 @@ func (s *HostEngineTestSuite) TestLaunch() {
 	})
 }
 
+func (s *HostEngineTestSuite) TestLaunch_WithoutContainers_NoDocker() {
+	eng, err := New(s.cfg, nil)
+	s.Require().NoError(err)
+
+	req := &sandboxer.LaunchRequest{
+		Forge: &records.Forge{
+			Repository: "drassi/test",
+			Workflow:   "build.yml",
+			Job:        "test",
+			RunId:      "1",
+			RunAttempt: "1",
+		},
+	}
+
+	resp, err := eng.Launch(s.T().Context(), req)
+	s.Require().NoError(err)
+	s.Require().NotNil(resp)
+	s.Require().NotNil(resp.Sandbox)
+	s.Require().NotNil(resp.ContainerEngine, "ContainerEngine provider must be provided for lazy init")
+	s.Require().Nil(resp.JobContainer)
+	s.Require().Empty(resp.ServiceContainers)
+	s.Require().NoError(resp.Sandbox.Terminate(s.T().Context()))
+}
+
 func (s *HostEngineTestSuite) TestFactory() {
 	s.Run("with runtimes and store", func() {
 		cfg := DefaultConfig()

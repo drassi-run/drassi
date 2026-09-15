@@ -15,9 +15,9 @@ import (
 	"drassi.run/core/pkg/container/docker"
 	"drassi.run/core/pkg/runtime/provision"
 	"drassi.run/core/pkg/sandboxer"
-	"drassi.run/core/pkg/sandboxer/container"
 	"drassi.run/core/util/fs"
 	"drassi.run/core/util/path"
+	"drassi.run/core/util/sync"
 )
 
 func New(config *Config, prov *provision.Provisioner[string]) (e sandboxer.Engine, err error) {
@@ -58,18 +58,16 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*san
 		return nil, err
 	}
 
-	client, err := docker.New()
-	if err != nil {
-		_ = sb.Terminate(ctx)
-		return nil, err
+	ce := func(context.Context) (c.Engine, error) {
+		client, err := docker.New()
+		if err != nil {
+			return nil, err
+		}
+		return c.WithTelemetry(client), nil
 	}
-	client = c.WithTelemetry(client)
-
-	b := container.NewBootstrapper(client)
-	resp, err := b.Bootstrap(ctx, sb, req)
-	if err != nil {
-		_ = sb.Terminate(ctx)
-		return nil, err
+	resp := &sandboxer.LaunchResponse{
+		Sandbox:         sb,
+		ContainerEngine: xsync.Singleton(ce),
 	}
 	return resp, nil
 }

@@ -12,6 +12,7 @@ import (
 	"drassi.run/core/config"
 	"drassi.run/core/pkg/runtime/provision"
 	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/pkg/sandboxer/container"
 	"drassi.run/core/pkg/store/oci"
 )
 
@@ -63,5 +64,9 @@ func (f *factory) doCreate() (sandboxer.Engine, error) {
 			Symlink[string](),
 		)
 	}
-	return New(f.cfg, prov)
+	e, err := New(f.cfg, prov)
+	if err != nil {
+		return nil, err
+	}
+	return container.WithContainers(e), nil
 }

@@ -8,17 +8,18 @@ package incus
 
 import (
 	"context"
-	"errors"
+	"io"
 	"net"
 	"path"
 	"strings"
+	"sync"
 
 	c "drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/container/docker"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/runtime/provision"
 	"drassi.run/core/pkg/sandboxer"
-	"drassi.run/core/pkg/sandboxer/container"
+	xsync "drassi.run/core/util/sync"
 	incusclient "github.com/lxc/incus/v6/client"
 	incusapi "github.com/lxc/incus/v6/shared/api"
 	dockerclient "github.com/moby/moby/client"
@@ -79,30 +80,39 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*san
 		return nil, err
 	}
 
-	d, ok := sandboxer.Unwrap(sb).(interface {
-		Dialer(cmd []string) func(ctx context.Context, network, addr string) (net.Conn, error)
-	})
-	if !ok {
-		_ = sb.Terminate(ctx)
-		return nil, errors.New("sandbox does not support dialer")
+	resp := &sandboxer.LaunchResponse{
+		Sandbox: sb,
 	}
-	dialer := d.Dialer(docker.ProxyCommand(""))
-	client, err := docker.New(dockerclient.WithDialContext(dialer))
-	if err != nil {
-		_ = sb.Terminate(ctx)
-		return nil, err
-	}
-	client = c.WithTelemetry(client)
 
-	s := sandboxer.AddBeforeCleanup(sb, func(context.Context) error {
-		return client.Close()
-	})
-	b := container.NewBootstrapper(client)
-	resp, err := b.Bootstrap(ctx, s, req)
-	if err != nil {
-		_ = s.Terminate(ctx)
-		return nil, err
+	var (
+		clientMu     sync.Mutex
+		clientCloser io.Closer
+	)
+	if d, ok := sandboxer.Unwrap(sb).(interface {
+		Dialer(cmd []string) func(ctx context.Context, network, addr string) (net.Conn, error)
+	}); ok {
+		resp.Sandbox = sandboxer.AddBeforeCleanup(resp.Sandbox, func(context.Context) error {
+			clientMu.Lock()
+			defer clientMu.Unlock()
+			if clientCloser != nil {
+				return clientCloser.Close()
+			}
+			return nil
+		})
+
+		resp.ContainerEngine = xsync.Singleton(func(context.Context) (c.Engine, error) {
+			dialer := d.Dialer(docker.ProxyCommand(""))
+			client, err := docker.New(dockerclient.WithDialContext(dialer))
+			if err != nil {
+				return nil, err
+			}
+			clientMu.Lock()
+			clientCloser = client
+			clientMu.Unlock()
+			return c.WithTelemetry(client), nil
+		})
 	}
+
 	return resp, nil
 }
 
