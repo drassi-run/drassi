@@ -45,7 +45,7 @@ func TestExportedHelpers(t *testing.T) {
 
 	t.Run("Cleanup helper returns cleanup function", func(t *testing.T) {
 		called := false
-		cu := cleanup(map[string]string{"test": "label"}, func(_ context.Context, opts *container.RemoveOptions) error {
+		cu := removeByLabels(map[string]string{"test": "label"}, func(_ context.Context, opts *container.RemoveOptions) error {
 			called = true
 			require.Equal(t, "label", opts.Labels["test"])
 			return nil

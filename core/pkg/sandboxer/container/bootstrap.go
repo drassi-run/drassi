@@ -32,8 +32,8 @@ func NewBootstrapper(client container.Engine, forge *records.Forge) *Bootstrappe
 		forge:  forge,
 		labels: labels,
 		cleanups: []sandboxer.Cleanup{
-			cleanup(labels, client.ContainerRemove),
-			cleanup(labels, client.VolumeRemove),
+			removeByLabels(labels, client.ContainerRemove),
+			removeByLabels(labels, client.VolumeRemove),
 		},
 	}
 }

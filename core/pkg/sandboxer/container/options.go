@@ -17,7 +17,7 @@ import (
 	"drassi.run/core/pkg/sandboxer"
 )
 
-func cleanup(labels map[string]string, fn func(context.Context, *container.RemoveOptions) error) sandboxer.Cleanup {
+func removeByLabels(labels map[string]string, fn func(context.Context, *container.RemoveOptions) error) sandboxer.Cleanup {
 	return func(ctx context.Context) error {
 		return fn(ctx, &container.RemoveOptions{Labels: labels})
 	}
@@ -40,7 +40,7 @@ func SetLabels(labels map[string]string) Option {
 				continue
 			}
 			if vol.VolumeOptions == nil {
-				vol.VolumeOptions = &types.VolumeOptions{}
+				vol.VolumeOptions = new(types.VolumeOptions)
 			}
 			if opts := vol.VolumeOptions; opts.Labels == nil {
 				opts.Labels = maps.Clone(labels)
@@ -57,6 +57,7 @@ func SetCmd(entrypoint, command []string) Option {
 	return func(spec *types.ContainerSpec) error {
 		if len(entrypoint) > 0 {
 			spec.Entrypoint = entrypoint
+			spec.Command = nil
 		}
 		if len(command) > 0 {
 			spec.Command = command
@@ -65,17 +66,17 @@ func SetCmd(entrypoint, command []string) Option {
 	}
 }
 
-func SetNetwork(id string) Option {
+func SetNetwork(netId string) Option {
 	return func(spec *types.ContainerSpec) error {
 		switch len(spec.Endpoints) {
 		case 0:
-			endpoint := &types.Endpoint{Target: id}
+			endpoint := &types.Endpoint{Target: netId}
 			spec.Endpoints = append(spec.Endpoints, endpoint)
 		case 1:
 			if endpoint := spec.Endpoints[0]; endpoint.Target != "" {
 				return fmt.Errorf("can't overwrite non-default network %q", endpoint.Target)
 			} else {
-				endpoint.Target = id
+				endpoint.Target = netId
 			}
 		default:
 			return fmt.Errorf("only one network per container")
@@ -95,9 +96,10 @@ func addSandboxMounts(sb sandboxer.Sandbox) Option {
 		mounts = append(mounts, m)
 	} else {
 		layout := sb.Layout()
+		containerLayout := DefaultLayout(DefaultJobDir)
 		dir := map[string]string{
-			layout.Workspace: layout.Workspace,
-			layout.Temp:      layout.Temp,
+			containerLayout.Workspace: layout.Workspace,
+			containerLayout.Temp:      layout.Temp,
 		}
 		for k, v := range dir {
 			m := &types.Mount{
