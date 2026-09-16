@@ -31,6 +31,7 @@ type LaunchRequest struct {
 
 type LaunchResponse struct {
 	Sandbox         Sandbox
+	Mounter         Mounter
 	ContainerEngine container.Provider
 
 	JobContainer      *records.ContainerInfo
