@@ -117,6 +117,20 @@ func addSandboxMounts(sb sandboxer.Sandbox) Option {
 	}
 }
 
+func MountVolume(volume, target string) Option {
+	if target == "" {
+		target = DefaultJobDir
+	}
+	return func(spec *types.ContainerSpec) error {
+		spec.Mounts = append(spec.Mounts, &types.Mount{
+			Type:   "volume",
+			Source: volume,
+			Target: target,
+		})
+		return nil
+	}
+}
+
 func MountApiSocket(c container.Engine) Option {
 	socket := c.Address()
 	if proto, loc, ok := strings.Cut(socket, "://"); ok {

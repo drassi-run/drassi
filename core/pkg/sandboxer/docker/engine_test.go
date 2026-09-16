@@ -223,6 +223,17 @@ func (s *DockerEngineLifecycleTestSuite) TestLaunch_Case1_NoJobContainer() {
 			s.Require().Equal([]string{"infinity"}, spec.Command)
 			s.Require().Len(spec.Endpoints, 1)
 			s.Require().Equal("net-docker-1", spec.Endpoints[0].Target)
+
+			var jobVolFound bool
+			for _, m := range spec.Mounts {
+				if m.Type == "volume" && m.Target == container.DefaultJobDir {
+					jobVolFound = true
+					s.Require().Equal(s.forge.CanonicalName(), m.Source)
+					s.Require().NotNil(m.VolumeOptions)
+					s.Require().Equal(s.forge.WellKnownLabels(), m.VolumeOptions.Labels)
+				}
+			}
+			s.Require().True(jobVolFound, "empty volume for job dir must be mounted in docker sandbox")
 			return "c-sb-1", nil
 		},
 	)
@@ -257,6 +268,17 @@ func (s *DockerEngineLifecycleTestSuite) TestLaunch_Case2_WithJobContainer() {
 		func(_ context.Context, spec *types.ContainerSpec, _ *c.RunOptions) (string, error) {
 			s.Require().Equal("node:18", spec.Image)
 			s.Require().Equal("custom-val", spec.Environment["CUSTOM_ENV"])
+
+			var jobVolFound bool
+			for _, m := range spec.Mounts {
+				if m.Type == "volume" && m.Target == container.DefaultJobDir {
+					jobVolFound = true
+					s.Require().Equal(s.forge.CanonicalName(), m.Source)
+					s.Require().NotNil(m.VolumeOptions)
+					s.Require().Equal(s.forge.WellKnownLabels(), m.VolumeOptions.Labels)
+				}
+			}
+			s.Require().True(jobVolFound, "empty volume for job dir must be mounted in docker sandbox")
 			return "c-node-1", nil
 		},
 	)
