@@ -203,7 +203,6 @@ type DockerEngineLifecycleTestSuite struct {
 
 func (s *DockerEngineLifecycleTestSuite) SetupTest() {
 	s.ctrl = gomock.NewController(s.T())
-	s.mockClient = mock_container.NewMockEngine(s.ctrl)
 	s.forge = &records.Forge{
 		Repository: "drassi/test",
 		Workflow:   "test.yml",
@@ -211,6 +210,11 @@ func (s *DockerEngineLifecycleTestSuite) SetupTest() {
 		RunId:      "100",
 		RunAttempt: "1",
 	}
+	s.mockClient = mock_container.NewMockEngine(s.ctrl)
+	s.mockClient.EXPECT().
+		VolumeCreate(gomock.Any(), gomock.Any()).
+		Return(s.forge.CanonicalName(), nil).
+		AnyTimes()
 }
 
 func (s *DockerEngineLifecycleTestSuite) TestLaunch_Case1_NoJobContainer() {
@@ -249,6 +253,8 @@ func (s *DockerEngineLifecycleTestSuite) TestLaunch_Case1_NoJobContainer() {
 	s.Require().NotNil(resp.Sandbox)
 	s.Require().NotNil(resp.JobContainer)
 	s.Require().Equal("c-sb-1", resp.JobContainer.Id)
+	s.Require().NotNil(resp.Mounter)
+
 	s.Require().NotNil(resp.ContainerEngine)
 	ce, err := resp.ContainerEngine(s.T().Context())
 	s.Require().NoError(err)

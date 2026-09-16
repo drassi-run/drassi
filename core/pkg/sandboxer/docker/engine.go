@@ -122,6 +122,7 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (resp
 	}
 
 	resp = &sandboxer.LaunchResponse{
+		Mounter: newMounter(volId),
 		ContainerEngine: func(context.Context) (c.Engine, error) {
 			return e.client, nil
 		},
