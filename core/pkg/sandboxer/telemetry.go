@@ -44,8 +44,13 @@ func (e *telemetryEngine) Launch(ctx context.Context, req *LaunchRequest) (res *
 	res.Sandbox = s
 
 	if ce := res.ContainerEngine; ce != nil {
-		ce = container.WithTelemetry(ce)
-		res.ContainerEngine = ce
+		res.ContainerEngine = func(ctx context.Context) (container.Engine, error) {
+			if engine, err := ce(ctx); err != nil {
+				return nil, err
+			} else {
+				return container.WithTelemetry(engine), nil
+			}
+		}
 	}
 
 	return
@@ -60,6 +65,10 @@ func withTelemetrySandbox(s Sandbox) Sandbox {
 
 type telemetrySandbox struct {
 	Sandbox
+}
+
+func (s *telemetrySandbox) Unwrap() Sandbox {
+	return s.Sandbox
 }
 
 func (s *telemetrySandbox) Stat(ctx context.Context, path string) (fi fs.FileInfo, err error) {

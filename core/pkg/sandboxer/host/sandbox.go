@@ -42,12 +42,14 @@ func newSandbox(dir string) (*sandbox, error) {
 		Temp:      filepath.Join(dir, "temp"),
 		Actions:   filepath.Join(dir, "actions"),
 		Tools:     filepath.Join(dir, "tools"),
+		Runtimes:  filepath.Join(dir, "runtimes"),
 	}
 
 	dirs := []string{
 		layout.Workspace,
 		layout.Actions,
 		layout.Tools,
+		layout.Runtimes,
 	}
 	for _, d := range dirs {
 		if err := os.MkdirAll(d, xfs.DirPerm); err != nil {

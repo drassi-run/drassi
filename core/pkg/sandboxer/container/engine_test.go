@@ -8,151 +8,193 @@ package container
 
 import (
 	"context"
+	"errors"
 	"testing"
 
-	"drassi.run/core/config"
 	mock_container "drassi.run/core/mock/container"
-	mock_store "drassi.run/core/mock/store/oci"
-	"drassi.run/core/pkg/container"
+	mock_sandboxer "drassi.run/core/mock/sandboxer"
+	c "drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/container/types"
+	"drassi.run/core/pkg/model/records"
+	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
-	ocistore "drassi.run/core/pkg/store/oci"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
 )
 
-func TestContainerEngineSuite(t *testing.T) {
-	suite.Run(t, new(ContainerEngineTestSuite))
+func TestContainerizedEngineSuite(t *testing.T) {
+	suite.Run(t, new(ContainerizedEngineTestSuite))
 }
 
-type ContainerEngineTestSuite struct {
+type ContainerizedEngineTestSuite struct {
 	suite.Suite
 	ctrl       *gomock.Controller
-	store      *mock_store.MockManager
+	mockEng    *mock_sandboxer.MockEngine
+	mockSb     *mock_sandboxer.MockSandbox
 	mockClient *mock_container.MockEngine
+	forge      *records.Forge
+	eng        sandboxer.Engine
 }
 
-func (s *ContainerEngineTestSuite) SetupTest() {
+func (s *ContainerizedEngineTestSuite) SetupTest() {
 	s.ctrl = gomock.NewController(s.T())
-	s.store = mock_store.NewMockManager(s.ctrl)
+	s.mockEng = mock_sandboxer.NewMockEngine(s.ctrl)
+	s.mockSb = mock_sandboxer.NewMockSandbox(s.ctrl)
 	s.mockClient = mock_container.NewMockEngine(s.ctrl)
+	s.forge = &records.Forge{
+		Repository: "repo",
+		Workflow:   "wf",
+		Job:        "job",
+		RunId:      "1",
+		RunAttempt: "1",
+	}
+	s.eng = WithContainers(s.mockEng)
 }
 
-func (s *ContainerEngineTestSuite) mockContainerLifecycle(containerID string, validateSpec func(spec *types.ContainerSpec)) {
-	s.mockClient.EXPECT().ContainerRun(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, spec *types.ContainerSpec, _ *container.RunOptions) (string, error) {
-			if validateSpec != nil {
-				validateSpec(spec)
-			}
-			return containerID, nil
-		},
-	)
-	s.mockClient.EXPECT().CopyIn(gomock.Any(), containerID, gomock.Any()).Return(nil)
-	s.mockClient.EXPECT().ContainerInspect(gomock.Any(), containerID).Return(&types.ContainerSpec{}, nil)
-	s.mockClient.EXPECT().ContainerRemove(gomock.Any(), gomock.Any()).Return(nil)
+func (s *ContainerizedEngineTestSuite) SetupSubTest() {
+	s.SetupTest()
 }
 
-func (s *ContainerEngineTestSuite) assertLaunch(eng sandboxer.Engine, expectedID string) sandboxer.Sandbox {
-	resp, err := eng.Launch(s.T().Context(), &sandboxer.LaunchRequest{})
-	s.Require().NoError(err)
-	s.Require().NotNil(resp)
-	s.Require().NotNil(resp.Sandbox)
-	s.Require().NotNil(resp.JobContainer)
-	s.Require().Equal(expectedID, resp.JobContainer.Id)
-	return resp.Sandbox
+func (s *ContainerizedEngineTestSuite) TestWrap() {
+	s.Run("double wrap and unwrap", func() {
+		wrapped := WithContainers(s.mockEng)
+		s.Require().NotNil(wrapped)
+		s.Require().Equal(wrapped, WithContainers(wrapped))
+
+		unwrapper, ok := wrapped.(interface{ Unwrap() sandboxer.Engine })
+		s.Require().True(ok)
+		s.Require().Equal(s.mockEng, unwrapper.Unwrap())
+	})
 }
 
-func (s *ContainerEngineTestSuite) TestLaunch() {
-	s.Run("with provisioner", func() {
-		img := &ocistore.Image{}
-		s.store.EXPECT().Image(gomock.Any(), "drassi/node:24").Return(img, nil).AnyTimes()
-		s.store.EXPECT().Mount(gomock.Any(), img, gomock.Any()).Return("/var/lib/drassi/node_mount", "layer-node", nil).AnyTimes()
-		s.store.EXPECT().Unmount(gomock.Any(), "layer-node").Return(nil).AnyTimes()
+func (s *ContainerizedEngineTestSuite) TestLaunch() {
+	s.Run("no containers", func() {
+		req := &sandboxer.LaunchRequest{
+			Forge: s.forge,
+		}
+		expectedResp := &sandboxer.LaunchResponse{Sandbox: s.mockSb}
+		s.mockEng.EXPECT().Launch(gomock.Any(), req).Return(expectedResp, nil)
 
-		runtimes := map[string]*config.Runtime{
-			"node": {Image: "drassi/node:24"},
+		resp, err := s.eng.Launch(s.T().Context(), req)
+		s.Require().NoError(err)
+		s.Require().Equal(expectedResp, resp)
+	})
+
+	s.Run("with job container", func() {
+		req := &sandboxer.LaunchRequest{
+			Forge:        s.forge,
+			JobContainer: &workflows.Container{Image: "alpine"},
 		}
 
-		p, err := NewProvisioner(s.store, runtimes)
+		s.mockEng.EXPECT().Launch(gomock.Any(), req).Return(&sandboxer.LaunchResponse{
+			Sandbox: s.mockSb,
+			ContainerEngine: func(context.Context) (c.Engine, error) {
+				return s.mockClient, nil
+			},
+		}, nil)
+
+		// Layout called by WithSandbox
+		s.mockSb.EXPECT().Layout().Return(&sandboxer.Layout{Workspace: "/w", Temp: "/t"}).AnyTimes()
+
+		// Network creation
+		s.mockClient.EXPECT().NetworkCreate(gomock.Any(), gomock.Any()).Return("net-123", nil)
+		// Job container socket, pull and run
+		s.mockClient.EXPECT().Address().Return("unix:///var/run/docker.sock")
+		s.mockClient.EXPECT().ImagePull(gomock.Any(), "alpine", gomock.Any()).Return(nil)
+		s.mockClient.EXPECT().ContainerRun(gomock.Any(), gomock.Any(), gomock.Any()).Return("c-123", nil)
+		// NewSandbox setup
+		s.mockClient.EXPECT().CopyIn(gomock.Any(), "c-123", gomock.Any()).Return(nil)
+		s.mockClient.EXPECT().ContainerInspect(gomock.Any(), "c-123").Return(&types.ContainerSpec{
+			Environment: map[string]string{"PATH": "/bin"},
+		}, nil)
+
+		resp, err := s.eng.Launch(s.T().Context(), req)
 		s.Require().NoError(err)
-		s.Require().NotNil(p)
+		s.Require().NotNil(resp)
+		s.Require().NotNil(resp.JobContainer)
+		s.Require().Equal("c-123", resp.JobContainer.Id)
+		s.Require().Equal("net-123", resp.JobContainer.Network)
+		s.Require().NotNil(resp.Sandbox)
 
-		s.mockContainerLifecycle("c-123", func(spec *types.ContainerSpec) {
-			s.Require().Len(spec.Mounts, 1)
-			s.Require().Equal("/var/lib/drassi/node_mount", spec.Mounts[0].Source)
-			s.Require().Equal("/opt/drassi/runtimes/node", spec.Mounts[0].Target)
-		})
+		// Terminating the wrapped sandbox runs jobSb.Terminate then b.cleanups then underlay sandbox
+		s.mockClient.EXPECT().ContainerRemove(gomock.Any(), &c.RemoveOptions{Id: "c-123"}).Return(nil)
+		s.mockClient.EXPECT().ContainerRemove(gomock.Any(), &c.RemoveOptions{Labels: s.forge.WellKnownLabels()}).Return(nil)
+		s.mockClient.EXPECT().VolumeRemove(gomock.Any(), &c.RemoveOptions{Labels: s.forge.WellKnownLabels()}).Return(nil)
+		s.mockClient.EXPECT().NetworkRemove(gomock.Any(), &c.RemoveOptions{Id: "net-123"}).Return(nil)
+		s.mockSb.EXPECT().Terminate(gomock.Any()).Return(nil)
 
-		eng := New(s.mockClient, &Template{Image: "default:image"}, p)
-		sb := s.assertLaunch(eng, "c-123")
-		s.Require().NoError(sb.Terminate(s.T().Context()))
+		s.Require().NoError(resp.Sandbox.Terminate(s.T().Context()))
 	})
 
-	s.Run("without provisioner", func() {
-		s.mockContainerLifecycle("c-456", func(spec *types.ContainerSpec) {
-			s.Require().Empty(spec.Mounts)
-		})
-
-		eng := New(s.mockClient, &Template{Image: "default:image"}, nil)
-		sb := s.assertLaunch(eng, "c-456")
-		s.Require().NoError(sb.Terminate(s.T().Context()))
-	})
-
-	s.Run("with template options", func() {
-		tmpl := &Template{
-			Image:       "custom:image",
-			NetworkMode: "host",
-			Privileged:  true,
-			User:        "1000:1000",
-			Environment: map[string]string{"FOO": "BAR"},
-			ContainerStorage: types.ContainerStorage{
-				Mounts: []*types.Mount{
-					{Type: "bind", Source: "/host", Target: "/container"},
-				},
+	s.Run("with service containers only", func() {
+		req := &sandboxer.LaunchRequest{
+			Forge: s.forge,
+			ServiceContainers: map[string]*workflows.Container{
+				"redis": {Image: "redis:7"},
 			},
 		}
 
-		s.mockContainerLifecycle("c-789", func(spec *types.ContainerSpec) {
-			s.Require().Equal("custom:image", spec.Image)
-			s.Require().Equal("host", spec.NetworkMode)
-			s.Require().True(spec.Privileged)
-			s.Require().Equal("1000:1000", spec.User)
-			s.Require().Equal("BAR", spec.Environment["FOO"])
-			s.Require().Equal([]string{"sleep"}, spec.Entrypoint)
-			s.Require().Equal([]string{"infinity"}, spec.Command)
-			s.Require().Len(spec.Mounts, 1)
-			s.Require().Equal("/host", spec.Mounts[0].Source)
-		})
+		s.mockEng.EXPECT().Launch(gomock.Any(), req).Return(&sandboxer.LaunchResponse{
+			Sandbox: s.mockSb,
+			ContainerEngine: func(context.Context) (c.Engine, error) {
+				return s.mockClient, nil
+			},
+		}, nil)
 
-		eng := New(s.mockClient, tmpl, nil)
-		sb := s.assertLaunch(eng, "c-789")
-		s.Require().NoError(sb.Terminate(s.T().Context()))
-	})
-}
+		s.mockClient.EXPECT().NetworkCreate(gomock.Any(), gomock.Any()).Return("net-svc", nil)
+		s.mockClient.EXPECT().ImagePull(gomock.Any(), "redis:7", gomock.Any()).Return(nil)
+		s.mockClient.EXPECT().ContainerRun(gomock.Any(), gomock.Any(), gomock.Any()).Return("c-redis", nil)
+		s.mockClient.EXPECT().ContainerInspect(gomock.Any(), "c-redis").Return(&types.ContainerSpec{}, nil)
 
-func (s *ContainerEngineTestSuite) TestNewProvisioner() {
-	s.Run("with runtimes and store", func() {
-		runtimes := map[string]*config.Runtime{
-			"node": {Image: "drassi/node:24"},
-		}
-		p, err := NewProvisioner(s.store, runtimes)
+		resp, err := s.eng.Launch(s.T().Context(), req)
 		s.Require().NoError(err)
-		s.Require().NotNil(p)
+		s.Require().NotNil(resp)
+		s.Require().Nil(resp.JobContainer)
+		s.Require().Contains(resp.ServiceContainers, "redis")
+		s.Require().Equal("c-redis", resp.ServiceContainers["redis"].Id)
+		s.Require().NotNil(resp.Sandbox)
+
+		// Terminating wrapped underlay sandbox runs b.cleanups before underlay sandbox Terminate
+		s.mockClient.EXPECT().ContainerRemove(gomock.Any(), &c.RemoveOptions{Labels: s.forge.WellKnownLabels()}).Return(nil)
+		s.mockClient.EXPECT().VolumeRemove(gomock.Any(), &c.RemoveOptions{Labels: s.forge.WellKnownLabels()}).Return(nil)
+		s.mockClient.EXPECT().NetworkRemove(gomock.Any(), &c.RemoveOptions{Id: "net-svc"}).Return(nil)
+		s.mockSb.EXPECT().Terminate(gomock.Any()).Return(nil)
+
+		s.Require().NoError(resp.Sandbox.Terminate(s.T().Context()))
 	})
 
-	s.Run("with runtimes but missing store returns error", func() {
-		runtimes := map[string]*config.Runtime{
-			"node": {Image: "drassi/node:24"},
+	s.Run("missing container engine", func() {
+		s.mockSb.EXPECT().Terminate(gomock.Any()).Return(nil)
+
+		req := &sandboxer.LaunchRequest{
+			Forge:        s.forge,
+			JobContainer: &workflows.Container{Image: "alpine"},
 		}
-		p, err := NewProvisioner(nil, runtimes)
-		s.Require().Error(err)
-		s.Require().Nil(p)
-		s.Require().Contains(err.Error(), "oci store is required")
+		s.mockEng.EXPECT().Launch(gomock.Any(), req).Return(&sandboxer.LaunchResponse{
+			Sandbox: s.mockSb,
+		}, nil)
+
+		resp, err := s.eng.Launch(s.T().Context(), req)
+		s.Require().Nil(resp)
+		s.Require().ErrorContains(err, "sandbox does not support container engine")
 	})
 
-	s.Run("without runtimes returns nil provisioner", func() {
-		p, err := NewProvisioner(s.store, nil)
-		s.Require().NoError(err)
-		s.Require().Nil(p)
+	s.Run("container engine provider error", func() {
+		s.mockSb.EXPECT().Terminate(gomock.Any()).Return(nil)
+
+		req := &sandboxer.LaunchRequest{
+			Forge:        s.forge,
+			JobContainer: &workflows.Container{Image: "alpine"},
+		}
+		s.mockEng.EXPECT().Launch(gomock.Any(), req).Return(&sandboxer.LaunchResponse{
+			Sandbox: s.mockSb,
+			ContainerEngine: func(context.Context) (c.Engine, error) {
+				return nil, errors.New("docker daemon down")
+			},
+		}, nil)
+
+		resp, err := s.eng.Launch(s.T().Context(), req)
+		s.Require().Nil(resp)
+		s.Require().ErrorContains(err, "docker daemon down")
 	})
 }

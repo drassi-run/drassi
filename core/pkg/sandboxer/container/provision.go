@@ -11,26 +11,40 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"drassi.run/core/config"
 	"drassi.run/core/pkg/container/types"
-	"drassi.run/core/pkg/runtime/provision"
+	. "drassi.run/core/pkg/runtime/provision"
+	"drassi.run/core/pkg/store/oci"
 )
 
-type addBindMountOp struct {
-	provision.Noop[*types.ContainerSpec]
+func NewProvisioner(store ocistore.Manager, runtimes map[string]*config.Runtime) *Provisioner[*types.ContainerSpec] {
+	if len(runtimes) == 0 {
+		return nil
+	}
+	return New[*types.ContainerSpec](
+		runtimes,
+		Pull[*types.ContainerSpec](store),
+		Mount[*types.ContainerSpec](store),
+		AddBindMount(),
+	)
 }
 
 // AddBindMount returns an Operation that appends a runtime bind mount to types.ContainerSpec.Mounts.
-func AddBindMount() provision.Operation[*types.ContainerSpec] {
+func AddBindMount() Operation[*types.ContainerSpec] {
 	return addBindMountOp{}
+}
+
+type addBindMountOp struct {
+	Noop[*types.ContainerSpec]
 }
 
 func (op addBindMountOp) Name() string { return "container/bind-mount" }
 
-func (op addBindMountOp) PreLaunch(pctx *provision.Context, spec *types.ContainerSpec) (*types.ContainerSpec, error) {
+func (op addBindMountOp) PreLaunch(pctx *Context, spec *types.ContainerSpec) (*types.ContainerSpec, error) {
 	if spec == nil {
 		return nil, errors.New("container spec cannot be nil")
 	}
-	hostMountDir, ok := pctx.Get(provision.KeyHostMountDir)
+	hostMountDir, ok := pctx.Get(KeyHostMountDir)
 	if !ok {
 		return spec, fmt.Errorf("host mount directory not set in context")
 	}

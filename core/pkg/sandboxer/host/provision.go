@@ -16,14 +16,14 @@ import (
 	"drassi.run/core/pkg/sandboxer"
 )
 
-type symlinkOp[Req any] struct {
-	provision.Noop[Req]
-}
-
 // Symlink returns a provision.Operation that symlinks the runtime directory in the sandbox
 // to the host mount directory.
 func Symlink[Req any]() provision.Operation[Req] {
 	return symlinkOp[Req]{}
+}
+
+type symlinkOp[Req any] struct {
+	provision.Noop[Req]
 }
 
 func (op symlinkOp[Req]) Name() string { return "host/symlink" }

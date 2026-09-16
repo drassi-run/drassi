@@ -15,6 +15,8 @@ import (
 	"github.com/pelletier/go-toml/v2"
 )
 
+const DefaultImage = "ghcr.io/drassi-run/ubuntu:26.04"
+
 type Template types.ContainerSpec
 
 func (t *Template) UnmarshalTOML(data []byte) error {

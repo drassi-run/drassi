@@ -11,16 +11,16 @@ import (
 	"errors"
 )
 
-type layeredSandbox struct {
-	Sandbox
-	Base Sandbox
-}
-
 func NewLayeredSandbox(main Sandbox, base Sandbox) Sandbox {
 	return &layeredSandbox{
 		Sandbox: main,
 		Base:    base,
 	}
+}
+
+type layeredSandbox struct {
+	Sandbox         // overlay
+	Base    Sandbox // underlay
 }
 
 func (sb *layeredSandbox) Terminate(ctx context.Context) error {

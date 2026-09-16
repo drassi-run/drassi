@@ -17,15 +17,19 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-type telemetryEngine struct {
-	Engine
-}
-
 func WithTelemetry(e Engine) Engine {
 	if _, ok := e.(*telemetryEngine); !ok {
 		return e
 	}
 	return &telemetryEngine{Engine: e}
+}
+
+type telemetryEngine struct {
+	Engine
+}
+
+func (e *telemetryEngine) Unwrap() Engine {
+	return e.Engine
 }
 
 func (e *telemetryEngine) ImagePull(ctx context.Context, ref string, opts *PullOptions) (err error) {

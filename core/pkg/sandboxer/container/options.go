@@ -17,15 +17,15 @@ import (
 	"drassi.run/core/pkg/sandboxer"
 )
 
-func cleanup(labels map[string]string, fn func(context.Context, *container.RemoveOptions) error) sandboxer.Cleanup {
+func removeByLabels(labels map[string]string, fn func(context.Context, *container.RemoveOptions) error) sandboxer.Cleanup {
 	return func(ctx context.Context) error {
 		return fn(ctx, &container.RemoveOptions{Labels: labels})
 	}
 }
 
-type refiner = func(*types.ContainerSpec) error
+type Option func(*types.ContainerSpec) error
 
-func setLabels(labels map[string]string) refiner {
+func SetLabels(labels map[string]string) Option {
 	return func(spec *types.ContainerSpec) error {
 		// set labels for container
 		if spec.Labels == nil {
@@ -40,7 +40,7 @@ func setLabels(labels map[string]string) refiner {
 				continue
 			}
 			if vol.VolumeOptions == nil {
-				vol.VolumeOptions = &types.VolumeOptions{}
+				vol.VolumeOptions = new(types.VolumeOptions)
 			}
 			if opts := vol.VolumeOptions; opts.Labels == nil {
 				opts.Labels = maps.Clone(labels)
@@ -53,10 +53,11 @@ func setLabels(labels map[string]string) refiner {
 	}
 }
 
-func setCmd(entrypoint, command []string) refiner {
+func SetCmd(entrypoint, command []string) Option {
 	return func(spec *types.ContainerSpec) error {
 		if len(entrypoint) > 0 {
 			spec.Entrypoint = entrypoint
+			spec.Command = nil
 		}
 		if len(command) > 0 {
 			spec.Command = command
@@ -65,17 +66,17 @@ func setCmd(entrypoint, command []string) refiner {
 	}
 }
 
-func setNetwork(id string) refiner {
+func SetNetwork(netId string) Option {
 	return func(spec *types.ContainerSpec) error {
 		switch len(spec.Endpoints) {
 		case 0:
-			endpoint := &types.Endpoint{Target: id}
+			endpoint := &types.Endpoint{Target: netId}
 			spec.Endpoints = append(spec.Endpoints, endpoint)
 		case 1:
 			if endpoint := spec.Endpoints[0]; endpoint.Target != "" {
 				return fmt.Errorf("can't overwrite non-default network %q", endpoint.Target)
 			} else {
-				endpoint.Target = id
+				endpoint.Target = netId
 			}
 		default:
 			return fmt.Errorf("only one network per container")
@@ -84,20 +85,21 @@ func setNetwork(id string) refiner {
 	}
 }
 
-func addSandboxMounts(sb sandboxer.Sandbox) refiner {
+func addSandboxMounts(sb sandboxer.Sandbox) Option {
 	mounts := make([]*types.Mount, 0)
 	if sb == nil {
 		m := &types.Mount{
 			Type:   "volume",
 			Source: "", // anonymous volume
-			Target: jobDir,
+			Target: DefaultJobDir,
 		}
 		mounts = append(mounts, m)
 	} else {
 		layout := sb.Layout()
+		containerLayout := DefaultLayout(DefaultJobDir)
 		dir := map[string]string{
-			defaultLayout.Workspace: layout.Workspace,
-			defaultLayout.Temp:      layout.Temp,
+			containerLayout.Workspace: layout.Workspace,
+			containerLayout.Temp:      layout.Temp,
 		}
 		for k, v := range dir {
 			m := &types.Mount{
@@ -115,7 +117,7 @@ func addSandboxMounts(sb sandboxer.Sandbox) refiner {
 	}
 }
 
-func addContainerSocketMounts(c container.Engine) refiner {
+func MountApiSocket(c container.Engine) Option {
 	socket := c.Address()
 	if proto, loc, ok := strings.Cut(socket, "://"); ok {
 		if proto == "unix" {
@@ -135,7 +137,7 @@ func addContainerSocketMounts(c container.Engine) refiner {
 	}
 }
 
-func setWorkdir(dir string) refiner {
+func SetWorkdir(dir string) Option {
 	return func(spec *types.ContainerSpec) error {
 		if spec.WorkingDir != "" {
 			spec.WorkingDir = dir
@@ -144,7 +146,7 @@ func setWorkdir(dir string) refiner {
 	}
 }
 
-func setCIEnv() refiner {
+func SetCIEnv() Option {
 	return func(spec *types.ContainerSpec) error {
 		if spec.Environment == nil {
 			spec.Environment = make(map[string]string)

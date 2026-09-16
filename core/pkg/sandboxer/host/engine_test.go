@@ -27,22 +27,17 @@ func TestHostEngineSuite(t *testing.T) {
 
 type HostEngineTestSuite struct {
 	suite.Suite
-	ctrl       *gomock.Controller
-	store      *mock_store.MockManager
-	tempDir    string
-	runtimeDir string
-	cfg        *Config
+	ctrl    *gomock.Controller
+	store   *mock_store.MockManager
+	tempDir string
+	cfg     *Config
 }
 
 func (s *HostEngineTestSuite) SetupTest() {
 	s.ctrl = gomock.NewController(s.T())
 	s.store = mock_store.NewMockManager(s.ctrl)
 	s.tempDir = s.T().TempDir()
-	s.runtimeDir = filepath.Join(s.tempDir, "opt_drassi_runtimes")
-	s.cfg = &Config{
-		RootDir:    s.tempDir,
-		RuntimeDir: s.runtimeDir,
-	}
+	s.cfg = &Config{RootDir: s.tempDir}
 }
 
 func (s *HostEngineTestSuite) assertLaunch(eng sandboxer.Engine) sandboxer.Sandbox {
@@ -90,7 +85,7 @@ func (s *HostEngineTestSuite) TestLaunch() {
 		sb := s.assertLaunch(eng)
 
 		// Symlink is created
-		symlinkPath := filepath.Join(s.runtimeDir, "node")
+		symlinkPath := filepath.Join(sb.Layout().Runtimes, "node")
 		target, err := os.Readlink(symlinkPath)
 		s.Require().NoError(err)
 		s.Require().Equal(mountDir, target)
@@ -108,12 +103,34 @@ func (s *HostEngineTestSuite) TestLaunch() {
 	})
 }
 
+func (s *HostEngineTestSuite) TestLaunch_WithoutContainers_NoDocker() {
+	eng, err := New(s.cfg, nil)
+	s.Require().NoError(err)
+
+	req := &sandboxer.LaunchRequest{
+		Forge: &records.Forge{
+			Repository: "drassi/test",
+			Workflow:   "build.yml",
+			Job:        "test",
+			RunId:      "1",
+			RunAttempt: "1",
+		},
+	}
+
+	resp, err := eng.Launch(s.T().Context(), req)
+	s.Require().NoError(err)
+	s.Require().NotNil(resp)
+	s.Require().NotNil(resp.Sandbox)
+	s.Require().NotNil(resp.ContainerEngine, "ContainerEngine provider must be provided for lazy init")
+	s.Require().Nil(resp.JobContainer)
+	s.Require().Empty(resp.ServiceContainers)
+	s.Require().NoError(resp.Sandbox.Terminate(s.T().Context()))
+}
 
 func (s *HostEngineTestSuite) TestFactory() {
 	s.Run("with runtimes and store", func() {
 		cfg := DefaultConfig()
 		cfg.RootDir = s.T().TempDir()
-		cfg.RuntimeDir = filepath.Join(cfg.RootDir, "runtimes")
 		f := NewFactory(cfg)
 		f.SetOciStore(s.store)
 		f.ProvisionRuntime(map[string]*config.Runtime{
@@ -125,23 +142,21 @@ func (s *HostEngineTestSuite) TestFactory() {
 		_ = eng.Close()
 	})
 
-	s.Run("with runtimes but missing store returns error", func() {
+	s.Run("with runtimes but missing store panics", func() {
 		cfg := DefaultConfig()
 		cfg.RootDir = s.T().TempDir()
-		cfg.RuntimeDir = filepath.Join(cfg.RootDir, "runtimes")
 		f := NewFactory(cfg)
 		f.ProvisionRuntime(map[string]*config.Runtime{
 			"node": {Image: "drassi/node:24"},
 		})
-		_, err := f.Create()
-		s.Require().Error(err)
-		s.Require().Contains(err.Error(), "oci store is required")
+		s.Panicsf(func() {
+			_, _ = f.Create()
+		}, "oci store required")
 	})
 
 	s.Run("without runtimes", func() {
 		cfg := DefaultConfig()
 		cfg.RootDir = s.T().TempDir()
-		cfg.RuntimeDir = filepath.Join(cfg.RootDir, "runtimes")
 		f := NewFactory(cfg)
 		eng, err := f.Create()
 		s.Require().NoError(err)

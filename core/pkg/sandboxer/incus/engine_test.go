@@ -143,14 +143,14 @@ func (s *IncusEngineTestSuite) TestFactory() {
 		})
 	})
 
-	s.Run("with runtimes but missing store returns error", func() {
+	s.Run("with runtimes but missing store panics", func() {
 		f := NewFactory(DefaultConfig())
 		f.ProvisionRuntime(map[string]*config.Runtime{
 			"node": {Image: "drassi/node:24"},
 		})
-		_, err := f.Create()
-		s.Require().Error(err)
-		s.Require().Contains(err.Error(), "oci store is required")
+		s.Panicsf(func() {
+			_, _ = f.Create()
+		}, "oci store required")
 	})
 
 	s.Run("without runtimes", func() {
