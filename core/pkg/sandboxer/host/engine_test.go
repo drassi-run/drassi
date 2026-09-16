@@ -55,6 +55,7 @@ func (s *HostEngineTestSuite) assertLaunch(eng sandboxer.Engine) sandboxer.Sandb
 	s.Require().NoError(err)
 	s.Require().NotNil(resp)
 	s.Require().NotNil(resp.Sandbox)
+	s.Require().NotNil(resp.Mounter)
 	return resp.Sandbox
 }
 
@@ -121,6 +122,7 @@ func (s *HostEngineTestSuite) TestLaunch_WithoutContainers_NoDocker() {
 	s.Require().NoError(err)
 	s.Require().NotNil(resp)
 	s.Require().NotNil(resp.Sandbox)
+	s.Require().NotNil(resp.Mounter)
 	s.Require().NotNil(resp.ContainerEngine, "ContainerEngine provider must be provided for lazy init")
 	s.Require().Nil(resp.JobContainer)
 	s.Require().Empty(resp.ServiceContainers)

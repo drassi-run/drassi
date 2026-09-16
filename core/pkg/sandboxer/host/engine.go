@@ -67,6 +67,7 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*san
 	}
 	resp := &sandboxer.LaunchResponse{
 		Sandbox:         sb,
+		Mounter:         newMounter(sandboxDir),
 		ContainerEngine: xsync.Singleton(ce),
 	}
 	return resp, nil
