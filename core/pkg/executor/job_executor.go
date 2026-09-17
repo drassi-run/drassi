@@ -301,6 +301,9 @@ func (e *jobExecutor) initializeSandbox(ctx context.Context, s *scribe.Scribe) e
 		if err = xdig.Supply(e.scope, resp.Sandbox, dig.Export(true)); err != nil {
 			return fmt.Errorf("supply 'sandbox': %w", err)
 		}
+		if err = xdig.Supply(e.scope, resp.Mounter, dig.Export(true)); err != nil {
+			return fmt.Errorf("supply 'mounter': %w", err)
+		}
 	}
 
 	if location, err := e.setupEventFile(ctx); err != nil {
