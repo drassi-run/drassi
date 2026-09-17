@@ -95,17 +95,16 @@ func (b *Bootstrapper) RunJobContainer(ctx context.Context, def *workflows.Conta
 	}
 
 	layout := DefaultLayout
-	options := []Option{
-		SetNetwork(netId),
-		SetLabels(b.labels),
-		SetWorkdir(layout.Workspace()),
-		SetCIEnv(),
-		SetCmd([]string{"sleep"}, []string{"infinity"}),
+	opts = append(opts,
 		MountApiSocket(b.client),
-	}
-	options = append(options, opts...)
+		SetNetwork(netId),
+		SetCIEnv(),
+		SetWorkdir(layout.Workspace()),
+		SetCmd([]string{"sleep"}, []string{"infinity"}),
+		SetLabels(b.labels),
+	)
 
-	conId, err := b.runContainer(ctx, def, options...)
+	conId, err := b.runContainer(ctx, def, opts...)
 	if err != nil {
 		return nil, err
 	}

@@ -85,32 +85,7 @@ func SetNetwork(netId string) Option {
 	}
 }
 
-func addSandboxMounts(sb sandboxer.Sandbox) Option {
-	mounts := make([]*types.Mount, 0)
-	if sb == nil {
-		m := &types.Mount{
-			Type:   "volume",
-			Source: "", // anonymous volume
-			Target: DefaultJobDir,
-		}
-		mounts = append(mounts, m)
-	} else {
-		layout := sb.Layout()
-		containerLayout := DefaultLayout
-		dir := map[string]string{
-			containerLayout.Workspace(): layout.Workspace(),
-			containerLayout.Temp():      layout.Temp(),
-		}
-		for k, v := range dir {
-			m := &types.Mount{
-				Type:   "bind",
-				Source: v,
-				Target: k,
-			}
-			mounts = append(mounts, m)
-		}
-	}
-
+func AddMount(mounts ...*types.Mount) Option {
 	return func(spec *types.ContainerSpec) error {
 		spec.Mounts = append(spec.Mounts, mounts...)
 		return nil

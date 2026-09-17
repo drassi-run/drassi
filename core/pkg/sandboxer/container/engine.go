@@ -62,10 +62,13 @@ func (e *containerizedEngine) Launch(ctx context.Context, req *sandboxer.LaunchR
 
 	var jobSb sandboxer.Sandbox
 	if req.JobContainer != nil {
-		if resp.JobContainer, err = b.RunJobContainer(ctx, req.JobContainer, addSandboxMounts(sb)); err != nil {
+		target := DefaultLayout
+		opt := AddMount(resp.Mounter.OverlayMounts(target, true)...)
+
+		if resp.JobContainer, err = b.RunJobContainer(ctx, req.JobContainer, opt); err != nil {
 			return
 		}
-		if jobSb, err = NewSandbox(ctx, client, resp.JobContainer.Id, DefaultLayout); err != nil {
+		if jobSb, err = NewSandbox(ctx, client, resp.JobContainer.Id, target); err != nil {
 			return
 		}
 	}
