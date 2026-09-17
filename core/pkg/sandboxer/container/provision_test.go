@@ -13,16 +13,16 @@ import (
 	"drassi.run/core/config"
 	mock_store "drassi.run/core/mock/store/oci"
 	"drassi.run/core/pkg/container/types"
-	. "drassi.run/core/pkg/runtime/provision"
+	"drassi.run/core/pkg/runtime/provision"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
 
 func runBindMount(t *testing.T, name string, rt *config.Runtime, targetDir, hostMountDir string) (*types.Mount, error) {
 	t.Helper()
-	pctx := NewContext(t.Context(), name, rt, targetDir)
+	pctx := provision.NewContext(t.Context(), name, rt, targetDir)
 	if hostMountDir != "" {
-		pctx.Set(KeyHostMountDir, hostMountDir)
+		pctx.Set(provision.KeyHostMountDir, hostMountDir)
 	}
 
 	op := AddBindMount()
