@@ -82,14 +82,24 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (resp
 		resp = nil
 	}(ctx)
 
+	volId, err := e.client.VolumeCreate(ctx, &types.VolumeSpec{
+		Name:   req.Forge.CanonicalName(),
+		Labels: labels,
+		Driver: "local",
+	})
+	if err != nil {
+		return
+	}
+
 	layout := container.DefaultLayout
 	spec, err := e.resolveTemplate(req,
-		container.SetNetwork(netId),
-		container.SetLabels(labels),
-		container.SetWorkdir(layout.Workspace()),
-		container.SetCIEnv(),
-		container.SetCmd([]string{"sleep"}, []string{"infinity"}),
+		container.MountVolume(volId, container.DefaultJobDir),
 		container.MountApiSocket(e.client),
+		container.SetNetwork(netId),
+		container.SetCIEnv(),
+		container.SetWorkdir(layout.Workspace()),
+		container.SetCmd([]string{"sleep"}, []string{"infinity"}),
+		container.SetLabels(labels),
 	)
 	if err != nil {
 		return
@@ -112,6 +122,7 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (resp
 	}
 
 	resp = &sandboxer.LaunchResponse{
+		Mounter: newMounter(volId),
 		ContainerEngine: func(context.Context) (c.Engine, error) {
 			return e.client, nil
 		},

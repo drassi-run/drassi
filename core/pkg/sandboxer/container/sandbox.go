@@ -25,7 +25,7 @@ import (
 const DefaultJobDir = "/opt/drassi/"
 
 // DefaultLayout is the standard directory structure inside container sandboxes.
-var DefaultLayout = sandboxer.StandardLayout("/opt/drassi/")
+const DefaultLayout = sandboxer.StandardLayout(DefaultJobDir)
 
 func NewSandbox(ctx context.Context, engine container.Engine, containerId string, layout sandboxer.Layout) (sandboxer.Sandbox, error) {
 	if layout == nil {

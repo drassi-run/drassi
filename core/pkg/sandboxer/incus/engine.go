@@ -82,6 +82,7 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*san
 
 	resp := &sandboxer.LaunchResponse{
 		Sandbox: sb,
+		Mounter: newMounter(),
 	}
 
 	var (

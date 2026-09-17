@@ -120,13 +120,13 @@ func (s *BootstrapTestSuite) TestRunJobContainer() {
 	s.Run("with container def", func() {
 		def := &workflows.Container{Image: "node:18"}
 
-		s.mockSb.EXPECT().Layout().Return(s.layout).AnyTimes()
 		s.mockClient.EXPECT().NetworkCreate(gomock.Any(), gomock.Any()).Return("net-job", nil)
 		s.mockClient.EXPECT().Address().Return("unix:///var/run/docker.sock")
 		s.mockClient.EXPECT().ImagePull(gomock.Any(), "node:18", gomock.Any()).Return(nil)
 		s.mockClient.EXPECT().ContainerRun(gomock.Any(), gomock.Any(), gomock.Any()).Return("c-job", nil)
 
-		info, err := s.b.RunJobContainer(s.T().Context(), def, addSandboxMounts(s.mockSb))
+		mount := &types.Mount{Type: "bind", Source: "/workspace", Target: s.layout.Workspace()}
+		info, err := s.b.RunJobContainer(s.T().Context(), def, AddMount(mount))
 		s.Require().NoError(err)
 		s.Require().NotNil(info)
 		s.Require().Equal("c-job", info.Id)

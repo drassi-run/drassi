@@ -86,26 +86,36 @@ func (s *ContainerizedEngineTestSuite) TestLaunch() {
 			JobContainer: &workflows.Container{Image: "alpine"},
 		}
 
+		customMounts := []*types.Mount{
+			{Type: "bind", Source: "/host/workspace", Target: "/job/workspace"},
+			{Type: "bind", Source: "/host/temp", Target: "/job/temp"},
+			{Type: "bind", Source: "/host/runtimes/node", Target: "/job/runtimes/node"},
+		}
+		mounter := mock_sandboxer.NewMockMounter(s.ctrl)
+		mounter.EXPECT().OverlayMounts(gomock.Any(), true).Return(customMounts)
+
 		s.mockEng.EXPECT().Launch(gomock.Any(), req).Return(&sandboxer.LaunchResponse{
 			Sandbox: s.mockSb,
+			Mounter: mounter,
 			ContainerEngine: func(context.Context) (c.Engine, error) {
 				return s.mockClient, nil
 			},
 		}, nil)
 
-		// Layout called by WithSandbox
-		mockLayout := mock_sandboxer.NewMockLayout(s.ctrl)
-		mockLayout.EXPECT().Workspace().Return("/w").AnyTimes()
-		mockLayout.EXPECT().Temp().Return("/t").AnyTimes()
-		s.mockSb.EXPECT().Layout().Return(mockLayout).AnyTimes()
+		s.mockSb.EXPECT().Layout().Return(sandboxer.StandardLayout("/opt/drassi/")).AnyTimes()
 
-		// Network creation
 		s.mockClient.EXPECT().NetworkCreate(gomock.Any(), gomock.Any()).Return("net-123", nil)
-		// Job container socket, pull and run
 		s.mockClient.EXPECT().Address().Return("unix:///var/run/docker.sock")
 		s.mockClient.EXPECT().ImagePull(gomock.Any(), "alpine", gomock.Any()).Return(nil)
-		s.mockClient.EXPECT().ContainerRun(gomock.Any(), gomock.Any(), gomock.Any()).Return("c-123", nil)
-		// NewSandbox setup
+
+		var capturedSpec *types.ContainerSpec
+		s.mockClient.EXPECT().ContainerRun(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+			func(_ context.Context, spec *types.ContainerSpec, _ *c.RunOptions) (string, error) {
+				capturedSpec = spec
+				return "c-123", nil
+			},
+		)
+
 		s.mockClient.EXPECT().CopyIn(gomock.Any(), "c-123", gomock.Any()).Return(nil)
 		s.mockClient.EXPECT().ContainerInspect(gomock.Any(), "c-123").Return(&types.ContainerSpec{
 			Environment: map[string]string{"PATH": "/bin"},
@@ -116,10 +126,12 @@ func (s *ContainerizedEngineTestSuite) TestLaunch() {
 		s.Require().NotNil(resp)
 		s.Require().NotNil(resp.JobContainer)
 		s.Require().Equal("c-123", resp.JobContainer.Id)
-		s.Require().Equal("net-123", resp.JobContainer.Network)
-		s.Require().NotNil(resp.Sandbox)
 
-		// Terminating the wrapped sandbox runs jobSb.Terminate then b.cleanups then underlay sandbox
+		s.Require().NotNil(capturedSpec)
+		for _, m := range customMounts {
+			s.Require().Contains(capturedSpec.Mounts, m)
+		}
+
 		s.mockClient.EXPECT().ContainerRemove(gomock.Any(), &c.RemoveOptions{Id: "c-123"}).Return(nil)
 		s.mockClient.EXPECT().ContainerRemove(gomock.Any(), &c.RemoveOptions{Labels: s.forge.WellKnownLabels()}).Return(nil)
 		s.mockClient.EXPECT().VolumeRemove(gomock.Any(), &c.RemoveOptions{Labels: s.forge.WellKnownLabels()}).Return(nil)

@@ -5,6 +5,7 @@
 //go:generate mockgen -typed -destination=container/engine.go -source=../pkg/container/engine.go
 //go:generate mockgen -typed -destination=sandboxer/engine.go -source=../pkg/sandboxer/engine.go
 //go:generate mockgen -typed -destination=sandboxer/sandbox.go -source=../pkg/sandboxer/sandbox.go
+//go:generate mockgen -typed -destination=sandboxer/mounter.go -source=../pkg/sandboxer/mounter.go
 //go:generate mockgen -typed -destination=command/console.go -source=../pkg/command/console.go
 //go:generate mockgen -typed -destination=command/file.go -source=../pkg/command/file.go
 //go:generate mockgen -typed -destination=command/cmdtypes/types.go -source=../pkg/command/cmdtypes/types.go
