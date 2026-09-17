@@ -238,5 +238,10 @@ GitHub.sublime-settings
 ### ANTLR ###
 .antlr/
 
+### AI Agents & RAG ###
+.codegraph/
+.gitnexus/
+graphify-out/
+
 ### Custom ###
 dist/

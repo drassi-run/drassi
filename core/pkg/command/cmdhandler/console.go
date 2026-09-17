@@ -133,7 +133,7 @@ func RemoveProblemMatcher[R any](f problem.DetectorFactory, sb sandboxer.Sandbox
 
 func readProblemMatcherFile(ctx context.Context, sb sandboxer.Sandbox, file string) (*problem.MatcherConfigs, error) {
 	layout := sb.Layout()
-	file = xpath.Abs(file, layout.Workspace)
+	file = xpath.Abs(file, layout.Workspace())
 
 	reader, err := sb.CopyOut(ctx, file)
 	if err != nil {

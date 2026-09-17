@@ -73,7 +73,7 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*san
 
 	launcher := e.launch
 	if prov := e.provisioner; prov != nil {
-		launcher = prov.Launch(defaultRuntimeDir, launcher)
+		launcher = prov.Launch(layout.Runtimes(), launcher)
 	}
 	sb, err := launcher(ctx, tmpl)
 	if err != nil {

@@ -18,14 +18,14 @@ import (
 )
 
 func TestExportedHelpers(t *testing.T) {
-	layout := DefaultLayout(DefaultJobDir)
+	layout := DefaultLayout
 
 	t.Run("DefaultLayout is populated", func(t *testing.T) {
-		require.NotEmpty(t, layout.Workspace)
-		require.NotEmpty(t, layout.Temp)
-		require.NotEmpty(t, layout.Actions)
-		require.NotEmpty(t, layout.Tools)
-		require.NotEmpty(t, layout.Runtimes)
+		require.NotEmpty(t, layout.Workspace())
+		require.NotEmpty(t, layout.Temp())
+		require.NotEmpty(t, layout.Actions())
+		require.NotEmpty(t, layout.Tools())
+		require.NotEmpty(t, layout.Runtimes())
 	})
 
 	t.Run("NewSandbox creates sandbox successfully", func(t *testing.T) {
@@ -40,7 +40,7 @@ func TestExportedHelpers(t *testing.T) {
 		sb, err := NewSandbox(context.Background(), mockClient, "c-test-1", layout)
 		require.NoError(t, err)
 		require.NotNil(t, sb)
-		require.Equal(t, layout.Workspace, sb.Layout().Workspace)
+		require.Equal(t, layout.Workspace(), sb.Layout().Workspace())
 	})
 
 	t.Run("Cleanup helper returns cleanup function", func(t *testing.T) {

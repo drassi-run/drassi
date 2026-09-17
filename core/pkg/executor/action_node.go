@@ -149,7 +149,7 @@ func (e *nodeActionExecutor) execute(stage Stage) ActionRun {
 	return runActionE(fn)
 }
 
-func (e *nodeActionExecutor) computeScriptPath(layout *sandboxer.Layout, stage Stage) string {
+func (e *nodeActionExecutor) computeScriptPath(layout sandboxer.Layout, stage Stage) string {
 	var script string
 	switch stage {
 	case StagePre:
@@ -160,7 +160,7 @@ func (e *nodeActionExecutor) computeScriptPath(layout *sandboxer.Layout, stage S
 		script = e.spec.Main
 	}
 
-	scriptPath := filepath.Join(layout.Actions, gitstore.Location(e.spec.Repo), script)
+	scriptPath := filepath.Join(layout.Actions(), gitstore.Location(e.spec.Repo), script)
 	return scriptPath
 }
 

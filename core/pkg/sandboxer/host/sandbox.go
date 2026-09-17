@@ -24,65 +24,56 @@ import (
 	"github.com/go-git/go-billy/v5/osfs"
 )
 
-type sandbox struct {
-	layout sandboxer.Layout
-}
+type sandbox string
 
-func newSandbox(dir string) (*sandbox, error) {
+func newSandbox(dir string) (sb sandboxer.Sandbox, err error) {
 	// - if dir is not absolute it will be joined with the cwd
 	// - clean the result
-	if d, err := filepath.Abs(dir); err != nil {
-		return nil, err
-	} else {
-		dir = d
+	if dir, err = filepath.Abs(dir); err != nil {
+		return
 	}
 
-	layout := sandboxer.Layout{
-		Workspace: filepath.Join(dir, "workspace"),
-		Temp:      filepath.Join(dir, "temp"),
-		Actions:   filepath.Join(dir, "actions"),
-		Tools:     filepath.Join(dir, "tools"),
-		Runtimes:  filepath.Join(dir, "runtimes"),
-	}
+	layout := sandboxer.StandardLayout(dir)
 
 	dirs := []string{
-		layout.Workspace,
-		layout.Actions,
-		layout.Tools,
-		layout.Runtimes,
+		layout.Workspace(),
+		layout.Actions(),
+		layout.Tools(),
+		layout.Runtimes(),
 	}
 	for _, d := range dirs {
-		if err := os.MkdirAll(d, xfs.DirPerm); err != nil {
-			return nil, err
+		if err = os.MkdirAll(d, xfs.DirPerm); err != nil {
+			return
 		}
 	}
-	if err := os.MkdirAll(layout.Temp, xfs.AllPerm); err != nil {
-		return nil, err
+	if err = os.MkdirAll(layout.Temp(), xfs.AllPerm); err != nil {
+		return
 	}
 
-	return &sandbox{layout: layout}, nil
+	sb = sandbox(dir)
+	return
 }
 
-func (sb *sandbox) Layout() *sandboxer.Layout {
-	return &sb.layout
+func (sb sandbox) Layout() sandboxer.Layout {
+	return sandboxer.StandardLayout(sb)
 }
 
-func (sb *sandbox) Stat(_ context.Context, path string) (fs.FileInfo, error) {
+func (sb sandbox) Stat(_ context.Context, path string) (fs.FileInfo, error) {
 	return os.Stat(path)
 }
 
-func (sb *sandbox) CopyIn(ctx context.Context, reader io.Reader, dst string) error {
+func (sb sandbox) CopyIn(ctx context.Context, reader io.Reader, dst string) error {
 	fsys := osfs.New("/")
 	return xfs.Write(ctx, fsys, reader, dst)
 }
 
-func (sb *sandbox) CopyOut(ctx context.Context, src string) (io.ReadCloser, error) {
+func (sb sandbox) CopyOut(ctx context.Context, src string) (io.ReadCloser, error) {
 	fsys := osfs.New("/")
 	r := xfs.Read(ctx, fsys, src)
 	return r, nil
 }
 
-func (sb *sandbox) Execute(ctx context.Context, cmd, path []string, env map[string]string, workdir string, streams *stream.Streams) error {
+func (sb sandbox) Execute(ctx context.Context, cmd, path []string, env map[string]string, workdir string, streams *stream.Streams) error {
 	// TODO lookup entrypoint under custom PATH
 	c := exec.CommandContext(ctx, cmd[0], cmd[1:]...)
 
@@ -121,9 +112,9 @@ func (sb *sandbox) Execute(ctx context.Context, cmd, path []string, env map[stri
 
 	// workdir
 	if workdir == "" {
-		c.Dir = sb.layout.Workspace
+		c.Dir = sb.Layout().Workspace()
 	} else {
-		c.Dir = xpath.Abs(workdir, sb.layout.Workspace)
+		c.Dir = xpath.Abs(workdir, sb.Layout().Workspace())
 	}
 
 	// streams
@@ -138,7 +129,6 @@ func (sb *sandbox) Execute(ctx context.Context, cmd, path []string, env map[stri
 	return err
 }
 
-func (sb *sandbox) Terminate(context.Context) error {
-	jobDir := filepath.Dir(sb.layout.Workspace)
-	return os.RemoveAll(jobDir)
+func (sb sandbox) Terminate(context.Context) error {
+	return os.RemoveAll(string(sb))
 }

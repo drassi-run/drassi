@@ -95,7 +95,7 @@ func (mgr *fileManager[R]) Initialize(ctx context.Context, res R) (err error) {
 	if r, err := xtar.ContentReader(fileEntries); err != nil {
 		return err
 	} else {
-		return mgr.sandbox.CopyIn(ctx, r, mgr.sandbox.Layout().Temp)
+		return mgr.sandbox.CopyIn(ctx, r, mgr.sandbox.Layout().Temp())
 	}
 }
 
@@ -171,7 +171,7 @@ func (mgr *fileManager[R]) Env(res R) map[string]string {
 
 func (mgr *fileManager[R]) dir() string {
 	layout := mgr.sandbox.Layout()
-	return path.Join(layout.Temp, "file_commands")
+	return path.Join(layout.Temp(), "file_commands")
 }
 
 func (mgr *fileManager[R]) pathOf(res any, cmd string) string {

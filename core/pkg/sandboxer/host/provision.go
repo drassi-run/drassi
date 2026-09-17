@@ -34,7 +34,7 @@ func (op symlinkOp[Req]) PostLaunch(pctx *provision.Context, sb sandboxer.Sandbo
 		return sb, fmt.Errorf("host mount directory not set in context")
 	}
 
-	runtimeDir := sb.Layout().Runtimes
+	runtimeDir := sb.Layout().Runtimes()
 	target := filepath.Join(runtimeDir, pctx.RuntimeName)
 	if pctx.Config.Subpath != "" {
 		hostMountDir = filepath.Join(hostMountDir, pctx.Config.Subpath)

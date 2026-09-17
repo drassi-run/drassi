@@ -139,8 +139,8 @@ func (e *scriptActionExecutor) executeMain(ctx context.Context) error {
 	return sandbox.Execute(ctx, cmd, paths, env, workdir, streams)
 }
 
-func (e *scriptActionExecutor) expandCommand(layout *sandboxer.Layout, cmd []string, scriptPath string) {
-	scriptPath = path.Join(layout.Temp, scriptPath)
+func (e *scriptActionExecutor) expandCommand(layout sandboxer.Layout, cmd []string, scriptPath string) {
+	scriptPath = path.Join(layout.Temp(), scriptPath)
 	for i, c := range cmd {
 		cmd[i] = strings.Replace(c, `{0}`, scriptPath, 1)
 	}
@@ -156,7 +156,7 @@ func (e *scriptActionExecutor) transferScriptIn(ctx context.Context, sandbox san
 	if reader, err := xtar.ContentReader(entries); err != nil {
 		return err
 	} else {
-		dst := sandbox.Layout().Temp
+		dst := sandbox.Layout().Temp()
 		return sandbox.CopyIn(ctx, reader, dst)
 	}
 }

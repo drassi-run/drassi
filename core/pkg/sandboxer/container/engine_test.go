@@ -94,7 +94,10 @@ func (s *ContainerizedEngineTestSuite) TestLaunch() {
 		}, nil)
 
 		// Layout called by WithSandbox
-		s.mockSb.EXPECT().Layout().Return(&sandboxer.Layout{Workspace: "/w", Temp: "/t"}).AnyTimes()
+		mockLayout := mock_sandboxer.NewMockLayout(s.ctrl)
+		mockLayout.EXPECT().Workspace().Return("/w").AnyTimes()
+		mockLayout.EXPECT().Temp().Return("/t").AnyTimes()
+		s.mockSb.EXPECT().Layout().Return(mockLayout).AnyTimes()
 
 		// Network creation
 		s.mockClient.EXPECT().NetworkCreate(gomock.Any(), gomock.Any()).Return("net-123", nil)

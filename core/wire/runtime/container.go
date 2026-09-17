@@ -133,33 +133,33 @@ func staticMountOpt(path string, sbMounts []*types.Mount) runtime.ContainerRunti
 	return runtime.WithMounts(mounts)
 }
 
-func sandboxMountOpt(layout *sandboxer.Layout) runtime.ContainerRuntimeOption {
+func sandboxMountOpt(layout sandboxer.Layout) runtime.ContainerRuntimeOption {
 	wsMount := &types.Mount{
 		Type:   "bind",
-		Source: layout.Workspace,
+		Source: layout.Workspace(),
 		Target: workspaceDir,
 	}
 	tmpMount := &types.Mount{
 		Type:   "bind",
-		Source: layout.Temp,
+		Source: layout.Temp(),
 		Target: tempDir,
 	}
 
 	mounts := []Pair[string, *types.Mount]{
-		{Key: layout.Workspace, Value: wsMount},
-		{Key: layout.Temp, Value: tmpMount},
+		{Key: layout.Workspace(), Value: wsMount},
+		{Key: layout.Temp(), Value: tmpMount},
 	}
 	return runtime.WithMounts(mounts)
 }
 
-func containerMountOpt(layout *sandboxer.Layout, sbMounts []*types.Mount) (runtime.ContainerRuntimeOption, error) {
+func containerMountOpt(layout sandboxer.Layout, sbMounts []*types.Mount) (runtime.ContainerRuntimeOption, error) {
 	slices.SortFunc(sbMounts, func(a, b *types.Mount) int {
 		return strings.Compare(b.Target, a.Target) // DESC order
 	})
 
 	mounts := make([]Pair[string, *types.Mount], 0)
-	if mount, subDir := mountOf(layout.Workspace, sbMounts); mount == nil {
-		return nil, fmt.Errorf("workspace dir %s is not in a mount point", layout.Workspace)
+	if mount, subDir := mountOf(layout.Workspace(), sbMounts); mount == nil {
+		return nil, fmt.Errorf("workspace dir %s is not in a mount point", layout.Workspace())
 	} else if m, err := chMount(mount, workspaceDir, subDir); err != nil {
 		return nil, err
 	} else {
@@ -169,8 +169,8 @@ func containerMountOpt(layout *sandboxer.Layout, sbMounts []*types.Mount) (runti
 		})
 	}
 
-	if mount, subDir := mountOf(layout.Temp, sbMounts); mount == nil {
-		return nil, fmt.Errorf("temp dir %s is not in a mount point", layout.Workspace)
+	if mount, subDir := mountOf(layout.Temp(), sbMounts); mount == nil {
+		return nil, fmt.Errorf("temp dir %s is not in a mount point", layout.Workspace())
 	} else if m, err := chMount(mount, tempDir, subDir); err != nil {
 		return nil, err
 	} else {

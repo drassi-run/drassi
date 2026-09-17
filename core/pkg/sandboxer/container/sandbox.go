@@ -11,7 +11,6 @@ import (
 	"io"
 	"io/fs"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"drassi.run/core/pkg/container"
@@ -26,35 +25,24 @@ import (
 const DefaultJobDir = "/opt/drassi/"
 
 // DefaultLayout is the standard directory structure inside container sandboxes.
-func DefaultLayout(jobDir string) *sandboxer.Layout {
-	if jobDir == "" {
-		jobDir = DefaultJobDir
-	}
-	return &sandboxer.Layout{
-		Workspace: filepath.Join(jobDir, "workspace"),
-		Temp:      filepath.Join(jobDir, "temp"),
-		Actions:   filepath.Join(jobDir, "actions"),
-		Tools:     filepath.Join(jobDir, "tools"),
-		Runtimes:  filepath.Join(jobDir, "runtimes"),
-	}
-}
+var DefaultLayout = sandboxer.StandardLayout("/opt/drassi/")
 
-func NewSandbox(ctx context.Context, engine container.Engine, containerId string, layout *sandboxer.Layout) (sandboxer.Sandbox, error) {
+func NewSandbox(ctx context.Context, engine container.Engine, containerId string, layout sandboxer.Layout) (sandboxer.Sandbox, error) {
 	if layout == nil {
-		layout = DefaultLayout(DefaultJobDir)
+		layout = DefaultLayout
 	}
 	sb := &sandbox{
 		engine:      engine,
 		containerId: containerId,
-		layout:      *layout,
+		layout:      layout,
 	}
 
 	r, err := xtar.FileEntryReader(
-		&xtar.FileEntry{Name: layout.Workspace, Mode: fs.ModeDir | xfs.DirPerm},
-		&xtar.FileEntry{Name: layout.Temp, Mode: fs.ModeDir | xfs.AllPerm},
-		&xtar.FileEntry{Name: layout.Actions, Mode: fs.ModeDir | xfs.DirPerm},
-		&xtar.FileEntry{Name: layout.Tools, Mode: fs.ModeDir | xfs.DirPerm},
-		&xtar.FileEntry{Name: layout.Runtimes, Mode: fs.ModeDir | xfs.DirPerm},
+		&xtar.FileEntry{Name: layout.Workspace(), Mode: fs.ModeDir | xfs.DirPerm},
+		&xtar.FileEntry{Name: layout.Temp(), Mode: fs.ModeDir | xfs.AllPerm},
+		&xtar.FileEntry{Name: layout.Actions(), Mode: fs.ModeDir | xfs.DirPerm},
+		&xtar.FileEntry{Name: layout.Tools(), Mode: fs.ModeDir | xfs.DirPerm},
+		&xtar.FileEntry{Name: layout.Runtimes(), Mode: fs.ModeDir | xfs.DirPerm},
 	)
 	if err != nil {
 		return nil, err
@@ -79,8 +67,8 @@ type sandbox struct {
 	path        string
 }
 
-func (sb *sandbox) Layout() *sandboxer.Layout {
-	return &sb.layout
+func (sb *sandbox) Layout() sandboxer.Layout {
+	return sb.layout
 }
 
 func (sb *sandbox) Stat(ctx context.Context, path string) (fs.FileInfo, error) {
@@ -124,9 +112,9 @@ func (sb *sandbox) Execute(ctx context.Context, cmd, path []string, env map[stri
 
 	// workdir
 	if workdir == "" {
-		opts.Workdir = sb.layout.Workspace
+		opts.Workdir = sb.layout.Workspace()
 	} else {
-		opts.Workdir = xpath.Abs(workdir, sb.layout.Workspace)
+		opts.Workdir = xpath.Abs(workdir, sb.layout.Workspace())
 	}
 
 	_, err := sb.engine.ContainerExec(ctx, sb.containerId, opts)

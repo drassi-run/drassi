@@ -30,7 +30,7 @@ type runtime struct {
 
 func NewRuntime(name string, sandbox sandboxer.Sandbox, cfg *config.Runtime) (Runtime, error) {
 	layout := sandbox.Layout()
-	binPath := filepath.Join(layout.Runtimes, name, cfg.Executable)
+	binPath := filepath.Join(layout.Runtimes(), name, cfg.Executable)
 
 	cmd := make([]string, 0, len(cfg.Cmd)+1)
 	cmd = append(cmd, binPath)

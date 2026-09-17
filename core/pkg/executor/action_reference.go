@@ -165,7 +165,7 @@ func (spec *ReferenceActionSpec) transferAction(ctx context.Context, store gitst
 	}
 	defer r.Close()
 
-	return sandbox.CopyIn(ctx, r, sandbox.Layout().Actions)
+	return sandbox.CopyIn(ctx, r, sandbox.Layout().Actions())
 }
 
 func (spec *ReferenceActionSpec) serverDomain(s string) string {
