@@ -13,7 +13,6 @@ import (
 	"io/fs"
 	"net"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"drassi.run/core/pkg/sandboxer"
@@ -28,30 +27,22 @@ import (
 	incusapi "github.com/lxc/incus/v6/shared/api"
 )
 
+// fixed layout for all incus sandbox
+var layout = sandboxer.StandardLayout("/opt/drassi/")
+
 type sandbox struct {
 	client       incusclient.InstanceServer
 	fsys         *sftpfs.SftpFS
 	instanceName string
 
-	layout   sandboxer.Layout
 	path     string
 	uid, gid uint32
 }
 
-const defaultRuntimeDir = "/opt/drassi/runtimes"
-
 func newSandbox(client incusclient.InstanceServer, inst string) (*sandbox, error) {
-	dir := "/opt/drassi/"
 	sb := &sandbox{
 		client:       client,
 		instanceName: inst,
-		layout: sandboxer.Layout{
-			Workspace: filepath.Join(dir, "workspace"),
-			Temp:      filepath.Join(dir, "temp"),
-			Actions:   filepath.Join(dir, "actions"),
-			Tools:     filepath.Join(dir, "tools"),
-			Runtimes:  defaultRuntimeDir,
-		},
 	}
 
 	// retrieve path
@@ -69,15 +60,14 @@ func newSandbox(client incusclient.InstanceServer, inst string) (*sandbox, error
 	}
 
 	// init layout
-	layout := &sb.layout
-	if err := sb.fsys.MkdirAll(dir, xfs.DirPerm); err != nil {
+	if err := sb.fsys.MkdirAll(string(layout), xfs.DirPerm); err != nil {
 		return nil, err
 	}
 	dirs := map[string]fs.FileMode{
-		layout.Workspace: xfs.DirPerm,
-		layout.Temp:      xfs.AllPerm,
-		layout.Actions:   xfs.DirPerm,
-		layout.Tools:     xfs.DirPerm,
+		layout.Workspace(): xfs.DirPerm,
+		layout.Temp():      xfs.AllPerm,
+		layout.Actions():   xfs.DirPerm,
+		layout.Tools():     xfs.DirPerm,
 	}
 	for d, pem := range dirs {
 		if err := sb.fsys.Mkdir(d, pem); err != nil {
@@ -88,8 +78,8 @@ func newSandbox(client incusclient.InstanceServer, inst string) (*sandbox, error
 	return sb, nil
 }
 
-func (sb *sandbox) Layout() *sandboxer.Layout {
-	return &sb.layout
+func (sb *sandbox) Layout() sandboxer.Layout {
+	return layout
 }
 
 func (sb *sandbox) Stat(_ context.Context, path string) (fs.FileInfo, error) {
@@ -154,9 +144,9 @@ func (sb *sandbox) execute(
 
 	// workdir
 	if workdir == "" {
-		req.Cwd = sb.layout.Workspace
+		req.Cwd = sb.Layout().Workspace()
 	} else {
-		req.Cwd = xpath.Abs(workdir, sb.layout.Workspace)
+		req.Cwd = xpath.Abs(workdir, sb.Layout().Workspace())
 	}
 
 	// incus streams stdin/out/err not respect ctx

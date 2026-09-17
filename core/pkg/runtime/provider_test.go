@@ -29,9 +29,7 @@ type ProviderTestSuite struct {
 func (s *ProviderTestSuite) SetupTest() {
 	s.ctrl = gomock.NewController(s.T())
 	s.mockSb = mock_sandboxer.NewMockSandbox(s.ctrl)
-	s.mockSb.EXPECT().Layout().Return(&sandboxer.Layout{
-		Runtimes: "/opt/drassi/runtimes",
-	}).AnyTimes()
+	s.mockSb.EXPECT().Layout().Return(sandboxer.StandardLayout("/opt/drassi/")).AnyTimes()
 }
 
 func (s *ProviderTestSuite) TestGet() {

@@ -82,11 +82,11 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (resp
 		resp = nil
 	}(ctx)
 
-	layout := container.DefaultLayout("")
+	layout := container.DefaultLayout
 	spec, err := e.resolveTemplate(req,
 		container.SetNetwork(netId),
 		container.SetLabels(labels),
-		container.SetWorkdir(layout.Workspace),
+		container.SetWorkdir(layout.Workspace()),
 		container.SetCIEnv(),
 		container.SetCmd([]string{"sleep"}, []string{"infinity"}),
 		container.MountApiSocket(e.client),
@@ -98,7 +98,7 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (resp
 	id := new(atomic.Value)
 	launcher := e.launch(layout, id)
 	if prov := e.provisioner; prov != nil {
-		launcher = prov.Launch(layout.Runtimes, launcher)
+		launcher = prov.Launch(layout.Runtimes(), launcher)
 	}
 
 	sb, err = launcher(ctx, spec)
@@ -131,7 +131,7 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (resp
 	return
 }
 
-func (e *engine) launch(layout *sandboxer.Layout, id *atomic.Value) provision.Launcher[*types.ContainerSpec] {
+func (e *engine) launch(layout sandboxer.Layout, id *atomic.Value) provision.Launcher[*types.ContainerSpec] {
 	return func(ctx context.Context, spec *types.ContainerSpec) (sandboxer.Sandbox, error) {
 		runOpts := &c.RunOptions{
 			Stdio:   new(types.Stdio),

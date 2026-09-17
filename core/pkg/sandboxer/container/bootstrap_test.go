@@ -30,7 +30,7 @@ type BootstrapTestSuite struct {
 	ctrl       *gomock.Controller
 	mockClient *mock_container.MockEngine
 	mockSb     *mock_sandboxer.MockSandbox
-	layout     *sandboxer.Layout
+	layout     sandboxer.Layout
 	forge      *records.Forge
 	b          *Bootstrapper
 }
@@ -39,7 +39,7 @@ func (s *BootstrapTestSuite) SetupTest() {
 	s.ctrl = gomock.NewController(s.T())
 	s.mockClient = mock_container.NewMockEngine(s.ctrl)
 	s.mockSb = mock_sandboxer.NewMockSandbox(s.ctrl)
-	s.layout = DefaultLayout("")
+	s.layout = DefaultLayout
 	s.forge = &records.Forge{
 		Repository: "drassi/test",
 		Workflow:   "test.yml",

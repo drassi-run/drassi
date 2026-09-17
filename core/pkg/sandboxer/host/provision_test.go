@@ -28,7 +28,9 @@ func TestHostSymlink(t *testing.T) {
 	require.Equal(t, "host/symlink", op.Name())
 
 	sb := mock_sandboxer.NewMockSandbox(ctrl)
-	sb.EXPECT().Layout().Return(&sandboxer.Layout{Runtimes: runtimesDir}).AnyTimes()
+	mockLayout := mock_sandboxer.NewMockLayout(ctrl)
+	mockLayout.EXPECT().Runtimes().Return(runtimesDir).AnyTimes()
+	sb.EXPECT().Layout().Return(mockLayout).AnyTimes()
 
 	t.Run("basic symlink", func(t *testing.T) {
 		mountDir := filepath.Join(t.TempDir(), "mount_merged")

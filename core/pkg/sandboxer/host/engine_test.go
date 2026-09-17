@@ -85,7 +85,7 @@ func (s *HostEngineTestSuite) TestLaunch() {
 		sb := s.assertLaunch(eng)
 
 		// Symlink is created
-		symlinkPath := filepath.Join(sb.Layout().Runtimes, "node")
+		symlinkPath := filepath.Join(sb.Layout().Runtimes(), "node")
 		target, err := os.Readlink(symlinkPath)
 		s.Require().NoError(err)
 		s.Require().Equal(mountDir, target)

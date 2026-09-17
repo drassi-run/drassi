@@ -94,11 +94,11 @@ func (b *Bootstrapper) RunJobContainer(ctx context.Context, def *workflows.Conta
 		return nil, err
 	}
 
-	layout := DefaultLayout(DefaultJobDir)
+	layout := DefaultLayout
 	options := []Option{
 		SetNetwork(netId),
 		SetLabels(b.labels),
-		SetWorkdir(layout.Workspace),
+		SetWorkdir(layout.Workspace()),
 		SetCIEnv(),
 		SetCmd([]string{"sleep"}, []string{"infinity"}),
 		MountApiSocket(b.client),

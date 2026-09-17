@@ -293,7 +293,7 @@ func (e *jobExecutor) initializeSandbox(ctx context.Context, s *scribe.Scribe) e
 		e.jobInfo.Services = resp.ServiceContainers
 
 		layout := e.sandbox.Layout()
-		e.forge.Workspace = layout.Workspace
+		e.forge.Workspace = layout.Workspace()
 
 		if err = xdig.Supply(e.scope, resp.ContainerEngine, dig.Export(true)); err != nil {
 			return fmt.Errorf("supply 'container.Engine': %w", err)
@@ -347,9 +347,9 @@ func (e *jobExecutor) initializeScope() error {
 
 func (e *jobExecutor) configureRunner(runner *records.RunnerInfo) {
 	layout := e.sandbox.Layout()
-	runner.Workspace = layout.Workspace
-	runner.ToolCache = layout.Tools
-	runner.Temp = layout.Temp
+	runner.Workspace = layout.Workspace()
+	runner.ToolCache = layout.Tools()
+	runner.Temp = layout.Temp()
 }
 
 func (e *jobExecutor) initializeSteps(ctx context.Context, s *scribe.Scribe) error {
@@ -563,7 +563,7 @@ func (e *jobExecutor) SetEnv(env map[string]string) {
 }
 
 func (e *jobExecutor) setupEventFile(ctx context.Context) (string, error) {
-	tmp := e.sandbox.Layout().Temp
+	tmp := e.sandbox.Layout().Temp()
 	files := map[string]any{"workflow/event.json": e.forge.Event}
 	r, err := xtar.JsonObjectReader(files, false)
 	if err != nil {

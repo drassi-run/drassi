@@ -96,10 +96,10 @@ func addSandboxMounts(sb sandboxer.Sandbox) Option {
 		mounts = append(mounts, m)
 	} else {
 		layout := sb.Layout()
-		containerLayout := DefaultLayout(DefaultJobDir)
+		containerLayout := DefaultLayout
 		dir := map[string]string{
-			containerLayout.Workspace: layout.Workspace,
-			containerLayout.Temp:      layout.Temp,
+			containerLayout.Workspace(): layout.Workspace(),
+			containerLayout.Temp():      layout.Temp(),
 		}
 		for k, v := range dir {
 			m := &types.Mount{

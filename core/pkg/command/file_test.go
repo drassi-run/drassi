@@ -28,10 +28,13 @@ func (r res) CommandFile(cmd string) string {
 
 var (
 	suffix = res("_suffix")
-	layout = &sandboxer.Layout{
-		Temp: "/tmp/sandbox",
-	}
 )
+
+func newMockLayout(ctrl *gomock.Controller) sandboxer.Layout {
+	mockLayout := mock_sandboxer.NewMockLayout(ctrl)
+	mockLayout.EXPECT().Temp().Return("/tmp/sandbox").AnyTimes()
+	return mockLayout
+}
 
 func setupFileCmdMgr(sandbox sandboxer.Sandbox) *fileManager[res] {
 	return NewFileManager[res](sandbox).(*fileManager[res])
@@ -56,7 +59,7 @@ func TestFileManager_Initialize(t *testing.T) {
 
 	t.Run("empty-command", func(tt *testing.T) {
 		sandbox := mock_sandboxer.NewMockSandbox(ctrl)
-		sandbox.EXPECT().Layout().Return(layout).AnyTimes()
+		sandbox.EXPECT().Layout().Return(newMockLayout(ctrl)).AnyTimes()
 		mgr := setupFileCmdMgr(sandbox)
 
 		err := mgr.Initialize(ctx, suffix)
@@ -67,7 +70,7 @@ func TestFileManager_Initialize(t *testing.T) {
 
 	t.Run("normal", func(tt *testing.T) {
 		sandbox := mock_sandboxer.NewMockSandbox(ctrl)
-		sandbox.EXPECT().Layout().Return(layout).AnyTimes()
+		sandbox.EXPECT().Layout().Return(newMockLayout(ctrl)).AnyTimes()
 		sandbox.EXPECT().CopyIn(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 		mgr := setupFileCmdMgr(sandbox)
@@ -109,7 +112,7 @@ func TestFileManager_Process(t *testing.T) {
 		r1, _ := xtar.ContentReader(map[string]string{"FIRST_suffix": "FIRST file content"})
 		r2, _ := xtar.ContentReader(map[string]string{"SECOND_suffix": "SECOND file content"})
 		sandbox := mock_sandboxer.NewMockSandbox(ctrl)
-		sandbox.EXPECT().Layout().Return(layout).AnyTimes()
+		sandbox.EXPECT().Layout().Return(newMockLayout(ctrl)).AnyTimes()
 		sandbox.EXPECT().CopyOut(gomock.Any(), "/tmp/sandbox/file_commands/FIRST_suffix").
 			Return(&noopReadCloser{r1}, nil)
 		sandbox.EXPECT().CopyOut(gomock.Any(), "/tmp/sandbox/file_commands/SECOND_suffix").
@@ -125,7 +128,7 @@ func TestFileManager_Process(t *testing.T) {
 
 	t.Run("file-not-found", func(tt *testing.T) {
 		sandbox := mock_sandboxer.NewMockSandbox(ctrl)
-		sandbox.EXPECT().Layout().Return(layout).AnyTimes()
+		sandbox.EXPECT().Layout().Return(newMockLayout(ctrl)).AnyTimes()
 		sandbox.EXPECT().CopyOut(gomock.Any(), gomock.Any()).
 			Return(nil, fs.ErrNotExist).
 			AnyTimes()
@@ -140,7 +143,7 @@ func TestFileManager_Process(t *testing.T) {
 
 	t.Run("copy-error", func(tt *testing.T) {
 		sandbox := mock_sandboxer.NewMockSandbox(ctrl)
-		sandbox.EXPECT().Layout().Return(layout).AnyTimes()
+		sandbox.EXPECT().Layout().Return(newMockLayout(ctrl)).AnyTimes()
 		sandbox.EXPECT().CopyOut(gomock.Any(), gomock.Any()).
 			Return(nil, errors.New("unexpected error"))
 
@@ -155,7 +158,7 @@ func TestFileManager_Process(t *testing.T) {
 		r1, _ := xtar.ContentReader(map[string]string{"FIRST_suffix": "FIRST file content"})
 
 		sandbox := mock_sandboxer.NewMockSandbox(ctrl)
-		sandbox.EXPECT().Layout().Return(layout).AnyTimes()
+		sandbox.EXPECT().Layout().Return(newMockLayout(ctrl)).AnyTimes()
 		sandbox.EXPECT().CopyOut(gomock.Any(), gomock.Any()).
 			Return(&noopReadCloser{r1}, nil)
 
