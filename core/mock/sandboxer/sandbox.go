@@ -160,10 +160,10 @@ func (c *MockSandboxExecuteCall) DoAndReturn(f func(context.Context, []string, [
 }
 
 // Layout mocks base method.
-func (m *MockSandbox) Layout() *sandboxer.Layout {
+func (m *MockSandbox) Layout() sandboxer.Layout {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Layout")
-	ret0, _ := ret[0].(*sandboxer.Layout)
+	ret0, _ := ret[0].(sandboxer.Layout)
 	return ret0
 }
 
@@ -180,19 +180,19 @@ type MockSandboxLayoutCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockSandboxLayoutCall) Return(arg0 *sandboxer.Layout) *MockSandboxLayoutCall {
+func (c *MockSandboxLayoutCall) Return(arg0 sandboxer.Layout) *MockSandboxLayoutCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockSandboxLayoutCall) Do(f func() *sandboxer.Layout) *MockSandboxLayoutCall {
+func (c *MockSandboxLayoutCall) Do(f func() sandboxer.Layout) *MockSandboxLayoutCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSandboxLayoutCall) DoAndReturn(f func() *sandboxer.Layout) *MockSandboxLayoutCall {
+func (c *MockSandboxLayoutCall) DoAndReturn(f func() sandboxer.Layout) *MockSandboxLayoutCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -270,6 +270,220 @@ func (c *MockSandboxTerminateCall) Do(f func(context.Context) error) *MockSandbo
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockSandboxTerminateCall) DoAndReturn(f func(context.Context) error) *MockSandboxTerminateCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// MockLayout is a mock of Layout interface.
+type MockLayout struct {
+	ctrl     *gomock.Controller
+	recorder *MockLayoutMockRecorder
+	isgomock struct{}
+}
+
+// MockLayoutMockRecorder is the mock recorder for MockLayout.
+type MockLayoutMockRecorder struct {
+	mock *MockLayout
+}
+
+// NewMockLayout creates a new mock instance.
+func NewMockLayout(ctrl *gomock.Controller) *MockLayout {
+	mock := &MockLayout{ctrl: ctrl}
+	mock.recorder = &MockLayoutMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockLayout) EXPECT() *MockLayoutMockRecorder {
+	return m.recorder
+}
+
+// Actions mocks base method.
+func (m *MockLayout) Actions() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Actions")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Actions indicates an expected call of Actions.
+func (mr *MockLayoutMockRecorder) Actions() *MockLayoutActionsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Actions", reflect.TypeOf((*MockLayout)(nil).Actions))
+	return &MockLayoutActionsCall{Call: call}
+}
+
+// MockLayoutActionsCall wrap *gomock.Call
+type MockLayoutActionsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockLayoutActionsCall) Return(arg0 string) *MockLayoutActionsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockLayoutActionsCall) Do(f func() string) *MockLayoutActionsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockLayoutActionsCall) DoAndReturn(f func() string) *MockLayoutActionsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// Runtimes mocks base method.
+func (m *MockLayout) Runtimes() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Runtimes")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Runtimes indicates an expected call of Runtimes.
+func (mr *MockLayoutMockRecorder) Runtimes() *MockLayoutRuntimesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Runtimes", reflect.TypeOf((*MockLayout)(nil).Runtimes))
+	return &MockLayoutRuntimesCall{Call: call}
+}
+
+// MockLayoutRuntimesCall wrap *gomock.Call
+type MockLayoutRuntimesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockLayoutRuntimesCall) Return(arg0 string) *MockLayoutRuntimesCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockLayoutRuntimesCall) Do(f func() string) *MockLayoutRuntimesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockLayoutRuntimesCall) DoAndReturn(f func() string) *MockLayoutRuntimesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// Temp mocks base method.
+func (m *MockLayout) Temp() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Temp")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Temp indicates an expected call of Temp.
+func (mr *MockLayoutMockRecorder) Temp() *MockLayoutTempCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Temp", reflect.TypeOf((*MockLayout)(nil).Temp))
+	return &MockLayoutTempCall{Call: call}
+}
+
+// MockLayoutTempCall wrap *gomock.Call
+type MockLayoutTempCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockLayoutTempCall) Return(arg0 string) *MockLayoutTempCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockLayoutTempCall) Do(f func() string) *MockLayoutTempCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockLayoutTempCall) DoAndReturn(f func() string) *MockLayoutTempCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// Tools mocks base method.
+func (m *MockLayout) Tools() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Tools")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Tools indicates an expected call of Tools.
+func (mr *MockLayoutMockRecorder) Tools() *MockLayoutToolsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tools", reflect.TypeOf((*MockLayout)(nil).Tools))
+	return &MockLayoutToolsCall{Call: call}
+}
+
+// MockLayoutToolsCall wrap *gomock.Call
+type MockLayoutToolsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockLayoutToolsCall) Return(arg0 string) *MockLayoutToolsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockLayoutToolsCall) Do(f func() string) *MockLayoutToolsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockLayoutToolsCall) DoAndReturn(f func() string) *MockLayoutToolsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// Workspace mocks base method.
+func (m *MockLayout) Workspace() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Workspace")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Workspace indicates an expected call of Workspace.
+func (mr *MockLayoutMockRecorder) Workspace() *MockLayoutWorkspaceCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Workspace", reflect.TypeOf((*MockLayout)(nil).Workspace))
+	return &MockLayoutWorkspaceCall{Call: call}
+}
+
+// MockLayoutWorkspaceCall wrap *gomock.Call
+type MockLayoutWorkspaceCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockLayoutWorkspaceCall) Return(arg0 string) *MockLayoutWorkspaceCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockLayoutWorkspaceCall) Do(f func() string) *MockLayoutWorkspaceCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockLayoutWorkspaceCall) DoAndReturn(f func() string) *MockLayoutWorkspaceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

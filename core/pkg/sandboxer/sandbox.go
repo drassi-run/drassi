@@ -10,12 +10,13 @@ import (
 	"context"
 	"io"
 	"io/fs"
+	"path"
 
 	"drassi.run/core/pkg/stream"
 )
 
 type Sandbox interface {
-	Layout() *Layout
+	Layout() Layout
 
 	Stat(ctx context.Context, path string) (fs.FileInfo, error)
 	CopyIn(ctx context.Context, reader io.Reader, dst string) error
@@ -25,22 +26,33 @@ type Sandbox interface {
 	Terminate(ctx context.Context) error
 }
 
-type Layout struct {
+type Layout interface {
 	// Workspace is location repository is cloned to, and is job's default workdir
-	Workspace string
+	Workspace() string
 
 	// Temp is where file commands, workflow/event.json and scripts are located
-	Temp string
+	Temp() string
 
 	// Actions is location where actions are downloaded into
 	// It's job-scoped configuration
-	Actions string
+	Actions() string
 
 	// Tools directory contains preinstalled tools for GitHub-hosted runner
 	// It's repo-scoped configuration
-	Tools string
+	Tools() string
 
 	// Runtimes directory contains node.js (and others) runtimes
 	// It's runner-scoped configuration
-	Runtimes string
+	Runtimes() string
+}
+
+type StandardLayout string
+
+func (l StandardLayout) Workspace() string { return l.subpath("workspace") }
+func (l StandardLayout) Temp() string      { return l.subpath("temp") }
+func (l StandardLayout) Actions() string   { return l.subpath("actions") }
+func (l StandardLayout) Tools() string     { return l.subpath("tools") }
+func (l StandardLayout) Runtimes() string  { return l.subpath("runtimes") }
+func (l StandardLayout) subpath(s string) string {
+	return path.Join(string(l), s)
 }
