@@ -13,6 +13,7 @@ import (
 	mock_container "drassi.run/core/mock/container"
 	mock_sandboxer "drassi.run/core/mock/sandboxer"
 	"drassi.run/core/pkg/container"
+	"drassi.run/core/pkg/container/specdef"
 	"drassi.run/core/pkg/container/types"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/model/workflows"
@@ -126,7 +127,7 @@ func (s *BootstrapTestSuite) TestRunJobContainer() {
 		s.mockClient.EXPECT().ContainerRun(gomock.Any(), gomock.Any(), gomock.Any()).Return("c-job", nil)
 
 		mount := &types.Mount{Type: "bind", Source: "/workspace", Target: s.layout.Workspace()}
-		info, err := s.b.RunJobContainer(s.T().Context(), def, AddMount(mount))
+		info, err := s.b.RunJobContainer(s.T().Context(), def, specdef.AddMount(mount))
 		s.Require().NoError(err)
 		s.Require().NotNil(info)
 		s.Require().Equal("c-job", info.Id)

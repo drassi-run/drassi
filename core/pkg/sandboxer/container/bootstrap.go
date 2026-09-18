@@ -16,6 +16,7 @@ import (
 	"drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/container/cli"
 	"drassi.run/core/pkg/container/parser"
+	"drassi.run/core/pkg/container/specdef"
 	"drassi.run/core/pkg/container/types"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/model/workflows"
@@ -90,7 +91,7 @@ func (b *Bootstrapper) doCreateNetwork(ctx context.Context) (string, error) {
 	return netId, nil
 }
 
-func (b *Bootstrapper) RunJobContainer(ctx context.Context, def *workflows.Container, opts ...Option) (*records.ContainerInfo, error) {
+func (b *Bootstrapper) RunJobContainer(ctx context.Context, def *workflows.Container, opts ...specdef.Option) (*records.ContainerInfo, error) {
 	if def == nil {
 		return nil, nil
 	}
@@ -102,12 +103,12 @@ func (b *Bootstrapper) RunJobContainer(ctx context.Context, def *workflows.Conta
 
 	layout := DefaultLayout
 	opts = append(opts,
-		MountApiSocket(b.client),
-		SetNetwork(netId),
-		SetCIEnv(),
-		SetWorkdir(layout.Workspace()),
-		SetCmd([]string{"sleep"}, []string{"infinity"}),
-		SetLabels(b.labels),
+		specdef.MountApiSocket(b.client),
+		specdef.SetNetwork(netId),
+		specdef.SetCIEnv(),
+		specdef.SetWorkdir(layout.Workspace()),
+		specdef.SetCmd([]string{"sleep"}, []string{"infinity"}),
+		specdef.SetLabels(b.labels),
 	)
 
 	conId, err := b.runContainer(ctx, def, opts...)
@@ -121,7 +122,7 @@ func (b *Bootstrapper) RunJobContainer(ctx context.Context, def *workflows.Conta
 	}, nil
 }
 
-func (b *Bootstrapper) RunServiceContainers(ctx context.Context, defs map[string]*workflows.Container, opts ...Option) (map[string]*records.ContainerInfo, error) {
+func (b *Bootstrapper) RunServiceContainers(ctx context.Context, defs map[string]*workflows.Container, opts ...specdef.Option) (map[string]*records.ContainerInfo, error) {
 	if len(defs) == 0 {
 		return make(map[string]*records.ContainerInfo), nil
 	}
@@ -131,9 +132,9 @@ func (b *Bootstrapper) RunServiceContainers(ctx context.Context, defs map[string
 		return nil, err
 	}
 
-	options := []Option{
-		SetNetwork(netId),
-		SetLabels(b.labels),
+	options := []specdef.Option{
+		specdef.SetNetwork(netId),
+		specdef.SetLabels(b.labels),
 	}
 	options = append(options, opts...)
 
@@ -200,7 +201,7 @@ func (b *Bootstrapper) Rollback(ctx context.Context) error {
 	return errors.Join(errs...)
 }
 
-func (b *Bootstrapper) runContainer(ctx context.Context, def *workflows.Container, opts ...Option) (string, error) {
+func (b *Bootstrapper) runContainer(ctx context.Context, def *workflows.Container, opts ...specdef.Option) (string, error) {
 	spec, err := b.parseContainer(def, opts...)
 	if err != nil {
 		return "", err
@@ -223,7 +224,7 @@ func (b *Bootstrapper) runContainer(ctx context.Context, def *workflows.Containe
 	return b.client.ContainerRun(ctx, spec, runOpts)
 }
 
-func (b *Bootstrapper) parseContainer(def *workflows.Container, opts ...Option) (spec *types.ContainerSpec, err error) {
+func (b *Bootstrapper) parseContainer(def *workflows.Container, opts ...specdef.Option) (spec *types.ContainerSpec, err error) {
 	if spec, _, err = cli.Parse(def.Options); err != nil {
 		return
 	}
@@ -256,13 +257,10 @@ func (b *Bootstrapper) parseContainer(def *workflows.Container, opts ...Option) 
 		}
 	}
 
-	for _, fn := range opts {
-		if err = fn(spec); err != nil {
-			return nil, err
-		}
+	if err = specdef.Apply(spec, opts...); err != nil {
+		return nil, err
 	}
-
-	return
+	return spec, nil
 }
 
 func (b *Bootstrapper) getPortsMap(ctx context.Context, id string) (map[string]string, error) {

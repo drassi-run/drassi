@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package container
+package specdef
 
 import (
 	"fmt"
@@ -17,7 +17,21 @@ import (
 
 type Option func(*types.ContainerSpec) error
 
+func noop(*types.ContainerSpec) error { return nil }
+
+func Apply(spec *types.ContainerSpec, opts ...Option) error {
+	for _, fn := range opts {
+		if err := fn(spec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func SetLabels(labels map[string]string) Option {
+	if len(labels) == 0 {
+		return noop
+	}
 	return func(spec *types.ContainerSpec) error {
 		// set labels for container
 		if spec.Labels == nil {
@@ -28,7 +42,7 @@ func SetLabels(labels map[string]string) Option {
 
 		// set labels for volumes
 		for _, vol := range spec.Mounts {
-			if vol.Type != "volume" {
+			if vol == nil || vol.Type != "volume" {
 				continue
 			}
 			if vol.VolumeOptions == nil {
@@ -65,11 +79,11 @@ func SetNetwork(netId string) Option {
 			endpoint := &types.Endpoint{Target: netId}
 			spec.Endpoints = append(spec.Endpoints, endpoint)
 		case 1:
-			if endpoint := spec.Endpoints[0]; endpoint.Target != "" {
+			endpoint := spec.Endpoints[0]
+			if endpoint.Target != "" {
 				return fmt.Errorf("can't overwrite non-default network %q", endpoint.Target)
-			} else {
-				endpoint.Target = netId
 			}
+			endpoint.Target = netId
 		default:
 			return fmt.Errorf("only one network per container")
 		}
@@ -85,9 +99,6 @@ func AddMount(mounts ...*types.Mount) Option {
 }
 
 func MountVolume(volume, target string) Option {
-	if target == "" {
-		target = DefaultJobDir
-	}
 	return func(spec *types.ContainerSpec) error {
 		spec.Mounts = append(spec.Mounts, &types.Mount{
 			Type:   "volume",
@@ -99,12 +110,15 @@ func MountVolume(volume, target string) Option {
 }
 
 func MountApiSocket(c container.Engine) Option {
+	if c == nil {
+		return noop
+	}
 	socket := c.Address()
 	if proto, loc, ok := strings.Cut(socket, "://"); ok {
 		if proto == "unix" {
 			socket = loc
 		} else {
-			return func(container *types.ContainerSpec) error { return nil }
+			return noop
 		}
 	}
 	return func(spec *types.ContainerSpec) error {
@@ -120,9 +134,7 @@ func MountApiSocket(c container.Engine) Option {
 
 func SetWorkdir(dir string) Option {
 	return func(spec *types.ContainerSpec) error {
-		if spec.WorkingDir != "" {
-			spec.WorkingDir = dir
-		}
+		spec.WorkingDir = dir
 		return nil
 	}
 }
