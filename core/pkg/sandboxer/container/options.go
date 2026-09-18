@@ -7,21 +7,13 @@
 package container
 
 import (
-	"context"
 	"fmt"
 	"maps"
 	"strings"
 
 	"drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/container/types"
-	"drassi.run/core/pkg/sandboxer"
 )
-
-func removeByLabels(labels map[string]string, fn func(context.Context, *container.RemoveOptions) error) sandboxer.Cleanup {
-	return func(ctx context.Context) error {
-		return fn(ctx, &container.RemoveOptions{Labels: labels})
-	}
-}
 
 type Option func(*types.ContainerSpec) error
 

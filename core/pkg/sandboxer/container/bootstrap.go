@@ -21,7 +21,7 @@ import (
 	"drassi.run/core/pkg/model/workflows"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/stream"
-	xsync "drassi.run/core/util/sync"
+	"drassi.run/core/util/sync"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -35,6 +35,12 @@ func NewBootstrapper(client container.Engine, forge *records.Forge) *Bootstrappe
 			removeByLabels(labels, client.ContainerRemove),
 			removeByLabels(labels, client.VolumeRemove),
 		},
+	}
+}
+
+func removeByLabels(labels map[string]string, fn func(context.Context, *container.RemoveOptions) error) sandboxer.Cleanup {
+	return func(ctx context.Context) error {
+		return fn(ctx, &container.RemoveOptions{Labels: labels})
 	}
 }
 
