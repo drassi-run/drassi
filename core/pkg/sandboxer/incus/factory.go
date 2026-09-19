@@ -81,7 +81,7 @@ func (f *factory) doCreate() (sandboxer.Engine, error) {
 }
 
 // Template for create incus VM
-// [github.com/lxc/incus/v6/shared/api.InstancesPost]
+// [github.com/lxc/incus/v7/shared/api.InstancesPost]
 type Template struct {
 	Name string `toml:"name,omitempty" json:"name,omitempty"`
 

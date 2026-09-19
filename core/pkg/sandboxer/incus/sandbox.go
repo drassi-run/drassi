@@ -22,9 +22,8 @@ import (
 	"drassi.run/core/util/io"
 	"drassi.run/core/util/net"
 	"drassi.run/core/util/path"
-	"github.com/gorilla/websocket"
-	incusclient "github.com/lxc/incus/v6/client"
-	incusapi "github.com/lxc/incus/v6/shared/api"
+	incusclient "github.com/lxc/incus/v7/client"
+	incusapi "github.com/lxc/incus/v7/shared/api"
 )
 
 // fixed layout for all incus sandbox
@@ -123,7 +122,7 @@ func (sb *sandbox) execute(
 		Command:   cmd,
 		WaitForWS: true,
 		// TODO: Interactive=true if both stdin AND stdout are terminals (stderr is ignored).
-		// See: https://github.com/lxc/incus/blob/v6.6.0/cmd/incus/exec.go#L141-L157
+		// See: https://github.com/lxc/incus/blob/v7.4.0/cmd/incus/exec.go#L136-L152
 		Interactive: false,
 		Environment: env,
 		User:        sb.uid,
@@ -168,10 +167,10 @@ func (sb *sandbox) execute(
 	}
 
 	execArgs := &incusclient.InstanceExecArgs{
-		Stdin:    stdin,
-		Stdout:   stdout,
-		Stderr:   stderr,
-		Control:  sb.controlSocketHandler,
+		Stdin:  stdin,
+		Stdout: stdout,
+		Stderr: stderr,
+		//Control:  sb.controlSocketHandler,
 		DataDone: make(chan bool),
 	}
 
@@ -180,10 +179,10 @@ func (sb *sandbox) execute(
 	return op, execArgs.DataDone, err
 }
 
-// TODO: implement resize terminal & forward signal
-// See: https://github.com/lxc/incus/blob/v6.6.0/cmd/incus/exec_unix.go#L20
-func (sb *sandbox) controlSocketHandler(control *websocket.Conn) {
-}
+//// TODO: implement resize terminal & forward signal
+//// See: https://github.com/lxc/incus/blob/v7.4.0/cmd/incus/exec_unix.go#L20
+//func (sb *sandbox) controlSocketHandler(control *websocket.Conn) {
+//}
 
 func (sb *sandbox) Terminate(ctx context.Context) error {
 	_ = sb.fsys.Close()
