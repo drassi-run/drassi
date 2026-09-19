@@ -14,9 +14,9 @@ import (
 	"strings"
 
 	"drassi.run/core/pkg/container"
+	"drassi.run/core/pkg/container/specdef"
 	"drassi.run/core/pkg/container/types"
 	"drassi.run/core/pkg/stream"
-	. "drassi.run/core/util/types"
 	"k8s.io/utils/set"
 )
 
@@ -31,52 +31,32 @@ type Container interface {
 
 type containerRuntime struct {
 	engine container.Engine
+	spec   *types.ContainerSpec
 
-	workdir string
-	labels  map[string]string
-	network string
-	mounts  []Pair[string, *types.Mount] // list of (sandboxPath, *Mount) pair, sorted DESC by sandboxPath
-	pathMap [][2]string                  // list of (containerPath, sandboxPath) pair, sorted DESC by containerPath
+	mountMap [][2]string // list of (sandboxPath, containerPath) pair, sorted DESC by sandboxPath
+	pathMap  [][2]string // list of (containerPath, sandboxPath) pair, sorted DESC by containerPath
 }
 
-type ContainerRuntimeOption func(*containerRuntime)
-
-func WithWorkDir(workdir string) ContainerRuntimeOption {
-	return func(rt *containerRuntime) {
-		rt.workdir = workdir
+func NewContainerRuntime(engine container.Engine, opts ...specdef.Option) (Container, error) {
+	spec := new(types.ContainerSpec)
+	if err := specdef.Apply(spec, opts...); err != nil {
+		return nil, err
 	}
-}
 
-func WithLabels(labels map[string]string) ContainerRuntimeOption {
-	return func(rt *containerRuntime) {
-		rt.labels = labels
-	}
-}
-
-func WithNetwork(network string) ContainerRuntimeOption {
-	return func(rt *containerRuntime) {
-		rt.network = network
-	}
-}
-
-func WithMounts(mounts []Pair[string, *types.Mount]) ContainerRuntimeOption {
-	return func(rt *containerRuntime) {
-		rt.mounts = append(rt.mounts, mounts...)
-	}
-}
-
-func NewContainerRuntime(engine container.Engine, opts ...ContainerRuntimeOption) (Container, error) {
-	rt := &containerRuntime{engine: engine}
-	for _, o := range opts {
-		o(rt)
+	rt := &containerRuntime{
+		engine: engine,
+		spec:   spec,
 	}
 
 	containerPaths := set.New[string]()
 	sandboxerPaths := set.New[string]()
-	mounts := rt.mounts
-	pathMap := make([][2]string, 0, len(mounts))
-	for _, m := range mounts {
-		sPath, cPath := m.Key, m.Value.Target
+	mountMap := make([][2]string, 0, len(spec.Mounts))
+	pathMap := make([][2]string, 0, len(spec.Mounts))
+	for _, m := range spec.Mounts {
+		cPath, sPath := m.Target, m.Target
+		if m.Type == "bind" && m.Source != "" {
+			sPath = m.Source
+		}
 		if s := strings.TrimRight(sPath, "/"); sandboxerPaths.Has(s) {
 			return nil, fmt.Errorf("found duplicate sandbox mount at %q", s)
 		} else {
@@ -87,16 +67,17 @@ func NewContainerRuntime(engine container.Engine, opts ...ContainerRuntimeOption
 		} else {
 			containerPaths.Insert(s)
 		}
+		mountMap = append(mountMap, [...]string{sPath, cPath})
 		pathMap = append(pathMap, [...]string{cPath, sPath})
 	}
 
-	slices.SortFunc(mounts, func(a, b Pair[string, *types.Mount]) int {
-		return strings.Compare(b.Key, a.Key) // DESC order
+	slices.SortFunc(mountMap, func(a, b [2]string) int {
+		return strings.Compare(b[0], a[0]) // DESC order by sandboxPath
 	})
 	slices.SortFunc(pathMap, func(a, b [2]string) int {
-		return strings.Compare(b[0], a[0]) // DESC order
+		return strings.Compare(b[0], a[0]) // DESC order by containerPath
 	})
-	rt.mounts = mounts
+	rt.mountMap = mountMap
 	rt.pathMap = pathMap
 
 	return rt, nil
@@ -134,31 +115,23 @@ func (rt *containerRuntime) Run(
 	streams *stream.Streams,
 ) error {
 	// clone env to avoid modify the original
-	runEnv := maps.Clone(env)
+	runEnv := maps.Clone(rt.spec.Environment)
+	if runEnv == nil {
+		runEnv = make(map[string]string, len(env))
+	}
 	for k, v := range env {
 		if path := MapPath(v, rt.mountMapSeq); path != "" {
-			runEnv[k] = path
+			v = path
 		}
+		runEnv[k] = v
 	}
 
-	spec := &types.ContainerSpec{
-		Image:       image,
-		Entrypoint:  entrypoint,
-		Command:     cmd,
-		Environment: runEnv,
-		WorkingDir:  rt.workdir,
-		Labels:      rt.labels,
-	}
+	spec := *rt.spec // clone ContainerSpec
+	spec.Image = image
+	spec.Entrypoint = entrypoint
+	spec.Command = cmd
+	spec.Environment = runEnv
 	spec.AutoRemove = true
-	if rt.network != "" {
-		ep := &types.Endpoint{
-			Target: rt.network,
-		}
-		spec.Endpoints = append(spec.Endpoints, ep)
-	}
-	for _, mount := range rt.mounts {
-		spec.Mounts = append(spec.Mounts, mount.Value)
-	}
 
 	stdio := new(types.Stdio)
 	if streams.Out != nil {
@@ -167,7 +140,7 @@ func (rt *containerRuntime) Run(
 	if streams.Err != nil {
 		stdio.Attach |= types.Stderr
 	}
-	_, err := rt.engine.ContainerRun(ctx, spec, &container.RunOptions{
+	_, err := rt.engine.ContainerRun(ctx, &spec, &container.RunOptions{
 		Stdio:   stdio,
 		Streams: streams,
 	})
@@ -175,8 +148,8 @@ func (rt *containerRuntime) Run(
 }
 
 func (rt *containerRuntime) mountMapSeq(yield func(string, string) bool) {
-	for _, m := range rt.mounts {
-		if !yield(m.Key, m.Value.Target) {
+	for _, pair := range rt.mountMap {
+		if !yield(pair[0], pair[1]) {
 			return
 		}
 	}

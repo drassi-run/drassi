@@ -7,16 +7,12 @@
 package wire_runtime
 
 import (
-	"slices"
-	"strings"
-
 	"drassi.run/core/pkg/container"
-	"drassi.run/core/pkg/container/types"
+	"drassi.run/core/pkg/container/specdef"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/runtime"
 	"drassi.run/core/pkg/sandboxer"
 	sb "drassi.run/core/pkg/sandboxer/container"
-	. "drassi.run/core/util/types"
 )
 
 func NewContainerRuntime(
@@ -32,20 +28,16 @@ func NewContainerRuntime(
 	}
 
 	mounts := mounter.RuntimeMounts(layout)
-	mountPairs := make([]Pair[string, *types.Mount], len(mounts))
-	for i, m := range mounts {
-		mountPairs[i] = Pair[string, *types.Mount]{
-			Key: m.Target, Value: m,
-		}
+	opts := []specdef.Option{
+		specdef.AddMount(mounts...),
+		specdef.MountApiSocket(engine),
+		specdef.SetWorkdir(layout.Workspace()),
 	}
+	if forge != nil {
+		labels := forge.WellKnownLabels()
+		labels["run.drassi.runtime"] = "true"
 
-	opts := []runtime.ContainerRuntimeOption{
-		runtime.WithMounts(mountPairs),
-		staticMountOpt(engine.Address(), mounts),
-		runtime.WithWorkDir(layout.Workspace()),
-	}
-	if opt := labelsOpt(forge); opt != nil {
-		opts = append(opts, opt)
+		opts = append(opts, specdef.SetLabels(labels))
 	}
 	if opt := networkOpt(info); opt != nil {
 		opts = append(opts, opt)
@@ -54,60 +46,18 @@ func NewContainerRuntime(
 	return runtime.NewContainerRuntime(engine, opts...)
 }
 
-func labelsOpt(forge *records.Forge) runtime.ContainerRuntimeOption {
-	labels := forge.WellKnownLabels()
-	return runtime.WithLabels(labels)
-}
-
-func networkOpt(info *records.JobInfo) runtime.ContainerRuntimeOption {
+func networkOpt(info *records.JobInfo) specdef.Option {
 	if info.Container != nil {
 		if net := info.Container.Network; net != "" {
-			return runtime.WithNetwork(net)
+			return specdef.SetNetwork(net)
 		}
 	}
 
 	for _, svc := range info.Services {
 		if net := svc.Network; net != "" {
-			return runtime.WithNetwork(net)
+			return specdef.SetNetwork(net)
 		}
 	}
 
 	return nil
-}
-
-func staticMountOpt(path string, sbMounts []*types.Mount) runtime.ContainerRuntimeOption {
-	path = strings.TrimPrefix(path, "unix://")
-
-	if sbMounts == nil {
-		mount := &types.Mount{
-			Type:   "bind",
-			Source: path,
-			Target: path,
-		}
-		mounts := []Pair[string, *types.Mount]{
-			{Key: path, Value: mount},
-		}
-		return runtime.WithMounts(mounts)
-	}
-
-	slices.SortFunc(sbMounts, func(a, b *types.Mount) int {
-		return strings.Compare(b.Source, a.Source) // DESC order
-	})
-	seq := func(yield func(string, string) bool) {
-		for _, m := range sbMounts {
-			if !yield(m.Source, m.Target) {
-				return
-			}
-		}
-	}
-	sandboxPath := runtime.MapPath(path, seq)
-	mount := &types.Mount{
-		Type:   "bind",
-		Source: path,
-		Target: path,
-	}
-	mounts := []Pair[string, *types.Mount]{
-		{Key: sandboxPath, Value: mount},
-	}
-	return runtime.WithMounts(mounts)
 }

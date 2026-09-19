@@ -12,79 +12,87 @@ import (
 
 	mock_container "drassi.run/core/mock/container"
 	"drassi.run/core/pkg/container"
+	"drassi.run/core/pkg/container/specdef"
 	"drassi.run/core/pkg/container/types"
 	"drassi.run/core/pkg/stream"
-	. "drassi.run/core/util/types"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
 )
 
-func TestNewContainerRuntime(t *testing.T) {
-	t.Run("mount_duplicated", testNewContainerRuntime_MountDuplicated)
-	t.Run("mount_sorted", testNewContainerRuntime_MountSorted)
+func TestContainerRuntimeSuite(t *testing.T) {
+	suite.Run(t, new(ContainerRuntimeTestSuite))
 }
 
-//goland:noinspection GoSnakeCaseUsage
-func testNewContainerRuntime_MountDuplicated(t *testing.T) {
-	dupSandboxPath := []Pair[string, *types.Mount]{
-		{Key: "/abc", Value: &types.Mount{Target: "/unique1"}},
-		{Key: "/abc/", Value: &types.Mount{Target: "/unique2"}},
-	}
-	_, err := NewContainerRuntime(nil, WithMounts(dupSandboxPath))
-	assert.ErrorContains(t, err, "found duplicate sandbox mount at")
-
-	dupContainerPath := []Pair[string, *types.Mount]{
-		{Key: "/unique1", Value: &types.Mount{Target: "/abc"}},
-		{Key: "/unique2", Value: &types.Mount{Target: "/abc/"}},
-	}
-	_, err = NewContainerRuntime(nil, WithMounts(dupContainerPath))
-	assert.ErrorContains(t, err, "found duplicate container mount at")
+type ContainerRuntimeTestSuite struct {
+	suite.Suite
+	ctrl   *gomock.Controller
+	engine *mock_container.MockEngine
 }
 
-var mounts = []Pair[string, *types.Mount]{
-	{Key: "/path/to/", Value: &types.Mount{
+func (s *ContainerRuntimeTestSuite) SetupTest() {
+	s.ctrl = gomock.NewController(s.T())
+	s.engine = mock_container.NewMockEngine(s.ctrl)
+}
+
+func (s *ContainerRuntimeTestSuite) TestMountDuplicated() {
+	dupSandboxPath := []*types.Mount{
+		{Type: "bind", Source: "/abc", Target: "/unique1"},
+		{Type: "bind", Source: "/abc/", Target: "/unique2"},
+	}
+	_, err := NewContainerRuntime(nil, specdef.AddMount(dupSandboxPath...))
+	s.ErrorContains(err, "found duplicate sandbox mount at")
+
+	dupContainerPath := []*types.Mount{
+		{Type: "bind", Source: "/unique1", Target: "/abc"},
+		{Type: "bind", Source: "/unique2", Target: "/abc/"},
+	}
+	_, err = NewContainerRuntime(nil, specdef.AddMount(dupContainerPath...))
+	s.ErrorContains(err, "found duplicate container mount at")
+}
+
+var testMounts = []*types.Mount{
+	{
 		Type:   "bind",
-		Source: "/does/not/matter",
+		Source: "/path/to/",
 		Target: "/mnt/third",
-	}},
-	{Key: "/path/to/bar", Value: &types.Mount{
+	},
+	{
 		Type:   "bind",
-		Source: "/does/not/matter",
+		Source: "/path/to/bar",
 		Target: "/mnt/second",
-	}},
-	{Key: "/a/new/path", Value: &types.Mount{
+	},
+	{
 		Type:   "bind",
-		Source: "/does/not/matter",
+		Source: "/a/new/path",
 		Target: "/mnt/second/fourth",
-	}},
-	{Key: "/path/to/foo/", Value: &types.Mount{
+	},
+	{
 		Type:   "bind",
-		Source: "/does/not/matter",
+		Source: "/path/to/foo/",
 		Target: "/mnt/second/first",
-	}},
+	},
 }
 
-//goland:noinspection GoSnakeCaseUsage
-func testNewContainerRuntime_MountSorted(t *testing.T) {
-	r, err := NewContainerRuntime(nil, WithMounts(mounts))
-	assert.Nil(t, err)
+func (s *ContainerRuntimeTestSuite) TestMountSorted() {
+	r, err := NewContainerRuntime(nil, specdef.AddMount(testMounts...))
+	s.Require().NoError(err)
 
 	rt := r.(*containerRuntime)
-	assert.Equal(t, 4, len(rt.mounts))
-	for i := 1; i < len(rt.mounts); i++ {
-		assert.True(t, rt.mounts[i-1].Key > rt.mounts[i].Key)
+	s.Require().Len(rt.mountMap, 4)
+	for i := 1; i < len(rt.mountMap); i++ {
+		s.True(rt.mountMap[i-1][0] > rt.mountMap[i][0])
 	}
-	assert.Equal(t, 4, len(rt.pathMap))
+	s.Require().Len(rt.pathMap, 4)
 	for i := 1; i < len(rt.pathMap); i++ {
-		assert.True(t, rt.pathMap[i-1][0] > rt.pathMap[i][0])
+		s.True(rt.pathMap[i-1][0] > rt.pathMap[i][0])
 	}
 }
 
-func TestContainerTranslatePath(t *testing.T) {
-	rt, err := NewContainerRuntime(nil, WithMounts(mounts))
-	assert.Nil(t, err)
+func (s *ContainerRuntimeTestSuite) TestTranslatePath() {
+	rt, err := NewContainerRuntime(nil, specdef.AddMount(testMounts...))
+	s.Require().NoError(err)
 
-	t.Run("exact-match", func(t *testing.T) {
+	s.Run("exact-match", func() {
 		m := map[string]string{
 			"/mnt/second/first":  "/path/to/foo/",
 			"/mnt/second/fourth": "/a/new/path",
@@ -93,16 +101,16 @@ func TestContainerTranslatePath(t *testing.T) {
 		}
 		for k, v := range m {
 			sbPath, ok := rt.TranslatePath(k)
-			assert.True(t, ok)
-			assert.Equal(t, v, sbPath)
+			s.True(ok)
+			s.Equal(v, sbPath)
 
 			sbPath, ok = rt.TranslatePath(k + "/")
-			assert.True(t, ok)
-			assert.Equal(t, v, sbPath)
+			s.True(ok)
+			s.Equal(v, sbPath)
 		}
 	})
 
-	t.Run("subpath", func(t *testing.T) {
+	s.Run("subpath", func() {
 		m := map[string]string{
 			"/mnt/second/first/xxx":  "/path/to/foo/xxx",
 			"/mnt/second/foobar":     "/path/to/bar/foobar",
@@ -112,35 +120,33 @@ func TestContainerTranslatePath(t *testing.T) {
 		}
 		for k, v := range m {
 			sbPath, ok := rt.TranslatePath(k)
-			assert.True(t, ok)
-			assert.Equal(t, v, sbPath)
+			s.True(ok)
+			s.Equal(v, sbPath)
 		}
 	})
 
-	t.Run("not-match", func(t *testing.T) {
+	s.Run("not-match", func() {
 		p := []string{"/mnt/", "/", "/foobar"}
 		for _, v := range p {
 			_, ok := rt.TranslatePath(v)
-			assert.False(t, ok)
+			s.False(ok)
 		}
 	})
 }
 
-func TestContainerRun(t *testing.T) {
+func (s *ContainerRuntimeTestSuite) TestRun() {
 	ctx := context.Background()
-	ctrl := gomock.NewController(t)
-	engine := mock_container.NewMockEngine(ctrl)
 
 	labels := map[string]string{"label": "value"}
 	workdir := "/path/to/workdir"
 	network := "net01"
-	rt, err := NewContainerRuntime(engine,
-		WithLabels(labels),
-		WithWorkDir(workdir),
-		WithNetwork(network),
-		WithMounts(mounts),
+	rt, err := NewContainerRuntime(s.engine,
+		specdef.SetLabels(labels),
+		specdef.SetWorkdir(workdir),
+		specdef.SetNetwork(network),
+		specdef.AddMount(testMounts...),
 	)
-	assert.NoError(t, err)
+	s.Require().NoError(err)
 
 	image := "drassi.run/docker/image"
 	env := map[string]string{
@@ -149,36 +155,35 @@ func TestContainerRun(t *testing.T) {
 	}
 	entrypoint := []string{"/path/to/entrypoint.sh"}
 	cmd := []string{"--flag", "with", "some", "arg"}
-	engine.EXPECT().ContainerRun(ctx, gomock.Any(), gomock.Any()).
+	s.engine.EXPECT().ContainerRun(ctx, gomock.Any(), gomock.Any()).
 		DoAndReturn(func(_ context.Context, spec *types.ContainerSpec, _ *container.RunOptions) (string, error) {
-			assert.EqualValues(t, labels, spec.Labels)
-			assert.Equal(t, workdir, spec.WorkingDir)
-			assert.Equal(t, network, spec.Endpoints[0].Target)
-			assert.Equal(t, image, spec.Image)
-			assert.Equal(t, entrypoint, spec.Entrypoint)
-			assert.Equal(t, cmd, spec.Command)
-			assert.True(t, spec.AutoRemove)
+			s.EqualValues(labels, spec.Labels)
+			s.Equal(workdir, spec.WorkingDir)
+			s.Equal(network, spec.Endpoints[0].Target)
+			s.Equal(image, spec.Image)
+			s.Equal(entrypoint, spec.Entrypoint)
+			s.Equal(cmd, spec.Command)
+			s.True(spec.AutoRemove)
 
 			e := map[string]string{
 				"A_NORMAL_ENV":   "hello-world",
 				"A_SANDBOX_PATH": "/mnt/third/foobar",
 			}
-			assert.EqualValues(t, e, spec.Environment)
+			s.EqualValues(e, spec.Environment)
 
 			expectedMounts := make(map[string]*types.Mount)
-			for _, m := range mounts {
-				v := m.Value
-				expectedMounts[v.Target] = v
+			for _, m := range testMounts {
+				expectedMounts[m.Target] = m
 			}
 			actualMounts := make(map[string]*types.Mount)
 			for _, m := range spec.Mounts {
 				actualMounts[m.Target] = m
 			}
-			assert.Equal(t, expectedMounts, actualMounts)
+			s.Equal(expectedMounts, actualMounts)
 
 			return "container_id", nil
 		})
 
 	err = rt.Run(ctx, image, entrypoint, cmd, env, new(stream.Streams))
-	assert.NoError(t, err)
+	s.Require().NoError(err)
 }
