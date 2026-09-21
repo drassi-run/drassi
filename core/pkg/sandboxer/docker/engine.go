@@ -16,6 +16,7 @@ import (
 	"drassi.run/core/pkg/container/cli"
 	"drassi.run/core/pkg/container/docker"
 	"drassi.run/core/pkg/container/parser"
+	"drassi.run/core/pkg/container/specdef"
 	"drassi.run/core/pkg/container/types"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/runtime/provision"
@@ -93,13 +94,13 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (resp
 
 	layout := container.DefaultLayout
 	spec, err := e.resolveTemplate(req,
-		container.MountVolume(volId, container.DefaultJobDir),
-		container.MountApiSocket(e.client),
-		container.SetNetwork(netId),
-		container.SetCIEnv(),
-		container.SetWorkdir(layout.Workspace()),
-		container.SetCmd([]string{"sleep"}, []string{"infinity"}),
-		container.SetLabels(labels),
+		specdef.MountVolume(volId, container.DefaultJobDir),
+		specdef.MountApiSocket(e.client),
+		specdef.SetNetwork(netId),
+		specdef.SetCIEnv(),
+		specdef.SetWorkdir(layout.Workspace()),
+		specdef.SetCmd([]string{"sleep"}, []string{"infinity"}),
+		specdef.SetLabels(labels),
 	)
 	if err != nil {
 		return
@@ -158,7 +159,7 @@ func (e *engine) launch(layout sandboxer.Layout, id *atomic.Value) provision.Lau
 	}
 }
 
-func (e *engine) resolveTemplate(req *sandboxer.LaunchRequest, opts ...container.Option) (*types.ContainerSpec, error) {
+func (e *engine) resolveTemplate(req *sandboxer.LaunchRequest, opts ...specdef.Option) (*types.ContainerSpec, error) {
 	tmpl := e.template
 	if tmpl == nil {
 		tmpl = &container.Template{Image: container.DefaultImage}
@@ -213,10 +214,8 @@ func (e *engine) resolveTemplate(req *sandboxer.LaunchRequest, opts ...container
 		}
 	}
 
-	for _, o := range opts {
-		if err := o(spec); err != nil {
-			return nil, err
-		}
+	if err := specdef.Apply(spec, opts...); err != nil {
+		return nil, err
 	}
 	return spec, nil
 }

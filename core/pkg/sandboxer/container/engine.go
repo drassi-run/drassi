@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 
+	"drassi.run/core/pkg/container/specdef"
 	"drassi.run/core/pkg/sandboxer"
 )
 
@@ -63,7 +64,7 @@ func (e *containerizedEngine) Launch(ctx context.Context, req *sandboxer.LaunchR
 	var jobSb sandboxer.Sandbox
 	if req.JobContainer != nil {
 		target := DefaultLayout
-		opt := AddMount(resp.Mounter.OverlayMounts(target, true)...)
+		opt := specdef.AddMount(resp.Mounter.OverlayMounts(target, true)...)
 
 		if resp.JobContainer, err = b.RunJobContainer(ctx, req.JobContainer, opt); err != nil {
 			return
