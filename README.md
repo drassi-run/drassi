@@ -1,40 +1,53 @@
 `drassi`
 =======
-The drassi `/δράση/` (Greek for `action`) aim to bring [GitHub Actions](https://github.com/features/actions) to
+Drassi `/δράση/` (Greek for `action`) aims to bring [GitHub Actions](https://github.com/features/actions) to
 everyone and everywhere.
 
-## 1. Use-cases
+## Target users
 
-### 1.1 Alternative to [`actions/runner`](https://github.com/actions/runner) for self-hosted runners
+### 1. GitHub users who want faster jobs
 
-`actions/runner` executes all jobs within the host environment, making it unsuitable for projects requiring strong
-isolation and security. Additionally, `actions/runner` can only process one job at a time, which means implementing
-autoscaling with self-hosted runners requires additional tools like `actions-runner-controller` (ARC).
+GitHub-hosted Actions runners
+are [slow](https://medium.com/@akhilesh-mishra/your-github-actions-runners-are-slow-and-you-are-paying-too-much-for-them-5406577314fe).
+Self-hosted runners can be faster, but each runner is limited to **one job at a time**.
 
-Drassi's `gha-runner` offers a drop-in replacement for `actions/runner`, with enhanced security and isolation. It
-executes each job within a sandboxed environment, providing flexibility by supporting various sandboxing implementations
-such as Docker containers, Incus, or microVMs. These isolated environments enables multiple jobs can be able to run in
-parallel, optimizing both resource utilization and time efficiency.
+### 2. Self-hosted runner users who need dynamic scaling
 
-With Drassi's `gha-runner`, you gain improved job isolation, security, and parallel job execution, significantly
-enhancing your CI/CD pipeline's performance and scalability.
+To run multiple jobs in parallel, users often need solutions
+like [Actions Runner Controller (ARC)](https://github.com/actions/actions-runner-controller).
+Many jobs also need Docker access, for example:
 
-### 1.2 Run your GitHub Actions locally
+* [building images in CI jobs](https://github.com/marketplace/actions/build-and-push-docker-images)
+* [using Docker container actions](https://docs.github.com/en/actions/tutorials/use-containerized-services/create-a-docker-container-action)
+* [running jobs inside containers](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idcontainer)
 
-Rather than having to commit/push every time you want to test out the changes you are making to your
-`.github/workflows/` files (or for any changes to embedded GitHub actions), you can use `drassi` CLI to run the actions
-locally.
+In these use cases, you usually need Docker-in-Docker (`--privileged`) or a mounted Docker socket.
+Both options raise **security concerns** when a runner is shared across multiple teams or tenants.
 
-### 1.3 Bring GitHub Actions to other git-hosting like `gitea`, `gitlab`,...
+### 3. GitLab, Gitea, and other users who want GitHub Actions
 
-If you’re using a self-hosted Git server, such as Gitea or GitLab, but prefer the flexibility, power, and extensive
-ecosystem of GitHub Actions, Drassi provides solutions like `gitea-runner` and `gitlab-runner` to integrate seamlessly
-with your Git server. Drassi is also a customizable framework, allowing you to tailor or bring your own runner to suit
-your specific needs.
+Many teams want the GitHub Actions model because it provides:
 
-## 2. Architecture
+* composable steps
+* multiple workflows
+* reusable jobs
+* a large actions ecosystem
+
+However, `actions/runner` is designed to work with GitHub servers. `act`-based runners can support GitHub-like servers,
+such as Gitea, but they are not fully compatible with the GitHub runner and miss features like problem matchers and
+issue reporting.
+
+### 4. Users who want to run jobs locally
+
+Running jobs locally reduces the feedback loop before pushing to a Git server or debugging CI failures.
+
+## Architecture
 
 ![Arch](docs/architecture.svg)
+
+Drassi supports multiple runners, including GitHub, Gitea, and GitLab, from a shared core.
+Each job runs in a sandboxed environment, with multiple sandboxers available to match different isolation, security, and
+performance needs.
 
 ## 3. Usage
 
