@@ -27,7 +27,7 @@ import (
 	"drassi.run/core/util/otel"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v4"
 )
 
 type ReferenceActionSpec struct {
@@ -133,11 +133,14 @@ func (spec *ReferenceActionSpec) loadAction(ctx context.Context, s *scribe.Scrib
 
 func (spec *ReferenceActionSpec) loadActionManifest(r io.ReadCloser) (ActionSpec, error) {
 	defer r.Close()
+	var m map[string]any
 
-	m := make(map[string]any)
-	if err := yaml.NewDecoder(r).Decode(m); err != nil {
+	if loader, err := yaml.NewLoader(r, yaml.WithSingleDocument(true)); err != nil {
+		return nil, err
+	} else if err = loader.Load(&m); err != nil {
 		return nil, err
 	}
+
 	action := new(actions.Action)
 	um := json.JoinUnmarshalers(
 		workflows.JsonUnmarshalers(),

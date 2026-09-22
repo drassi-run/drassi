@@ -11,20 +11,21 @@ import (
 	"encoding/json/v2"
 	"errors"
 	"fmt"
-	"io"
 
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/actions"
 	"drassi.run/core/pkg/model/workflows"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v4"
 )
 
 func decodeWorkflow(payload []byte, workflow *workflows.Workflow) error {
 	var raw any
-	reader := bytes.NewReader(payload)
-	if err := yaml.NewDecoder(reader).Decode(&raw); err != nil && err != io.EOF {
-		return err
+	if len(bytes.TrimSpace(payload)) > 0 {
+		opt := yaml.WithSingleDocument(true)
+		if err := yaml.Load(payload, &raw, opt); err != nil {
+			return err
+		}
 	}
 
 	um := json.JoinUnmarshalers(
