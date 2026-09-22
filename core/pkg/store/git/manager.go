@@ -33,7 +33,6 @@ import (
 	"github.com/go-git/go-git/v5/storage/filesystem"
 	"github.com/hashicorp/golang-lru/v2/expirable"
 	"golang.org/x/sync/singleflight"
-	"k8s.io/apimachinery/pkg/util/rand"
 )
 
 type Manager interface {
@@ -97,7 +96,7 @@ func (m *manager) Fetch(ctx context.Context, repo *RepoReference, opts ...FetchO
 			return "", err
 		}
 
-		tmpBranch := rand.String(12)
+		tmpBranch := xstring.Rand(12)
 		defer gitRepo.DeleteBranch(tmpBranch)
 
 		err = m.fetch(ctx, gitRepo, repo, tmpBranch, opts...)
