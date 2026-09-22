@@ -27,8 +27,8 @@ import (
 	"drassi.run/core/util/dig"
 	"drassi.run/core/util/otel"
 	"drassi.run/core/util/tar"
+	"github.com/emirpasic/gods/v2/sets/hashset"
 	"go.uber.org/dig"
-	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 type JobExecutor interface {
@@ -535,18 +535,18 @@ func (e *jobExecutor) AddPath(paths []string) {
 	}
 
 	newPaths := make([]string, 0, len(e.paths))
-	set := sets.New[string]()
+	set := hashset.New[string]()
 
 	for _, p := range slices.Backward(paths) {
-		if !set.Has(p) {
+		if !set.Contains(p) {
 			newPaths = append(newPaths, p)
-			set.Insert(p)
+			set.Add(p)
 		}
 	}
 	for _, p := range e.paths {
-		if !set.Has(p) {
+		if !set.Contains(p) {
 			newPaths = append(newPaths, p)
-			set.Insert(p)
+			set.Add(p)
 		}
 	}
 

@@ -47,7 +47,7 @@ func FileSetEnv[R cmdtypes.SupportSetEnv](reporter cmdtypes.Reporter[R]) *comman
 
 		s := scribe.FromContext(ctx)
 		for k, v := range env {
-			if setEnvBlockList.Has(k) {
+			if setEnvBlockList.Contains(k) {
 				iss := &cmdtypes.Issue{
 					Type:    cmdtypes.IssueTypeError,
 					Message: fmt.Sprintf("Can't update %q environment variable using '$GITHUB_ENV' command.", k),

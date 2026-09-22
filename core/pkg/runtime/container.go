@@ -17,7 +17,7 @@ import (
 	"drassi.run/core/pkg/container/specdef"
 	"drassi.run/core/pkg/container/types"
 	"drassi.run/core/pkg/stream"
-	"k8s.io/utils/set"
+	"github.com/emirpasic/gods/v2/sets/hashset"
 )
 
 // Container runtime is used to run docker action
@@ -48,8 +48,8 @@ func NewContainerRuntime(engine container.Engine, opts ...specdef.Option) (Conta
 		spec:   spec,
 	}
 
-	containerPaths := set.New[string]()
-	sandboxerPaths := set.New[string]()
+	containerPaths := hashset.New[string]()
+	sandboxerPaths := hashset.New[string]()
 	mountMap := make([][2]string, 0, len(spec.Mounts))
 	pathMap := make([][2]string, 0, len(spec.Mounts))
 	for _, m := range spec.Mounts {
@@ -57,15 +57,15 @@ func NewContainerRuntime(engine container.Engine, opts ...specdef.Option) (Conta
 		if m.Type == "bind" && m.Source != "" {
 			sPath = m.Source
 		}
-		if s := strings.TrimRight(sPath, "/"); sandboxerPaths.Has(s) {
+		if s := strings.TrimRight(sPath, "/"); sandboxerPaths.Contains(s) {
 			return nil, fmt.Errorf("found duplicate sandbox mount at %q", s)
 		} else {
-			sandboxerPaths.Insert(s)
+			sandboxerPaths.Add(s)
 		}
-		if s := strings.TrimRight(cPath, "/"); containerPaths.Has(s) {
+		if s := strings.TrimRight(cPath, "/"); containerPaths.Contains(s) {
 			return nil, fmt.Errorf("found duplicate container mount at %q", s)
 		} else {
-			containerPaths.Insert(s)
+			containerPaths.Add(s)
 		}
 		mountMap = append(mountMap, [...]string{sPath, cPath})
 		pathMap = append(pathMap, [...]string{cPath, sPath})
