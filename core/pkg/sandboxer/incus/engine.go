@@ -20,8 +20,8 @@ import (
 	"drassi.run/core/pkg/runtime/provision"
 	"drassi.run/core/pkg/sandboxer"
 	xsync "drassi.run/core/util/sync"
-	incusclient "github.com/lxc/incus/v6/client"
-	incusapi "github.com/lxc/incus/v6/shared/api"
+	incusclient "github.com/lxc/incus/v7/client"
+	incusapi "github.com/lxc/incus/v7/shared/api"
 	dockerclient "github.com/moby/moby/client"
 )
 
