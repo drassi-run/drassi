@@ -24,7 +24,7 @@ import (
 	"drassi.run/core/pkg/secret"
 	"drassi.run/core/util/path"
 	"drassi.run/core/util/tar"
-	"k8s.io/apimachinery/pkg/util/sets"
+	"github.com/emirpasic/gods/v2/sets/hashset"
 )
 
 // AddSecretMask create [command.ConsoleHandler] that handle "add-mask" command
@@ -243,7 +243,7 @@ func ConsoleAddPath[R cmdtypes.SupportAddPath]() *command.ConsoleHandler[R] {
 	return command.NewConsoleHandler("add-path", true, run)
 }
 
-var setEnvBlockList = sets.New("NODE_OPTIONS")
+var setEnvBlockList = hashset.New[string]("NODE_OPTIONS")
 
 // ConsoleSetEnv create [command.ConsoleHandler] that handle "set-env" command
 //
@@ -255,7 +255,7 @@ func ConsoleSetEnv[R cmdtypes.SupportSetEnv](reporter cmdtypes.Reporter[R]) *com
 			return fmt.Errorf("%w %q: required field %q is missing", command.ErrInvalidCommand, "set-env", "name")
 		}
 
-		if setEnvBlockList.Has(name) {
+		if setEnvBlockList.Contains(name) {
 			iss := &cmdtypes.Issue{
 				Type:    cmdtypes.IssueTypeError,
 				Message: fmt.Sprintf("Can't update %q environment variable using ::%s:: command.", name, cmd.Name),

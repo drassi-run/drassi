@@ -12,6 +12,7 @@ require (
 	github.com/containerd/errdefs v1.0.0
 	github.com/docker/cli v29.7.2+incompatible
 	github.com/docker/go-units v0.5.0
+	github.com/emirpasic/gods/v2 v2.0.0-alpha
 	github.com/go-git/go-billy/v5 v5.9.1
 	github.com/go-git/go-git/v5 v5.19.2
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
@@ -36,11 +37,9 @@ require (
 	go.podman.io/storage v1.64.0
 	go.uber.org/dig v1.19.0
 	go.uber.org/mock v0.6.0
+	go.yaml.in/yaml/v4 v4.0.0-rc.6
 	golang.org/x/oauth2 v0.36.0
 	golang.org/x/sync v0.22.0
-	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/apimachinery v0.37.0
-	k8s.io/utils v0.0.0-20260707023825-cf1189d6abe3
 )
 
 require (
@@ -134,7 +133,6 @@ require (
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.71.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
-	go.yaml.in/yaml/v4 v4.0.0-rc.6 // indirect
 	golang.org/x/crypto v0.56.0 // indirect
 	golang.org/x/exp v0.0.0-20260824195058-e88cd73687aa // indirect
 	golang.org/x/mod v0.40.0 // indirect

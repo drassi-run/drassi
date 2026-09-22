@@ -67,6 +67,7 @@ require (
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
+	github.com/emirpasic/gods/v2 v2.0.0-alpha // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
 	github.com/go-git/go-billy/v5 v5.9.1 // indirect
@@ -136,6 +137,7 @@ require (
 	go.podman.io/image/v5 v5.41.1 // indirect
 	go.podman.io/storage v1.64.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
+	go.yaml.in/yaml/v4 v4.0.0-rc.6 // indirect
 	golang.org/x/crypto v0.56.0 // indirect
 	golang.org/x/exp v0.0.0-20260824195058-e88cd73687aa // indirect
 	golang.org/x/mod v0.40.0 // indirect
@@ -150,9 +152,6 @@ require (
 	google.golang.org/grpc v1.83.2 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/apimachinery v0.37.0 // indirect
-	k8s.io/utils v0.0.0-20260707023825-cf1189d6abe3 // indirect
 )
 
 tool go.uber.org/mock/mockgen

@@ -12,7 +12,7 @@ import (
 	"slices"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/util/sets"
+	"github.com/emirpasic/gods/v2/sets/hashset"
 )
 
 // https://github.com/actions/runner/blob/v2.315.0/src/Runner.Worker/IssueMatcher.cs#L230
@@ -21,17 +21,17 @@ type MatcherConfigs struct {
 }
 
 func (c *MatcherConfigs) Validate() error {
-	distinctOwners := sets.New[string]()
+	distinctOwners := hashset.New[string]()
 	for _, config := range c.Configs {
 		if err := config.Validate(); err != nil {
 			return err
 		}
 
 		owner := strings.ToLower(config.Owner)
-		if distinctOwners.Has(owner) {
+		if distinctOwners.Contains(owner) {
 			return fmt.Errorf("duplicate owner name %s", config.Owner)
 		}
-		distinctOwners.Insert(owner)
+		distinctOwners.Add(owner)
 	}
 	return nil
 }

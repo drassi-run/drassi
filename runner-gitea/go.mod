@@ -16,9 +16,9 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	go.uber.org/dig v1.19.0
+	go.yaml.in/yaml/v4 v4.0.0-rc.6
 	golang.org/x/time v0.15.0
 	google.golang.org/protobuf v1.36.12
-	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -63,6 +63,7 @@ require (
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
+	github.com/emirpasic/gods/v2 v2.0.0-alpha // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
 	github.com/go-git/go-billy/v5 v5.9.1 // indirect
@@ -149,7 +150,6 @@ require (
 	k8s.io/code-generator v0.37.0 // indirect
 	k8s.io/gengo/v2 v2.0.0-20260408192533-25e2208e0dc3 // indirect
 	k8s.io/klog/v2 v2.140.0 // indirect
-	k8s.io/utils v0.0.0-20260707023825-cf1189d6abe3 // indirect
 )
 
 tool k8s.io/code-generator/cmd/defaulter-gen
