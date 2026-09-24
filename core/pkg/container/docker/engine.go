@@ -551,6 +551,6 @@ type fileInfo struct {
 func (fi *fileInfo) Name() string       { return fi.PathStat.Name }
 func (fi *fileInfo) Size() int64        { return fi.PathStat.Size }
 func (fi *fileInfo) Mode() fs.FileMode  { return fi.PathStat.Mode }
-func (fi *fileInfo) ModTime() time.Time { return fi.PathStat.Mtime }
+func (fi *fileInfo) ModTime() time.Time { return fi.PathStat.Mtime } //nolint:staticcheck
 func (fi *fileInfo) IsDir() bool        { return fi.Mode().IsDir() }
-func (fi *fileInfo) Sys() any           { return nil }
+func (fi *fileInfo) Sys() any           { return fi.PathStat }
