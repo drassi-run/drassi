@@ -353,17 +353,17 @@ func (c *MockEngineCopyOutCall) DoAndReturn(f func(context.Context, string, *con
 }
 
 // ImageBuild mocks base method.
-func (m *MockEngine) ImageBuild(ctx context.Context, arg1 io.Reader, opts *container.BuildOptions) error {
+func (m *MockEngine) ImageBuild(ctx context.Context, tag string, opts *container.BuildOptions) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ImageBuild", ctx, arg1, opts)
+	ret := m.ctrl.Call(m, "ImageBuild", ctx, tag, opts)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ImageBuild indicates an expected call of ImageBuild.
-func (mr *MockEngineMockRecorder) ImageBuild(ctx, arg1, opts any) *MockEngineImageBuildCall {
+func (mr *MockEngineMockRecorder) ImageBuild(ctx, tag, opts any) *MockEngineImageBuildCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImageBuild", reflect.TypeOf((*MockEngine)(nil).ImageBuild), ctx, arg1, opts)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImageBuild", reflect.TypeOf((*MockEngine)(nil).ImageBuild), ctx, tag, opts)
 	return &MockEngineImageBuildCall{Call: call}
 }
 
@@ -379,13 +379,13 @@ func (c *MockEngineImageBuildCall) Return(arg0 error) *MockEngineImageBuildCall 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockEngineImageBuildCall) Do(f func(context.Context, io.Reader, *container.BuildOptions) error) *MockEngineImageBuildCall {
+func (c *MockEngineImageBuildCall) Do(f func(context.Context, string, *container.BuildOptions) error) *MockEngineImageBuildCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockEngineImageBuildCall) DoAndReturn(f func(context.Context, io.Reader, *container.BuildOptions) error) *MockEngineImageBuildCall {
+func (c *MockEngineImageBuildCall) DoAndReturn(f func(context.Context, string, *container.BuildOptions) error) *MockEngineImageBuildCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -104,7 +104,7 @@ func (e *engine) ImagePull(ctx context.Context, ref string, opts *container.Pull
 	return err
 }
 
-func (e *engine) ImageBuild(ctx context.Context, context io.Reader, opts *container.BuildOptions) error {
+func (e *engine) ImageBuild(ctx context.Context, tag string, opts *container.BuildOptions) error {
 	//TODO implement me
 	panic("implement me")
 }

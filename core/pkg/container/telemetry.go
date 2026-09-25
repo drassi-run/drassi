@@ -41,11 +41,11 @@ func (e *telemetryEngine) ImagePull(ctx context.Context, ref string, opts *PullO
 	return e.Engine.ImagePull(ctx, ref, opts)
 }
 
-func (e *telemetryEngine) ImageBuild(ctx context.Context, context io.Reader, opts *BuildOptions) (err error) {
+func (e *telemetryEngine) ImageBuild(ctx context.Context, tag string, opts *BuildOptions) (err error) {
 	ctx, span := xotel.StartSpan(ctx, "Container.ImageBuild")
 	defer xotel.EndSpan(span, &err)
 
-	return e.Engine.ImageBuild(ctx, context, opts)
+	return e.Engine.ImageBuild(ctx, tag, opts)
 }
 
 func (e *telemetryEngine) ContainerRun(ctx context.Context, spec *types.ContainerSpec, opts *RunOptions) (id string, err error) {
