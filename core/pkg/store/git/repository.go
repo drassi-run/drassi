@@ -13,7 +13,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v6"
 )
 
 var (
@@ -43,6 +43,9 @@ func FullName(r *RepoReference) string {
 }
 
 func Url(repo *RepoReference) string {
+	if repo.Transport == "file" {
+		return "file:///" + strings.TrimPrefix(repo.Name, "/")
+	}
 	r := FullName(repo)
 	if repo.Transport == "" {
 		return "https://" + r

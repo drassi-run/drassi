@@ -13,61 +13,72 @@ import (
 	"strings"
 
 	"drassi.run/core/util/fs"
-	"github.com/go-git/go-billy/v5"
-	"github.com/go-git/go-billy/v5/util"
+	"github.com/go-git/go-billy/v6"
+	"github.com/go-git/go-billy/v6/util"
 	"github.com/pkg/sftp"
 )
-
-type SftpFS struct {
-	*sftp.Client
-}
 
 func New(client *sftp.Client) *SftpFS {
 	return &SftpFS{Client: client}
 }
 
-func (fs *SftpFS) Create(name string) (billy.File, error) {
-	f, err := fs.Client.Create(name)
-	return newFile(f), err
+var _ billy.Filesystem = (*SftpFS)(nil)
+
+type SftpFS struct {
+	*sftp.Client
 }
 
-func (fs *SftpFS) Open(name string) (billy.File, error) {
-	f, err := fs.Client.Open(name)
-	return newFile(f), err
+func (fsys *SftpFS) Create(name string) (billy.File, error) {
+	return fsys.Client.Create(name)
 }
 
-func (fs *SftpFS) OpenFile(name string, flag int, perm os.FileMode) (billy.File, error) {
-	f, err := fs.Client.OpenFile(name, flag)
-	return newFile(f), err
+func (fsys *SftpFS) Open(name string) (billy.File, error) {
+	return fsys.Client.Open(name)
 }
 
-func (fs *SftpFS) TempFile(dir, prefix string) (billy.File, error) {
-	return util.TempFile(fs, dir, prefix)
+func (fsys *SftpFS) OpenFile(name string, flag int, perm os.FileMode) (billy.File, error) {
+	return fsys.Client.OpenFile(name, flag)
 }
 
-func (fs *SftpFS) Mkdir(name string, perm os.FileMode) error {
-	if err := fs.Client.Mkdir(name); err != nil || perm == xfs.DirPerm {
+func (fsys *SftpFS) TempFile(dir, prefix string) (billy.File, error) {
+	return util.TempFile(fsys, dir, prefix)
+}
+
+func (fsys *SftpFS) Mkdir(name string, perm os.FileMode) error {
+	if err := fsys.Client.Mkdir(name); err != nil || perm == xfs.DirPerm {
 		return normaliseError(err)
 	}
-	return fs.Client.Chmod(name, perm) //nolint:staticcheck
+	return fsys.Client.Chmod(name, perm) //nolint:staticcheck
 }
 
-func (fs *SftpFS) MkdirAll(name string, perm os.FileMode) error {
-	if err := fs.Client.MkdirAll(name); err != nil || perm == xfs.DirPerm {
+func (fsys *SftpFS) MkdirAll(name string, perm os.FileMode) error {
+	if err := fsys.Client.MkdirAll(name); err != nil || perm == xfs.DirPerm {
 		return normaliseError(err)
 	}
-	return fs.Client.Chmod(name, perm) //nolint:staticcheck
+	return fsys.Client.Chmod(name, perm) //nolint:staticcheck
 }
 
-func (fs *SftpFS) Readlink(link string) (string, error) {
-	return fs.Client.ReadLink(link) //nolint:staticcheck
+func (fsys *SftpFS) Readlink(link string) (string, error) {
+	return fsys.Client.ReadLink(link) //nolint:staticcheck
 }
 
-func (fs *SftpFS) Chroot(string) (billy.Filesystem, error) {
+func (fsys *SftpFS) ReadDir(path string) ([]fs.DirEntry, error) {
+	infos, err := fsys.Client.ReadDir(path)
+	if err != nil {
+		return nil, normaliseError(err)
+	}
+	entries := make([]fs.DirEntry, len(infos))
+	for i, info := range infos {
+		entries[i] = fs.FileInfoToDirEntry(info)
+	}
+	return entries, nil
+}
+
+func (fsys *SftpFS) Chroot(string) (billy.Filesystem, error) {
 	return nil, billy.ErrNotSupported
 }
 
-func (fs *SftpFS) Root() string {
+func (fsys *SftpFS) Root() string {
 	return "/"
 }
 
@@ -84,14 +95,3 @@ func normaliseError(err error) error {
 		return err
 	}
 }
-
-type file struct {
-	*sftp.File
-}
-
-func newFile(f *sftp.File) billy.File {
-	return file{File: f}
-}
-
-func (f file) Lock() error   { return nil }
-func (f file) Unlock() error { return nil }

@@ -9,8 +9,8 @@ package gitstore
 import (
 	"time"
 
-	"github.com/go-git/go-git/v5/plumbing/transport"
-	"github.com/go-git/go-git/v5/plumbing/transport/http"
+	"github.com/go-git/go-git/v6/plumbing/client"
+	"github.com/go-git/go-git/v6/plumbing/transport/http"
 )
 
 const (
@@ -38,15 +38,15 @@ func WithTTL(ttl time.Duration) Option {
 
 type FetchOption func(*fetchOptions)
 type fetchOptions struct {
-	auth transport.AuthMethod
+	clientOpts []client.Option
 }
 
 func WithToken(token string) FetchOption {
 	return func(o *fetchOptions) {
-		o.auth = &http.BasicAuth{
+		o.clientOpts = append(o.clientOpts, client.WithHTTPAuth(&http.BasicAuth{
 			Username: "token",
 			Password: token,
-		}
+		}))
 	}
 }
 

@@ -21,7 +21,7 @@ import (
 	"drassi.run/core/pkg/stream"
 	"drassi.run/core/util/fs"
 	"drassi.run/core/util/path"
-	"github.com/go-git/go-billy/v5/osfs"
+	"github.com/go-git/go-billy/v6/osfs"
 )
 
 type sandbox string

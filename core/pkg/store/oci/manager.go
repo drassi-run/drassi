@@ -17,7 +17,7 @@ import (
 
 	xfs "drassi.run/core/util/fs"
 	xstring "drassi.run/core/util/string"
-	"github.com/go-git/go-billy/v5/osfs"
+	"github.com/go-git/go-billy/v6/osfs"
 	"go.podman.io/image/v5/copy"
 	"go.podman.io/image/v5/docker"
 	istorage "go.podman.io/image/v5/storage"

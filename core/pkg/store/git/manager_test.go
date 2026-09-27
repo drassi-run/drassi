@@ -21,9 +21,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/go-git/go-git/v6"
+	"github.com/go-git/go-git/v6/config"
+	"github.com/go-git/go-git/v6/plumbing"
+	"github.com/go-git/go-git/v6/plumbing/object"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -66,6 +67,11 @@ func (s *ManagerTestSuite) initTestGitRepo(files, symlinks map[string]string) *t
 
 	gitRepo, err := git.PlainInit(repoDir, false)
 	s.Require().NoError(err)
+
+	cfg, err := gitRepo.Config()
+	s.Require().NoError(err)
+	cfg.Commit.GpgSign = config.OptBoolFalse
+	s.Require().NoError(gitRepo.SetConfig(cfg))
 
 	wt, err := gitRepo.Worktree()
 	s.Require().NoError(err)

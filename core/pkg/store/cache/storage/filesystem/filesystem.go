@@ -18,8 +18,8 @@ import (
 	"drassi.run/core/pkg/store/cache/types"
 	"drassi.run/core/util/io"
 	"drassi.run/core/util/path"
-	"github.com/go-git/go-billy/v5"
-	"github.com/go-git/go-billy/v5/osfs"
+	"github.com/go-git/go-billy/v6"
+	"github.com/go-git/go-billy/v6/osfs"
 )
 
 const (
