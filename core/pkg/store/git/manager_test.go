@@ -12,6 +12,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"io"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -19,6 +20,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"github.com/go-git/go-git/v6"
@@ -549,4 +551,210 @@ func (s *ManagerTestSuite) TestClose() {
 	// Calling Close again should also succeed without error
 	err = s.mgr.Close()
 	s.Require().NoError(err)
+}
+
+func (s *ManagerTestSuite) TestFS() {
+	files := map[string]string{
+		"action.yml":           "name: test action",
+		"index.js":             "console.log('hello')",
+		"nested/sub/data.json": `{"key": "value"}`,
+		"nested/sub/inner.txt": "inner content",
+		"nested/root_file.txt": "root nested content",
+	}
+	symlinks := map[string]string{
+		"link.js": "index.js",
+	}
+	repoInfo := s.initTestGitRepo(files, symlinks)
+
+	ref := s.makeLocalRepoRef(repoInfo.RepoDir, "HEAD")
+	rev, err := s.mgr.Fetch(s.T().Context(), ref)
+	s.Require().NoError(err)
+
+	s.Run("root fs compliance with fstest.TestFS", func() {
+		fsys, err := s.mgr.FS(ref, rev, "")
+		s.Require().NoError(err)
+		s.Require().NotNil(fsys)
+
+		// Must implement fs.ReadDirFS
+		readDirFS, ok := fsys.(fs.ReadDirFS)
+		s.Assert().True(ok)
+		s.Assert().NotNil(readDirFS)
+
+		err = fstest.TestFS(fsys,
+			"action.yml",
+			"index.js",
+			"link.js",
+			"nested/root_file.txt",
+			"nested/sub/data.json",
+			"nested/sub/inner.txt",
+		)
+		s.Require().NoError(err)
+	})
+
+	s.Run("subpath fs compliance with fstest.TestFS", func() {
+		subFS, err := s.mgr.FS(ref, rev, "nested/sub")
+		s.Require().NoError(err)
+		s.Require().NotNil(subFS)
+
+		// Must implement fs.ReadDirFS
+		_, ok := subFS.(fs.ReadDirFS)
+		s.Assert().True(ok)
+
+		err = fstest.TestFS(subFS, "data.json", "inner.txt")
+		s.Require().NoError(err)
+	})
+
+	s.Run("fs.ReadDir on root and subdirectories", func() {
+		fsys, err := s.mgr.FS(ref, rev, "")
+		s.Require().NoError(err)
+
+		entries, err := fs.ReadDir(fsys, ".")
+		s.Require().NoError(err)
+		names := make([]string, len(entries))
+		for i, e := range entries {
+			names[i] = e.Name()
+		}
+		s.Assert().Equal([]string{"action.yml", "index.js", "link.js", "nested"}, names)
+
+		// Check nested dir
+		subEntries, err := fs.ReadDir(fsys, "nested/sub")
+		s.Require().NoError(err)
+		subNames := make([]string, len(subEntries))
+		for i, e := range subEntries {
+			subNames[i] = e.Name()
+		}
+		s.Assert().Equal([]string{"data.json", "inner.txt"}, subNames)
+	})
+
+	s.Run("fs.ReadFile", func() {
+		fsys, err := s.mgr.FS(ref, rev, "")
+		s.Require().NoError(err)
+
+		content, err := fs.ReadFile(fsys, "action.yml")
+		s.Require().NoError(err)
+		s.Assert().Equal(files["action.yml"], string(content))
+
+		content, err = fs.ReadFile(fsys, "nested/sub/data.json")
+		s.Require().NoError(err)
+		s.Assert().Equal(files["nested/sub/data.json"], string(content))
+
+		// Reading symlink yields target path
+		symlinkContent, err := fs.ReadFile(fsys, "link.js")
+		s.Require().NoError(err)
+		s.Assert().Equal("index.js", string(symlinkContent))
+	})
+
+	s.Run("fs.Stat", func() {
+		fsys, err := s.mgr.FS(ref, rev, "")
+		s.Require().NoError(err)
+
+		rootInfo, err := fs.Stat(fsys, ".")
+		s.Require().NoError(err)
+		s.Assert().True(rootInfo.IsDir())
+
+		fileInfo, err := fs.Stat(fsys, "action.yml")
+		s.Require().NoError(err)
+		s.Assert().False(fileInfo.IsDir())
+		s.Assert().Equal(int64(len(files["action.yml"])), fileInfo.Size())
+
+		linkInfo, err := fs.Stat(fsys, "link.js")
+		s.Require().NoError(err)
+		s.Assert().True(linkInfo.Mode()&os.ModeSymlink != 0)
+
+		dirInfo, err := fs.Stat(fsys, "nested")
+		s.Require().NoError(err)
+		s.Assert().True(dirInfo.IsDir())
+	})
+
+	s.Run("fs.Sub", func() {
+		fsys, err := s.mgr.FS(ref, rev, "")
+		s.Require().NoError(err)
+
+		sub, err := fs.Sub(fsys, "nested")
+		s.Require().NoError(err)
+
+		content, err := fs.ReadFile(sub, "sub/data.json")
+		s.Require().NoError(err)
+		s.Assert().Equal(files["nested/sub/data.json"], string(content))
+	})
+
+	s.Run("ReadDir incremental streaming", func() {
+		fsys, err := s.mgr.FS(ref, rev, "")
+		s.Require().NoError(err)
+
+		f, err := fsys.Open(".")
+		s.Require().NoError(err)
+		defer f.Close()
+
+		rdf, ok := f.(fs.ReadDirFile)
+		s.Require().True(ok)
+
+		batch1, err := rdf.ReadDir(2)
+		s.Require().NoError(err)
+		s.Assert().Len(batch1, 2)
+
+		batch2, err := rdf.ReadDir(2)
+		s.Require().NoError(err)
+		s.Assert().Len(batch2, 2)
+
+		batch3, err := rdf.ReadDir(2)
+		s.Assert().ErrorIs(err, io.EOF)
+		s.Assert().Empty(batch3)
+	})
+
+	s.Run("error cases", func() {
+		fsys, err := s.mgr.FS(ref, rev, "")
+		s.Require().NoError(err)
+
+		// Invalid path per fs.ValidPath
+		_, err = fsys.Open("/action.yml")
+		s.Assert().Error(err)
+
+		_, err = fsys.Open("nested/../action.yml")
+		s.Assert().Error(err)
+
+		// Non-existent file
+		_, err = fsys.Open("does-not-exist.txt")
+		s.Assert().ErrorIs(err, fs.ErrNotExist)
+
+		// Reading directory as file returns error
+		dirFile, err := fsys.Open("nested")
+		s.Require().NoError(err)
+		defer dirFile.Close()
+		buf := make([]byte, 10)
+		_, err = dirFile.Read(buf)
+		s.Assert().Error(err)
+
+		// ReadDir on non-directory file
+		readDirFS := fsys.(fs.ReadDirFS)
+		_, err = readDirFS.ReadDir("action.yml")
+		s.Assert().Error(err)
+
+		// Subpath does not exist
+		_, err = s.mgr.FS(ref, rev, "does-not-exist")
+		s.Assert().ErrorIs(err, fs.ErrNotExist)
+
+		// Subpath is a regular file
+		_, err = s.mgr.FS(ref, rev, "action.yml")
+		s.Assert().Error(err)
+		s.Assert().Contains(err.Error(), "is not a directory")
+
+		// Subpath escaping
+		_, err = s.mgr.FS(ref, rev, "../escape")
+		s.Assert().Error(err)
+
+		// Non-existent revision
+		nonExistentRev := strings.Repeat("0", 40)
+		_, err = s.mgr.FS(ref, nonExistentRev, "")
+		s.Assert().Error(err)
+
+		// Malformed revision
+		_, err = s.mgr.FS(ref, "not-a-valid-hex", "")
+		s.Assert().Error(err)
+
+		// Unknown repo
+		unknownRef := &RepoReference{Endpoint: "unknown.com", Name: "unknown/repo", Ref: "main"}
+		_, err = s.mgr.FS(unknownRef, rev, "")
+		s.Assert().Error(err)
+	})
 }

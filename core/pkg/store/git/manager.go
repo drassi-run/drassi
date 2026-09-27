@@ -28,6 +28,7 @@ import (
 	"github.com/go-git/go-git/v6/config"
 	"github.com/go-git/go-git/v6/plumbing"
 	"github.com/go-git/go-git/v6/plumbing/cache"
+	"github.com/go-git/go-git/v6/plumbing/filemode"
 	"github.com/go-git/go-git/v6/plumbing/object"
 	"github.com/go-git/go-git/v6/storage"
 	"github.com/go-git/go-git/v6/storage/filesystem"
@@ -38,6 +39,7 @@ import (
 type Manager interface {
 	Fetch(ctx context.Context, repo *RepoReference, opts ...FetchOption) (rev string, err error)
 	Read(ctx context.Context, repo *RepoReference, rev string, opts ...ReadOption) (io.ReadCloser, error)
+	FS(repo *RepoReference, rev, subpath string) (fs.FS, error)
 	Close() error
 }
 
@@ -131,12 +133,7 @@ func (m *manager) Read(ctx context.Context, repo *RepoReference, rev string, opt
 		return nil, err
 	}
 
-	hash, ok := plumbing.FromHex(rev)
-	if !ok {
-		return nil, fmt.Errorf("invalid revision %q", rev)
-	}
-
-	commit, err := gitRepo.CommitObject(hash)
+	commit, err := m.commitAt(gitRepo, rev)
 	if err != nil {
 		return nil, err
 	}
@@ -145,6 +142,25 @@ func (m *manager) Read(ctx context.Context, repo *RepoReference, rev string, opt
 		return m.readFile(commit, ro.file)
 	}
 	return m.readArchive(ctx, commit, ro.subpath)
+}
+
+func (m *manager) FS(repo *RepoReference, rev, subpath string) (fs.FS, error) {
+	gitRepo, err := m.getRepo(repo)
+	if err != nil {
+		return nil, err
+	}
+
+	commit, err := m.commitAt(gitRepo, rev)
+	if err != nil {
+		return nil, err
+	}
+
+	tree, err := m.treeAt(commit, subpath)
+	if err != nil {
+		return nil, err
+	}
+
+	return newTreeFS(tree, gitRepo.Storer, commit.Author.When), nil
 }
 
 func (m *manager) readFile(commit *object.Commit, filePath string) (io.ReadCloser, error) {
@@ -156,9 +172,7 @@ func (m *manager) readFile(commit *object.Commit, filePath string) (io.ReadClose
 	cleanPath := strings.TrimPrefix(path.Clean(filePath), "/")
 	entry, err := tree.FindEntry(cleanPath)
 	if err != nil {
-		if notFoundErr(err) {
-			return nil, fs.ErrNotExist
-		}
+		err = normalizeError(err)
 		return nil, err
 	}
 	if !entry.Mode.IsFile() {
@@ -221,6 +235,44 @@ func (m *manager) getRepo(repo *RepoReference) (*Repository, error) {
 
 	m.repos.Add(id, gitRepo)
 	return gitRepo, nil
+}
+
+func (m *manager) commitAt(gitRepo *Repository, rev string) (*object.Commit, error) {
+	hash, ok := plumbing.FromHex(rev)
+	if !ok {
+		return nil, fmt.Errorf("invalid revision %q", rev)
+	}
+
+	return gitRepo.CommitObject(hash)
+}
+
+func (m *manager) treeAt(commit *object.Commit, subpath string) (*object.Tree, error) {
+	tree, err := commit.Tree()
+	if err != nil {
+		return nil, err
+	}
+
+	subpath = strings.TrimPrefix(path.Clean(subpath), "/")
+	if strings.HasPrefix(subpath, "..") {
+		return nil, &fs.PathError{Op: "fs", Path: subpath, Err: fs.ErrInvalid}
+	}
+	if subpath == "" || subpath == "." {
+		return tree, nil
+	}
+
+	if entry, err := tree.FindEntry(subpath); err != nil {
+		err = normalizeError(err)
+		return nil, err
+	} else if entry.Mode != filemode.Dir {
+		return nil, fmt.Errorf("%q is not a directory", subpath)
+	}
+
+	if tree, err = tree.Tree(subpath); err != nil {
+		err = normalizeError(err)
+		return nil, err
+	}
+
+	return tree, err
 }
 
 func (m *manager) fetch(ctx context.Context, gitRepo *Repository, repo *RepoReference, branch string, opts ...FetchOption) error {
@@ -349,6 +401,13 @@ func newTarHandler(tw *tar.Writer, dir string) tarHandler {
 func (m *manager) Close() error {
 	m.repos.Purge()
 	return nil
+}
+
+func normalizeError(err error) error {
+	if notFoundErr(err) {
+		return fs.ErrNotExist
+	}
+	return err
 }
 
 func notFoundErr(err error) bool {

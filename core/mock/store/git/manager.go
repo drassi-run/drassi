@@ -12,6 +12,7 @@ package mock_gitstore
 import (
 	context "context"
 	io "io"
+	fs "io/fs"
 	reflect "reflect"
 
 	gitstore "drassi.run/core/pkg/store/git"
@@ -76,6 +77,45 @@ func (c *MockManagerCloseCall) Do(f func() error) *MockManagerCloseCall {
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockManagerCloseCall) DoAndReturn(f func() error) *MockManagerCloseCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// FS mocks base method.
+func (m *MockManager) FS(repo *gitstore.RepoReference, rev, subpath string) (fs.FS, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FS", repo, rev, subpath)
+	ret0, _ := ret[0].(fs.FS)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FS indicates an expected call of FS.
+func (mr *MockManagerMockRecorder) FS(repo, rev, subpath any) *MockManagerFSCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FS", reflect.TypeOf((*MockManager)(nil).FS), repo, rev, subpath)
+	return &MockManagerFSCall{Call: call}
+}
+
+// MockManagerFSCall wrap *gomock.Call
+type MockManagerFSCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockManagerFSCall) Return(arg0 fs.FS, arg1 error) *MockManagerFSCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockManagerFSCall) Do(f func(*gitstore.RepoReference, string, string) (fs.FS, error)) *MockManagerFSCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockManagerFSCall) DoAndReturn(f func(*gitstore.RepoReference, string, string) (fs.FS, error)) *MockManagerFSCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
