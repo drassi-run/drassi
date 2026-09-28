@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/go-git/go-git/v6/plumbing"
+	"github.com/go-git/go-git/v6/plumbing/filemode"
 	"github.com/go-git/go-git/v6/plumbing/object"
 	"github.com/go-git/go-git/v6/plumbing/storer"
 )
@@ -79,7 +80,7 @@ func (tfs *treeFS) Open(name string) (fs.File, error) {
 		return nil, &fs.PathError{Op: "open", Path: name, Err: err}
 	}
 
-	if osMode.IsDir() {
+	if entry.Mode == filemode.Dir {
 		subTree, err := tfs.tree.Tree(name)
 		if err != nil {
 			if notFoundErr(err) {
@@ -152,11 +153,7 @@ func (tfs *treeFS) ReadDir(name string) ([]fs.DirEntry, error) {
 		return nil, &fs.PathError{Op: "readdir", Path: name, Err: err}
 	}
 
-	osMode, err := entry.Mode.ToOSFileMode()
-	if err != nil {
-		return nil, &fs.PathError{Op: "readdir", Path: name, Err: err}
-	}
-	if !osMode.IsDir() {
+	if entry.Mode != filemode.Dir {
 		return nil, &fs.PathError{Op: "readdir", Path: name, Err: errors.New("not a directory")}
 	}
 
@@ -200,7 +197,7 @@ func (tfs *treeFS) Stat(name string) (fs.FileInfo, error) {
 	}
 
 	var size int64
-	if !osMode.IsDir() && tfs.storer != nil {
+	if entry.Mode != filemode.Dir && tfs.storer != nil {
 		size, err = tfs.storer.EncodedObjectSize(entry.Hash)
 		if err != nil && !errors.Is(err, plumbing.ErrObjectNotFound) {
 			return nil, &fs.PathError{Op: "stat", Path: name, Err: err}
@@ -212,7 +209,7 @@ func (tfs *treeFS) Stat(name string) (fs.FileInfo, error) {
 		size:    size,
 		mode:    osMode,
 		modTime: tfs.modTime,
-		isDir:   osMode.IsDir(),
+		isDir:   entry.Mode == filemode.Dir,
 		sys:     entry,
 	}, nil
 }
@@ -234,11 +231,7 @@ func (tfs *treeFS) ReadFile(name string) ([]byte, error) {
 		return nil, &fs.PathError{Op: "readfile", Path: name, Err: err}
 	}
 
-	osMode, err := entry.Mode.ToOSFileMode()
-	if err != nil {
-		return nil, &fs.PathError{Op: "readfile", Path: name, Err: err}
-	}
-	if osMode.IsDir() {
+	if entry.Mode == filemode.Dir {
 		return nil, &fs.PathError{Op: "readfile", Path: name, Err: errors.New("is a directory")}
 	}
 
@@ -281,11 +274,7 @@ func (tfs *treeFS) Sub(dir string) (fs.FS, error) {
 		return nil, &fs.PathError{Op: "sub", Path: dir, Err: err}
 	}
 
-	osMode, err := entry.Mode.ToOSFileMode()
-	if err != nil {
-		return nil, &fs.PathError{Op: "sub", Path: dir, Err: err}
-	}
-	if !osMode.IsDir() {
+	if entry.Mode != filemode.Dir {
 		return nil, &fs.PathError{Op: "sub", Path: dir, Err: errors.New("not a directory")}
 	}
 
@@ -302,19 +291,11 @@ func (tfs *treeFS) Sub(dir string) (fs.FS, error) {
 
 func (tfs *treeFS) treeEntriesToDirEntries(entries []object.TreeEntry) ([]fs.DirEntry, error) {
 	result := make([]fs.DirEntry, 0, len(entries))
-	for i := range entries {
-		e := &entries[i]
-		osMode, err := e.Mode.ToOSFileMode()
-		if err != nil {
-			return nil, err
-		}
+	for _, e := range entries {
 		result = append(result, &treeDirEntry{
-			name:    e.Name,
-			mode:    osMode,
-			hash:    e.Hash,
-			s:       tfs.storer,
-			modTime: tfs.modTime,
-			sys:     e,
+			TreeEntry: e,
+			storer:    tfs.storer,
+			modTime:   tfs.modTime,
 		})
 	}
 	slices.SortFunc(result, func(a, b fs.DirEntry) int {
@@ -392,43 +373,50 @@ func (f *treeFile) Close() error {
 }
 
 type treeDirEntry struct {
-	name    string
-	mode    fs.FileMode
-	hash    plumbing.Hash
-	s       storer.EncodedObjectStorer
+	object.TreeEntry
+	storer  storer.EncodedObjectStorer
 	modTime time.Time
-	sys     any
 }
 
 func (e *treeDirEntry) Name() string {
-	return e.name
+	return e.TreeEntry.Name
 }
 
 func (e *treeDirEntry) IsDir() bool {
-	return e.mode.IsDir()
+	return e.Mode == filemode.Dir
 }
 
 func (e *treeDirEntry) Type() fs.FileMode {
-	return e.mode.Type()
+	osMode, err := e.Mode.ToOSFileMode()
+	if err != nil {
+		return 0
+	}
+	return osMode.Type()
 }
 
 func (e *treeDirEntry) Info() (fs.FileInfo, error) {
+	osMode, err := e.Mode.ToOSFileMode()
+	if err != nil {
+		return nil, err
+	}
+
 	var size int64
-	if !e.mode.IsDir() && e.s != nil {
-		var err error
-		size, err = e.s.EncodedObjectSize(e.hash)
+	if e.Mode != filemode.Dir && e.storer != nil {
+		size, err = e.storer.EncodedObjectSize(e.Hash)
 		if err != nil && !errors.Is(err, plumbing.ErrObjectNotFound) {
 			return nil, err
 		}
 	}
-	return &treeFileInfo{
-		name:    e.name,
+
+	info := &treeFileInfo{
+		name:    e.TreeEntry.Name,
 		size:    size,
-		mode:    e.mode,
+		mode:    osMode,
 		modTime: e.modTime,
-		isDir:   e.mode.IsDir(),
-		sys:     e.sys,
-	}, nil
+		isDir:   e.Mode == filemode.Dir,
+		sys:     e.TreeEntry,
+	}
+	return info, nil
 }
 
 type treeFileInfo struct {
