@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"net"
 	"os"
 	"sync"
 	"time"
@@ -20,14 +21,22 @@ import (
 	"drassi.run/core/pkg/container/parser"
 	"drassi.run/core/pkg/container/types"
 	"drassi.run/core/pkg/stream"
-	xcontext "drassi.run/core/util/context"
-	xio "drassi.run/core/util/io"
+	"drassi.run/core/util/context"
+	"drassi.run/core/util/io"
 	"github.com/containerd/errdefs"
+	"github.com/docker/cli/cli/config"
+	bkclient "github.com/moby/buildkit/client"
+	"github.com/moby/buildkit/session"
+	"github.com/moby/buildkit/session/auth/authprovider"
+	"github.com/moby/buildkit/session/upload/uploadprovider"
+	"github.com/moby/buildkit/util/progress/progressui"
 	"github.com/moby/moby/api/pkg/stdcopy"
 	dockercontainer "github.com/moby/moby/api/types/container"
 	dockernetwork "github.com/moby/moby/api/types/network"
 	dockervolume "github.com/moby/moby/api/types/volume"
 	dockerclient "github.com/moby/moby/client"
+	"github.com/tonistiigi/fsutil"
+	"golang.org/x/sync/errgroup"
 )
 
 // ProxyCommand
@@ -104,9 +113,90 @@ func (e *engine) ImagePull(ctx context.Context, ref string, opts *container.Pull
 	return err
 }
 
-func (e *engine) ImageBuild(ctx context.Context, context io.Reader, opts *container.BuildOptions) error {
-	//TODO implement me
-	panic("implement me")
+func (e *engine) ImageBuild(ctx context.Context, tag string, opts *container.BuildOptions) error {
+	if (opts.ContextTar != nil) == (opts.ContextFS != nil) {
+		return errors.New("exactly one of ContextTar or ContextFS must be provided")
+	}
+
+	dockerfilePath := opts.DockerfilePath
+	if dockerfilePath == "" {
+		dockerfilePath = "Dockerfile"
+	}
+
+	bkClient, err := bkclient.New(ctx, "",
+		bkclient.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) {
+			return e.client.DialHijack(ctx, "/grpc", "h2c", nil)
+		}),
+		bkclient.WithSessionDialer(func(ctx context.Context, proto string, meta map[string][]string) (net.Conn, error) {
+			return e.client.DialHijack(ctx, "/session", proto, meta)
+		}),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to connect to buildkit: %w", err)
+	}
+	defer bkClient.Close()
+
+	so := bkclient.SolveOpt{
+		Frontend: "dockerfile.v0",
+		FrontendAttrs: map[string]string{
+			"filename": dockerfilePath,
+		},
+		Exports: []bkclient.ExportEntry{{
+			Type:  "moby",
+			Attrs: map[string]string{"name": tag},
+		}},
+		Session: []session.Attachable{
+			authprovider.NewDockerAuthProvider(authprovider.DockerAuthProviderConfig{
+				ConfigFile: config.LoadDefaultConfigFile(os.Stderr),
+			}),
+		},
+	}
+
+	if opts.ContextTar != nil {
+		var rc io.ReadCloser
+		if c, ok := opts.ContextTar.(io.ReadCloser); ok {
+			rc = c
+		} else {
+			rc = io.NopCloser(opts.ContextTar)
+		}
+		up := uploadprovider.New()
+		so.FrontendAttrs["context"] = up.Add(rc)
+		so.Session = append(so.Session, up)
+	} else if opts.ContextFS != nil {
+		fsys := newFSAdapter(opts.ContextFS)
+		so.LocalMounts = map[string]fsutil.FS{
+			"context":    fsys,
+			"dockerfile": fsys,
+		}
+	}
+
+	var statusCh chan *bkclient.SolveStatus
+	eg, gctx := errgroup.WithContext(ctx)
+
+	if opts.Streams != nil && (opts.Streams.Out != nil || opts.Streams.Err != nil) {
+		out := opts.Streams.Out
+		if out == nil {
+			out = opts.Streams.Err
+		}
+		disp, err := progressui.NewDisplay(out, progressui.AutoMode)
+		if err == nil {
+			statusCh = make(chan *bkclient.SolveStatus)
+			eg.Go(func() error {
+				_, err := disp.UpdateFrom(gctx, statusCh)
+				return err
+			})
+		}
+	}
+
+	eg.Go(func() error {
+		_, err := bkClient.Solve(gctx, nil, so, statusCh)
+		return err
+	})
+
+	if err := eg.Wait(); err != nil {
+		return fmt.Errorf("build image %q: %w", tag, err)
+	}
+	return nil
 }
 
 func (e *engine) ContainerRun(ctx context.Context, spec *types.ContainerSpec, opts *container.RunOptions) (string, error) {
@@ -551,6 +641,6 @@ type fileInfo struct {
 func (fi *fileInfo) Name() string       { return fi.PathStat.Name }
 func (fi *fileInfo) Size() int64        { return fi.PathStat.Size }
 func (fi *fileInfo) Mode() fs.FileMode  { return fi.PathStat.Mode }
-func (fi *fileInfo) ModTime() time.Time { return fi.PathStat.Mtime }
+func (fi *fileInfo) ModTime() time.Time { return fi.PathStat.Mtime } //nolint:staticcheck
 func (fi *fileInfo) IsDir() bool        { return fi.Mode().IsDir() }
-func (fi *fileInfo) Sys() any           { return nil }
+func (fi *fileInfo) Sys() any           { return fi.PathStat }

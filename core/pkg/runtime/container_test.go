@@ -7,6 +7,7 @@
 package runtime
 
 import (
+	"bytes"
 	"context"
 	"testing"
 
@@ -15,9 +16,46 @@ import (
 	"drassi.run/core/pkg/container/specdef"
 	"drassi.run/core/pkg/container/types"
 	"drassi.run/core/pkg/stream"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
 )
+
+func TestContainerRuntime_Build(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockEngine := mock_container.NewMockEngine(ctrl)
+	rt, err := NewContainerRuntime(mockEngine)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	t.Run("empty tag fails", func(t *testing.T) {
+		err := rt.Build(ctx, "", bytes.NewReader([]byte{}), "Dockerfile")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "tag is required")
+	})
+
+	t.Run("delegates to engine.ImageBuild", func(t *testing.T) {
+		tarReader := bytes.NewReader([]byte("tar-content"))
+		tag := "custom-image:v1"
+		dfPath := "docker/Dockerfile"
+
+		mockEngine.EXPECT().ImageBuild(ctx, tag, gomock.Any()).DoAndReturn(
+			func(ctx context.Context, imageTag string, opts *container.BuildOptions) error {
+				assert.Equal(t, tag, imageTag)
+				assert.Equal(t, dfPath, opts.DockerfilePath)
+				assert.Equal(t, tarReader, opts.ContextTar)
+				return nil
+			},
+		)
+
+		err := rt.Build(ctx, tag, tarReader, dfPath)
+		require.NoError(t, err)
+	})
+}
 
 func TestContainerRuntimeSuite(t *testing.T) {
 	suite.Run(t, new(ContainerRuntimeTestSuite))

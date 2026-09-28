@@ -9,6 +9,7 @@ package executor
 import (
 	"context"
 	"fmt"
+	"path"
 	"strings"
 
 	"drassi.run/core/pkg/expression"
@@ -24,7 +25,9 @@ import (
 )
 
 type DockerActionSpec struct {
-	Repo    *gitstore.RepoReference
+	Repo *gitstore.RepoReference
+	rev  string // git revision of Repo, for remote action only
+
 	Inputs  workflows.Evaluable[map[string]string]
 	Outputs workflows.Evaluable[map[string]string]
 	Env     workflows.Evaluable[map[string]string]
@@ -79,7 +82,50 @@ func (e *dockerActionExecutor) init(ctx context.Context, scope *dig.Scope) error
 		return e.runtime.Pull(ctx, image, nil)
 	}
 
-	return e.runtime.Build(ctx)
+	if e.spec.Repo == nil || e.spec.Repo.Name == "" {
+		return fmt.Errorf("building image in local action is not supported yet")
+	}
+
+	return e.buildImage(ctx, scope)
+}
+
+// buildImage builds the Docker action container image using the action repository contents as context.
+//
+// In the original actions/runner C# codebase, DockerCommandManager constructs and executes:
+//
+//	docker build -t <tag> -f "<dockerFile>" "<dockerContext>"
+//
+// where:
+//   - <tag>: Formatted as <DockerInstanceLabel>:<Guid> (e.g., github_actions_...:c1a2b3...).
+//   - -f "<dockerFile>": Absolute path to the Dockerfile.
+//   - "<dockerContext>": Set to the parent directory of the Dockerfile (Directory.GetParent(dockerFile).FullName).
+//   - Working directory: The runner workspace (context.GetGitHubContext("workspace")).
+//
+// In Drassi, buildImage fetches the repository archive via gitstore.Manager and passes the tar stream
+// to runtime.Container.Build, which streams it directly to BuildKit.
+func (e *dockerActionExecutor) buildImage(ctx context.Context, scope *dig.Scope) error {
+	var store gitstore.Manager
+	if err := xdig.Populate(scope, &store); err != nil {
+		return err
+	}
+
+	dir, file := path.Split(e.spec.Image)
+
+	var opts []gitstore.ReadOption
+	if dir != "" {
+		opts = append(opts, gitstore.WithSubpath(dir))
+	}
+
+	repo := e.spec.Repo
+	if buildCtx, err := store.Read(ctx, repo, e.spec.rev, opts...); err != nil {
+		return err
+	} else {
+		defer buildCtx.Close()
+		tag := path.Join(gitstore.FullName(repo), repo.Path)
+		tag += ":" + e.spec.rev
+		e.resolvedImage = tag
+		return e.runtime.Build(ctx, tag, buildCtx, file)
+	}
 }
 
 func (e *dockerActionExecutor) ActionSpec() ActionSpec {

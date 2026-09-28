@@ -151,11 +151,20 @@ func (spec *ReferenceActionSpec) loadActionManifest(r io.ReadCloser) (ActionSpec
 		return nil, err
 	}
 
-	return ToActionSpec(action, spec.Repo)
+	actionSpec, err := ToActionSpec(action, spec.Repo)
+	if err != nil {
+		return nil, err
+	}
+	if dockerSpec, ok := actionSpec.(*DockerActionSpec); ok {
+		dockerSpec.rev = spec.rev
+	}
+	return actionSpec, nil
 }
 
 func (spec *ReferenceActionSpec) createDockerfileAction(dockerfile string) (ActionSpec, error) {
 	action := &DockerActionSpec{
+		Repo:  spec.Repo,
+		rev:   spec.rev,
 		Image: dockerfile,
 	}
 	return action, nil

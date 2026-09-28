@@ -42,17 +42,17 @@ func (m *MockMounter) EXPECT() *MockMounterMockRecorder {
 }
 
 // OverlayMounts mocks base method.
-func (m *MockMounter) OverlayMounts(targetLayout sandboxer.Layout, coarse bool) []*types.Mount {
+func (m *MockMounter) OverlayMounts(target sandboxer.Layout, coarse bool) []*types.Mount {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "OverlayMounts", targetLayout, coarse)
+	ret := m.ctrl.Call(m, "OverlayMounts", target, coarse)
 	ret0, _ := ret[0].([]*types.Mount)
 	return ret0
 }
 
 // OverlayMounts indicates an expected call of OverlayMounts.
-func (mr *MockMounterMockRecorder) OverlayMounts(targetLayout, coarse any) *MockMounterOverlayMountsCall {
+func (mr *MockMounterMockRecorder) OverlayMounts(target, coarse any) *MockMounterOverlayMountsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OverlayMounts", reflect.TypeOf((*MockMounter)(nil).OverlayMounts), targetLayout, coarse)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OverlayMounts", reflect.TypeOf((*MockMounter)(nil).OverlayMounts), target, coarse)
 	return &MockMounterOverlayMountsCall{Call: call}
 }
 
@@ -80,17 +80,17 @@ func (c *MockMounterOverlayMountsCall) DoAndReturn(f func(sandboxer.Layout, bool
 }
 
 // RuntimeMounts mocks base method.
-func (m *MockMounter) RuntimeMounts(targetLayout sandboxer.Layout) []*types.Mount {
+func (m *MockMounter) RuntimeMounts(target sandboxer.Layout) []*types.Mount {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RuntimeMounts", targetLayout)
+	ret := m.ctrl.Call(m, "RuntimeMounts", target)
 	ret0, _ := ret[0].([]*types.Mount)
 	return ret0
 }
 
 // RuntimeMounts indicates an expected call of RuntimeMounts.
-func (mr *MockMounterMockRecorder) RuntimeMounts(targetLayout any) *MockMounterRuntimeMountsCall {
+func (mr *MockMounterMockRecorder) RuntimeMounts(target any) *MockMounterRuntimeMountsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RuntimeMounts", reflect.TypeOf((*MockMounter)(nil).RuntimeMounts), targetLayout)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RuntimeMounts", reflect.TypeOf((*MockMounter)(nil).RuntimeMounts), target)
 	return &MockMounterRuntimeMountsCall{Call: call}
 }
 

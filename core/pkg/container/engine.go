@@ -22,7 +22,7 @@ type Engine interface {
 	Address() string
 
 	ImagePull(ctx context.Context, ref string, opts *PullOptions) error
-	ImageBuild(ctx context.Context, context io.Reader, opts *BuildOptions) error
+	ImageBuild(ctx context.Context, tag string, opts *BuildOptions) error
 
 	ContainerRun(ctx context.Context, spec *types.ContainerSpec, opts *RunOptions) (string, error)
 	ContainerExec(ctx context.Context, id string, opts *ExecOptions) (string, error)
@@ -46,8 +46,10 @@ type PullOptions struct {
 }
 
 type BuildOptions struct {
-	Tags    []string
-	Streams *stream.Streams
+	ContextFS      fs.FS     // build context in FS, exclude with ContextTar
+	ContextTar     io.Reader // build context in tarball, exclude with ContextFS
+	DockerfilePath string    // path to Dockerfile in the build context
+	Streams        *stream.Streams
 }
 
 type RunOptions struct {

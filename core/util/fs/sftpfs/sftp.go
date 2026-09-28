@@ -49,18 +49,18 @@ func (fs *SftpFS) Mkdir(name string, perm os.FileMode) error {
 	if err := fs.Client.Mkdir(name); err != nil || perm == xfs.DirPerm {
 		return normaliseError(err)
 	}
-	return fs.Client.Chmod(name, perm)
+	return fs.Client.Chmod(name, perm) //nolint:staticcheck
 }
 
 func (fs *SftpFS) MkdirAll(name string, perm os.FileMode) error {
 	if err := fs.Client.MkdirAll(name); err != nil || perm == xfs.DirPerm {
 		return normaliseError(err)
 	}
-	return fs.Client.Chmod(name, perm)
+	return fs.Client.Chmod(name, perm) //nolint:staticcheck
 }
 
 func (fs *SftpFS) Readlink(link string) (string, error) {
-	return fs.Client.ReadLink(link)
+	return fs.Client.ReadLink(link) //nolint:staticcheck
 }
 
 func (fs *SftpFS) Chroot(string) (billy.Filesystem, error) {

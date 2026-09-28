@@ -8,7 +8,9 @@ package runtime
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"maps"
 	"slices"
 	"strings"
@@ -25,7 +27,7 @@ type Container interface {
 	PathTranslator
 
 	Pull(ctx context.Context, image string, auth container.RegistryAuth) error
-	Build(ctx context.Context) error
+	Build(ctx context.Context, tag string, buildContext io.Reader, dockerfilePath string) error
 	Run(ctx context.Context, image string, entrypoint, cmd []string, env map[string]string, streams *stream.Streams) error
 }
 
@@ -104,9 +106,14 @@ func (rt *containerRuntime) Pull(ctx context.Context, image string, auth contain
 	})
 }
 
-func (rt *containerRuntime) Build(ctx context.Context) error {
-	//TODO implement me
-	panic("implement me")
+func (rt *containerRuntime) Build(ctx context.Context, tag string, buildContext io.Reader, dockerfilePath string) error {
+	if tag == "" {
+		return errors.New("tag is required")
+	}
+	return rt.engine.ImageBuild(ctx, tag, &container.BuildOptions{
+		ContextTar:     buildContext,
+		DockerfilePath: dockerfilePath,
+	})
 }
 
 func (rt *containerRuntime) Run(
