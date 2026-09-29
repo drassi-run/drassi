@@ -26,3 +26,36 @@ func RootDir() string {
 
 	return "/tmp/drassi"
 }
+
+func DefaultConfig[R any]() *Config[R] {
+	return &Config[R]{
+		Sandboxer: &Sandboxer{
+			Provider: "host",
+		},
+		Runtimes: map[string]*Runtime{
+			"node": {
+				Alias:      []string{"node20", "node22", "node24"},
+				Image:      "ghcr.io/drassi-run/runtimes/node:24",
+				Executable: "./bin/node",
+				Cmd:        []string{"{0}"},
+				Paths:      []string{"bin"},
+			},
+		},
+		OciStore: DefaultOciStoreConfig(),
+	}
+}
+
+func DefaultOciStoreConfig() *OciStore {
+	return &OciStore{
+		Backend:    "containerd",
+		Containerd: DefaultContainerdStoreConfig(),
+	}
+}
+
+func DefaultContainerdStoreConfig() *ContainerdStoreConfig {
+	return &ContainerdStoreConfig{
+		Address:       "/run/containerd/containerd.sock",
+		Namespace:     "moby",
+		FsSnapshotter: "overlayfs",
+	}
+}

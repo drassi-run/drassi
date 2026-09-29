@@ -166,10 +166,10 @@ func (c *register) doRegister(ctx context.Context) (*giteaconfig.Runner, error) 
 }
 
 func (c *register) saveConfig(runner *giteaconfig.Runner) error {
-	config := &giteaconfig.Config{
-		Runner:       runner,
-		UseSandboxer: c.sandboxer,
-	}
+	config := giteaconfig.DefaultConfig()
+	config.Runner = runner
+	config.Sandboxer.Provider = c.sandboxer
+
 	b, err := toml.Marshal(config)
 	if err != nil {
 		return err

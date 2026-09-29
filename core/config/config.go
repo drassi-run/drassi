@@ -9,38 +9,10 @@ package config
 import "github.com/pelletier/go-toml/v2/unstable"
 
 type Config[R any] struct {
-	Runner       *R                    `toml:"runner" json:"runner"`
-	Sandboxers   map[string]*Sandboxer `toml:"sandboxers" json:"sandboxers"`
-	UseSandboxer string                `toml:"use_sandboxer" json:"use_sandboxer"`
-	Runtimes     map[string]*Runtime   `toml:"runtimes" json:"runtimes"`
-	OciStore     *OciStore             `toml:"ocistore" json:"ocistore"`
-}
-
-type OciStore struct {
-	Backend    string                 `toml:"backend" json:"backend"`
-	Containerd *ContainerdStoreConfig `toml:"containerd,omitempty" json:"containerd,omitempty"`
-}
-
-type ContainerdStoreConfig struct {
-	Address          string `toml:"address" json:"address"`
-	Namespace        string `toml:"namespace" json:"namespace"`
-	FsSnapshotter    string `toml:"fs_snapshotter" json:"fs_snapshotter"`
-	BlockSnapshotter string `toml:"block_snapshotter" json:"block_snapshotter"`
-}
-
-func DefaultContainerdStoreConfig() *ContainerdStoreConfig {
-	return &ContainerdStoreConfig{
-		Address:       "/run/containerd/containerd.sock",
-		Namespace:     "moby",
-		FsSnapshotter: "overlayfs",
-	}
-}
-
-func DefaultOciStoreConfig() *OciStore {
-	return &OciStore{
-		Backend:    "containerd",
-		Containerd: DefaultContainerdStoreConfig(),
-	}
+	Runner    *R                  `toml:"runner" json:"runner"`
+	Sandboxer *Sandboxer          `toml:"sandboxer" json:"sandboxer"`
+	Runtimes  map[string]*Runtime `toml:"runtimes" json:"runtimes"`
+	OciStore  *OciStore           `toml:"ocistore" json:"ocistore"`
 }
 
 type Sandboxer struct {
@@ -58,20 +30,14 @@ type Runtime struct {
 	ReadOnly   bool     `toml:"read_only" json:"read_only,omitempty"`
 }
 
-func DefaultConfig[R any]() *Config[R] {
-	return &Config[R]{
-		Runner: nil,
-		Sandboxers: map[string]*Sandboxer{
-			"host":   {Provider: ProviderHost},
-			"docker": {Provider: ProviderDocker},
-		},
-		UseSandboxer: "host",
-		OciStore:     DefaultOciStoreConfig(),
-	}
+type OciStore struct {
+	Backend    string                 `toml:"backend" json:"backend"`
+	Containerd *ContainerdStoreConfig `toml:"containerd,omitempty" json:"containerd,omitempty"`
 }
 
-const (
-	ProviderDocker = "docker"
-	ProviderHost   = "host"
-	ProviderIncus  = "incus"
-)
+type ContainerdStoreConfig struct {
+	Address          string `toml:"address" json:"address"`
+	Namespace        string `toml:"namespace" json:"namespace"`
+	FsSnapshotter    string `toml:"fs_snapshotter" json:"fs_snapshotter"`
+	BlockSnapshotter string `toml:"block_snapshotter" json:"block_snapshotter"`
+}

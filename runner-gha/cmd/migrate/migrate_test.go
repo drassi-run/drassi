@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	mock_store "drassi.run/core/mock/store/oci"
 	"drassi.run/core/pkg/sandboxer"
 	_ "drassi.run/core/pkg/sandboxer/host"
 	"drassi.run/gha-runner/cmd/migrate"
@@ -23,6 +24,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 func setupTestDir(t *testing.T) string {
@@ -84,7 +86,8 @@ func TestMigrateCommand(t *testing.T) {
 	err = toml.Unmarshal(content, cfg)
 	require.NoError(t, err)
 
-	assert.Equal(t, "host", cfg.UseSandboxer)
+	require.NotNil(t, cfg.Sandboxer)
+	assert.Equal(t, "host", cfg.Sandboxer.Provider)
 	require.NotNil(t, cfg.Runner)
 	assert.Equal(t, 100, cfg.Runner.RunnerId)
 	assert.Equal(t, 10, cfg.Runner.GroupId)
@@ -97,11 +100,12 @@ func TestMigrateCommand(t *testing.T) {
 	assert.NotEmpty(t, cfg.Runner.Authorization.PrivateKey)
 
 	// Check sandboxer engine instantiation
-	sb, ok := cfg.Sandboxers[cfg.UseSandboxer]
-	require.True(t, ok)
-	factory, err := sandboxer.NewFactory(sb)
+	require.NotNil(t, cfg.Sandboxer)
+	factory, err := sandboxer.NewFactory(cfg.Sandboxer)
 	require.NoError(t, err)
+	store := mock_store.NewMockManager(gomock.NewController(t))
 	factory.RootDir(t.TempDir())
+	factory.SetOciStore(store)
 	factory.ProvisionRuntime(cfg.Runtimes)
 	engine, err := factory.Create()
 	require.NoError(t, err)

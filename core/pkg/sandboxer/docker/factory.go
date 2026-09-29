@@ -15,8 +15,10 @@ import (
 	"drassi.run/core/pkg/store/oci"
 )
 
+const ProviderName string = "docker"
+
 func init() {
-	sandboxer.Register(config.ProviderDocker, DefaultConfig, NewFactory)
+	sandboxer.Register(ProviderName, DefaultConfig, NewFactory)
 }
 
 type Config struct {

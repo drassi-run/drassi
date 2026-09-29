@@ -94,6 +94,19 @@ func (l *launcher) Init(ctx context.Context, opts *options) (err error) {
 		l.Key = key
 	}
 
+	if err = l.initStores(); err != nil {
+		return err
+	}
+
+	if err = l.initSandboxer(cfg); err != nil {
+		return err
+	}
+
+	l.initWorker(ctx, cfg)
+	return nil
+}
+
+func (l *launcher) initStores() error {
 	if store, err := gitstore.New(".cache"); err != nil {
 		return err
 	} else {
@@ -106,21 +119,26 @@ func (l *launcher) Init(ctx context.Context, opts *options) (err error) {
 		l.ociStore = store
 	}
 
-	if sbConfig, ok := cfg.Sandboxers[cfg.UseSandboxer]; !ok {
-		return fmt.Errorf("sandboxer %q not configured", cfg.UseSandboxer)
-	} else if factory, err := sandboxer.NewFactory(sbConfig); err != nil {
+	return nil
+}
+
+func (l *launcher) initSandboxer(cfg *ghaconfig.Config) error {
+	if cfg.Sandboxer == nil {
+		return fmt.Errorf("sandboxer not configured")
+	}
+	factory, err := sandboxer.NewFactory(cfg.Sandboxer)
+	if err != nil {
 		return err
-	} else {
-		factory.RootDir(coreconfig.RootDir())
-		factory.SetOciStore(l.ociStore)
-		factory.ProvisionRuntime(cfg.Runtimes)
-		if sb, err := factory.Create(); err != nil {
-			return err
-		} else {
-			l.Sandboxer = sb
-		}
 	}
 
+	factory.RootDir(coreconfig.RootDir())
+	factory.SetOciStore(l.ociStore)
+	factory.ProvisionRuntime(cfg.Runtimes)
+	l.Sandboxer, err = factory.Create()
+	return err
+}
+
+func (l *launcher) initWorker(ctx context.Context, cfg *ghaconfig.Config) {
 	authz := cfg.Runner.Authorization
 	config := clientcredentials.Config{
 		TokenURL:   authz.Url,
@@ -136,8 +154,6 @@ func (l *launcher) Init(ctx context.Context, opts *options) (err error) {
 	src := config.TokenSource(ctx)
 	l.hc = oauth2.NewClient(ctx, src)
 	l.wm = worker.NewManager(cfg)
-
-	return nil
 }
 
 func (l *launcher) Run(ctx context.Context) error {
