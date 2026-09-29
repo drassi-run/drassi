@@ -47,7 +47,7 @@ func fixupToken(token *oauth2.Token) error {
 	return nil
 }
 
-func decodeKey(auth ghaconfig.RunnerAuthorization, configFile string) (*rsa.PrivateKey, error) {
+func decodeKey(auth *ghaconfig.RunnerAuthorization, configFile string) (*rsa.PrivateKey, error) {
 	var keyData []byte
 	if data := auth.PrivateKey; data != "" {
 		if b, err := base64.StdEncoding.DecodeString(data); err == nil {

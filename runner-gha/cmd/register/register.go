@@ -404,7 +404,7 @@ func (r *register) saveRunner(_ context.Context) error {
 		Labels:          labels,
 		ServerUrl:       r.auth.TenantUrl,
 		RegistrationUrl: r.Url,
-		Authorization: ghaconfig.RunnerAuthorization{
+		Authorization: &ghaconfig.RunnerAuthorization{
 			Url:        r.runner.Authorization.AuthorizationUrl,
 			ClientId:   r.runner.Authorization.ClientId,
 			PrivateKey: privateKey,

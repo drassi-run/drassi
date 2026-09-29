@@ -21,13 +21,13 @@ type Sandboxer struct {
 }
 
 type Runtime struct {
-	Alias      []string `toml:"alias" json:"alias,omitempty"` // (optional) runtime alias (e.g. node20, node22, python3.13,...)
-	Image      string   `toml:"image" json:"image,omitempty"`
-	Subpath    string   `toml:"subpath" json:"subpath,omitempty"`       // (optional) subpath in image
-	Executable string   `toml:"executable" json:"executable,omitempty"` // relative path to the binary
-	Cmd        []string `toml:"cmd" json:"cmd,omitempty"`
-	Paths      []string `toml:"paths" json:"paths,omitempty"` // (optional) extra directories added to PATH variable, MUST be relative
-	ReadOnly   bool     `toml:"read_only" json:"read_only,omitempty"`
+	Alias      []string `toml:"alias,omitempty" json:"alias,omitempty"` // (optional) runtime alias (e.g. node20, node22, python3.13,...)
+	Image      string   `toml:"image" json:"image"`
+	Subpath    string   `toml:"subpath,omitempty" json:"subpath,omitempty"` // (optional) subpath in image
+	Executable string   `toml:"executable" json:"executable"`               // relative path to the binary
+	Cmd        []string `toml:"cmd" json:"cmd"`
+	Paths      []string `toml:"paths,omitempty" json:"paths,omitempty"` // (optional) extra directories added to PATH variable, MUST be relative
+	ReadOnly   bool     `toml:"read_only,omitempty" json:"read_only,omitempty"`
 }
 
 type OciStore struct {

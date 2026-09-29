@@ -161,7 +161,7 @@ func (c *Configuration) ToConfig(sandboxerName string) (*ghaconfig.Config, error
 		GroupName:       c.Runner.PoolName,
 		ServerUrl:       c.Runner.ServerUrl,
 		RegistrationUrl: c.Runner.GitHubUrl,
-		Authorization: ghaconfig.RunnerAuthorization{
+		Authorization: &ghaconfig.RunnerAuthorization{
 			Url:        c.Credentials.Data.AuthorizationUrl,
 			ClientId:   c.Credentials.Data.ClientId,
 			PrivateKey: encodedKey,
