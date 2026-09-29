@@ -12,6 +12,11 @@ import (
 	"os/signal"
 	"syscall"
 
+	// register sandboxers
+	_ "drassi.run/core/pkg/sandboxer/docker"
+	_ "drassi.run/core/pkg/sandboxer/host"
+	_ "drassi.run/core/pkg/sandboxer/incus"
+
 	"drassi.run/gha-runner/cmd"
 )
 
@@ -32,7 +37,7 @@ func execute() error {
 	// SIGKILL (Signal kill)
 	// A signal that forcefully terminates a process immediately without allowing it to perform any cleanup operations.
 	// In contrast to SIGTERM and SIGINT, this signal cannot be caught or ignored, and the receiving process
-	// cannot perform any clean-up upon receiving this signal.
+	// cannot perform any cleanup upon receiving this signal.
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	defer stop()
 

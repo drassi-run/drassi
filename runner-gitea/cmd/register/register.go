@@ -8,12 +8,16 @@ package register
 
 import (
 	"context"
+	"encoding/json/v2"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 
 	"charm.land/huh/v2"
 	"connectrpc.com/connect"
+	coreconfig "drassi.run/core/config"
+	"drassi.run/core/pkg/sandboxer"
 	giteaconfig "drassi.run/gitea-runner/config"
 	"drassi.run/gitea-runner/pkg/gitea"
 	pingv1 "gitea.dev/actionslib/ping/v1"
@@ -61,81 +65,110 @@ func New() *cobra.Command {
 	return cmd
 }
 
-func (c *register) Run(ctx context.Context) error {
-	if c.url == "" {
+func (r *register) Run(ctx context.Context) error {
+	if r.url == "" {
 		inquiry := huh.NewInput().
 			Title("Gitea instance URL?").
-			Value(&c.url).
+			Value(&r.url).
 			Placeholder("https://gitea.com").
 			Validate(IsNotEmpty)
 		if err := inquiry.Run(); err != nil {
 			return err
 		}
 
-		fmt.Printf("Gitea instance URL: %s\n", c.url)
+		fmt.Printf("Gitea instance URL: %s\n", r.url)
 	}
-	if strings.HasPrefix(c.url, "https://") {
+	if strings.HasPrefix(r.url, "https://") {
 		inquiry := huh.NewConfirm().
 			Title("Skip verify server TLS").
-			Value(&c.insecureSkipTLSVerify)
+			Value(&r.insecureSkipTLSVerify)
 		if err := inquiry.Run(); err != nil {
 			return err
 		}
 
-		fmt.Printf("Skip verify server TLS: %s\n", c.url)
+		fmt.Printf("Skip verify server TLS: %s\n", r.url)
 	}
-	if c.token == "" {
+	if r.token == "" {
 		inquiry := huh.NewInput().
 			Title("Runner registration token?").
-			Value(&c.token).
+			Value(&r.token).
 			EchoMode(huh.EchoModePassword).
 			Validate(IsNotEmpty)
 		if err := inquiry.Run(); err != nil {
 			return err
 		}
 
-		fmt.Printf("Runner registration token: %s\n", c.token)
+		fmt.Printf("Runner registration token: %s\n", r.token)
 	}
-	if c.name == "" {
+	if r.name == "" {
 		inquiry := huh.NewInput().
 			Title("Runner name?").
-			Value(&c.name).
+			Value(&r.name).
 			Validate(IsNotEmpty)
 		if err := inquiry.Run(); err != nil {
 			return err
 		}
 
-		fmt.Printf("Runner name: %s\n", c.name)
+		fmt.Printf("Runner name: %s\n", r.name)
 	}
 
 	// TODO: prompt
-	c.labels = []string{"ubuntu-latest", "ubuntu-22.04"}
-
-	if c.sandboxer == "" {
-		inquiry := huh.NewInput().
-			Title("Sandboxer Name?").
-			Value(&c.sandboxer).
-			Validate(IsNotEmpty)
-		if err := inquiry.Run(); err != nil {
-			return err
-		}
-
-		fmt.Printf("Sandboxer Name: %s\n", c.sandboxer)
+	r.labels = []string{"ubuntu-latest", "ubuntu-22.04"}
+	if err := r.selectSandboxer(ctx); err != nil {
+		return err
 	}
 
-	if runner, err := c.doRegister(ctx); err != nil {
+	if runner, err := r.doRegister(ctx); err != nil {
 		return err
 	} else {
-		return c.saveConfig(runner)
+		return r.saveConfig(runner)
 	}
 }
 
-func (c *register) doRegister(ctx context.Context) (*giteaconfig.Runner, error) {
-	client := gitea.NewClient(c.url, c.insecureSkipTLSVerify, "", "")
+func (r *register) selectSandboxer(_ context.Context) error {
+	providers := sandboxer.SupportedProviders()
+	slices.Sort(providers)
+
+	if len(providers) == 0 {
+		return fmt.Errorf("no sandboxer available")
+	}
+
+	if s := r.sandboxer; s != "" {
+		if slices.Contains(providers, s) {
+			return fmt.Errorf("unknown sandboxer %q", s)
+		}
+		return nil
+	}
+
+	o := make([]huh.Option[string], 0, len(providers))
+	for _, p := range providers {
+		o = append(o, huh.NewOption(p, p))
+	}
+
+	// set default choice
+	if slices.Contains(providers, "host") {
+		r.sandboxer = "host"
+	}
+
+	inquiry := huh.NewSelect[string]().
+		Title("Select the sandboxer?").
+		Options(o...).
+		Value(&r.sandboxer)
+
+	if err := inquiry.Run(); err != nil {
+		return err
+	}
+
+	fmt.Printf("Sandboxer: %s\n", r.sandboxer)
+	return nil
+}
+
+func (r *register) doRegister(ctx context.Context) (*giteaconfig.Runner, error) {
+	client := gitea.NewClient(r.url, r.insecureSkipTLSVerify, "", "")
 
 	for {
 		req := connect.NewRequest(&pingv1.PingRequest{
-			Data: c.name,
+			Data: r.name,
 		})
 		if _, err := client.Ping(ctx, req); err == nil {
 			break
@@ -143,10 +176,10 @@ func (c *register) doRegister(ctx context.Context) (*giteaconfig.Runner, error) 
 	}
 
 	resp, err := client.Register(ctx, connect.NewRequest(&runnerv1.RegisterRequest{
-		Name:    c.name,
-		Token:   c.token,
+		Name:    r.name,
+		Token:   r.token,
 		Version: "dev",
-		Labels:  c.labels,
+		Labels:  r.labels,
 	}))
 	if err != nil {
 		fmt.Printf("cannot register new runner")
@@ -157,18 +190,25 @@ func (c *register) doRegister(ctx context.Context) (*giteaconfig.Runner, error) 
 		Name:                  resp.Msg.Runner.Name,
 		UUID:                  resp.Msg.Runner.Uuid,
 		Token:                 resp.Msg.Runner.Token,
-		Address:               c.url,
-		InsecureSkipTLSVerify: c.insecureSkipTLSVerify,
+		Address:               r.url,
+		InsecureSkipTLSVerify: r.insecureSkipTLSVerify,
 		RunnerLabels:          resp.Msg.Runner.Labels,
 	}
 
 	return &runner, nil
 }
 
-func (c *register) saveConfig(runner *giteaconfig.Runner) error {
+func (r *register) saveConfig(runner *giteaconfig.Runner) error {
 	config := giteaconfig.DefaultConfig()
 	config.Runner = runner
-	config.Sandboxer.Provider = c.sandboxer
+	if sbConfig, err := r.defaultSandboxerConfig(r.sandboxer); err != nil {
+		return err
+	} else {
+		config.Sandboxer = &coreconfig.Sandboxer{
+			Provider: r.sandboxer,
+			Config:   sbConfig,
+		}
+	}
 
 	b, err := toml.Marshal(config)
 	if err != nil {
@@ -208,6 +248,25 @@ func (c *register) saveConfig(runner *giteaconfig.Runner) error {
 
 	_, err = file.Write(b)
 	return err
+}
+
+func (r *register) defaultSandboxerConfig(provider string) ([]byte, error) {
+	cfg := sandboxer.DefaultConfig(provider)
+	if cfg == nil {
+		return nil, nil
+	}
+
+	b, err := json.Marshal(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	var a any
+	if err = json.Unmarshal(b, &a); err != nil {
+		return nil, err
+	}
+
+	return toml.Marshal(a)
 }
 
 // IsNotEmpty requires a non-empty string.

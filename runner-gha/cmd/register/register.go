@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"slices"
 	"strings"
 
 	"charm.land/huh/v2"
@@ -312,18 +313,40 @@ func (r *register) provideRunnerName(ctx context.Context) error {
 }
 
 func (r *register) selectSandboxer(_ context.Context) error {
-	if r.Sandboxer == "" {
-		inquiry := huh.NewInput().
-			Title("What is your sandboxer name?").
-			Value(&r.Sandboxer).
-			Validate(IsNotEmpty)
+	providers := sandboxer.SupportedProviders()
+	slices.Sort(providers)
 
-		if err := inquiry.Run(); err != nil {
-			return err
-		}
-
-		fmt.Printf("Sandboxer: %s\n", r.Sandboxer)
+	if len(providers) == 0 {
+		return fmt.Errorf("no sandboxer available")
 	}
+
+	if r.Sandboxer != "" {
+		if slices.Contains(providers, r.Sandboxer) {
+			return fmt.Errorf("unknown sandboxer %q", r.Sandboxer)
+		}
+		return nil
+	}
+
+	o := make([]huh.Option[string], 0, len(providers))
+	for _, p := range providers {
+		o = append(o, huh.NewOption(p, p))
+	}
+
+	// set default choice
+	if slices.Contains(providers, "host") {
+		r.Sandboxer = "host"
+	}
+
+	inquiry := huh.NewSelect[string]().
+		Title("Select the sandboxer?").
+		Options(o...).
+		Value(&r.Sandboxer)
+
+	if err := inquiry.Run(); err != nil {
+		return err
+	}
+
+	fmt.Printf("Sandboxer: %s\n", r.Sandboxer)
 	return nil
 }
 

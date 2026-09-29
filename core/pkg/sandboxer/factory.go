@@ -81,3 +81,14 @@ func DefaultConfig(provider string) any {
 	}
 	return fn()
 }
+
+func SupportedProviders() []string {
+	mu.RLock()
+	defer mu.RUnlock()
+
+	providers := make([]string, 0, len(defaults))
+	for k := range defaults {
+		providers = append(providers, k)
+	}
+	return providers
+}
