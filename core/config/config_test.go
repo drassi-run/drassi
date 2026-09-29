@@ -36,3 +36,24 @@ paths = ["bin"]
 	require.Equal(t, []string{"{0}"}, node.Cmd)
 	require.Equal(t, []string{"bin"}, node.Paths)
 }
+
+func TestDefaultConfig(t *testing.T) {
+	cfg := config.DefaultConfig[any]()
+	require.NotNil(t, cfg)
+	require.NotNil(t, cfg.Sandboxer)
+	require.Equal(t, "host", cfg.Sandboxer.Provider)
+	require.NotNil(t, cfg.Runtimes)
+	require.Contains(t, cfg.Runtimes, "node")
+}
+
+func TestSandboxerConfigParsing(t *testing.T) {
+	raw := `
+[sandboxer]
+provider = "docker"
+`
+	var cfg config.Config[any]
+	err := toml.Unmarshal([]byte(raw), &cfg)
+	require.NoError(t, err)
+	require.NotNil(t, cfg.Sandboxer)
+	require.Equal(t, "docker", cfg.Sandboxer.Provider)
+}

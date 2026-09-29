@@ -13,6 +13,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/json/v2"
 	"encoding/pem"
 	"fmt"
 	"net/url"
@@ -21,6 +22,8 @@ import (
 
 	"charm.land/huh/v2"
 	"charm.land/huh/v2/spinner"
+	coreconfig "drassi.run/core/config"
+	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/util/http"
 	ghaconfig "drassi.run/gha-runner/config"
 	"drassi.run/gha-runner/pkg/dotnet"
@@ -385,9 +388,15 @@ func (r *register) saveRunner(_ context.Context) error {
 		},
 	}
 
-	config := &ghaconfig.Config{
-		Runner:       runner,
-		UseSandboxer: r.Sandboxer,
+	config := ghaconfig.DefaultConfig()
+	config.Runner = runner
+	if sbConfig, err := r.defaultSandboxerConfig(r.Sandboxer); err != nil {
+		return err
+	} else {
+		config.Sandboxer = &coreconfig.Sandboxer{
+			Provider: r.Sandboxer,
+			Config:   sbConfig,
+		}
 	}
 
 	var buf bytes.Buffer
@@ -433,6 +442,25 @@ func (r *register) saveRunner(_ context.Context) error {
 
 	_, err = buf.WriteTo(file)
 	return err
+}
+
+func (r *register) defaultSandboxerConfig(provider string) ([]byte, error) {
+	cfg := sandboxer.DefaultConfig(provider)
+	if cfg == nil {
+		return nil, nil
+	}
+
+	b, err := json.Marshal(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	var a any
+	if err = json.Unmarshal(b, &a); err != nil {
+		return nil, err
+	}
+
+	return toml.Marshal(a)
 }
 
 func (r *register) encodeKey() (string, error) {

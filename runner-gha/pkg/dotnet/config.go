@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 
+	coreconfig "drassi.run/core/config"
 	ghaconfig "drassi.run/gha-runner/config"
 )
 
@@ -173,7 +174,9 @@ func (c *Configuration) ToConfig(sandboxerName string) (*ghaconfig.Config, error
 
 	cfg := ghaconfig.DefaultConfig()
 	cfg.Runner = runner
-	cfg.UseSandboxer = sandboxerName
+	cfg.Sandboxer = &coreconfig.Sandboxer{
+		Provider: sandboxerName,
+	}
 
 	return cfg, nil
 }

@@ -16,8 +16,10 @@ import (
 	"drassi.run/core/pkg/store/oci"
 )
 
+const ProviderName string = "host"
+
 func init() {
-	sandboxer.Register(config.ProviderHost, DefaultConfig, NewFactory)
+	sandboxer.Register(ProviderName, DefaultConfig, NewFactory)
 }
 
 func DefaultConfig() *Config {

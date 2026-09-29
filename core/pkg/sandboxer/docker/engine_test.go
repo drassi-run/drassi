@@ -35,7 +35,7 @@ func TestDefaultConfig(t *testing.T) {
 
 func TestFactoryRegistration(t *testing.T) {
 	sbConfig := &config.Sandboxer{
-		Provider: config.ProviderDocker,
+		Provider: ProviderName,
 	}
 	f, err := sandboxer.NewFactory(sbConfig)
 	require.NoError(t, err)
@@ -63,7 +63,7 @@ cpus = "2"
 memory = 2147483648
 `
 	sbConfig := &config.Sandboxer{
-		Provider: config.ProviderDocker,
+		Provider: ProviderName,
 		Config:   []byte(rawToml),
 	}
 	f, err := sandboxer.NewFactory(sbConfig)
@@ -121,7 +121,7 @@ memory = "4g"
 shm_size = "256m"
 `
 	sbConfig := &config.Sandboxer{
-		Provider: config.ProviderDocker,
+		Provider: ProviderName,
 		Config:   []byte(rawToml),
 	}
 	f, err := sandboxer.NewFactory(sbConfig)

@@ -9,10 +9,9 @@ package config
 import "github.com/pelletier/go-toml/v2/unstable"
 
 type Config[R any] struct {
-	Runner       *R                    `toml:"runner" json:"runner"`
-	Sandboxers   map[string]*Sandboxer `toml:"sandboxers" json:"sandboxers"`
-	UseSandboxer string                `toml:"use_sandboxer" json:"use_sandboxer"`
-	Runtimes     map[string]*Runtime   `toml:"runtimes" json:"runtimes"`
+	Runner    *R                  `toml:"runner" json:"runner"`
+	Sandboxer *Sandboxer          `toml:"sandboxer" json:"sandboxer"`
+	Runtimes  map[string]*Runtime `toml:"runtimes" json:"runtimes"`
 }
 
 type Sandboxer struct {
@@ -32,17 +31,17 @@ type Runtime struct {
 
 func DefaultConfig[R any]() *Config[R] {
 	return &Config[R]{
-		Runner: nil,
-		Sandboxers: map[string]*Sandboxer{
-			"host":   {Provider: ProviderHost},
-			"docker": {Provider: ProviderDocker},
+		Sandboxer: &Sandboxer{
+			Provider: "host",
 		},
-		UseSandboxer: "host",
+		Runtimes: map[string]*Runtime{
+			"node": {
+				Alias:      []string{"node20", "node22", "node24"},
+				Image:      "ghcr.io/drassi-run/runtimes/node:24",
+				Executable: "./bin/node",
+				Cmd:        []string{"{0}"},
+				Paths:      []string{"bin"},
+			},
+		},
 	}
 }
-
-const (
-	ProviderDocker = "docker"
-	ProviderHost   = "host"
-	ProviderIncus  = "incus"
-)
