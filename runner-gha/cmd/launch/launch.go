@@ -94,7 +94,7 @@ func (l *launcher) Init(ctx context.Context, opts *options) (err error) {
 		l.Key = key
 	}
 
-	if err = l.initStores(); err != nil {
+	if err = l.initStores(cfg); err != nil {
 		return err
 	}
 
@@ -106,7 +106,7 @@ func (l *launcher) Init(ctx context.Context, opts *options) (err error) {
 	return nil
 }
 
-func (l *launcher) initStores() error {
+func (l *launcher) initStores(cfg *ghaconfig.Config) error {
 	if store, err := gitstore.New(".cache"); err != nil {
 		return err
 	} else {

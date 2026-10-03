@@ -10,8 +10,8 @@ import (
 	"fmt"
 	"os"
 
+	coreconfig "drassi.run/core/config"
 	giteaconfig "drassi.run/gitea-runner/config"
-	"github.com/pelletier/go-toml/v2"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -38,8 +38,7 @@ func LoadConfig(o *options) (*giteaconfig.Config, error) {
 	defer f.Close()
 
 	config := giteaconfig.DefaultConfig()
-	dec := toml.NewDecoder(f).EnableUnmarshalerInterface()
-	if err = dec.Decode(config); err != nil {
+	if err = coreconfig.UnmarshalRead(f, config); err != nil {
 		return nil, err
 	}
 	return config, nil

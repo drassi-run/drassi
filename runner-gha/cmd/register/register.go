@@ -29,7 +29,6 @@ import (
 	ghaconfig "drassi.run/gha-runner/config"
 	"drassi.run/gha-runner/pkg/dotnet"
 	"drassi.run/gha-runner/pkg/types"
-	"github.com/pelletier/go-toml/v2"
 	"github.com/spf13/cobra"
 	"golang.org/x/oauth2"
 )
@@ -423,10 +422,8 @@ func (r *register) saveRunner(_ context.Context) error {
 	}
 
 	var buf bytes.Buffer
-	if b, err := toml.Marshal(config); err != nil {
+	if err = coreconfig.MarshalWrite(&buf, config); err != nil {
 		return err
-	} else {
-		buf.Write(b)
 	}
 
 	fmt.Println(strings.Repeat("=", 50))
@@ -473,17 +470,7 @@ func (r *register) defaultSandboxerConfig(provider string) ([]byte, error) {
 		return nil, nil
 	}
 
-	b, err := json.Marshal(cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	var a any
-	if err = json.Unmarshal(b, &a); err != nil {
-		return nil, err
-	}
-
-	return toml.Marshal(a)
+	return json.Marshal(cfg)
 }
 
 func (r *register) encodeKey() (string, error) {

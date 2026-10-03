@@ -7,6 +7,7 @@
 package register
 
 import (
+	"bytes"
 	"context"
 	"encoding/json/v2"
 	"fmt"
@@ -22,7 +23,6 @@ import (
 	"drassi.run/gitea-runner/pkg/gitea"
 	pingv1 "gitea.dev/actionslib/ping/v1"
 	runnerv1 "gitea.dev/actionslib/runner/v1"
-	"github.com/pelletier/go-toml/v2"
 	"github.com/spf13/cobra"
 )
 
@@ -210,13 +210,13 @@ func (r *register) saveConfig(runner *giteaconfig.Runner) error {
 		}
 	}
 
-	b, err := toml.Marshal(config)
-	if err != nil {
+	var buf bytes.Buffer
+	if err := coreconfig.MarshalWrite(&buf, config); err != nil {
 		return err
 	}
 
 	fmt.Fprintln(os.Stdout, strings.Repeat("=", 50))
-	if _, err = os.Stdout.Write(b); err != nil {
+	if _, err := os.Stdout.Write(buf.Bytes()); err != nil {
 		return err
 	}
 	fmt.Fprintln(os.Stdout, strings.Repeat("=", 50))
@@ -225,7 +225,7 @@ func (r *register) saveConfig(runner *giteaconfig.Runner) error {
 	confirm := huh.NewConfirm().
 		Title("Do you want to save it to file?").
 		Value(&saveToFile)
-	if err = confirm.Run(); err != nil {
+	if err := confirm.Run(); err != nil {
 		return err
 	} else if !saveToFile {
 		return nil
@@ -236,7 +236,7 @@ func (r *register) saveConfig(runner *giteaconfig.Runner) error {
 		Title("Select file").
 		Value(&f).
 		Validate(IsNotEmpty)
-	if err = inquiry.Run(); err != nil {
+	if err := inquiry.Run(); err != nil {
 		return err
 	}
 
@@ -246,7 +246,7 @@ func (r *register) saveConfig(runner *giteaconfig.Runner) error {
 	}
 	defer file.Close()
 
-	_, err = file.Write(b)
+	_, err = buf.WriteTo(file)
 	return err
 }
 
@@ -256,17 +256,7 @@ func (r *register) defaultSandboxerConfig(provider string) ([]byte, error) {
 		return nil, nil
 	}
 
-	b, err := json.Marshal(cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	var a any
-	if err = json.Unmarshal(b, &a); err != nil {
-		return nil, err
-	}
-
-	return toml.Marshal(a)
+	return json.Marshal(cfg)
 }
 
 // IsNotEmpty requires a non-empty string.

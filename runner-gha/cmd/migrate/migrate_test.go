@@ -15,13 +15,13 @@ import (
 	"path/filepath"
 	"testing"
 
+	coreconfig "drassi.run/core/config"
 	mock_store "drassi.run/core/mock/store/oci"
 	"drassi.run/core/pkg/sandboxer"
 	_ "drassi.run/core/pkg/sandboxer/host"
 	"drassi.run/gha-runner/cmd/migrate"
 	ghaconfig "drassi.run/gha-runner/config"
 	"drassi.run/gha-runner/pkg/dotnet"
-	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -83,7 +83,7 @@ func TestMigrateCommand(t *testing.T) {
 	require.NoError(t, err)
 
 	cfg := ghaconfig.DefaultConfig()
-	err = toml.Unmarshal(content, cfg)
+	err = coreconfig.Unmarshal(content, cfg)
 	require.NoError(t, err)
 
 	require.NotNil(t, cfg.Sandboxer)

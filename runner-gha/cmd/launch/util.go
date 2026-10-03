@@ -16,8 +16,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	coreconfig "drassi.run/core/config"
 	ghaconfig "drassi.run/gha-runner/config"
-	"github.com/pelletier/go-toml/v2"
 	"golang.org/x/oauth2"
 )
 
@@ -33,8 +33,7 @@ func loadConfig(path string) (*ghaconfig.Config, error) {
 	defer f.Close()
 
 	config := ghaconfig.DefaultConfig()
-	dec := toml.NewDecoder(f).EnableUnmarshalerInterface()
-	if err = dec.Decode(config); err != nil {
+	if err = coreconfig.UnmarshalRead(f, config); err != nil {
 		return nil, err
 	}
 	return config, nil
