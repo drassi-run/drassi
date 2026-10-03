@@ -23,12 +23,6 @@ multiple Git services (GitHub, Gitea) and offers strong isolation for job execut
 
 ## 2. Essential Commands
 
-- **Environment & Build Tags**:
-  Must include required build tags:
-  ```bash
-  export CGO_ENABLED=0
-  export GOFLAGS="-tags=containers_image_openpgp,exclude_graphdriver_btrfs"
-  ```
 - **Testing**:
   ```bash
   go list -m | xargs -I {} go test "{}/..."
