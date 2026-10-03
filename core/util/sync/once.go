@@ -42,3 +42,34 @@ func Singleton[R any](f func(context.Context) (R, error)) func(context.Context) 
 		return d.r, d.e
 	}
 }
+
+// InvokeOnce ensure f invoke once, the same as sync.OnceValue does
+// except it take context.Context as param and return error
+func InvokeOnce(f func(context.Context) error) func(context.Context) error {
+	d := struct {
+		f     func(context.Context) error
+		once  sync.Once
+		valid bool
+		e     error
+		p     any // panic
+	}{
+		f: f,
+	}
+	return func(ctx context.Context) error {
+		d.once.Do(func() {
+			defer func() {
+				d.f = nil
+				d.p = recover()
+				if !d.valid {
+					panic(d.p)
+				}
+			}()
+			d.e = d.f(ctx)
+			d.valid = true
+		})
+		if !d.valid {
+			panic(d.p)
+		}
+		return d.e
+	}
+}
