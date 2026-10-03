@@ -7,15 +7,13 @@
 package sandboxer
 
 import (
-	"bytes"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
 
 	"drassi.run/core/config"
 	"drassi.run/core/pkg/store/oci"
-	"github.com/pelletier/go-toml/v2"
-	"github.com/pelletier/go-toml/v2/unstable"
 )
 
 type Factory interface {
@@ -31,7 +29,7 @@ type Factory interface {
 var (
 	mu        sync.RWMutex
 	defaults  = make(map[string]func() any)
-	factories = make(map[string]func(cfg unstable.RawMessage) (Factory, error))
+	factories = make(map[string]func(cfg json.RawMessage) (Factory, error))
 )
 
 func Register[T any](provider string, d func() T, fn func(cfg T) Factory) {
@@ -42,14 +40,10 @@ func Register[T any](provider string, d func() T, fn func(cfg T) Factory) {
 	defaults[provider] = func() any {
 		return d()
 	}
-	factories[provider] = func(raw unstable.RawMessage) (Factory, error) {
+	factories[provider] = func(raw json.RawMessage) (Factory, error) {
 		cfg := d()
 		if len(raw) > 0 {
-			r := bytes.NewReader(raw)
-			dec := toml.NewDecoder(r).
-				EnableUnmarshalerInterface()
-
-			if err := dec.Decode(cfg); err != nil {
+			if err := json.Unmarshal(raw, cfg); err != nil {
 				return nil, fmt.Errorf("unmarshal provider %q config: %v", provider, err)
 			}
 		}

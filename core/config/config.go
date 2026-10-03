@@ -6,7 +6,7 @@
 
 package config
 
-import "github.com/pelletier/go-toml/v2/unstable"
+import "encoding/json"
 
 type Config[R any] struct {
 	Runner    *R                  `toml:"runner" json:"runner"`
@@ -16,8 +16,8 @@ type Config[R any] struct {
 }
 
 type Sandboxer struct {
-	Provider string              `toml:"provider" json:"provider"`
-	Config   unstable.RawMessage `toml:",inline" json:",embed"`
+	Provider string          `toml:"provider" json:"provider"`
+	Config   json.RawMessage `toml:",inline" json:",embed"`
 }
 
 type Runtime struct {

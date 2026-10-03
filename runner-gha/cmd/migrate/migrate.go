@@ -7,13 +7,12 @@
 package migrate
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"os"
 
+	coreconfig "drassi.run/core/config"
 	"drassi.run/gha-runner/pkg/dotnet"
-	"github.com/pelletier/go-toml/v2"
 	"github.com/spf13/cobra"
 )
 
@@ -64,15 +63,14 @@ func (m *migrator) Run(_ context.Context) error {
 		return fmt.Errorf("convert configuration: %w", err)
 	}
 
-	var buf bytes.Buffer
-	if b, err := toml.Marshal(cfg); err != nil {
-		return fmt.Errorf("marshal config to toml: %w", err)
-	} else {
-		buf.Write(b)
+	file, err := os.OpenFile(m.Output, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		return fmt.Errorf("open configuration file %q: %w", m.Output, err)
 	}
+	defer file.Close()
 
-	if err := os.WriteFile(m.Output, buf.Bytes(), 0644); err != nil {
-		return fmt.Errorf("write configuration to %q: %w", m.Output, err)
+	if err = coreconfig.MarshalWrite(file, cfg); err != nil {
+		return fmt.Errorf("marshal config to %q: %w", m.Output, err)
 	}
 
 	fmt.Printf("Successfully migrated actions-runner configuration to %s\n", m.Output)
