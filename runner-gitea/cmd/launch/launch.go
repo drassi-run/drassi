@@ -195,7 +195,7 @@ func (c *launcher) loadGitStore() error {
 }
 
 func (c *launcher) loadOciStore() error {
-	if store, err := ocistore.Default(); err != nil {
+	if store, err := ocistore.New(c.cfg.OciStore); err != nil {
 		return err
 	} else {
 		c.ociStore = store

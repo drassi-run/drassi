@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package provision_test
+package provision
 
 import (
 	"context"
@@ -12,9 +12,10 @@ import (
 	"time"
 
 	"drassi.run/core/config"
-	"drassi.run/core/pkg/runtime/provision"
+	mock_store "drassi.run/core/mock/store/oci"
 	ocistore "drassi.run/core/pkg/store/oci"
 	"github.com/stretchr/testify/suite"
+	"go.uber.org/mock/gomock"
 )
 
 func TestContextSuite(t *testing.T) {
@@ -28,36 +29,29 @@ type ContextTestSuite struct {
 func (s *ContextTestSuite) TestGenericState() {
 	ctx := s.T().Context()
 	rtCfg := &config.Runtime{Image: "drassi/node:24"}
-	pctx := provision.NewContext(ctx, "node", rtCfg, "/opt/drassi/runtimes/node")
+	pctx := NewContext(ctx, "node", rtCfg, "/opt/drassi/runtimes/node")
 
 	s.Require().Equal("node", pctx.RuntimeName)
 	s.Require().Equal("/opt/drassi/runtimes/node", pctx.TargetDir)
 	s.Require().Equal(rtCfg, pctx.Config)
 
 	// Test typed key string
-	pctx.Set(provision.KeyHostMountDir, "/var/lib/drassi/storage/overlay/merged")
-	val, ok := pctx.Get(provision.KeyHostMountDir)
+	pctx.Set(KeyHostMountDir, "/var/lib/drassi/storage/overlay/merged")
+	val, ok := pctx.Get(KeyHostMountDir)
 	s.Require().True(ok)
 	s.Require().Equal("/var/lib/drassi/storage/overlay/merged", val)
-	s.Require().Equal("/var/lib/drassi/storage/overlay/merged", pctx.MustGet(provision.KeyHostMountDir))
-
-	// Test KeyMountID
-	pctx.Set(provision.KeyMountID, "mount-12345")
-	mountID, ok := pctx.Get(provision.KeyMountID)
-	s.Require().True(ok)
-	s.Require().Equal("mount-12345", mountID)
-	s.Require().Equal("mount-12345", pctx.MustGet(provision.KeyMountID))
+	s.Require().Equal("/var/lib/drassi/storage/overlay/merged", pctx.MustGet(KeyHostMountDir))
 
 	// Test KeyImage
-	img := &ocistore.Image{ID: "img-node"}
-	pctx.Set(provision.KeyImage, img)
-	gotImg, ok := pctx.Get(provision.KeyImage)
+	var img ocistore.Image = mock_store.NewMockImage(gomock.NewController(s.T()))
+	pctx.Set(KeyImage, img)
+	gotImg, ok := pctx.Get(KeyImage)
 	s.Require().True(ok)
 	s.Require().Equal(img, gotImg)
-	s.Require().Equal(img, pctx.MustGet(provision.KeyImage))
+	s.Require().Equal(img, pctx.MustGet(KeyImage))
 
 	// Test missing key
-	const keyMissing = provision.StateKey[int]("missing_key")
+	const keyMissing = StateKey[int]("missing_key")
 	intVal, ok := pctx.Get(keyMissing)
 	s.Require().False(ok)
 	s.Require().Equal(0, intVal)
@@ -66,7 +60,7 @@ func (s *ContextTestSuite) TestGenericState() {
 	})
 
 	// Test type mismatch
-	const keyMismatch = provision.StateKey[int]("host_mount_dir")
+	const keyMismatch = StateKey[int]("host_mount_dir")
 	mismatchVal, ok := pctx.Get(keyMismatch)
 	s.Require().False(ok)
 	s.Require().Equal(0, mismatchVal)
@@ -77,7 +71,7 @@ func (s *ContextTestSuite) TestGenericState() {
 
 func (s *ContextTestSuite) TestCancellation() {
 	ctx, cancel := context.WithCancel(s.T().Context())
-	pctx := provision.NewContext(ctx, "node", nil, "")
+	pctx := NewContext(ctx, "node", nil, "")
 
 	select {
 	case <-pctx.Done():
