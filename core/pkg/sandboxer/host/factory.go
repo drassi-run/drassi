@@ -21,15 +21,13 @@ func init() {
 }
 
 func DefaultConfig() *Config {
-	return &Config{RootDir: "/tmp"}
+	return new(Config)
 }
 
-type Config struct {
-	RootDir string `toml:"root_dir" json:"rootDir"`
-}
+type Config struct{}
 
-func NewFactory(cfg *Config) sandboxer.Factory {
-	f := &factory{cfg: cfg}
+func NewFactory(_ *Config) sandboxer.Factory {
+	f := new(factory)
 	f.create = sync.OnceValues(f.doCreate)
 	return f
 }
@@ -37,9 +35,13 @@ func NewFactory(cfg *Config) sandboxer.Factory {
 type factory struct {
 	create func() (sandboxer.Engine, error)
 
-	cfg      *Config
+	rootDir  string
 	store    ocistore.Manager
 	runtimes map[string]*config.Runtime
+}
+
+func (f *factory) RootDir(d string) {
+	f.rootDir = d
 }
 
 func (f *factory) SetOciStore(store ocistore.Manager) {
@@ -61,10 +63,9 @@ func (f *factory) doCreate() (sandboxer.Engine, error) {
 			f.runtimes,
 			provision.Pull[string](f.store),
 			provision.Mount[string](f.store),
-			Symlink[string](),
 		)
 	}
-	e, err := New(f.cfg, prov)
+	e, err := New(f.rootDir, prov)
 	if err != nil {
 		return nil, err
 	}

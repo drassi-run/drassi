@@ -183,7 +183,7 @@ func TestFactoryCreate(t *testing.T) {
 
 func TestNew(t *testing.T) {
 	t.Run("with nil config uses DefaultConfig without panicking", func(t *testing.T) {
-		eng, err := New(nil, nil)
+		eng, err := New(t.TempDir(), nil, nil)
 		require.NoError(t, err)
 		require.NotNil(t, eng)
 		_ = eng.Close()

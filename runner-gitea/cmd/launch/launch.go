@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	coreconfig "drassi.run/core/config"
 	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/records"
 	"drassi.run/core/pkg/sandboxer"
@@ -209,6 +210,7 @@ func (c *launcher) loadSandboxer(config *giteaconfig.Config, name string) error 
 	} else if factory, err := sandboxer.NewFactory(sbConfig); err != nil {
 		return err
 	} else {
+		factory.RootDir(coreconfig.RootDir())
 		factory.SetOciStore(c.ociStore)
 		factory.ProvisionRuntime(config.Runtimes)
 		if sb, err := factory.Create(); err != nil {

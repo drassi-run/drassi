@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"time"
 
+	coreconfig "drassi.run/core/config"
 	"drassi.run/core/pkg/executor"
 	"drassi.run/core/pkg/model"
 	"drassi.run/core/pkg/model/records"
@@ -110,6 +111,7 @@ func (l *launcher) Init(ctx context.Context, opts *options) (err error) {
 	} else if factory, err := sandboxer.NewFactory(sbConfig); err != nil {
 		return err
 	} else {
+		factory.RootDir(coreconfig.RootDir())
 		factory.SetOciStore(l.ociStore)
 		factory.ProvisionRuntime(cfg.Runtimes)
 		if sb, err := factory.Create(); err != nil {

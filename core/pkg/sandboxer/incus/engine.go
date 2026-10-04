@@ -10,9 +10,11 @@ import (
 	"context"
 	"io"
 	"net"
+	"os"
 	"path"
+	"path/filepath"
 	"strings"
-	"sync"
+	"sync/atomic"
 
 	c "drassi.run/core/pkg/container"
 	"drassi.run/core/pkg/container/docker"
@@ -25,13 +27,14 @@ import (
 	dockerclient "github.com/moby/moby/client"
 )
 
-func New(config *Config, prov *provision.Provisioner[*Template]) (sandboxer.Engine, error) {
+func New(rootDir string, config *Config, prov *provision.Provisioner[*Template]) (sandboxer.Engine, error) {
 	if client, err := incusclient.ConnectIncusUnix(config.Endpoint, nil); err != nil {
 		return nil, err
 	} else if source, err := instanceSource(config.Template.Image); err != nil {
 		return nil, err
 	} else {
 		e := &engine{
+			rootDir:     rootDir,
 			client:      client,
 			template:    &config.Template,
 			source:      source,
@@ -61,6 +64,7 @@ func instanceSource(uri string) (*incusapi.InstanceSource, error) {
 }
 
 type engine struct {
+	rootDir     string
 	client      incusclient.InstanceServer
 	template    *Template
 	source      *incusapi.InstanceSource
@@ -70,10 +74,15 @@ type engine struct {
 func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*sandboxer.LaunchResponse, error) {
 	tmpl := e.template.Clone()
 	tmpl.Name = e.sandboxName(req.Forge)
+	jobDir := filepath.Join(e.rootDir, req.Forge.StandardPath())
 
 	launcher := e.launch
 	if prov := e.provisioner; prov != nil {
-		launcher = prov.Launch(layout.Runtimes(), launcher)
+		runtimeDir := filepath.Join(jobDir, "runtimes")
+		if err := os.MkdirAll(runtimeDir, 0644); err != nil {
+			return nil, err
+		}
+		launcher = prov.Launch(runtimeDir, launcher)
 	}
 	sb, err := launcher(ctx, tmpl)
 	if err != nil {
@@ -84,35 +93,7 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*san
 		Sandbox: sb,
 		Mounter: newMounter(),
 	}
-
-	var (
-		clientMu     sync.Mutex
-		clientCloser io.Closer
-	)
-	if d, ok := sandboxer.Unwrap(sb).(interface {
-		Dialer(cmd []string) func(ctx context.Context, network, addr string) (net.Conn, error)
-	}); ok {
-		resp.Sandbox = sandboxer.AddBeforeCleanup(resp.Sandbox, func(context.Context) error {
-			clientMu.Lock()
-			defer clientMu.Unlock()
-			if clientCloser != nil {
-				return clientCloser.Close()
-			}
-			return nil
-		})
-
-		resp.ContainerEngine = xsync.Singleton(func(context.Context) (c.Engine, error) {
-			dialer := d.Dialer(docker.ProxyCommand(""))
-			client, err := docker.New(dockerclient.WithDialContext(dialer))
-			if err != nil {
-				return nil, err
-			}
-			clientMu.Lock()
-			clientCloser = client
-			clientMu.Unlock()
-			return c.WithTelemetry(client), nil
-		})
-	}
+	e.supportContainer(jobDir, resp)
 
 	return resp, nil
 }
@@ -124,13 +105,11 @@ func (e *engine) launch(ctx context.Context, tmpl *Template) (sandboxer.Sandbox,
 		Source:       *e.source,
 		Type:         incusapi.InstanceTypeContainer,
 		InstanceType: tmpl.InstanceSize,
-		InstancePut: incusapi.InstancePut{
-			Architecture: tmpl.Architecture,
-			Config:       tmpl.Config,
-			Devices:      tmpl.Devices,
-			Ephemeral:    tmpl.Ephemeral,
-			Profiles:     tmpl.Profiles,
-		},
+		Architecture: tmpl.Architecture,
+		Config:       tmpl.Config,
+		Devices:      tmpl.Devices,
+		Ephemeral:    tmpl.Ephemeral,
+		Profiles:     tmpl.Profiles,
 	}
 	if op, err := e.client.CreateInstance(iReq); err != nil {
 		return nil, err
@@ -143,6 +122,34 @@ func (e *engine) launch(ctx context.Context, tmpl *Template) (sandboxer.Sandbox,
 		return nil, err
 	}
 	return sb, nil
+}
+
+func (e *engine) supportContainer(jobDir string, resp *sandboxer.LaunchResponse) {
+	var ce atomic.Value
+	d, ok := sandboxer.Unwrap(resp.Sandbox).(interface {
+		Dialer(cmd []string) func(ctx context.Context, network, addr string) (net.Conn, error)
+	})
+	if !ok {
+		return
+	}
+
+	resp.Sandbox = sandboxer.AddBeforeCleanup(resp.Sandbox, func(context.Context) error {
+		_ = os.RemoveAll(jobDir)
+		if closer, ok := ce.Load().(io.Closer); ok {
+			return closer.Close()
+		}
+		return nil
+	})
+
+	resp.ContainerEngine = xsync.Singleton(func(context.Context) (c.Engine, error) {
+		dialer := d.Dialer(docker.ProxyCommand(""))
+		if client, err := docker.New(dockerclient.WithDialContext(dialer)); err != nil {
+			return nil, err
+		} else {
+			ce.Store(client)
+			return c.WithTelemetry(client), nil
+		}
+	})
 }
 
 func (e *engine) sandboxName(forge *records.Forge) string {

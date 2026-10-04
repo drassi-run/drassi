@@ -26,7 +26,7 @@ import (
 	dockerclient "github.com/moby/moby/client"
 )
 
-func New(cfg *Config, prov *provision.Provisioner[*types.ContainerSpec]) (sandboxer.Engine, error) {
+func New(rootDir string, cfg *Config, prov *provision.Provisioner[*types.ContainerSpec]) (sandboxer.Engine, error) {
 	if cfg == nil {
 		cfg = DefaultConfig()
 	}
@@ -43,6 +43,7 @@ func New(cfg *Config, prov *provision.Provisioner[*types.ContainerSpec]) (sandbo
 	client = c.WithTelemetry(client)
 
 	e := &engine{
+		rootDir:     rootDir,
 		client:      client,
 		template:    cfg.Template,
 		provisioner: prov,
@@ -51,6 +52,7 @@ func New(cfg *Config, prov *provision.Provisioner[*types.ContainerSpec]) (sandbo
 }
 
 type engine struct {
+	rootDir     string
 	client      c.Engine
 	template    *container.Template
 	provisioner *provision.Provisioner[*types.ContainerSpec]

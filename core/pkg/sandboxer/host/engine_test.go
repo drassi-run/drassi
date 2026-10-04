@@ -31,14 +31,12 @@ type HostEngineTestSuite struct {
 	ctrl    *gomock.Controller
 	store   *mock_store.MockManager
 	tempDir string
-	cfg     *Config
 }
 
 func (s *HostEngineTestSuite) SetupTest() {
 	s.ctrl = gomock.NewController(s.T())
 	s.store = mock_store.NewMockManager(s.ctrl)
 	s.tempDir = s.T().TempDir()
-	s.cfg = &Config{RootDir: s.tempDir}
 }
 
 func (s *HostEngineTestSuite) assertLaunch(eng sandboxer.Engine) sandboxer.Sandbox {
@@ -62,7 +60,7 @@ func (s *HostEngineTestSuite) assertLaunch(eng sandboxer.Engine) sandboxer.Sandb
 
 func (s *HostEngineTestSuite) TestLaunch() {
 	s.Run("with provisioner", func() {
-		mountDir := filepath.Join(s.tempDir, "node_mount")
+		mountDir := filepath.Join(s.tempDir, "drassi/test/build/test/1_1/runtimes/node")
 		s.Require().NoError(os.MkdirAll(mountDir, 0755))
 
 		img := mock_store.NewMockImage(s.ctrl)
@@ -86,19 +84,12 @@ func (s *HostEngineTestSuite) TestLaunch() {
 			runtimes,
 			provision.Pull[string](s.store),
 			provision.Mount[string](s.store),
-			Symlink[string](),
 		)
 
-		eng, err := New(s.cfg, p)
+		eng, err := New(s.tempDir, p)
 		s.Require().NoError(err)
 
 		sb := s.assertLaunch(eng)
-
-		// Symlink is created
-		symlinkPath := filepath.Join(sb.Layout().Runtimes(), "node")
-		target, err := os.Readlink(symlinkPath)
-		s.Require().NoError(err)
-		s.Require().Equal(mountDir, target)
 
 		// Terminate sandbox unmounts layers and removes workspace
 		s.Require().NoError(sb.Terminate(s.T().Context()))
@@ -106,7 +97,7 @@ func (s *HostEngineTestSuite) TestLaunch() {
 	})
 
 	s.Run("without provisioner", func() {
-		eng, err := New(s.cfg, nil)
+		eng, err := New(s.tempDir, nil)
 		s.Require().NoError(err)
 
 		sb := s.assertLaunch(eng)
@@ -115,7 +106,7 @@ func (s *HostEngineTestSuite) TestLaunch() {
 }
 
 func (s *HostEngineTestSuite) TestLaunch_WithoutContainers_NoDocker() {
-	eng, err := New(s.cfg, nil)
+	eng, err := New(s.tempDir, nil)
 	s.Require().NoError(err)
 
 	req := &sandboxer.LaunchRequest{
@@ -142,8 +133,8 @@ func (s *HostEngineTestSuite) TestLaunch_WithoutContainers_NoDocker() {
 func (s *HostEngineTestSuite) TestFactory() {
 	s.Run("with runtimes and store", func() {
 		cfg := DefaultConfig()
-		cfg.RootDir = s.T().TempDir()
 		f := NewFactory(cfg)
+		f.RootDir(s.T().TempDir())
 		f.SetOciStore(s.store)
 		f.ProvisionRuntime(map[string]*config.Runtime{
 			"node": {Image: "drassi/node:24"},
@@ -156,8 +147,8 @@ func (s *HostEngineTestSuite) TestFactory() {
 
 	s.Run("with runtimes but missing store panics", func() {
 		cfg := DefaultConfig()
-		cfg.RootDir = s.T().TempDir()
 		f := NewFactory(cfg)
+		f.RootDir(s.T().TempDir())
 		f.ProvisionRuntime(map[string]*config.Runtime{
 			"node": {Image: "drassi/node:24"},
 		})
@@ -168,8 +159,8 @@ func (s *HostEngineTestSuite) TestFactory() {
 
 	s.Run("without runtimes", func() {
 		cfg := DefaultConfig()
-		cfg.RootDir = s.T().TempDir()
 		f := NewFactory(cfg)
+		f.RootDir(s.T().TempDir())
 		eng, err := f.Create()
 		s.Require().NoError(err)
 		s.Require().NotNil(eng)
@@ -179,9 +170,7 @@ func (s *HostEngineTestSuite) TestFactory() {
 
 func (s *HostEngineTestSuite) TestNew() {
 	s.Run("without panic when nil", func() {
-		cfg := DefaultConfig()
-		cfg.RootDir = s.T().TempDir()
-		eng, err := New(cfg, nil)
+		eng, err := New(s.T().TempDir(), nil)
 		s.Require().NoError(err)
 		s.Require().NotNil(eng)
 		_ = eng.Close()

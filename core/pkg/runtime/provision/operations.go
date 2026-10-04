@@ -81,7 +81,10 @@ func (op *mountOp[Req]) Prepare(pctx *Context) (sandboxer.Cleanup, error) {
 	if !ok || img == nil {
 		return nil, fmt.Errorf("image %q not found in context: pull operation must be used first", pctx.Config.Image)
 	}
-	opts := append(slices.Clone(op.opts), ocistore.WithWritable(!pctx.Config.ReadOnly))
+	opts := append(slices.Clone(op.opts),
+		ocistore.WithTarget(pctx.TargetDir),
+		ocistore.WithWritable(!pctx.Config.ReadOnly),
+	)
 	mnt, err := op.store.Mount(pctx, img, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("mount image %q: %w", pctx.Config.Image, err)

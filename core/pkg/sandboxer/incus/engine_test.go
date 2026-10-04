@@ -174,7 +174,7 @@ func (s *IncusEngineTestSuite) TestNew() {
 	s.Run("without panic when nil", func() {
 		cfg := DefaultConfig()
 		s.Require().NotPanics(func() {
-			_, _ = New(cfg, nil)
+			_, _ = New(s.T().TempDir(), cfg, nil)
 		})
 	})
 }

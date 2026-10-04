@@ -47,8 +47,13 @@ type factory struct {
 	create func() (sandboxer.Engine, error)
 
 	cfg      *Config
+	rootDir  string
 	store    ocistore.Manager
 	runtimes map[string]*config.Runtime
+}
+
+func (f *factory) RootDir(d string) {
+	f.rootDir = d
 }
 
 func (f *factory) SetOciStore(store ocistore.Manager) {
@@ -73,7 +78,7 @@ func (f *factory) doCreate() (sandboxer.Engine, error) {
 			AddDiskDevice(),
 		)
 	}
-	e, err := New(f.cfg, prov)
+	e, err := New(f.rootDir, f.cfg, prov)
 	if err != nil {
 		return nil, err
 	}
