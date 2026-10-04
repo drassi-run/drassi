@@ -13,6 +13,34 @@ type Config[R any] struct {
 	Sandboxers   map[string]*Sandboxer `toml:"sandboxers" json:"sandboxers"`
 	UseSandboxer string                `toml:"use_sandboxer" json:"use_sandboxer"`
 	Runtimes     map[string]*Runtime   `toml:"runtimes" json:"runtimes"`
+	OciStore     *OciStore             `toml:"ocistore" json:"ocistore"`
+}
+
+type OciStore struct {
+	Backend    string                 `toml:"backend" json:"backend"`
+	Containerd *ContainerdStoreConfig `toml:"containerd,omitempty" json:"containerd,omitempty"`
+}
+
+type ContainerdStoreConfig struct {
+	Address          string `toml:"address" json:"address"`
+	Namespace        string `toml:"namespace" json:"namespace"`
+	FsSnapshotter    string `toml:"fs_snapshotter" json:"fs_snapshotter"`
+	BlockSnapshotter string `toml:"block_snapshotter" json:"block_snapshotter"`
+}
+
+func DefaultContainerdStoreConfig() *ContainerdStoreConfig {
+	return &ContainerdStoreConfig{
+		Address:       "/run/containerd/containerd.sock",
+		Namespace:     "moby",
+		FsSnapshotter: "overlayfs",
+	}
+}
+
+func DefaultOciStoreConfig() *OciStore {
+	return &OciStore{
+		Backend:    "containerd",
+		Containerd: DefaultContainerdStoreConfig(),
+	}
 }
 
 type Sandboxer struct {
@@ -38,6 +66,7 @@ func DefaultConfig[R any]() *Config[R] {
 			"docker": {Provider: ProviderDocker},
 		},
 		UseSandboxer: "host",
+		OciStore:     DefaultOciStoreConfig(),
 	}
 }
 

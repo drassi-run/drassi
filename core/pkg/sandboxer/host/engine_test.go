@@ -7,6 +7,7 @@
 package host
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -64,10 +65,18 @@ func (s *HostEngineTestSuite) TestLaunch() {
 		mountDir := filepath.Join(s.tempDir, "node_mount")
 		s.Require().NoError(os.MkdirAll(mountDir, 0755))
 
-		img := &ocistore.Image{}
-		s.store.EXPECT().Image(gomock.Any(), "drassi/node:24").Return(img, nil).Times(1)
-		s.store.EXPECT().Mount(gomock.Any(), img, gomock.Any()).Return(mountDir, "layer-node", nil).Times(1)
-		s.store.EXPECT().Unmount(gomock.Any(), "layer-node").Return(nil).Times(1)
+		img := mock_store.NewMockImage(s.ctrl)
+		released := false
+		mnt := &ocistore.Mount{
+			Target: mountDir,
+			Release: func(context.Context) error {
+				released = true
+				return nil
+			},
+		}
+
+		s.store.EXPECT().Pull(gomock.Any(), "drassi/node:24").Return(img, nil).Times(1)
+		s.store.EXPECT().Mount(gomock.Any(), img, gomock.Any()).Return(mnt, nil).Times(1)
 
 		runtimes := map[string]*config.Runtime{
 			"node": {Image: "drassi/node:24"},
@@ -93,6 +102,7 @@ func (s *HostEngineTestSuite) TestLaunch() {
 
 		// Terminate sandbox unmounts layers and removes workspace
 		s.Require().NoError(sb.Terminate(s.T().Context()))
+		s.Require().True(released)
 	})
 
 	s.Run("without provisioner", func() {

@@ -7,7 +7,6 @@
 package provision
 
 import (
-	"context"
 	"fmt"
 	"slices"
 
@@ -17,8 +16,7 @@ import (
 
 const (
 	KeyHostMountDir = StateKey[string]("host_mount_dir")
-	KeyMountID      = StateKey[string]("mount_id")
-	KeyImage        = StateKey[*ocistore.Image]("image")
+	KeyImage        = StateKey[ocistore.Image]("image")
 )
 
 type Operation[Req any] interface {
@@ -42,8 +40,7 @@ type pullOp[Req any] struct {
 	store ocistore.Manager
 }
 
-// Pull returns an Operation that checks if the configured image is locally available,
-// and pulls it using the provided ocistore.Manager if missing.
+// Pull returns an Operation that pulls the configured image using the provided ocistore.Manager.
 func Pull[Req any](store ocistore.Manager) Operation[Req] {
 	if store == nil {
 		panic("oci store required")
@@ -54,14 +51,9 @@ func Pull[Req any](store ocistore.Manager) Operation[Req] {
 func (op *pullOp[Req]) Name() string { return "pull" }
 
 func (op *pullOp[Req]) Prepare(pctx *Context) (sandboxer.Cleanup, error) {
-	img, err := op.store.Image(pctx, pctx.Config.Image)
+	img, err := op.store.Pull(pctx, pctx.Config.Image)
 	if err != nil {
-		return nil, fmt.Errorf("check image %q: %w", pctx.Config.Image, err)
-	}
-	if img == nil {
-		if img, err = op.store.Pull(pctx, pctx.Config.Image); err != nil {
-			return nil, fmt.Errorf("pull image %q: %w", pctx.Config.Image, err)
-		}
+		return nil, fmt.Errorf("pull image %q: %w", pctx.Config.Image, err)
 	}
 	pctx.Set(KeyImage, img)
 	return nil, nil
@@ -74,7 +66,7 @@ type mountOp[Req any] struct {
 }
 
 // Mount returns an Operation that mounts the configured runtime image with the given MountOptions,
-// records KeyHostMountDir and KeyMountID in Context, and returns an unmount Cleanup closure.
+// records KeyHostMountDir in Context, and returns an unmount Cleanup closure.
 func Mount[Req any](store ocistore.Manager, opts ...ocistore.MountOption) Operation[Req] {
 	if store == nil {
 		panic("oci store required")
@@ -90,15 +82,10 @@ func (op *mountOp[Req]) Prepare(pctx *Context) (sandboxer.Cleanup, error) {
 		return nil, fmt.Errorf("image %q not found in context: pull operation must be used first", pctx.Config.Image)
 	}
 	opts := append(slices.Clone(op.opts), ocistore.WithWritable(!pctx.Config.ReadOnly))
-	mountDir, id, err := op.store.Mount(pctx, img, opts...)
+	mnt, err := op.store.Mount(pctx, img, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("mount image %q: %w", pctx.Config.Image, err)
 	}
-	pctx.Set(KeyHostMountDir, mountDir)
-	pctx.Set(KeyMountID, id)
-
-	cleanup := func(ctx context.Context) error {
-		return op.store.Unmount(ctx, id)
-	}
-	return cleanup, nil
+	pctx.Set(KeyHostMountDir, mnt.Target)
+	return mnt.Release, nil
 }

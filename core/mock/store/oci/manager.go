@@ -15,6 +15,8 @@ import (
 	reflect "reflect"
 
 	ocistore "drassi.run/core/pkg/store/oci"
+	digest "github.com/opencontainers/go-digest"
+	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -80,57 +82,17 @@ func (c *MockManagerCloseCall) DoAndReturn(f func() error) *MockManagerCloseCall
 	return c
 }
 
-// Image mocks base method.
-func (m *MockManager) Image(ctx context.Context, imageRef string) (*ocistore.Image, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Image", ctx, imageRef)
-	ret0, _ := ret[0].(*ocistore.Image)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Image indicates an expected call of Image.
-func (mr *MockManagerMockRecorder) Image(ctx, imageRef any) *MockManagerImageCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Image", reflect.TypeOf((*MockManager)(nil).Image), ctx, imageRef)
-	return &MockManagerImageCall{Call: call}
-}
-
-// MockManagerImageCall wrap *gomock.Call
-type MockManagerImageCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockManagerImageCall) Return(arg0 *ocistore.Image, arg1 error) *MockManagerImageCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockManagerImageCall) Do(f func(context.Context, string) (*ocistore.Image, error)) *MockManagerImageCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockManagerImageCall) DoAndReturn(f func(context.Context, string) (*ocistore.Image, error)) *MockManagerImageCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // Mount mocks base method.
-func (m *MockManager) Mount(ctx context.Context, image *ocistore.Image, opts ...ocistore.MountOption) (string, string, error) {
+func (m *MockManager) Mount(ctx context.Context, image ocistore.Image, opts ...ocistore.MountOption) (*ocistore.Mount, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, image}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "Mount", varargs...)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(string)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret0, _ := ret[0].(*ocistore.Mount)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // Mount indicates an expected call of Mount.
@@ -147,32 +109,32 @@ type MockManagerMountCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockManagerMountCall) Return(mountDir, layerId string, err error) *MockManagerMountCall {
-	c.Call = c.Call.Return(mountDir, layerId, err)
+func (c *MockManagerMountCall) Return(arg0 *ocistore.Mount, arg1 error) *MockManagerMountCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockManagerMountCall) Do(f func(context.Context, *ocistore.Image, ...ocistore.MountOption) (string, string, error)) *MockManagerMountCall {
+func (c *MockManagerMountCall) Do(f func(context.Context, ocistore.Image, ...ocistore.MountOption) (*ocistore.Mount, error)) *MockManagerMountCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockManagerMountCall) DoAndReturn(f func(context.Context, *ocistore.Image, ...ocistore.MountOption) (string, string, error)) *MockManagerMountCall {
+func (c *MockManagerMountCall) DoAndReturn(f func(context.Context, ocistore.Image, ...ocistore.MountOption) (*ocistore.Mount, error)) *MockManagerMountCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // Pull mocks base method.
-func (m *MockManager) Pull(ctx context.Context, imageRef string, opts ...ocistore.PullOption) (*ocistore.Image, error) {
+func (m *MockManager) Pull(ctx context.Context, imageRef string, opts ...ocistore.PullOption) (ocistore.Image, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, imageRef}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "Pull", varargs...)
-	ret0, _ := ret[0].(*ocistore.Image)
+	ret0, _ := ret[0].(ocistore.Image)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -191,25 +153,25 @@ type MockManagerPullCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockManagerPullCall) Return(arg0 *ocistore.Image, arg1 error) *MockManagerPullCall {
+func (c *MockManagerPullCall) Return(arg0 ocistore.Image, arg1 error) *MockManagerPullCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockManagerPullCall) Do(f func(context.Context, string, ...ocistore.PullOption) (*ocistore.Image, error)) *MockManagerPullCall {
+func (c *MockManagerPullCall) Do(f func(context.Context, string, ...ocistore.PullOption) (ocistore.Image, error)) *MockManagerPullCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockManagerPullCall) DoAndReturn(f func(context.Context, string, ...ocistore.PullOption) (*ocistore.Image, error)) *MockManagerPullCall {
+func (c *MockManagerPullCall) DoAndReturn(f func(context.Context, string, ...ocistore.PullOption) (ocistore.Image, error)) *MockManagerPullCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // Read mocks base method.
-func (m *MockManager) Read(ctx context.Context, image *ocistore.Image, opts ...ocistore.ReadOption) (io.ReadCloser, error) {
+func (m *MockManager) Read(ctx context.Context, image ocistore.Image, opts ...ocistore.ReadOption) (io.ReadCloser, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, image}
 	for _, a := range opts {
@@ -241,51 +203,191 @@ func (c *MockManagerReadCall) Return(arg0 io.ReadCloser, arg1 error) *MockManage
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockManagerReadCall) Do(f func(context.Context, *ocistore.Image, ...ocistore.ReadOption) (io.ReadCloser, error)) *MockManagerReadCall {
+func (c *MockManagerReadCall) Do(f func(context.Context, ocistore.Image, ...ocistore.ReadOption) (io.ReadCloser, error)) *MockManagerReadCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockManagerReadCall) DoAndReturn(f func(context.Context, *ocistore.Image, ...ocistore.ReadOption) (io.ReadCloser, error)) *MockManagerReadCall {
+func (c *MockManagerReadCall) DoAndReturn(f func(context.Context, ocistore.Image, ...ocistore.ReadOption) (io.ReadCloser, error)) *MockManagerReadCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
-// Unmount mocks base method.
-func (m *MockManager) Unmount(ctx context.Context, layerId string) error {
+// MockImage is a mock of Image interface.
+type MockImage struct {
+	ctrl     *gomock.Controller
+	recorder *MockImageMockRecorder
+	isgomock struct{}
+}
+
+// MockImageMockRecorder is the mock recorder for MockImage.
+type MockImageMockRecorder struct {
+	mock *MockImage
+}
+
+// NewMockImage creates a new mock instance.
+func NewMockImage(ctrl *gomock.Controller) *MockImage {
+	mock := &MockImage{ctrl: ctrl}
+	mock.recorder = &MockImageMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockImage) EXPECT() *MockImageMockRecorder {
+	return m.recorder
+}
+
+// Name mocks base method.
+func (m *MockImage) Name() string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Unmount", ctx, layerId)
-	ret0, _ := ret[0].(error)
+	ret := m.ctrl.Call(m, "Name")
+	ret0, _ := ret[0].(string)
 	return ret0
 }
 
-// Unmount indicates an expected call of Unmount.
-func (mr *MockManagerMockRecorder) Unmount(ctx, layerId any) *MockManagerUnmountCall {
+// Name indicates an expected call of Name.
+func (mr *MockImageMockRecorder) Name() *MockImageNameCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unmount", reflect.TypeOf((*MockManager)(nil).Unmount), ctx, layerId)
-	return &MockManagerUnmountCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockImage)(nil).Name))
+	return &MockImageNameCall{Call: call}
 }
 
-// MockManagerUnmountCall wrap *gomock.Call
-type MockManagerUnmountCall struct {
+// MockImageNameCall wrap *gomock.Call
+type MockImageNameCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockManagerUnmountCall) Return(arg0 error) *MockManagerUnmountCall {
+func (c *MockImageNameCall) Return(arg0 string) *MockImageNameCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockManagerUnmountCall) Do(f func(context.Context, string) error) *MockManagerUnmountCall {
+func (c *MockImageNameCall) Do(f func() string) *MockImageNameCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockManagerUnmountCall) DoAndReturn(f func(context.Context, string) error) *MockManagerUnmountCall {
+func (c *MockImageNameCall) DoAndReturn(f func() string) *MockImageNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// RootFS mocks base method.
+func (m *MockImage) RootFS(ctx context.Context) ([]digest.Digest, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RootFS", ctx)
+	ret0, _ := ret[0].([]digest.Digest)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RootFS indicates an expected call of RootFS.
+func (mr *MockImageMockRecorder) RootFS(ctx any) *MockImageRootFSCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RootFS", reflect.TypeOf((*MockImage)(nil).RootFS), ctx)
+	return &MockImageRootFSCall{Call: call}
+}
+
+// MockImageRootFSCall wrap *gomock.Call
+type MockImageRootFSCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockImageRootFSCall) Return(arg0 []digest.Digest, arg1 error) *MockImageRootFSCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockImageRootFSCall) Do(f func(context.Context) ([]digest.Digest, error)) *MockImageRootFSCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockImageRootFSCall) DoAndReturn(f func(context.Context) ([]digest.Digest, error)) *MockImageRootFSCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// Spec mocks base method.
+func (m *MockImage) Spec(ctx context.Context) (v1.Image, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Spec", ctx)
+	ret0, _ := ret[0].(v1.Image)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Spec indicates an expected call of Spec.
+func (mr *MockImageMockRecorder) Spec(ctx any) *MockImageSpecCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Spec", reflect.TypeOf((*MockImage)(nil).Spec), ctx)
+	return &MockImageSpecCall{Call: call}
+}
+
+// MockImageSpecCall wrap *gomock.Call
+type MockImageSpecCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockImageSpecCall) Return(arg0 v1.Image, arg1 error) *MockImageSpecCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockImageSpecCall) Do(f func(context.Context) (v1.Image, error)) *MockImageSpecCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockImageSpecCall) DoAndReturn(f func(context.Context) (v1.Image, error)) *MockImageSpecCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// Target mocks base method.
+func (m *MockImage) Target() v1.Descriptor {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Target")
+	ret0, _ := ret[0].(v1.Descriptor)
+	return ret0
+}
+
+// Target indicates an expected call of Target.
+func (mr *MockImageMockRecorder) Target() *MockImageTargetCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Target", reflect.TypeOf((*MockImage)(nil).Target))
+	return &MockImageTargetCall{Call: call}
+}
+
+// MockImageTargetCall wrap *gomock.Call
+type MockImageTargetCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockImageTargetCall) Return(arg0 v1.Descriptor) *MockImageTargetCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockImageTargetCall) Do(f func() v1.Descriptor) *MockImageTargetCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockImageTargetCall) DoAndReturn(f func() v1.Descriptor) *MockImageTargetCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

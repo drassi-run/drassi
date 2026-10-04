@@ -24,7 +24,6 @@ import (
 	"drassi.run/core/util/context"
 	"drassi.run/core/util/io"
 	"github.com/containerd/errdefs"
-	"github.com/docker/cli/cli/config"
 	bkclient "github.com/moby/buildkit/client"
 	"github.com/moby/buildkit/session"
 	"github.com/moby/buildkit/session/auth/authprovider"
@@ -146,9 +145,7 @@ func (e *engine) ImageBuild(ctx context.Context, tag string, opts *container.Bui
 			Attrs: map[string]string{"name": tag},
 		}},
 		Session: []session.Attachable{
-			authprovider.NewDockerAuthProvider(authprovider.DockerAuthProviderConfig{
-				ConfigFile: config.LoadDefaultConfigFile(os.Stderr),
-			}),
+			authprovider.NewDockerAuthProvider(authprovider.DockerAuthProviderConfig{}),
 		},
 	}
 
