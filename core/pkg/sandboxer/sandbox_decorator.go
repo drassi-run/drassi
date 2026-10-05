@@ -9,9 +9,10 @@ package sandboxer
 import (
 	"context"
 	"errors"
+	"slices"
 )
 
-type Cleanup func(ctx context.Context) error
+type Cleanup = func(ctx context.Context) error
 
 type decoratedSandbox struct {
 	Sandbox
@@ -29,7 +30,7 @@ func (s *decoratedSandbox) Terminate(ctx context.Context) error {
 
 	errs = append(errs, s.Sandbox.Terminate(ctx))
 
-	for _, fn := range s.afterCleanup {
+	for _, fn := range slices.Backward(s.afterCleanup) {
 		errs = append(errs, fn(ctx))
 	}
 

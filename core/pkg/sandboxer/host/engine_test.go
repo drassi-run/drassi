@@ -80,11 +80,19 @@ func (s *HostEngineTestSuite) TestLaunch() {
 			"node": {Image: "drassi/node:24"},
 		}
 
-		p := provision.New[string](
-			runtimes,
-			provision.Pull[string](s.store),
-			provision.Mount[string](s.store),
-		)
+		fact := func(runtimeDir string, name string, rt config.Runtime) provision.Pipeline[string] {
+			targetDir := filepath.Join(runtimeDir, name)
+			state := new(provision.State)
+			return provision.Pipeline[string]{
+				provision.Pull[string](s.store, state, rt.Image),
+				provision.Mount[string](s.store, state,
+					ocistore.WithTarget(targetDir),
+					ocistore.WithWritable(!rt.ReadOnly),
+				),
+			}
+		}
+
+		p := provision.New[string](runtimes, fact)
 
 		eng, err := New(s.tempDir, p)
 		s.Require().NoError(err)
@@ -145,16 +153,16 @@ func (s *HostEngineTestSuite) TestFactory() {
 		_ = eng.Close()
 	})
 
-	s.Run("with runtimes but missing store panics", func() {
+	s.Run("with runtimes but missing store error", func() {
 		cfg := DefaultConfig()
 		f := NewFactory(cfg)
 		f.RootDir(s.T().TempDir())
 		f.ProvisionRuntime(map[string]*config.Runtime{
 			"node": {Image: "drassi/node:24"},
 		})
-		s.Panicsf(func() {
-			_, _ = f.Create()
-		}, "oci store required")
+		_, err := f.Create()
+		s.Require().Error(err)
+		s.Require().Contains(err.Error(), "oci store required for runtimes")
 	})
 
 	s.Run("without runtimes", func() {

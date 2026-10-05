@@ -64,6 +64,9 @@ func (f *factory) Create() (sandboxer.Engine, error) {
 }
 
 func (f *factory) doCreate() (sandboxer.Engine, error) {
-	prov := container.NewProvisioner(f.store, f.runtimes)
+	prov, err := container.NewProvisioner(f.store, f.runtimes)
+	if err != nil {
+		return nil, err
+	}
 	return New(f.rootDir, f.cfg, prov)
 }

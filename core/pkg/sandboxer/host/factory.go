@@ -7,6 +7,8 @@
 package host
 
 import (
+	"errors"
+	"path/filepath"
 	"sync"
 
 	"drassi.run/core/config"
@@ -59,11 +61,21 @@ func (f *factory) Create() (sandboxer.Engine, error) {
 func (f *factory) doCreate() (sandboxer.Engine, error) {
 	var prov *provision.Provisioner[string]
 	if len(f.runtimes) > 0 {
-		prov = provision.New[string](
-			f.runtimes,
-			provision.Pull[string](f.store),
-			provision.Mount[string](f.store),
-		)
+		if f.store == nil {
+			return nil, errors.New("oci store required for runtimes")
+		}
+		fact := func(runtimeDir string, name string, rt config.Runtime) provision.Pipeline[string] {
+			mountDir := filepath.Join(runtimeDir, name)
+			state := new(provision.State)
+			return provision.Pipeline[string]{
+				provision.Pull[string](f.store, state, rt.Image),
+				provision.Mount[string](f.store, state,
+					ocistore.WithTarget(mountDir),
+					ocistore.WithWritable(!rt.ReadOnly),
+				),
+			}
+		}
+		prov = provision.New(f.runtimes, fact)
 	}
 	e, err := New(f.rootDir, prov)
 	if err != nil {

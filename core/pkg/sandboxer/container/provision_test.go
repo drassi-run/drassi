@@ -73,21 +73,22 @@ func TestNewProvisioner(t *testing.T) {
 		runtimes := map[string]*config.Runtime{
 			"node": {Image: "drassi/node:24"},
 		}
-		p := NewProvisioner(store, runtimes)
+		p, err := NewProvisioner(store, runtimes)
+		require.NoError(t, err)
 		require.NotNil(t, p)
 	})
 
-	t.Run("with runtimes but missing store panics", func(t *testing.T) {
+	t.Run("with runtimes but missing store error", func(t *testing.T) {
 		runtimes := map[string]*config.Runtime{
 			"node": {Image: "drassi/node:24"},
 		}
-		require.Panics(t, func() {
-			_ = NewProvisioner(nil, runtimes)
-		})
+		_, err := NewProvisioner(nil, runtimes)
+		require.Error(t, err, "oci store required for runtimes")
 	})
 
 	t.Run("without runtimes returns nil provisioner", func(t *testing.T) {
-		p := NewProvisioner(store, nil)
+		p, err := NewProvisioner(store, nil)
+		require.NoError(t, err)
 		require.Nil(t, p)
 	})
 }

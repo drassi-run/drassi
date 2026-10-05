@@ -8,6 +8,7 @@ package incus
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
 
 	"drassi.run/core/config"
@@ -53,12 +54,20 @@ func (s *IncusEngineTestSuite) TestProvisionerIntegration() {
 		"node": {Image: "drassi/node:24"},
 	}
 
-	p := provision.New[*Template](
-		runtimes,
-		provision.Pull[*Template](s.store),
-		provision.Mount[*Template](s.store),
-		AddDiskDevice(),
-	)
+	factory := func(runtimeDir string, name string, rt config.Runtime) provision.Pipeline[*Template] {
+		targetDir := filepath.Join(runtimeDir, name)
+		state := new(provision.State)
+		return provision.Pipeline[*Template]{
+			provision.Pull[*Template](s.store, state, rt.Image),
+			provision.Mount[*Template](s.store, state,
+				ocistore.WithTarget(targetDir),
+				ocistore.WithWritable(!rt.ReadOnly),
+			),
+			AddDiskDevice(name, "/var/lib/drassi/node_mount", targetDir, rt),
+		}
+	}
+
+	p := provision.New[*Template](runtimes, factory)
 
 	tmpl := &Template{}
 	launched := false
@@ -152,14 +161,14 @@ func (s *IncusEngineTestSuite) TestFactory() {
 		})
 	})
 
-	s.Run("with runtimes but missing store panics", func() {
+	s.Run("with runtimes but missing store error", func() {
 		f := NewFactory(DefaultConfig())
 		f.ProvisionRuntime(map[string]*config.Runtime{
 			"node": {Image: "drassi/node:24"},
 		})
-		s.Panicsf(func() {
-			_, _ = f.Create()
-		}, "oci store required")
+		_, err := f.Create()
+		s.Require().Error(err)
+		s.Require().Contains(err.Error(), "oci store required for runtimes")
 	})
 
 	s.Run("without runtimes", func() {
