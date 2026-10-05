@@ -11,7 +11,6 @@ import (
 	"errors"
 	"testing"
 
-	"drassi.run/core/config"
 	mock_store "drassi.run/core/mock/store/oci"
 	ocistore "drassi.run/core/pkg/store/oci"
 	"github.com/stretchr/testify/require"
@@ -21,36 +20,29 @@ import (
 func TestPullOperation(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	store := mock_store.NewMockManager(ctrl)
+	state := new(State)
+	const image = "drassi/node:24"
 
-	op := Pull[any](store)
+	op := Pull[any](store, state, image)
 	require.Equal(t, "pull", op.Name())
-
-	rtCfg := &config.Runtime{Image: "drassi/node:24"}
-	pctx := NewContext(t.Context(), "node", rtCfg, "/opt/drassi/runtimes/node")
-
-	t.Run("nil store panics", func(t *testing.T) {
-		require.Panics(t, func() {
-			Pull[any](nil)
-		})
-	})
 
 	t.Run("pulls successfully", func(t *testing.T) {
 		expectedImg := mock_store.NewMockImage(ctrl)
-		store.EXPECT().Pull(pctx, "drassi/node:24").Return(expectedImg, nil)
+		store.EXPECT().Pull(gomock.Any(), image).Return(expectedImg, nil)
 
-		cleanup, err := op.Prepare(pctx)
+		cleanup, err := op.Prepare(t.Context())
 		require.NoError(t, err)
 		require.Nil(t, cleanup)
 
-		img, ok := pctx.Get(KeyImage)
+		img, ok := state.Get(KeyImage)
 		require.True(t, ok)
 		require.Equal(t, expectedImg, img)
 	})
 
 	t.Run("pull error returns error", func(t *testing.T) {
-		store.EXPECT().Pull(pctx, "drassi/node:24").Return(nil, errors.New("pull failure"))
+		store.EXPECT().Pull(gomock.Any(), image).Return(nil, errors.New("pull failure"))
 
-		cleanup, err := op.Prepare(pctx)
+		cleanup, err := op.Prepare(t.Context())
 		require.Error(t, err)
 		require.Nil(t, cleanup)
 		require.Contains(t, err.Error(), "pull image \"drassi/node:24\": pull failure")
@@ -60,29 +52,21 @@ func TestPullOperation(t *testing.T) {
 func TestMountOperation(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	store := mock_store.NewMockManager(ctrl)
+	state := new(State)
 
-	op := Mount[any](store, ocistore.WithWritable(true))
+	op := Mount[any](store, state, ocistore.WithWritable(true))
 	require.Equal(t, "mount", op.Name())
 
-	rtCfg := &config.Runtime{Image: "drassi/node:24"}
-	pctx := NewContext(t.Context(), "node", rtCfg, "/opt/drassi/runtimes/node")
-
-	t.Run("nil store panics", func(t *testing.T) {
-		require.Panics(t, func() {
-			Mount[any](nil)
-		})
-	})
-
 	t.Run("missing image returns error", func(t *testing.T) {
-		cleanup, err := op.Prepare(pctx)
+		cleanup, err := op.Prepare(t.Context())
 		require.Error(t, err)
 		require.Nil(t, cleanup)
-		require.Contains(t, err.Error(), "image \"drassi/node:24\" not found in context")
+		require.Contains(t, err.Error(), "image not found in state")
 	})
 
 	t.Run("mounts image and returns unmount cleanup", func(t *testing.T) {
 		var img ocistore.Image = mock_store.NewMockImage(ctrl)
-		pctx.Set(KeyImage, img)
+		state.Set(KeyImage, img)
 
 		released := false
 		mnt := &ocistore.Mount{
@@ -93,15 +77,11 @@ func TestMountOperation(t *testing.T) {
 			},
 		}
 
-		store.EXPECT().Mount(pctx, img, gomock.Any()).Return(mnt, nil)
+		store.EXPECT().Mount(gomock.Any(), img, gomock.Any()).Return(mnt, nil)
 
-		cleanup, err := op.Prepare(pctx)
+		cleanup, err := op.Prepare(t.Context())
 		require.NoError(t, err)
 		require.NotNil(t, cleanup)
-
-		hostDir, ok := pctx.Get(KeyHostMountDir)
-		require.True(t, ok)
-		require.Equal(t, "/var/lib/drassi/mount", hostDir)
 
 		require.NoError(t, cleanup(t.Context()))
 		require.True(t, released)
@@ -109,42 +89,13 @@ func TestMountOperation(t *testing.T) {
 
 	t.Run("mount error returns error", func(t *testing.T) {
 		var img ocistore.Image = mock_store.NewMockImage(ctrl)
-		pctx.Set(KeyImage, img)
+		state.Set(KeyImage, img)
 
-		store.EXPECT().Mount(pctx, img, gomock.Any()).Return(nil, errors.New("mount failure"))
+		store.EXPECT().Mount(gomock.Any(), img, gomock.Any()).Return(nil, errors.New("mount failure"))
 
-		cleanup, err := op.Prepare(pctx)
+		cleanup, err := op.Prepare(t.Context())
 		require.Error(t, err)
 		require.Nil(t, cleanup)
-		require.Contains(t, err.Error(), "mount image \"drassi/node:24\": mount failure")
-	})
-
-	t.Run("readonly runtime mounts as non-writable", func(t *testing.T) {
-		roCfg := &config.Runtime{Image: "drassi/node:24", ReadOnly: true}
-		roCtx := NewContext(t.Context(), "node", roCfg, "/opt/drassi/runtimes/node")
-		var img ocistore.Image = mock_store.NewMockImage(ctrl)
-		roCtx.Set(KeyImage, img)
-
-		released := false
-		mnt := &ocistore.Mount{
-			Target: "/var/lib/drassi/mount-ro",
-			Release: func(ctx context.Context) error {
-				released = true
-				return nil
-			},
-		}
-
-		store.EXPECT().Mount(roCtx, img, gomock.Any()).Return(mnt, nil)
-
-		cleanup, err := op.Prepare(roCtx)
-		require.NoError(t, err)
-		require.NotNil(t, cleanup)
-
-		hostDir, ok := roCtx.Get(KeyHostMountDir)
-		require.True(t, ok)
-		require.Equal(t, "/var/lib/drassi/mount-ro", hostDir)
-
-		require.NoError(t, cleanup(t.Context()))
-		require.True(t, released)
+		require.Contains(t, err.Error(), "mount image: mount failure")
 	})
 }

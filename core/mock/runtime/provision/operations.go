@@ -10,9 +10,9 @@
 package mock_provision
 
 import (
+	context "context"
 	reflect "reflect"
 
-	provision "drassi.run/core/pkg/runtime/provision"
 	sandboxer "drassi.run/core/pkg/sandboxer"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -80,18 +80,18 @@ func (c *MockOperationNameCall[Req]) DoAndReturn(f func() string) *MockOperation
 }
 
 // PostLaunch mocks base method.
-func (m *MockOperation[Req]) PostLaunch(pctx *provision.Context, sb sandboxer.Sandbox) (sandboxer.Sandbox, error) {
+func (m *MockOperation[Req]) PostLaunch(ctx context.Context, sb sandboxer.Sandbox) (sandboxer.Sandbox, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PostLaunch", pctx, sb)
+	ret := m.ctrl.Call(m, "PostLaunch", ctx, sb)
 	ret0, _ := ret[0].(sandboxer.Sandbox)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // PostLaunch indicates an expected call of PostLaunch.
-func (mr *MockOperationMockRecorder[Req]) PostLaunch(pctx, sb any) *MockOperationPostLaunchCall[Req] {
+func (mr *MockOperationMockRecorder[Req]) PostLaunch(ctx, sb any) *MockOperationPostLaunchCall[Req] {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PostLaunch", reflect.TypeOf((*MockOperation[Req])(nil).PostLaunch), pctx, sb)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PostLaunch", reflect.TypeOf((*MockOperation[Req])(nil).PostLaunch), ctx, sb)
 	return &MockOperationPostLaunchCall[Req]{Call: call}
 }
 
@@ -107,30 +107,30 @@ func (c *MockOperationPostLaunchCall[Req]) Return(arg0 sandboxer.Sandbox, arg1 e
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockOperationPostLaunchCall[Req]) Do(f func(*provision.Context, sandboxer.Sandbox) (sandboxer.Sandbox, error)) *MockOperationPostLaunchCall[Req] {
+func (c *MockOperationPostLaunchCall[Req]) Do(f func(context.Context, sandboxer.Sandbox) (sandboxer.Sandbox, error)) *MockOperationPostLaunchCall[Req] {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockOperationPostLaunchCall[Req]) DoAndReturn(f func(*provision.Context, sandboxer.Sandbox) (sandboxer.Sandbox, error)) *MockOperationPostLaunchCall[Req] {
+func (c *MockOperationPostLaunchCall[Req]) DoAndReturn(f func(context.Context, sandboxer.Sandbox) (sandboxer.Sandbox, error)) *MockOperationPostLaunchCall[Req] {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // PreLaunch mocks base method.
-func (m *MockOperation[Req]) PreLaunch(pctx *provision.Context, req Req) (Req, error) {
+func (m *MockOperation[Req]) PreLaunch(ctx context.Context, req Req) (Req, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PreLaunch", pctx, req)
+	ret := m.ctrl.Call(m, "PreLaunch", ctx, req)
 	ret0, _ := ret[0].(Req)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // PreLaunch indicates an expected call of PreLaunch.
-func (mr *MockOperationMockRecorder[Req]) PreLaunch(pctx, req any) *MockOperationPreLaunchCall[Req] {
+func (mr *MockOperationMockRecorder[Req]) PreLaunch(ctx, req any) *MockOperationPreLaunchCall[Req] {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PreLaunch", reflect.TypeOf((*MockOperation[Req])(nil).PreLaunch), pctx, req)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PreLaunch", reflect.TypeOf((*MockOperation[Req])(nil).PreLaunch), ctx, req)
 	return &MockOperationPreLaunchCall[Req]{Call: call}
 }
 
@@ -146,30 +146,30 @@ func (c *MockOperationPreLaunchCall[Req]) Return(arg0 Req, arg1 error) *MockOper
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockOperationPreLaunchCall[Req]) Do(f func(*provision.Context, Req) (Req, error)) *MockOperationPreLaunchCall[Req] {
+func (c *MockOperationPreLaunchCall[Req]) Do(f func(context.Context, Req) (Req, error)) *MockOperationPreLaunchCall[Req] {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockOperationPreLaunchCall[Req]) DoAndReturn(f func(*provision.Context, Req) (Req, error)) *MockOperationPreLaunchCall[Req] {
+func (c *MockOperationPreLaunchCall[Req]) DoAndReturn(f func(context.Context, Req) (Req, error)) *MockOperationPreLaunchCall[Req] {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // Prepare mocks base method.
-func (m *MockOperation[Req]) Prepare(pctx *provision.Context) (sandboxer.Cleanup, error) {
+func (m *MockOperation[Req]) Prepare(ctx context.Context) (sandboxer.Cleanup, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Prepare", pctx)
+	ret := m.ctrl.Call(m, "Prepare", ctx)
 	ret0, _ := ret[0].(sandboxer.Cleanup)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Prepare indicates an expected call of Prepare.
-func (mr *MockOperationMockRecorder[Req]) Prepare(pctx any) *MockOperationPrepareCall[Req] {
+func (mr *MockOperationMockRecorder[Req]) Prepare(ctx any) *MockOperationPrepareCall[Req] {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Prepare", reflect.TypeOf((*MockOperation[Req])(nil).Prepare), pctx)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Prepare", reflect.TypeOf((*MockOperation[Req])(nil).Prepare), ctx)
 	return &MockOperationPrepareCall[Req]{Call: call}
 }
 
@@ -185,13 +185,13 @@ func (c *MockOperationPrepareCall[Req]) Return(arg0 sandboxer.Cleanup, arg1 erro
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockOperationPrepareCall[Req]) Do(f func(*provision.Context) (sandboxer.Cleanup, error)) *MockOperationPrepareCall[Req] {
+func (c *MockOperationPrepareCall[Req]) Do(f func(context.Context) (sandboxer.Cleanup, error)) *MockOperationPrepareCall[Req] {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockOperationPrepareCall[Req]) DoAndReturn(f func(*provision.Context) (sandboxer.Cleanup, error)) *MockOperationPrepareCall[Req] {
+func (c *MockOperationPrepareCall[Req]) DoAndReturn(f func(context.Context) (sandboxer.Cleanup, error)) *MockOperationPrepareCall[Req] {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

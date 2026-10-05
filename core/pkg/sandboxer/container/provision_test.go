@@ -13,22 +13,21 @@ import (
 	"drassi.run/core/config"
 	mock_store "drassi.run/core/mock/store/oci"
 	"drassi.run/core/pkg/container/types"
-	"drassi.run/core/pkg/runtime/provision"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
 
-func runBindMount(t *testing.T, name string, rt *config.Runtime, targetDir, hostMountDir string) (*types.Mount, error) {
+func runBindMount(t *testing.T, _ string, rt *config.Runtime, targetDir, hostMountDir string) (*types.Mount, error) {
 	t.Helper()
-	pctx := provision.NewContext(t.Context(), name, rt, targetDir)
-	if hostMountDir != "" {
-		pctx.Set(provision.KeyHostMountDir, hostMountDir)
+	var runtimeConfig config.Runtime
+	if rt != nil {
+		runtimeConfig = *rt
 	}
 
-	op := AddBindMount()
+	op := AddBindMount(hostMountDir, targetDir, runtimeConfig)
 	require.Equal(t, "container/bind-mount", op.Name())
 
-	spec, err := op.PreLaunch(pctx, new(types.ContainerSpec))
+	spec, err := op.PreLaunch(t.Context(), new(types.ContainerSpec))
 	if err != nil {
 		return nil, err
 	}
@@ -63,12 +62,6 @@ func TestContainerBindMount(t *testing.T) {
 		require.Equal(t, filepath.Join(hostMount, "opt/python"), mount.Source)
 		require.Equal(t, "/opt/drassi/runtimes/python", mount.Target)
 		require.False(t, mount.ReadOnly)
-	})
-
-	t.Run("missing host mount dir", func(t *testing.T) {
-		_, err := runBindMount(t, "node", &config.Runtime{}, "/opt/drassi/runtimes/node", "")
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "host mount directory not set in context")
 	})
 }
 
