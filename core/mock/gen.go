@@ -1,7 +1,8 @@
 //go:generate -command mockgen go tool mockgen
 
 //go:generate mockgen -typed -destination=sdk/io/io.go io Reader,Writer,ReadCloser,WriteCloser
-//go:generate mockgen -typed -destination=podman/storage/store.go go.podman.io/storage Store
+//go:generate mockgen -typed -destination=containerd/snapshots/snapshotter.go github.com/containerd/containerd/v2/core/snapshots Snapshotter
+//go:generate mockgen -typed -destination=containerd/leases/manager.go github.com/containerd/containerd/v2/core/leases Manager
 //go:generate mockgen -typed -destination=container/engine.go -source=../pkg/container/engine.go
 //go:generate mockgen -typed -destination=sandboxer/engine.go -source=../pkg/sandboxer/engine.go
 //go:generate mockgen -typed -destination=sandboxer/sandbox.go -source=../pkg/sandboxer/sandbox.go

@@ -99,7 +99,7 @@ func (l *launcher) Init(ctx context.Context, opts *options) (err error) {
 		l.gitStore = store
 	}
 
-	if store, err := ocistore.Default(); err != nil {
+	if store, err := ocistore.New(cfg.OciStore); err != nil {
 		return err
 	} else {
 		l.ociStore = store

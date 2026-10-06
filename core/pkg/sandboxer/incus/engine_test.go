@@ -36,10 +36,18 @@ func (s *IncusEngineTestSuite) SetupTest() {
 }
 
 func (s *IncusEngineTestSuite) TestProvisionerIntegration() {
-	img := &ocistore.Image{}
-	s.store.EXPECT().Image(gomock.Any(), "drassi/node:24").Return(img, nil).Times(1)
-	s.store.EXPECT().Mount(gomock.Any(), img, gomock.Any()).Return("/var/lib/drassi/node_mount", "layer-node", nil).Times(1)
-	s.store.EXPECT().Unmount(gomock.Any(), "layer-node").Return(nil).Times(1)
+	img := mock_store.NewMockImage(s.ctrl)
+	released := false
+	mnt := &ocistore.Mount{
+		Target: "/var/lib/drassi/node_mount",
+		Release: func(context.Context) error {
+			released = true
+			return nil
+		},
+	}
+
+	s.store.EXPECT().Pull(gomock.Any(), "drassi/node:24").Return(img, nil).Times(1)
+	s.store.EXPECT().Mount(gomock.Any(), img, gomock.Any()).Return(mnt, nil).Times(1)
 
 	runtimes := map[string]*config.Runtime{
 		"node": {Image: "drassi/node:24"},
@@ -73,6 +81,7 @@ func (s *IncusEngineTestSuite) TestProvisionerIntegration() {
 
 	// Verify unmount cleanup runs on terminate
 	s.Require().NoError(sb.Terminate(s.T().Context()))
+	s.Require().True(released)
 }
 
 func (s *IncusEngineTestSuite) TestTemplateClone() {
