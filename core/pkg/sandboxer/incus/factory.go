@@ -20,8 +20,10 @@ import (
 	ocistore "drassi.run/core/pkg/store/oci"
 )
 
+const ProviderName string = "incus"
+
 func init() {
-	sandboxer.Register(config.ProviderIncus, DefaultConfig, NewFactory)
+	sandboxer.Register(ProviderName, DefaultConfig, NewFactory)
 }
 
 func DefaultConfig() *Config {

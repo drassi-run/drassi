@@ -104,7 +104,7 @@ func (c *launcher) Init(ctx context.Context, o *options) error {
 	if err = c.loadOciStore(); err != nil {
 		return err
 	}
-	return c.loadSandboxer(config, config.UseSandboxer)
+	return c.loadSandboxer(config)
 }
 
 func (c *launcher) Run(ctx context.Context) error {
@@ -204,22 +204,25 @@ func (c *launcher) loadOciStore() error {
 	return nil
 }
 
-func (c *launcher) loadSandboxer(config *giteaconfig.Config, name string) error {
-	if sbConfig, ok := config.Sandboxers[name]; !ok {
-		return fmt.Errorf("sandboxer %q not configured", name)
-	} else if factory, err := sandboxer.NewFactory(sbConfig); err != nil {
-		return err
-	} else {
-		factory.RootDir(coreconfig.RootDir())
-		factory.SetOciStore(c.ociStore)
-		factory.ProvisionRuntime(config.Runtimes)
-		if sb, err := factory.Create(); err != nil {
-			return err
-		} else {
-			c.runtime = sb
-			return nil
-		}
+func (c *launcher) loadSandboxer(config *giteaconfig.Config) error {
+	if config.Sandboxer == nil {
+		return fmt.Errorf("sandboxer not configured")
 	}
+	factory, err := sandboxer.NewFactory(config.Sandboxer)
+	if err != nil {
+		return err
+	}
+
+	factory.RootDir(coreconfig.RootDir())
+	factory.SetOciStore(c.ociStore)
+	factory.ProvisionRuntime(config.Runtimes)
+	sb, err := factory.Create()
+	if err != nil {
+		return err
+	}
+
+	c.runtime = sb
+	return nil
 }
 
 func (c *launcher) module() *wire.Module {

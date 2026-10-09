@@ -13,19 +13,22 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/json/v2"
 	"encoding/pem"
 	"fmt"
 	"net/url"
 	"os"
+	"slices"
 	"strings"
 
 	"charm.land/huh/v2"
 	"charm.land/huh/v2/spinner"
+	coreconfig "drassi.run/core/config"
+	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/util/http"
 	ghaconfig "drassi.run/gha-runner/config"
 	"drassi.run/gha-runner/pkg/dotnet"
 	"drassi.run/gha-runner/pkg/types"
-	"github.com/pelletier/go-toml/v2"
 	"github.com/spf13/cobra"
 	"golang.org/x/oauth2"
 )
@@ -309,18 +312,40 @@ func (r *register) provideRunnerName(ctx context.Context) error {
 }
 
 func (r *register) selectSandboxer(_ context.Context) error {
-	if r.Sandboxer == "" {
-		inquiry := huh.NewInput().
-			Title("What is your sandboxer name?").
-			Value(&r.Sandboxer).
-			Validate(IsNotEmpty)
+	providers := sandboxer.SupportedProviders()
+	slices.Sort(providers)
 
-		if err := inquiry.Run(); err != nil {
-			return err
-		}
-
-		fmt.Printf("Sandboxer: %s\n", r.Sandboxer)
+	if len(providers) == 0 {
+		return fmt.Errorf("no sandboxer available")
 	}
+
+	if r.Sandboxer != "" {
+		if slices.Contains(providers, r.Sandboxer) {
+			return fmt.Errorf("unknown sandboxer %q", r.Sandboxer)
+		}
+		return nil
+	}
+
+	o := make([]huh.Option[string], 0, len(providers))
+	for _, p := range providers {
+		o = append(o, huh.NewOption(p, p))
+	}
+
+	// set default choice
+	if slices.Contains(providers, "host") {
+		r.Sandboxer = "host"
+	}
+
+	inquiry := huh.NewSelect[string]().
+		Title("Select the sandboxer?").
+		Options(o...).
+		Value(&r.Sandboxer)
+
+	if err := inquiry.Run(); err != nil {
+		return err
+	}
+
+	fmt.Printf("Sandboxer: %s\n", r.Sandboxer)
 	return nil
 }
 
@@ -378,23 +403,27 @@ func (r *register) saveRunner(_ context.Context) error {
 		Labels:          labels,
 		ServerUrl:       r.auth.TenantUrl,
 		RegistrationUrl: r.Url,
-		Authorization: ghaconfig.RunnerAuthorization{
+		Authorization: &ghaconfig.RunnerAuthorization{
 			Url:        r.runner.Authorization.AuthorizationUrl,
 			ClientId:   r.runner.Authorization.ClientId,
 			PrivateKey: privateKey,
 		},
 	}
 
-	config := &ghaconfig.Config{
-		Runner:       runner,
-		UseSandboxer: r.Sandboxer,
+	config := ghaconfig.DefaultConfig()
+	config.Runner = runner
+	if sbConfig, err := r.defaultSandboxerConfig(r.Sandboxer); err != nil {
+		return err
+	} else {
+		config.Sandboxer = &coreconfig.Sandboxer{
+			Provider: r.Sandboxer,
+			Config:   sbConfig,
+		}
 	}
 
 	var buf bytes.Buffer
-	if b, err := toml.Marshal(config); err != nil {
+	if err = coreconfig.MarshalWrite(&buf, config); err != nil {
 		return err
-	} else {
-		buf.Write(b)
 	}
 
 	fmt.Println(strings.Repeat("=", 50))
@@ -433,6 +462,15 @@ func (r *register) saveRunner(_ context.Context) error {
 
 	_, err = buf.WriteTo(file)
 	return err
+}
+
+func (r *register) defaultSandboxerConfig(provider string) ([]byte, error) {
+	cfg := sandboxer.DefaultConfig(provider)
+	if cfg == nil {
+		return nil, nil
+	}
+
+	return json.Marshal(cfg)
 }
 
 func (r *register) encodeKey() (string, error) {
