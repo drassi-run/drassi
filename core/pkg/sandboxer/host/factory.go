@@ -71,6 +71,7 @@ func (f *factory) doCreate() (sandboxer.Engine, error) {
 			state := new(provision.State)
 			return provision.Pipeline[string]{
 				provision.Pull[string](f.store, state, rt.Image),
+				provision.Mkdir[string](mountDir),
 				provision.Mount[string](f.store, state,
 					ocistore.WithTarget(mountDir),
 					ocistore.WithWritable(!rt.ReadOnly),

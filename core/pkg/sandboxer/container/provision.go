@@ -30,6 +30,7 @@ func NewProvisioner(store ocistore.Manager, runtimes map[string]*config.Runtime)
 		state := new(provision.State)
 		return provision.Pipeline[*types.ContainerSpec]{
 			provision.Pull[*types.ContainerSpec](store, state, rt.Image),
+			provision.Mkdir[*types.ContainerSpec](mountDir),
 			provision.Mount[*types.ContainerSpec](store, state,
 				ocistore.WithTarget(mountDir),
 				ocistore.WithWritable(!rt.ReadOnly),
