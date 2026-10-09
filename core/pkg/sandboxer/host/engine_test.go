@@ -31,14 +31,12 @@ type HostEngineTestSuite struct {
 	ctrl    *gomock.Controller
 	store   *mock_store.MockManager
 	tempDir string
-	cfg     *Config
 }
 
 func (s *HostEngineTestSuite) SetupTest() {
 	s.ctrl = gomock.NewController(s.T())
 	s.store = mock_store.NewMockManager(s.ctrl)
 	s.tempDir = s.T().TempDir()
-	s.cfg = &Config{RootDir: s.tempDir}
 }
 
 func (s *HostEngineTestSuite) assertLaunch(eng sandboxer.Engine) sandboxer.Sandbox {
@@ -62,7 +60,7 @@ func (s *HostEngineTestSuite) assertLaunch(eng sandboxer.Engine) sandboxer.Sandb
 
 func (s *HostEngineTestSuite) TestLaunch() {
 	s.Run("with provisioner", func() {
-		mountDir := filepath.Join(s.tempDir, "node_mount")
+		mountDir := filepath.Join(s.tempDir, "drassi/test/build/test/1_1/runtimes/node")
 		s.Require().NoError(os.MkdirAll(mountDir, 0755))
 
 		img := mock_store.NewMockImage(s.ctrl)
@@ -82,23 +80,24 @@ func (s *HostEngineTestSuite) TestLaunch() {
 			"node": {Image: "drassi/node:24"},
 		}
 
-		p := provision.New[string](
-			runtimes,
-			provision.Pull[string](s.store),
-			provision.Mount[string](s.store),
-			Symlink[string](),
-		)
+		fact := func(runtimeDir string, name string, rt config.Runtime) provision.Pipeline[string] {
+			targetDir := filepath.Join(runtimeDir, name)
+			state := new(provision.State)
+			return provision.Pipeline[string]{
+				provision.Pull[string](s.store, state, rt.Image),
+				provision.Mount[string](s.store, state,
+					ocistore.WithTarget(targetDir),
+					ocistore.WithWritable(!rt.ReadOnly),
+				),
+			}
+		}
 
-		eng, err := New(s.cfg, p)
+		p := provision.New[string](runtimes, fact)
+
+		eng, err := New(s.tempDir, p)
 		s.Require().NoError(err)
 
 		sb := s.assertLaunch(eng)
-
-		// Symlink is created
-		symlinkPath := filepath.Join(sb.Layout().Runtimes(), "node")
-		target, err := os.Readlink(symlinkPath)
-		s.Require().NoError(err)
-		s.Require().Equal(mountDir, target)
 
 		// Terminate sandbox unmounts layers and removes workspace
 		s.Require().NoError(sb.Terminate(s.T().Context()))
@@ -106,7 +105,7 @@ func (s *HostEngineTestSuite) TestLaunch() {
 	})
 
 	s.Run("without provisioner", func() {
-		eng, err := New(s.cfg, nil)
+		eng, err := New(s.tempDir, nil)
 		s.Require().NoError(err)
 
 		sb := s.assertLaunch(eng)
@@ -115,7 +114,7 @@ func (s *HostEngineTestSuite) TestLaunch() {
 }
 
 func (s *HostEngineTestSuite) TestLaunch_WithoutContainers_NoDocker() {
-	eng, err := New(s.cfg, nil)
+	eng, err := New(s.tempDir, nil)
 	s.Require().NoError(err)
 
 	req := &sandboxer.LaunchRequest{
@@ -142,8 +141,8 @@ func (s *HostEngineTestSuite) TestLaunch_WithoutContainers_NoDocker() {
 func (s *HostEngineTestSuite) TestFactory() {
 	s.Run("with runtimes and store", func() {
 		cfg := DefaultConfig()
-		cfg.RootDir = s.T().TempDir()
 		f := NewFactory(cfg)
+		f.RootDir(s.T().TempDir())
 		f.SetOciStore(s.store)
 		f.ProvisionRuntime(map[string]*config.Runtime{
 			"node": {Image: "drassi/node:24"},
@@ -154,22 +153,22 @@ func (s *HostEngineTestSuite) TestFactory() {
 		_ = eng.Close()
 	})
 
-	s.Run("with runtimes but missing store panics", func() {
+	s.Run("with runtimes but missing store error", func() {
 		cfg := DefaultConfig()
-		cfg.RootDir = s.T().TempDir()
 		f := NewFactory(cfg)
+		f.RootDir(s.T().TempDir())
 		f.ProvisionRuntime(map[string]*config.Runtime{
 			"node": {Image: "drassi/node:24"},
 		})
-		s.Panicsf(func() {
-			_, _ = f.Create()
-		}, "oci store required")
+		_, err := f.Create()
+		s.Require().Error(err)
+		s.Require().Contains(err.Error(), "oci store required for runtimes")
 	})
 
 	s.Run("without runtimes", func() {
 		cfg := DefaultConfig()
-		cfg.RootDir = s.T().TempDir()
 		f := NewFactory(cfg)
+		f.RootDir(s.T().TempDir())
 		eng, err := f.Create()
 		s.Require().NoError(err)
 		s.Require().NotNil(eng)
@@ -179,9 +178,7 @@ func (s *HostEngineTestSuite) TestFactory() {
 
 func (s *HostEngineTestSuite) TestNew() {
 	s.Run("without panic when nil", func() {
-		cfg := DefaultConfig()
-		cfg.RootDir = s.T().TempDir()
-		eng, err := New(cfg, nil)
+		eng, err := New(s.T().TempDir(), nil)
 		s.Require().NoError(err)
 		s.Require().NotNil(eng)
 		_ = eng.Close()

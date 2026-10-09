@@ -7,7 +7,9 @@
 package incus
 
 import (
+	"errors"
 	"maps"
+	"path/filepath"
 	"slices"
 	"sync"
 
@@ -47,8 +49,13 @@ type factory struct {
 	create func() (sandboxer.Engine, error)
 
 	cfg      *Config
+	rootDir  string
 	store    ocistore.Manager
 	runtimes map[string]*config.Runtime
+}
+
+func (f *factory) RootDir(d string) {
+	f.rootDir = d
 }
 
 func (f *factory) SetOciStore(store ocistore.Manager) {
@@ -66,14 +73,25 @@ func (f *factory) Create() (sandboxer.Engine, error) {
 func (f *factory) doCreate() (sandboxer.Engine, error) {
 	var prov *provision.Provisioner[*Template]
 	if len(f.runtimes) > 0 {
-		prov = provision.New[*Template](
-			f.runtimes,
-			provision.Pull[*Template](f.store),
-			provision.Mount[*Template](f.store),
-			AddDiskDevice(),
-		)
+		if f.store == nil {
+			return nil, errors.New("oci store required for runtimes")
+		}
+		fact := func(runtimeDir string, name string, rt config.Runtime) provision.Pipeline[*Template] {
+			targetDir := filepath.Join(layout.Runtimes(), name)
+			mountDir := filepath.Join(runtimeDir, name)
+			state := new(provision.State)
+			return provision.Pipeline[*Template]{
+				provision.Pull[*Template](f.store, state, rt.Image),
+				provision.Mount[*Template](f.store, state,
+					ocistore.WithTarget(mountDir),
+					ocistore.WithWritable(!rt.ReadOnly),
+				),
+				AddDiskDevice(name, targetDir, mountDir, rt),
+			}
+		}
+		prov = provision.New(f.runtimes, fact)
 	}
-	e, err := New(f.cfg, prov)
+	e, err := New(f.rootDir, f.cfg, prov)
 	if err != nil {
 		return nil, err
 	}

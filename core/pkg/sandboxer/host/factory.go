@@ -7,6 +7,8 @@
 package host
 
 import (
+	"errors"
+	"path/filepath"
 	"sync"
 
 	"drassi.run/core/config"
@@ -21,15 +23,13 @@ func init() {
 }
 
 func DefaultConfig() *Config {
-	return &Config{RootDir: "/tmp"}
+	return new(Config)
 }
 
-type Config struct {
-	RootDir string `toml:"root_dir" json:"rootDir"`
-}
+type Config struct{}
 
-func NewFactory(cfg *Config) sandboxer.Factory {
-	f := &factory{cfg: cfg}
+func NewFactory(_ *Config) sandboxer.Factory {
+	f := new(factory)
 	f.create = sync.OnceValues(f.doCreate)
 	return f
 }
@@ -37,9 +37,13 @@ func NewFactory(cfg *Config) sandboxer.Factory {
 type factory struct {
 	create func() (sandboxer.Engine, error)
 
-	cfg      *Config
+	rootDir  string
 	store    ocistore.Manager
 	runtimes map[string]*config.Runtime
+}
+
+func (f *factory) RootDir(d string) {
+	f.rootDir = d
 }
 
 func (f *factory) SetOciStore(store ocistore.Manager) {
@@ -57,14 +61,23 @@ func (f *factory) Create() (sandboxer.Engine, error) {
 func (f *factory) doCreate() (sandboxer.Engine, error) {
 	var prov *provision.Provisioner[string]
 	if len(f.runtimes) > 0 {
-		prov = provision.New[string](
-			f.runtimes,
-			provision.Pull[string](f.store),
-			provision.Mount[string](f.store),
-			Symlink[string](),
-		)
+		if f.store == nil {
+			return nil, errors.New("oci store required for runtimes")
+		}
+		fact := func(runtimeDir string, name string, rt config.Runtime) provision.Pipeline[string] {
+			mountDir := filepath.Join(runtimeDir, name)
+			state := new(provision.State)
+			return provision.Pipeline[string]{
+				provision.Pull[string](f.store, state, rt.Image),
+				provision.Mount[string](f.store, state,
+					ocistore.WithTarget(mountDir),
+					ocistore.WithWritable(!rt.ReadOnly),
+				),
+			}
+		}
+		prov = provision.New(f.runtimes, fact)
 	}
-	e, err := New(f.cfg, prov)
+	e, err := New(f.rootDir, prov)
 	if err != nil {
 		return nil, err
 	}

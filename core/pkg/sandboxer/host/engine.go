@@ -20,13 +20,12 @@ import (
 	"drassi.run/core/util/sync"
 )
 
-func New(config *Config, prov *provision.Provisioner[string]) (e sandboxer.Engine, err error) {
-	rootDir := config.RootDir
+func New(rootDir string, prov *provision.Provisioner[string]) (e sandboxer.Engine, err error) {
 	if rootDir, err = xpath.ResolveDir(rootDir); err != nil {
 		return
 	}
 
-	if err = os.MkdirAll(config.RootDir, xfs.DirPerm); err != nil {
+	if err = os.MkdirAll(rootDir, xfs.DirPerm); err != nil {
 		return
 	}
 
@@ -43,17 +42,16 @@ type engine struct {
 }
 
 func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*sandboxer.LaunchResponse, error) {
-	sandboxDir := req.Forge.StandardPath()
-	sandboxDir = filepath.Join(e.rootDir, sandboxDir)
+	jobDir := filepath.Join(e.rootDir, req.Forge.StandardPath())
 
 	launcher := func(_ context.Context, dir string) (sandboxer.Sandbox, error) {
 		return newSandbox(dir)
 	}
 	if prov := e.provisioner; prov != nil {
-		runtimeDir := filepath.Join(sandboxDir, "runtimes")
+		runtimeDir := filepath.Join(jobDir, "runtimes")
 		launcher = prov.Launch(runtimeDir, launcher)
 	}
-	sb, err := launcher(ctx, sandboxDir)
+	sb, err := launcher(ctx, jobDir)
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +65,7 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*san
 	}
 	resp := &sandboxer.LaunchResponse{
 		Sandbox:         sb,
-		Mounter:         newMounter(sandboxDir),
+		Mounter:         newMounter(jobDir),
 		ContainerEngine: xsync.Singleton(ce),
 	}
 	return resp, nil

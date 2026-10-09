@@ -7,8 +7,8 @@
 package container
 
 import (
+	"context"
 	"errors"
-	"fmt"
 	"path/filepath"
 
 	"drassi.run/core/config"
@@ -17,48 +17,62 @@ import (
 	"drassi.run/core/pkg/store/oci"
 )
 
-func NewProvisioner(store ocistore.Manager, runtimes map[string]*config.Runtime) *provision.Provisioner[*types.ContainerSpec] {
+func NewProvisioner(store ocistore.Manager, runtimes map[string]*config.Runtime) (*provision.Provisioner[*types.ContainerSpec], error) {
 	if len(runtimes) == 0 {
-		return nil
+		return nil, nil
 	}
-	return provision.New[*types.ContainerSpec](
-		runtimes,
-		provision.Pull[*types.ContainerSpec](store),
-		provision.Mount[*types.ContainerSpec](store),
-		AddBindMount(),
-	)
+	if store == nil {
+		return nil, errors.New("oci store required for runtimes")
+	}
+	factory := func(runtimeDir string, name string, rt config.Runtime) provision.Pipeline[*types.ContainerSpec] {
+		targetDir := filepath.Join(DefaultLayout.Runtimes(), name)
+		mountDir := filepath.Join(runtimeDir, name)
+		state := new(provision.State)
+		return provision.Pipeline[*types.ContainerSpec]{
+			provision.Pull[*types.ContainerSpec](store, state, rt.Image),
+			provision.Mount[*types.ContainerSpec](store, state,
+				ocistore.WithTarget(mountDir),
+				ocistore.WithWritable(!rt.ReadOnly),
+			),
+			AddBindMount(mountDir, targetDir, rt),
+		}
+	}
+	return provision.New(runtimes, factory), nil
 }
 
 // AddBindMount returns an Operation that appends a runtime bind mount to types.ContainerSpec.Mounts.
-func AddBindMount() provision.Operation[*types.ContainerSpec] {
-	return addBindMountOp{}
+func AddBindMount(sourceDir, targetDir string, cfg config.Runtime) provision.Operation[*types.ContainerSpec] {
+	return &addBindMountOp{
+		sourceDir: sourceDir,
+		targetDir: targetDir,
+		config:    cfg,
+	}
 }
 
 type addBindMountOp struct {
 	provision.Noop[*types.ContainerSpec]
+	sourceDir string
+	targetDir string
+	config    config.Runtime
 }
 
-func (op addBindMountOp) Name() string { return "container/bind-mount" }
+func (op *addBindMountOp) Name() string { return "container/bind-mount" }
 
-func (op addBindMountOp) PreLaunch(pctx *provision.Context, spec *types.ContainerSpec) (*types.ContainerSpec, error) {
+func (op *addBindMountOp) PreLaunch(_ context.Context, spec *types.ContainerSpec) (*types.ContainerSpec, error) {
 	if spec == nil {
 		return nil, errors.New("container spec cannot be nil")
 	}
-	hostMountDir, ok := pctx.Get(provision.KeyHostMountDir)
-	if !ok {
-		return spec, fmt.Errorf("host mount directory not set in context")
-	}
 
-	sourcePath := hostMountDir
-	if pctx.Config.Subpath != "" {
-		sourcePath = filepath.Join(sourcePath, pctx.Config.Subpath)
+	sourcePath := op.sourceDir
+	if op.config.Subpath != "" {
+		sourcePath = filepath.Join(sourcePath, op.config.Subpath)
 	}
 
 	spec.Mounts = append(spec.Mounts, &types.Mount{
 		Type:     "bind",
 		Source:   sourcePath,
-		Target:   pctx.TargetDir,
-		ReadOnly: pctx.Config.ReadOnly,
+		Target:   op.targetDir,
+		ReadOnly: op.config.ReadOnly,
 	})
 	return spec, nil
 }

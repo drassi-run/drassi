@@ -11,67 +11,50 @@ import (
 	"testing"
 
 	"drassi.run/core/config"
-	"drassi.run/core/pkg/runtime/provision"
 	"github.com/stretchr/testify/require"
 )
 
 func TestIncusDiskDevice(t *testing.T) {
-	t.Run("basic disk device", func(t *testing.T) {
-		pctx := provision.NewContext(t.Context(), "node", &config.Runtime{}, "/opt/drassi/runtimes/node")
-		pctx.Set(provision.KeyHostMountDir, "/var/lib/drassi/storage/overlay/merged")
+	const hostMount = "/var/lib/drassi/storage/overlay/merged"
 
-		op := AddDiskDevice()
+	t.Run("basic disk device", func(t *testing.T) {
+		op := AddDiskDevice("node", hostMount, "/opt/drassi/runtimes/node", config.Runtime{})
 		require.Equal(t, "incus/disk-device", op.Name())
 
 		tmpl := new(Template)
-		tmpl, err := op.PreLaunch(pctx, tmpl)
+		tmpl, err := op.PreLaunch(t.Context(), tmpl)
 		require.NoError(t, err)
 		require.Contains(t, tmpl.Devices, "runtime-node")
 		dev := tmpl.Devices["runtime-node"]
 		require.Equal(t, "disk", dev["type"])
-		require.Equal(t, "/var/lib/drassi/storage/overlay/merged", dev["source"])
+		require.Equal(t, hostMount, dev["source"])
 		require.Equal(t, "/opt/drassi/runtimes/node", dev["path"])
 		require.Equal(t, "false", dev["readonly"])
 	})
 
 	t.Run("readonly disk device", func(t *testing.T) {
-		pctx := provision.NewContext(t.Context(), "node", &config.Runtime{ReadOnly: true}, "/opt/drassi/runtimes/node")
-		pctx.Set(provision.KeyHostMountDir, "/var/lib/drassi/storage/overlay/merged")
-
-		op := AddDiskDevice()
+		op := AddDiskDevice("node", hostMount, "/opt/drassi/runtimes/node", config.Runtime{ReadOnly: true})
 		tmpl := new(Template)
-		tmpl, err := op.PreLaunch(pctx, tmpl)
+		tmpl, err := op.PreLaunch(t.Context(), tmpl)
 		require.NoError(t, err)
 		require.Contains(t, tmpl.Devices, "runtime-node")
 		dev := tmpl.Devices["runtime-node"]
 		require.Equal(t, "disk", dev["type"])
-		require.Equal(t, "/var/lib/drassi/storage/overlay/merged", dev["source"])
+		require.Equal(t, hostMount, dev["source"])
 		require.Equal(t, "/opt/drassi/runtimes/node", dev["path"])
 		require.Equal(t, "true", dev["readonly"])
 	})
 
 	t.Run("with subpath", func(t *testing.T) {
-		pctx := provision.NewContext(t.Context(), "python", &config.Runtime{Subpath: "opt/python"}, "/opt/drassi/runtimes/python")
-		pctx.Set(provision.KeyHostMountDir, "/var/lib/drassi/storage/overlay/merged")
-
-		op := AddDiskDevice()
+		op := AddDiskDevice("python", hostMount, "/opt/drassi/runtimes/python", config.Runtime{Subpath: "opt/python"})
 		tmpl := new(Template)
-		tmpl, err := op.PreLaunch(pctx, tmpl)
+		tmpl, err := op.PreLaunch(t.Context(), tmpl)
 		require.NoError(t, err)
 		require.Contains(t, tmpl.Devices, "runtime-python")
 		dev := tmpl.Devices["runtime-python"]
 		require.Equal(t, "disk", dev["type"])
-		require.Equal(t, filepath.Join("/var/lib/drassi/storage/overlay/merged", "opt/python"), dev["source"])
+		require.Equal(t, filepath.Join(hostMount, "opt/python"), dev["source"])
 		require.Equal(t, "/opt/drassi/runtimes/python", dev["path"])
 		require.Equal(t, "false", dev["readonly"])
-	})
-
-	t.Run("missing host mount dir", func(t *testing.T) {
-		pctx := provision.NewContext(t.Context(), "node", &config.Runtime{}, "/opt/drassi/runtimes/node")
-		op := AddDiskDevice()
-		tmpl := new(Template)
-		_, err := op.PreLaunch(pctx, tmpl)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "host mount directory not set in context")
 	})
 }

@@ -64,6 +64,10 @@ func (r *Rollbacker) Do(ctx context.Context) error {
 	return errors.Join(errs...)
 }
 
+func (r *Rollbacker) Cleanups() []func(ctx context.Context) error {
+	return r.cu
+}
+
 func (r *Rollbacker) Dismiss() {
 	r.b = true
 }

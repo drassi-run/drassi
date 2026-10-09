@@ -36,6 +36,7 @@ func DefaultConfig() *Config {
 type factory struct {
 	create   func() (sandboxer.Engine, error)
 	cfg      *Config
+	rootDir  string
 	store    ocistore.Manager
 	runtimes map[string]*config.Runtime
 }
@@ -44,6 +45,10 @@ func NewFactory(cfg *Config) sandboxer.Factory {
 	f := &factory{cfg: cfg}
 	f.create = sync.OnceValues(f.doCreate)
 	return f
+}
+
+func (f *factory) RootDir(d string) {
+	f.rootDir = d
 }
 
 func (f *factory) SetOciStore(store ocistore.Manager) {
@@ -59,6 +64,9 @@ func (f *factory) Create() (sandboxer.Engine, error) {
 }
 
 func (f *factory) doCreate() (sandboxer.Engine, error) {
-	prov := container.NewProvisioner(f.store, f.runtimes)
-	return New(f.cfg, prov)
+	prov, err := container.NewProvisioner(f.store, f.runtimes)
+	if err != nil {
+		return nil, err
+	}
+	return New(f.rootDir, f.cfg, prov)
 }

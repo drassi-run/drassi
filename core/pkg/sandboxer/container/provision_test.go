@@ -13,22 +13,21 @@ import (
 	"drassi.run/core/config"
 	mock_store "drassi.run/core/mock/store/oci"
 	"drassi.run/core/pkg/container/types"
-	"drassi.run/core/pkg/runtime/provision"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
 
-func runBindMount(t *testing.T, name string, rt *config.Runtime, targetDir, hostMountDir string) (*types.Mount, error) {
+func runBindMount(t *testing.T, _ string, rt *config.Runtime, targetDir, hostMountDir string) (*types.Mount, error) {
 	t.Helper()
-	pctx := provision.NewContext(t.Context(), name, rt, targetDir)
-	if hostMountDir != "" {
-		pctx.Set(provision.KeyHostMountDir, hostMountDir)
+	var runtimeConfig config.Runtime
+	if rt != nil {
+		runtimeConfig = *rt
 	}
 
-	op := AddBindMount()
+	op := AddBindMount(hostMountDir, targetDir, runtimeConfig)
 	require.Equal(t, "container/bind-mount", op.Name())
 
-	spec, err := op.PreLaunch(pctx, new(types.ContainerSpec))
+	spec, err := op.PreLaunch(t.Context(), new(types.ContainerSpec))
 	if err != nil {
 		return nil, err
 	}
@@ -64,12 +63,6 @@ func TestContainerBindMount(t *testing.T) {
 		require.Equal(t, "/opt/drassi/runtimes/python", mount.Target)
 		require.False(t, mount.ReadOnly)
 	})
-
-	t.Run("missing host mount dir", func(t *testing.T) {
-		_, err := runBindMount(t, "node", &config.Runtime{}, "/opt/drassi/runtimes/node", "")
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "host mount directory not set in context")
-	})
 }
 
 func TestNewProvisioner(t *testing.T) {
@@ -80,21 +73,22 @@ func TestNewProvisioner(t *testing.T) {
 		runtimes := map[string]*config.Runtime{
 			"node": {Image: "drassi/node:24"},
 		}
-		p := NewProvisioner(store, runtimes)
+		p, err := NewProvisioner(store, runtimes)
+		require.NoError(t, err)
 		require.NotNil(t, p)
 	})
 
-	t.Run("with runtimes but missing store panics", func(t *testing.T) {
+	t.Run("with runtimes but missing store error", func(t *testing.T) {
 		runtimes := map[string]*config.Runtime{
 			"node": {Image: "drassi/node:24"},
 		}
-		require.Panics(t, func() {
-			_ = NewProvisioner(nil, runtimes)
-		})
+		_, err := NewProvisioner(nil, runtimes)
+		require.Error(t, err, "oci store required for runtimes")
 	})
 
 	t.Run("without runtimes returns nil provisioner", func(t *testing.T) {
-		p := NewProvisioner(store, nil)
+		p, err := NewProvisioner(store, nil)
+		require.NoError(t, err)
 		require.Nil(t, p)
 	})
 }

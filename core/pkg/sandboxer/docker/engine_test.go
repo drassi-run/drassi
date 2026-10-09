@@ -170,20 +170,20 @@ func TestFactoryCreate(t *testing.T) {
 		_ = eng.Close()
 	})
 
-	t.Run("with runtimes but missing store panics", func(t *testing.T) {
+	t.Run("with runtimes but missing store error", func(t *testing.T) {
 		f := NewFactory(DefaultConfig())
 		f.ProvisionRuntime(map[string]*config.Runtime{
 			"node": {Image: "drassi/node:24"},
 		})
-		require.Panicsf(t, func() {
-			_, _ = f.Create()
-		}, "oci store required")
+		_, err := f.Create()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "oci store required for runtimes")
 	})
 }
 
 func TestNew(t *testing.T) {
 	t.Run("with nil config uses DefaultConfig without panicking", func(t *testing.T) {
-		eng, err := New(nil, nil)
+		eng, err := New(t.TempDir(), nil, nil)
 		require.NoError(t, err)
 		require.NotNil(t, eng)
 		_ = eng.Close()

@@ -10,12 +10,12 @@ import (
 	"cmp"
 	"context"
 	"fmt"
-	"path/filepath"
 	"slices"
 	"sync"
 
 	"drassi.run/core/config"
 	"drassi.run/core/pkg/sandboxer"
+	"drassi.run/core/util/error"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -26,17 +26,17 @@ type Launcher[Req any] func(ctx context.Context, req Req) (sandboxer.Sandbox, er
 // It is completely stateless and safe for concurrent use across multiple launches.
 type Provisioner[Req any] struct {
 	runtimes map[string]*config.Runtime
-	ops      []Operation[Req]
+	factory  PipelineFactory[Req]
 }
 
-// New creates a new Provisioner with explicitly provided operations. Zero default ops are added.
+// New creates a new Provisioner with explicitly provided runtimes and factory.
 func New[Req any](
 	runtimes map[string]*config.Runtime,
-	ops ...Operation[Req],
+	factory PipelineFactory[Req],
 ) *Provisioner[Req] {
 	return &Provisioner[Req]{
 		runtimes: runtimes,
-		ops:      ops,
+		factory:  factory,
 	}
 }
 
@@ -55,35 +55,26 @@ func (p *Provisioner[Req]) Launch(runtimeDir string, l Launcher[Req]) Launcher[R
 		}
 		slices.Sort(names)
 
-		contexts := make([]*Context, len(names))
+		pipelines := make([]Pipeline[Req], len(names))
 		for i, name := range names {
-			targetDir := filepath.Join(runtimeDir, name)
-			contexts[i] = NewContext(ctx, name, p.runtimes[name], targetDir)
+			pipelines[i] = p.factory(runtimeDir, name, *p.runtimes[name])
 		}
 
-		var (
-			mu       sync.Mutex
-			cleanups []sandboxer.Cleanup
-		)
-
-		rollback := func(ctx context.Context) {
-			ctx = context.WithoutCancel(ctx)
-			for _, cleanup := range slices.Backward(cleanups) {
-				_ = cleanup(ctx)
-			}
-		}
+		var mu sync.Mutex
+		var rb xerror.Rollbacker
+		defer rb.Run(ctx)
 
 		// 2. Parallel Prepare across all runtimes: parallel(pull -> mount)
 		g, groupCtx := errgroup.WithContext(ctx)
-		for _, pctx := range contexts {
-			pctx.Context = groupCtx
+		for i, name := range names {
+			pipeline := pipelines[i]
 			g.Go(func() error {
-				for _, op := range p.ops {
-					if c, err := op.Prepare(pctx); err != nil {
-						return fmt.Errorf("operation %q prepare failed for runtime %q: %w", op.Name(), pctx.RuntimeName, err)
+				for _, op := range pipeline {
+					if c, err := op.Prepare(groupCtx); err != nil {
+						return fmt.Errorf("operation %q prepare failed for runtime %q: %w", op.Name(), name, err)
 					} else if c != nil {
 						mu.Lock()
-						cleanups = append(cleanups, c)
+						rb.Add(c)
 						mu.Unlock()
 					}
 				}
@@ -91,53 +82,44 @@ func (p *Provisioner[Req]) Launch(runtimeDir string, l Launcher[Req]) Launcher[R
 			})
 		}
 		if err = g.Wait(); err != nil {
-			rollback(ctx)
 			return
-		}
-		for _, pctx := range contexts {
-			pctx.Context = ctx
 		}
 
 		// 3. Sequential PreLaunch request mutation
-		for _, pctx := range contexts {
-			for _, op := range p.ops {
-				if req, err = op.PreLaunch(pctx, req); err != nil {
-					rollback(ctx)
-					return nil, fmt.Errorf("operation %q pre-launch failed for runtime %q: %w", op.Name(), pctx.RuntimeName, err)
+		for i, name := range names {
+			for _, op := range pipelines[i] {
+				if req, err = op.PreLaunch(ctx, req); err != nil {
+					return nil, fmt.Errorf("operation %q pre-launch failed for runtime %q: %w", op.Name(), name, err)
 				}
 			}
 		}
 
 		// 4. Invoke inner launcher with mutated request
 		if sb, err = l(ctx, req); err != nil {
-			rollback(ctx)
 			return
 		}
 
 		// 5. Sequential PostLaunch actions
-		for _, pctx := range contexts {
-			for _, op := range p.ops {
-				next, err := op.PostLaunch(pctx, sb)
+		for i, name := range names {
+			for _, op := range pipelines[i] {
+				next, err := op.PostLaunch(ctx, sb)
 				if err != nil {
 					sb = cmp.Or(next, sb)
 					_ = sb.Terminate(context.WithoutCancel(ctx))
-					rollback(ctx)
-					return nil, fmt.Errorf("operation %q post-launch failed for runtime %q: %w", op.Name(), pctx.RuntimeName, err)
+					err = fmt.Errorf("operation %q post-launch failed for runtime %q: %w", op.Name(), name, err)
+					return nil, err
 				}
 				sb = next
 			}
 		}
 
-		// 6. Success: attach all cleanups to sandbox in LIFO order
-		if len(cleanups) > 0 {
-			slices.Reverse(cleanups)
-			sb = sandboxer.AddAfterCleanup(sb, cleanups...)
-		}
-
+		// 6. Success: dismiss rollback and attach all cleanups to sandbox in LIFO order
+		rb.Dismiss()
+		sb = sandboxer.AddAfterCleanup(sb, rb.Cleanups()...)
 		return
 	}
 }
 
 func (p *Provisioner[Req]) Empty() bool {
-	return p == nil || len(p.runtimes) == 0 || len(p.ops) == 0
+	return p == nil || len(p.runtimes) == 0 || p.factory == nil
 }
