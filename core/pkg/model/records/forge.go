@@ -103,8 +103,8 @@ func (f *Forge) WellKnownLabels() map[string]string {
 		LabelReference:  f.Ref,        // e.g: refs/heads/main
 		LabelWorkflow:   f.Workflow,   // e.g: test
 		LabelJob:        f.Job,        // e.g: unittests
-		LabelAttempt:    f.RunAttempt, // e.g: 1
 		LabelRun:        f.RunId,      // e.g: 11208400917
+		LabelAttempt:    f.RunAttempt, // e.g: 1
 	}
 	return labels
 }

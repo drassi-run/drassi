@@ -42,7 +42,7 @@ type engine struct {
 }
 
 func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*sandboxer.LaunchResponse, error) {
-	jobDir := filepath.Join(e.rootDir, req.Forge.StandardPath())
+	jobDir := filepath.Join(e.rootDir, req.Uid)
 
 	launcher := func(_ context.Context, dir string) (sandboxer.Sandbox, error) {
 		return newSandbox(dir)

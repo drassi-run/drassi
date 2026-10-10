@@ -74,7 +74,7 @@ type engine struct {
 func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*sandboxer.LaunchResponse, error) {
 	tmpl := e.template.Clone()
 	tmpl.Name = e.sandboxName(req.Forge)
-	jobDir := filepath.Join(e.rootDir, req.Forge.StandardPath())
+	jobDir := filepath.Join(e.rootDir, req.Uid)
 
 	launcher := e.launch
 	if prov := e.provisioner; prov != nil {
