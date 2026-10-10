@@ -115,7 +115,7 @@ func (p *Provisioner[Req]) Launch(runtimeDir string, l Launcher[Req]) Launcher[R
 
 		// 6. Success: dismiss rollback and attach all cleanups to sandbox in LIFO order
 		rb.Dismiss()
-		sb = sandboxer.AddAfterCleanup(sb, rb.Cleanups()...)
+		sb = sandboxer.PostTerminate(sb, rb.Cleanups()...)
 		return
 	}
 }

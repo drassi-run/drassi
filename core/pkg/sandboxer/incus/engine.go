@@ -133,8 +133,7 @@ func (e *engine) supportContainer(jobDir string, resp *sandboxer.LaunchResponse)
 		return
 	}
 
-	resp.Sandbox = sandboxer.AddBeforeCleanup(resp.Sandbox, func(context.Context) error {
-		_ = os.RemoveAll(jobDir)
+	resp.Sandbox = sandboxer.PreTerminate(resp.Sandbox, func(context.Context) error {
 		if closer, ok := ce.Load().(io.Closer); ok {
 			return closer.Close()
 		}
