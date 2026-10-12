@@ -20,37 +20,41 @@ import (
 	"drassi.run/core/util/sync"
 )
 
-func New(rootDir string, prov *provision.Provisioner[string]) (e sandboxer.Engine, err error) {
-	if rootDir, err = xpath.ResolveDir(rootDir); err != nil {
+func New(jobsDir string, prov *provision.Provisioner[string]) (e sandboxer.Engine, err error) {
+	if jobsDir, err = xpath.ResolveDir(jobsDir); err != nil {
 		return
 	}
 
-	if err = os.MkdirAll(rootDir, xfs.DirPerm); err != nil {
+	if err = os.MkdirAll(jobsDir, xfs.DirPerm); err != nil {
 		return
 	}
 
 	e = &engine{
-		rootDir:     rootDir,
+		jobsDir:     jobsDir,
 		provisioner: prov,
 	}
 	return
 }
 
 type engine struct {
-	rootDir     string
+	jobsDir     string
 	provisioner *provision.Provisioner[string]
 }
 
 func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*sandboxer.LaunchResponse, error) {
-	jobDir := filepath.Join(e.rootDir, req.Uid)
+	jobDir := filepath.Join(e.jobsDir, req.Uid)
 
 	launcher := func(_ context.Context, dir string) (sandboxer.Sandbox, error) {
 		return newSandbox(dir)
 	}
 	if prov := e.provisioner; prov != nil {
-		runtimeDir := filepath.Join(jobDir, "runtimes")
-		launcher = prov.Launch(runtimeDir, launcher)
+		runtimesDir := filepath.Join(jobDir, "runtimes")
+		launcher = prov.Launch(runtimesDir, launcher)
 	}
+	launcher = sandboxer.SetupJobDir(jobDir, launcher,
+		sandboxer.WithForge(req.Forge),
+		sandboxer.WithSandboxId("host", req.Uid),
+	)
 	sb, err := launcher(ctx, jobDir)
 	if err != nil {
 		return nil, err

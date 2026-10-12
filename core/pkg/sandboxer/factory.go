@@ -19,8 +19,8 @@ import (
 type Factory interface {
 	// SupportContainer(config) // TODO
 
-	RootDir(string)
-	SetOciStore(ocistore.Manager)
+	JobsDir(string)
+	OciStore(ocistore.Manager)
 	ProvisionRuntime(map[string]*config.Runtime)
 
 	Create() (Engine, error)

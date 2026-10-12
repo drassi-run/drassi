@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"path/filepath"
 	"time"
 
 	coreconfig "drassi.run/core/config"
@@ -107,7 +108,8 @@ func (l *launcher) Init(ctx context.Context, opts *options) (err error) {
 }
 
 func (l *launcher) initStores(cfg *ghaconfig.Config) error {
-	if store, err := gitstore.New(".cache"); err != nil {
+	gitDir := filepath.Join(coreconfig.RootDir(), "gitstore")
+	if store, err := gitstore.New(gitDir); err != nil {
 		return err
 	} else {
 		l.gitStore = store
@@ -131,8 +133,9 @@ func (l *launcher) initSandboxer(cfg *ghaconfig.Config) error {
 		return err
 	}
 
-	factory.RootDir(coreconfig.RootDir())
-	factory.SetOciStore(l.ociStore)
+	jobsDir := filepath.Join(coreconfig.RootDir(), "jobs")
+	factory.JobsDir(jobsDir)
+	factory.OciStore(l.ociStore)
 	factory.ProvisionRuntime(cfg.Runtimes)
 	l.Sandboxer, err = factory.Create()
 	return err

@@ -51,16 +51,16 @@ type factory struct {
 	create func() (sandboxer.Engine, error)
 
 	cfg      *Config
-	rootDir  string
+	jobsDir  string
 	store    ocistore.Manager
 	runtimes map[string]*config.Runtime
 }
 
-func (f *factory) RootDir(d string) {
-	f.rootDir = d
+func (f *factory) JobsDir(d string) {
+	f.jobsDir = d
 }
 
-func (f *factory) SetOciStore(store ocistore.Manager) {
+func (f *factory) OciStore(store ocistore.Manager) {
 	f.store = store
 }
 
@@ -78,23 +78,22 @@ func (f *factory) doCreate() (sandboxer.Engine, error) {
 		if f.store == nil {
 			return nil, errors.New("oci store required for runtimes")
 		}
-		fact := func(runtimeDir string, name string, rt config.Runtime) provision.Pipeline[*Template] {
+		fact := func(sourceDir string, name string, rt config.Runtime) provision.Pipeline[*Template] {
 			targetDir := filepath.Join(layout.Runtimes(), name)
-			mountDir := filepath.Join(runtimeDir, name)
 			state := new(provision.State)
 			return provision.Pipeline[*Template]{
 				provision.Pull[*Template](f.store, state, rt.Image),
-				provision.Mkdir[*Template](mountDir),
+				provision.Mkdir[*Template](sourceDir),
 				provision.Mount[*Template](f.store, state,
-					ocistore.WithTarget(mountDir),
+					ocistore.WithTarget(sourceDir),
 					ocistore.WithWritable(!rt.ReadOnly),
 				),
-				AddDiskDevice(name, targetDir, mountDir, rt),
+				AddDiskDevice(name, sourceDir, targetDir, rt),
 			}
 		}
 		prov = provision.New(f.runtimes, fact)
 	}
-	e, err := New(f.rootDir, f.cfg, prov)
+	e, err := New(f.jobsDir, f.cfg, prov)
 	if err != nil {
 		return nil, err
 	}

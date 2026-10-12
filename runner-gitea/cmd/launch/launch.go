@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"sync/atomic"
 	"time"
 
@@ -187,7 +188,8 @@ func (c *launcher) runTaskE(ctx context.Context, task *runnerv1.Task) error {
 }
 
 func (c *launcher) loadGitStore() error {
-	if store, err := gitstore.New(".cache"); err != nil {
+	gitDir := filepath.Join(coreconfig.RootDir(), "gitstore")
+	if store, err := gitstore.New(gitDir); err != nil {
 		return err
 	} else {
 		c.gitStore = store
@@ -213,8 +215,9 @@ func (c *launcher) loadSandboxer(config *giteaconfig.Config) error {
 		return err
 	}
 
-	factory.RootDir(coreconfig.RootDir())
-	factory.SetOciStore(c.ociStore)
+	jobsDir := filepath.Join(coreconfig.RootDir(), "jobs")
+	factory.JobsDir(jobsDir)
+	factory.OciStore(c.ociStore)
 	factory.ProvisionRuntime(config.Runtimes)
 	sb, err := factory.Create()
 	if err != nil {

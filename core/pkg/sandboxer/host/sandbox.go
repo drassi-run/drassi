@@ -130,5 +130,5 @@ func (sb sandbox) Execute(ctx context.Context, cmd, path []string, env map[strin
 }
 
 func (sb sandbox) Terminate(context.Context) error {
-	return os.RemoveAll(string(sb))
+	return nil
 }

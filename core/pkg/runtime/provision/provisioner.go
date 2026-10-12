@@ -10,6 +10,8 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"slices"
 	"sync"
 
@@ -18,9 +20,6 @@ import (
 	"drassi.run/core/util/error"
 	"golang.org/x/sync/errgroup"
 )
-
-// Launcher is a function that creates a sandbox from a provider-specific request.
-type Launcher[Req any] func(ctx context.Context, req Req) (sandboxer.Sandbox, error)
 
 // Provisioner orchestrates multi-runtime provisioning as a Launcher decorator.
 // It is completely stateless and safe for concurrent use across multiple launches.
@@ -42,12 +41,22 @@ func New[Req any](
 
 // Launch decorates an inner Launcher with parallel preparation, sequential request transformation,
 // inner execution, sequential post-launch actions, and automatic cleanup registration/rollback.
-func (p *Provisioner[Req]) Launch(runtimeDir string, l Launcher[Req]) Launcher[Req] {
+func (p *Provisioner[Req]) Launch(runtimesDir string, l sandboxer.Launcher[Req]) sandboxer.Launcher[Req] {
 	if p.Empty() {
 		return l
 	}
 
 	return func(ctx context.Context, req Req) (sb sandboxer.Sandbox, err error) {
+		var rb xerror.Rollbacker
+		defer rb.Run(ctx)
+
+		if err = os.MkdirAll(runtimesDir, 0644); err != nil {
+			return nil, err
+		}
+		rb.Add(func(ctx context.Context) error {
+			return os.RemoveAll(runtimesDir)
+		})
+
 		// 1. Deterministic ordering of runtimes by name
 		names := make([]string, 0, len(p.runtimes))
 		for name := range p.runtimes {
@@ -57,15 +66,13 @@ func (p *Provisioner[Req]) Launch(runtimeDir string, l Launcher[Req]) Launcher[R
 
 		pipelines := make([]Pipeline[Req], len(names))
 		for i, name := range names {
+			runtimeDir := filepath.Join(runtimesDir, name)
 			pipelines[i] = p.factory(runtimeDir, name, *p.runtimes[name])
 		}
 
-		var mu sync.Mutex
-		var rb xerror.Rollbacker
-		defer rb.Run(ctx)
-
 		// 2. Parallel Prepare across all runtimes: parallel(pull -> mount)
 		g, groupCtx := errgroup.WithContext(ctx)
+		var mu sync.Mutex
 		for i, name := range names {
 			pipeline := pipelines[i]
 			g.Go(func() error {

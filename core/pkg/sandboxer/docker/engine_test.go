@@ -156,7 +156,7 @@ func TestFactoryCreate(t *testing.T) {
 
 	t.Run("with runtimes and store creates engine successfully", func(t *testing.T) {
 		f := NewFactory(DefaultConfig())
-		f.SetOciStore(store)
+		f.OciStore(store)
 		f.ProvisionRuntime(map[string]*config.Runtime{
 			"node": {Image: "drassi/node:24"},
 		})

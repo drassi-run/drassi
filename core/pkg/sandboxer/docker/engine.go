@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"path/filepath"
 	"sync/atomic"
 
 	c "drassi.run/core/pkg/container"
@@ -26,7 +27,7 @@ import (
 	dockerclient "github.com/moby/moby/client"
 )
 
-func New(rootDir string, cfg *Config, prov *provision.Provisioner[*types.ContainerSpec]) (sandboxer.Engine, error) {
+func New(jobsDir string, cfg *Config, prov *provision.Provisioner[*types.ContainerSpec]) (sandboxer.Engine, error) {
 	if cfg == nil {
 		cfg = DefaultConfig()
 	}
@@ -43,7 +44,7 @@ func New(rootDir string, cfg *Config, prov *provision.Provisioner[*types.Contain
 	client = c.WithTelemetry(client)
 
 	e := &engine{
-		rootDir:     rootDir,
+		jobsDir:     jobsDir,
 		client:      client,
 		template:    cfg.Template,
 		provisioner: prov,
@@ -52,7 +53,7 @@ func New(rootDir string, cfg *Config, prov *provision.Provisioner[*types.Contain
 }
 
 type engine struct {
-	rootDir     string
+	jobsDir     string
 	client      c.Engine
 	template    *container.Template
 	provisioner *provision.Provisioner[*types.ContainerSpec]
@@ -110,9 +111,24 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (resp
 
 	id := new(atomic.Value)
 	launcher := e.launch(layout, id)
+	jobDir := filepath.Join(e.jobsDir, req.Uid)
 	if prov := e.provisioner; prov != nil {
-		launcher = prov.Launch(layout.Runtimes(), launcher)
+		runtimesDir := filepath.Join(jobDir, "runtimes")
+		launcher = prov.Launch(runtimesDir, launcher)
 	}
+	launcher = sandboxer.SetupJobDir(jobDir, launcher,
+		sandboxer.WithForge(req.Forge),
+		func() map[string]string {
+			var cid string
+			if v := id.Load(); v != nil {
+				cid = v.(string)
+			}
+			return map[string]string{
+				records.LabelSandboxer:   "docker",
+				records.LabelSandboxerId: cid,
+			}
+		},
+	)
 
 	sb, err = launcher(ctx, spec)
 	if err != nil {
@@ -145,7 +161,7 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (resp
 	return
 }
 
-func (e *engine) launch(layout sandboxer.Layout, id *atomic.Value) provision.Launcher[*types.ContainerSpec] {
+func (e *engine) launch(layout sandboxer.Layout, id *atomic.Value) sandboxer.Launcher[*types.ContainerSpec] {
 	return func(ctx context.Context, spec *types.ContainerSpec) (sandboxer.Sandbox, error) {
 		runOpts := &c.RunOptions{
 			Stdio:   new(types.Stdio),
@@ -154,6 +170,7 @@ func (e *engine) launch(layout sandboxer.Layout, id *atomic.Value) provision.Lau
 		if cid, err := e.client.ContainerRun(ctx, spec, runOpts); err != nil {
 			return nil, err
 		} else if old := id.Swap(cid); old != nil && old != "" {
+			_ = e.client.ContainerRemove(ctx, &c.RemoveOptions{Id: cid})
 			return nil, fmt.Errorf("sandbox already running: %s", old)
 		} else {
 			return container.NewSandbox(ctx, e.client, cid, layout)

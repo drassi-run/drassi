@@ -80,12 +80,14 @@ const (
 )
 
 const (
-	LabelRepository = "run.drassi.repository"
-	LabelReference  = "run.drassi.reference"
-	LabelWorkflow   = "run.drassi.workflow"
-	LabelJob        = "run.drassi.job"
-	LabelAttempt    = "run.drassi.attempt"
-	LabelRun        = "run.drassi.run"
+	LabelRepository  = "run.drassi.repository"
+	LabelReference   = "run.drassi.reference"
+	LabelWorkflow    = "run.drassi.workflow"
+	LabelJob         = "run.drassi.job"
+	LabelAttempt     = "run.drassi.attempt"
+	LabelRun         = "run.drassi.run"
+	LabelSandboxer   = "run.drassi.sandboxer"
+	LabelSandboxerId = "run.drassi.sandboxer_id"
 )
 
 func (f *Forge) WellKnownLabels() map[string]string {

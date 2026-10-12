@@ -10,7 +10,6 @@ import (
 	"context"
 	"io"
 	"net"
-	"os"
 	"path"
 	"path/filepath"
 	"strings"
@@ -27,14 +26,14 @@ import (
 	dockerclient "github.com/moby/moby/client"
 )
 
-func New(rootDir string, config *Config, prov *provision.Provisioner[*Template]) (sandboxer.Engine, error) {
+func New(jobsDir string, config *Config, prov *provision.Provisioner[*Template]) (sandboxer.Engine, error) {
 	if client, err := incusclient.ConnectIncusUnix(config.Endpoint, nil); err != nil {
 		return nil, err
 	} else if source, err := instanceSource(config.Template.Image); err != nil {
 		return nil, err
 	} else {
 		e := &engine{
-			rootDir:     rootDir,
+			jobsDir:     jobsDir,
 			client:      client,
 			template:    &config.Template,
 			source:      source,
@@ -64,7 +63,7 @@ func instanceSource(uri string) (*incusapi.InstanceSource, error) {
 }
 
 type engine struct {
-	rootDir     string
+	jobsDir     string
 	client      incusclient.InstanceServer
 	template    *Template
 	source      *incusapi.InstanceSource
@@ -74,16 +73,17 @@ type engine struct {
 func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*sandboxer.LaunchResponse, error) {
 	tmpl := e.template.Clone()
 	tmpl.Name = e.sandboxName(req.Forge)
-	jobDir := filepath.Join(e.rootDir, req.Uid)
+	jobDir := filepath.Join(e.jobsDir, req.Uid)
 
 	launcher := e.launch
 	if prov := e.provisioner; prov != nil {
-		runtimeDir := filepath.Join(jobDir, "runtimes")
-		if err := os.MkdirAll(runtimeDir, 0644); err != nil {
-			return nil, err
-		}
-		launcher = prov.Launch(runtimeDir, launcher)
+		runtimesDir := filepath.Join(jobDir, "runtimes")
+		launcher = prov.Launch(runtimesDir, launcher)
 	}
+	launcher = sandboxer.SetupJobDir(jobDir, launcher,
+		sandboxer.WithForge(req.Forge),
+		sandboxer.WithSandboxId("incus", tmpl.Name),
+	)
 	sb, err := launcher(ctx, tmpl)
 	if err != nil {
 		return nil, err
@@ -93,7 +93,7 @@ func (e *engine) Launch(ctx context.Context, req *sandboxer.LaunchRequest) (*san
 		Sandbox: sb,
 		Mounter: newMounter(),
 	}
-	e.supportContainer(jobDir, resp)
+	e.supportContainer(resp)
 
 	return resp, nil
 }
@@ -124,7 +124,7 @@ func (e *engine) launch(ctx context.Context, tmpl *Template) (sandboxer.Sandbox,
 	return sb, nil
 }
 
-func (e *engine) supportContainer(jobDir string, resp *sandboxer.LaunchResponse) {
+func (e *engine) supportContainer(resp *sandboxer.LaunchResponse) {
 	var ce atomic.Value
 	d, ok := sandboxer.Unwrap(resp.Sandbox).(interface {
 		Dialer(cmd []string) func(ctx context.Context, network, addr string) (net.Conn, error)
