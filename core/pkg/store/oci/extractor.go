@@ -51,8 +51,8 @@ func extractLayer(ctx context.Context, r io.Reader, targetDir string) error {
 		dirName := filepath.Dir(destPath)
 
 		// Handle whiteouts
-		if strings.HasPrefix(baseName, ".wh.") {
-			targetName := strings.TrimPrefix(baseName, ".wh.")
+		if after, ok := strings.CutPrefix(baseName, ".wh."); ok {
+			targetName := after
 			_ = os.RemoveAll(filepath.Join(dirName, targetName))
 			continue
 		}

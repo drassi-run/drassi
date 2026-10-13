@@ -88,11 +88,12 @@ func (s *orasStore) Pull(ctx context.Context, imageRef string, opts ...PullOptio
 		repo.PlainHTTP = true
 	}
 	if po.AuthUsername != "" || po.AuthPassword != "" {
+		cred := auth.Credential{
+			Username: po.AuthUsername,
+			Password: po.AuthPassword,
+		}
 		repo.Client = &auth.Client{
-			Credential: auth.StaticCredential(repo.Reference.Host(), auth.Credential{
-				Username: po.AuthUsername,
-				Password: po.AuthPassword,
-			}),
+			Credential: auth.StaticCredential(repo.Reference.Host(), cred),
 		}
 	}
 
