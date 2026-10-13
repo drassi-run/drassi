@@ -102,7 +102,7 @@ func (s *orasStore) Pull(ctx context.Context, imageRef string, opts ...PullOptio
 }
 
 func (s *orasStore) Mount(ctx context.Context, image Image, opts ...MountOption) (*Mount, error) {
-	return nil, nil
+	return s.mountFuseOverlayfs(ctx, image, opts...)
 }
 
 func (s *orasStore) Read(ctx context.Context, image Image, opts ...ReadOption) (io.ReadCloser, error) {

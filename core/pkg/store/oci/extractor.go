@@ -62,7 +62,8 @@ func extractLayer(ctx context.Context, r io.Reader, targetDir string) error {
 			if err := os.MkdirAll(destPath, hdr.FileInfo().Mode()); err != nil {
 				return err
 			}
-		case tar.TypeReg:
+		//nolint:staticcheck // SA1019 - TypeRegA has been deprecated in Go but appears in legacy archives
+		case tar.TypeReg, tar.TypeRegA:
 			if err := os.MkdirAll(dirName, 0755); err != nil {
 				return err
 			}
@@ -75,6 +76,19 @@ func extractLayer(ctx context.Context, r io.Reader, targetDir string) error {
 				return err
 			}
 			f.Close()
+		case tar.TypeLink:
+			if err := os.MkdirAll(dirName, 0755); err != nil {
+				return err
+			}
+			cleanLink := filepath.Clean(hdr.Linkname)
+			if strings.HasPrefix(cleanLink, "..") || filepath.IsAbs(cleanLink) {
+				continue // skip dangerous path
+			}
+			oldPath := filepath.Join(targetDir, cleanLink)
+			_ = os.Remove(destPath)
+			if err := os.Link(oldPath, destPath); err != nil {
+				return err
+			}
 		case tar.TypeSymlink:
 			if err := os.MkdirAll(dirName, 0755); err != nil {
 				return err

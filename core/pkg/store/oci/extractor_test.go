@@ -175,3 +175,49 @@ func TestExtractLayer_PathTraversal(t *testing.T) {
 	_, err = os.Stat(escapedFile)
 	require.True(t, os.IsNotExist(err))
 }
+
+func TestExtractLayer_Hardlink(t *testing.T) {
+	var buf bytes.Buffer
+	gw := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gw)
+
+	// Add original file
+	content := []byte("hardlink source content")
+	require.NoError(t, tw.WriteHeader(&tar.Header{
+		Name:     "orig.txt",
+		Typeflag: tar.TypeReg,
+		Mode:     0644,
+		Size:     int64(len(content)),
+	}))
+	_, err := tw.Write(content)
+	require.NoError(t, err)
+
+	// Add hardlink to orig.txt
+	require.NoError(t, tw.WriteHeader(&tar.Header{
+		Name:     "hardlink.txt",
+		Typeflag: tar.TypeLink,
+		Linkname: "orig.txt",
+	}))
+
+	// Add hardlink with traversal (should be skipped)
+	require.NoError(t, tw.WriteHeader(&tar.Header{
+		Name:     "badlink.txt",
+		Typeflag: tar.TypeLink,
+		Linkname: "../etc/passwd",
+	}))
+
+	require.NoError(t, tw.Close())
+	require.NoError(t, gw.Close())
+
+	destDir := t.TempDir()
+	err = extractLayer(context.Background(), &buf, destDir)
+	require.NoError(t, err)
+
+	hardlinked, err := os.ReadFile(filepath.Join(destDir, "hardlink.txt"))
+	require.NoError(t, err)
+	require.Equal(t, content, hardlinked)
+
+	_, err = os.Stat(filepath.Join(destDir, "badlink.txt"))
+	require.True(t, os.IsNotExist(err))
+}
+
