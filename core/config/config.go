@@ -33,6 +33,7 @@ type Runtime struct {
 type OciStore struct {
 	Backend    string                 `toml:"backend" json:"backend"`
 	Containerd *ContainerdStoreConfig `toml:"containerd,omitempty" json:"containerd,omitempty"`
+	Oras       *OrasStoreConfig       `toml:"oras,omitempty" json:"oras,omitempty"`
 }
 
 type ContainerdStoreConfig struct {
@@ -40,4 +41,9 @@ type ContainerdStoreConfig struct {
 	Namespace        string `toml:"namespace" json:"namespace"`
 	FsSnapshotter    string `toml:"fs_snapshotter" json:"fs_snapshotter"`
 	BlockSnapshotter string `toml:"block_snapshotter" json:"block_snapshotter"`
+}
+
+type OrasStoreConfig struct {
+	StoreDir            string `toml:"store_dir,omitempty" json:"store_dir,omitempty"`
+	FuseOverlayfsBinary string `toml:"fuse_overlayfs_binary,omitempty" json:"fuse_overlayfs_binary,omitempty"`
 }

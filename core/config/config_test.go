@@ -7,6 +7,7 @@
 package config
 
 import (
+	"path/filepath"
 	"testing"
 
 	"github.com/pelletier/go-toml/v2"
@@ -90,3 +91,29 @@ provider = "docker"
 	require.NotNil(t, cfg.Sandboxer)
 	require.Equal(t, "docker", cfg.Sandboxer.Provider)
 }
+
+func TestOrasStoreConfigParsing(t *testing.T) {
+	raw := `
+[ocistore]
+backend = "oras"
+
+[ocistore.oras]
+store_dir = "/tmp/oras-store"
+fuse_overlayfs_binary = "/usr/bin/fuse-overlayfs"
+`
+	var cfg Config[any]
+	err := toml.Unmarshal([]byte(raw), &cfg)
+	require.NoError(t, err)
+	require.NotNil(t, cfg.OciStore)
+	require.Equal(t, "oras", cfg.OciStore.Backend)
+	require.NotNil(t, cfg.OciStore.Oras)
+	require.Equal(t, "/tmp/oras-store", cfg.OciStore.Oras.StoreDir)
+	require.Equal(t, "/usr/bin/fuse-overlayfs", cfg.OciStore.Oras.FuseOverlayfsBinary)
+}
+
+func TestDefaultOrasStoreConfig(t *testing.T) {
+	cfg := DefaultOrasStoreConfig()
+	require.NotNil(t, cfg)
+	require.Equal(t, filepath.Join(RootDir(), "ocistore"), cfg.StoreDir)
+}
+

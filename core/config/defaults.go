@@ -59,3 +59,9 @@ func DefaultContainerdStoreConfig() *ContainerdStoreConfig {
 		FsSnapshotter: "overlayfs",
 	}
 }
+
+func DefaultOrasStoreConfig() *OrasStoreConfig {
+	return &OrasStoreConfig{
+		StoreDir: filepath.Join(RootDir(), "ocistore"),
+	}
+}

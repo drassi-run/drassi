@@ -64,6 +64,12 @@ func New(cfg *config.OciStore) (Manager, error) {
 			cCfg = config.DefaultContainerdStoreConfig()
 		}
 		return NewContainerdStore(cCfg)
+	case "oras":
+		oCfg := cfg.Oras
+		if oCfg == nil {
+			oCfg = &config.OrasStoreConfig{}
+		}
+		return NewOrasStore(oCfg)
 	default:
 		return nil, fmt.Errorf("unsupported oci store backend %q", cfg.Backend)
 	}
