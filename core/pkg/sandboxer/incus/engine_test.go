@@ -54,13 +54,13 @@ func (s *IncusEngineTestSuite) TestProvisionerIntegration() {
 		"node": {Image: "drassi/node:24"},
 	}
 
-	factory := func(runtimeDir string, name string, rt config.Runtime) provision.Pipeline[*Template] {
-		targetDir := filepath.Join(runtimeDir, name)
+	factory := func(sourceDir string, name string, rt config.Runtime) provision.Pipeline[*Template] {
+		targetDir := filepath.Join(layout.Runtimes(), name)
 		state := new(provision.State)
 		return provision.Pipeline[*Template]{
 			provision.Pull[*Template](s.store, state, rt.Image),
 			provision.Mount[*Template](s.store, state,
-				ocistore.WithTarget(targetDir),
+				ocistore.WithTarget(sourceDir),
 				ocistore.WithWritable(!rt.ReadOnly),
 			),
 			AddDiskDevice(name, "/var/lib/drassi/node_mount", targetDir, rt),
@@ -83,7 +83,7 @@ func (s *IncusEngineTestSuite) TestProvisionerIntegration() {
 		return mockSb, nil
 	}
 
-	sb, err := p.Launch("/opt/drassi/runtimes", launcher)(s.T().Context(), tmpl)
+	sb, err := p.Launch(s.T().TempDir(), launcher)(s.T().Context(), tmpl)
 	s.Require().NoError(err)
 	s.Require().True(launched)
 	s.Require().NotNil(sb)
@@ -152,7 +152,7 @@ func (s *IncusEngineTestSuite) TestTemplateClone() {
 func (s *IncusEngineTestSuite) TestFactory() {
 	s.Run("with runtimes and store", func() {
 		f := NewFactory(DefaultConfig())
-		f.SetOciStore(s.store)
+		f.OciStore(s.store)
 		f.ProvisionRuntime(map[string]*config.Runtime{
 			"node": {Image: "drassi/node:24"},
 		})

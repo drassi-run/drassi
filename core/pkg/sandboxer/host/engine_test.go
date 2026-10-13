@@ -142,8 +142,8 @@ func (s *HostEngineTestSuite) TestFactory() {
 	s.Run("with runtimes and store", func() {
 		cfg := DefaultConfig()
 		f := NewFactory(cfg)
-		f.RootDir(s.T().TempDir())
-		f.SetOciStore(s.store)
+		f.JobsDir(s.T().TempDir())
+		f.OciStore(s.store)
 		f.ProvisionRuntime(map[string]*config.Runtime{
 			"node": {Image: "drassi/node:24"},
 		})
@@ -156,7 +156,7 @@ func (s *HostEngineTestSuite) TestFactory() {
 	s.Run("with runtimes but missing store error", func() {
 		cfg := DefaultConfig()
 		f := NewFactory(cfg)
-		f.RootDir(s.T().TempDir())
+		f.JobsDir(s.T().TempDir())
 		f.ProvisionRuntime(map[string]*config.Runtime{
 			"node": {Image: "drassi/node:24"},
 		})
@@ -168,7 +168,7 @@ func (s *HostEngineTestSuite) TestFactory() {
 	s.Run("without runtimes", func() {
 		cfg := DefaultConfig()
 		f := NewFactory(cfg)
-		f.RootDir(s.T().TempDir())
+		f.JobsDir(s.T().TempDir())
 		eng, err := f.Create()
 		s.Require().NoError(err)
 		s.Require().NotNil(eng)

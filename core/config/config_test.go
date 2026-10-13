@@ -69,3 +69,24 @@ func TestDefaultConfigOciStore(t *testing.T) {
 	require.Equal(t, "overlayfs", cfg.OciStore.Containerd.FsSnapshotter)
 	require.Equal(t, "", cfg.OciStore.Containerd.BlockSnapshotter)
 }
+
+func TestDefaultConfig(t *testing.T) {
+	cfg := DefaultConfig[any]()
+	require.NotNil(t, cfg)
+	require.NotNil(t, cfg.Sandboxer)
+	require.Equal(t, "host", cfg.Sandboxer.Provider)
+	require.NotNil(t, cfg.Runtimes)
+	require.Contains(t, cfg.Runtimes, "node")
+}
+
+func TestSandboxerConfigParsing(t *testing.T) {
+	raw := `
+[sandboxer]
+provider = "docker"
+`
+	var cfg Config[any]
+	err := toml.Unmarshal([]byte(raw), &cfg)
+	require.NoError(t, err)
+	require.NotNil(t, cfg.Sandboxer)
+	require.Equal(t, "docker", cfg.Sandboxer.Provider)
+}

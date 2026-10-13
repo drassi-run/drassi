@@ -24,17 +24,17 @@ func NewProvisioner(store ocistore.Manager, runtimes map[string]*config.Runtime)
 	if store == nil {
 		return nil, errors.New("oci store required for runtimes")
 	}
-	factory := func(runtimeDir string, name string, rt config.Runtime) provision.Pipeline[*types.ContainerSpec] {
+	factory := func(sourceDir string, name string, rt config.Runtime) provision.Pipeline[*types.ContainerSpec] {
 		targetDir := filepath.Join(DefaultLayout.Runtimes(), name)
-		mountDir := filepath.Join(runtimeDir, name)
 		state := new(provision.State)
 		return provision.Pipeline[*types.ContainerSpec]{
 			provision.Pull[*types.ContainerSpec](store, state, rt.Image),
+			provision.Mkdir[*types.ContainerSpec](sourceDir),
 			provision.Mount[*types.ContainerSpec](store, state,
-				ocistore.WithTarget(mountDir),
+				ocistore.WithTarget(sourceDir),
 				ocistore.WithWritable(!rt.ReadOnly),
 			),
-			AddBindMount(mountDir, targetDir, rt),
+			AddBindMount(sourceDir, targetDir, rt),
 		}
 	}
 	return provision.New(runtimes, factory), nil

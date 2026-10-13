@@ -180,10 +180,10 @@ func (b *Bootstrapper) WrapSandbox(underlay, overlay sandboxer.Sandbox) sandboxe
 	}
 
 	if overlay == nil {
-		return sandboxer.AddBeforeCleanup(underlay, b.cleanups...)
+		return sandboxer.PreTerminate(underlay, b.cleanups...)
 	}
 
-	overlay = sandboxer.AddAfterCleanup(overlay, b.cleanups...)
+	overlay = sandboxer.PostTerminate(overlay, b.cleanups...)
 	if underlay == nil { // in container-native sandboxer, e.g. docker
 		return overlay
 	}

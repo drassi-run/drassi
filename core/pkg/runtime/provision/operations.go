@@ -9,13 +9,14 @@ package provision
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"drassi.run/core/config"
 	"drassi.run/core/pkg/sandboxer"
 	"drassi.run/core/pkg/store/oci"
 )
 
-type PipelineFactory[Req any] func(runtimeDir string, name string, rt config.Runtime) Pipeline[Req]
+type PipelineFactory[Req any] func(runtimeDir, name string, rt config.Runtime) Pipeline[Req]
 type Pipeline[Req any] []Operation[Req]
 
 type Operation[Req any] interface {
@@ -89,4 +90,22 @@ func (op *mountOp[Req]) Prepare(ctx context.Context) (sandboxer.Cleanup, error) 
 		return nil, fmt.Errorf("mount image: %w", err)
 	}
 	return mnt.Release, nil
+}
+
+func Mkdir[Req any](d string) Operation[Req] {
+	return &mkdir[Req]{
+		dir: d,
+	}
+}
+
+type mkdir[Req any] struct {
+	Noop[Req]
+	dir string
+}
+
+func (op *mkdir[Req]) Name() string { return "mkdir" }
+
+func (op *mkdir[Req]) Prepare(ctx context.Context) (sandboxer.Cleanup, error) {
+	err := os.MkdirAll(op.dir, 0777)
+	return nil, err
 }

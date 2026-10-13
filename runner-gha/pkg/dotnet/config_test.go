@@ -87,9 +87,8 @@ func TestLoadConfiguration(t *testing.T) {
 
 	ghaCfg, err := cfg.ToConfig("host")
 	require.NoError(t, err)
-	require.NotNil(t, ghaCfg)
-
-	assert.Equal(t, "host", ghaCfg.UseSandboxer)
+	require.NotNil(t, ghaCfg.Sandboxer)
+	assert.Equal(t, "host", ghaCfg.Sandboxer.Provider)
 	require.NotNil(t, ghaCfg.Runner)
 	assert.Equal(t, 100, ghaCfg.Runner.RunnerId)
 	assert.Equal(t, 10, ghaCfg.Runner.GroupId)

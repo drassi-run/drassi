@@ -9,68 +9,67 @@ package sandboxer
 import (
 	"context"
 	"errors"
-	"slices"
 )
 
 type Cleanup = func(ctx context.Context) error
 
-type decoratedSandbox struct {
+type hookedSandbox struct {
 	Sandbox
 
-	beforeCleanup []Cleanup
-	afterCleanup  []Cleanup
+	preTerminates  []Cleanup
+	postTerminates []Cleanup
 }
 
-func (s *decoratedSandbox) Terminate(ctx context.Context) error {
+func (s *hookedSandbox) Terminate(ctx context.Context) error {
 	var errs []error
 
-	for _, fn := range s.beforeCleanup {
+	for _, fn := range s.preTerminates {
 		errs = append(errs, fn(ctx))
 	}
 
 	errs = append(errs, s.Sandbox.Terminate(ctx))
 
-	for _, fn := range slices.Backward(s.afterCleanup) {
+	for _, fn := range s.postTerminates {
 		errs = append(errs, fn(ctx))
 	}
 
 	return errors.Join(errs...)
 }
 
-func AddBeforeCleanup(sb Sandbox, fns ...Cleanup) Sandbox {
+func PreTerminate(sb Sandbox, fns ...Cleanup) Sandbox {
 	if len(fns) == 0 {
 		return sb
 	}
 
-	if s, ok := sb.(*decoratedSandbox); ok {
+	if s, ok := sb.(*hookedSandbox); ok {
 		// LIFO, fns must be cleaned up first
-		s.beforeCleanup = append(fns, s.beforeCleanup...)
+		s.preTerminates = append(fns, s.preTerminates...)
 		return s
 	}
 
-	return &decoratedSandbox{
+	return &hookedSandbox{
 		Sandbox:       sb,
-		beforeCleanup: fns,
+		preTerminates: fns,
 	}
 }
 
-func AddAfterCleanup(sb Sandbox, fns ...Cleanup) Sandbox {
+func PostTerminate(sb Sandbox, fns ...Cleanup) Sandbox {
 	if len(fns) == 0 {
 		return sb
 	}
 
-	if s, ok := sb.(*decoratedSandbox); ok {
-		s.afterCleanup = append(s.afterCleanup, fns...)
+	if s, ok := sb.(*hookedSandbox); ok {
+		s.postTerminates = append(s.postTerminates, fns...)
 		return s
 	}
 
-	return &decoratedSandbox{
-		Sandbox:      sb,
-		afterCleanup: fns,
+	return &hookedSandbox{
+		Sandbox:        sb,
+		postTerminates: fns,
 	}
 }
 
-func (s *decoratedSandbox) Unwrap() Sandbox {
+func (s *hookedSandbox) Unwrap() Sandbox {
 	return s.Sandbox
 }
 

@@ -65,7 +65,9 @@ func (r *Rollbacker) Do(ctx context.Context) error {
 }
 
 func (r *Rollbacker) Cleanups() []func(ctx context.Context) error {
-	return r.cu
+	cu := slices.Clone(r.cu)
+	slices.Reverse(cu)
+	return cu
 }
 
 func (r *Rollbacker) Dismiss() {

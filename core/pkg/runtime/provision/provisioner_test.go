@@ -9,6 +9,7 @@ package provision_test
 import (
 	"context"
 	"errors"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -33,15 +34,17 @@ type testRequest struct {
 
 type ProvisionerTestSuite struct {
 	suite.Suite
-	ctrl   *gomock.Controller
-	baseSb *mock_sandboxer.MockSandbox
-	op     *mock_provision.MockOperation[*testRequest]
+	ctrl        *gomock.Controller
+	baseSb      *mock_sandboxer.MockSandbox
+	op          *mock_provision.MockOperation[*testRequest]
+	runtimesDir string
 }
 
 func (s *ProvisionerTestSuite) SetupTest() {
 	s.ctrl = gomock.NewController(s.T())
 	s.baseSb = mock_sandboxer.NewMockSandbox(s.ctrl)
 	s.op = mock_provision.NewMockOperation[*testRequest](s.ctrl)
+	s.runtimesDir = s.T().TempDir()
 }
 
 func (s *ProvisionerTestSuite) TestSuccess() {
@@ -74,7 +77,7 @@ func (s *ProvisionerTestSuite) TestSuccess() {
 	}
 
 	factory := func(runtimeDir string, name string, rt config.Runtime) provision.Pipeline[*testRequest] {
-		s.Require().Equal("/opt/runtimes", runtimeDir)
+		s.Require().Equal(filepath.Join(s.runtimesDir, name), runtimeDir)
 		s.Require().NotEmpty(name)
 		return provision.Pipeline[*testRequest]{s.op}
 	}
@@ -89,7 +92,7 @@ func (s *ProvisionerTestSuite) TestSuccess() {
 	}
 
 	req := &testRequest{}
-	decorated := p.Launch("/opt/runtimes", innerLauncher)
+	decorated := p.Launch(s.runtimesDir, innerLauncher)
 	sb, err := decorated(s.T().Context(), req)
 	s.Require().NoError(err)
 	s.Require().True(innerLauncherCalled)
@@ -140,7 +143,7 @@ func (s *ProvisionerTestSuite) TestPrepareFailureRollback() {
 		return nil, nil
 	}
 
-	_, err := p.Launch("/opt/runtimes", innerLauncher)(s.T().Context(), &testRequest{})
+	_, err := p.Launch(s.runtimesDir, innerLauncher)(s.T().Context(), &testRequest{})
 	s.Require().Error(err)
 	s.Require().Contains(err.Error(), "pull failed")
 	s.Require().True(cleanup1Called.Load(), "rollback should execute cleanup for succeeded runtimes")
@@ -173,7 +176,7 @@ func (s *ProvisionerTestSuite) TestInnerLauncherFailureRollback() {
 		return nil, errors.New("container run error")
 	}
 
-	_, err := p.Launch("/opt/runtimes", innerLauncher)(s.T().Context(), &testRequest{})
+	_, err := p.Launch(s.runtimesDir, innerLauncher)(s.T().Context(), &testRequest{})
 	s.Require().Error(err)
 	s.Require().Contains(err.Error(), "container run error")
 	s.Require().True(cleanupCalled.Load(), "rollback should execute cleanups when inner launcher fails")
@@ -206,7 +209,7 @@ func (s *ProvisionerTestSuite) TestPreLaunchFailureRollback() {
 		return nil, nil
 	}
 
-	_, err := p.Launch("/opt/runtimes", innerLauncher)(s.T().Context(), &testRequest{})
+	_, err := p.Launch(s.runtimesDir, innerLauncher)(s.T().Context(), &testRequest{})
 	s.Require().Error(err)
 	s.Require().Contains(err.Error(), "prelaunch mutation failed")
 	s.Require().True(cleanupCalled.Load(), "rollback should execute cleanups when pre-launch fails")
@@ -245,7 +248,7 @@ func (s *ProvisionerTestSuite) TestPostLaunchFailureRollback() {
 		return s.baseSb, nil
 	}
 
-	_, err := p.Launch("/opt/runtimes", innerLauncher)(s.T().Context(), &testRequest{})
+	_, err := p.Launch(s.runtimesDir, innerLauncher)(s.T().Context(), &testRequest{})
 	s.Require().Error(err)
 	s.Require().Contains(err.Error(), "postlaunch failed")
 	s.Require().True(cleanupCalled.Load(), "rollback should execute cleanups when post-launch fails")
@@ -258,19 +261,19 @@ func (s *ProvisionerTestSuite) TestPassthrough() {
 
 	// 1. Nil provisioner
 	var pNil *provision.Provisioner[*testRequest]
-	sb, err := pNil.Launch("/opt/runtimes", innerLauncher)(s.T().Context(), &testRequest{})
+	sb, err := pNil.Launch(s.runtimesDir, innerLauncher)(s.T().Context(), &testRequest{})
 	s.Require().NoError(err)
 	s.Require().Equal(s.baseSb, sb)
 
 	// 2. Empty runtimes
 	pEmptyRuntimes := provision.New[*testRequest](nil, nil)
-	sb, err = pEmptyRuntimes.Launch("/opt/runtimes", innerLauncher)(s.T().Context(), &testRequest{})
+	sb, err = pEmptyRuntimes.Launch(s.runtimesDir, innerLauncher)(s.T().Context(), &testRequest{})
 	s.Require().NoError(err)
 	s.Require().Equal(s.baseSb, sb)
 
 	// 3. Nil factory
 	pEmptyFactory := provision.New[*testRequest](map[string]*config.Runtime{"node": {}}, nil)
-	sb, err = pEmptyFactory.Launch("/opt/runtimes", innerLauncher)(s.T().Context(), &testRequest{})
+	sb, err = pEmptyFactory.Launch(s.runtimesDir, innerLauncher)(s.T().Context(), &testRequest{})
 	s.Require().NoError(err)
 	s.Require().Equal(s.baseSb, sb)
 }
@@ -337,7 +340,7 @@ func (s *ProvisionerTestSuite) TestLIFOCleanupOrder() {
 		return s.baseSb, nil
 	}
 
-	sb, err := p.Launch("/opt/runtimes", innerLauncher)(s.T().Context(), &testRequest{})
+	sb, err := p.Launch(s.runtimesDir, innerLauncher)(s.T().Context(), &testRequest{})
 	s.Require().NoError(err)
 
 	s.Require().NoError(sb.Terminate(s.T().Context()))
@@ -387,7 +390,7 @@ func (s *ProvisionerTestSuite) TestPrepareCancellation() {
 		factory,
 	)
 
-	_, err := p.Launch("/opt/runtimes", func(ctx context.Context, req *testRequest) (sandboxer.Sandbox, error) {
+	_, err := p.Launch(s.runtimesDir, func(ctx context.Context, req *testRequest) (sandboxer.Sandbox, error) {
 		return nil, nil
 	})(s.T().Context(), new(testRequest))
 

@@ -15,8 +15,10 @@ import (
 	"drassi.run/core/pkg/store/oci"
 )
 
+const ProviderName string = "docker"
+
 func init() {
-	sandboxer.Register(config.ProviderDocker, DefaultConfig, NewFactory)
+	sandboxer.Register(ProviderName, DefaultConfig, NewFactory)
 }
 
 type Config struct {
@@ -36,7 +38,7 @@ func DefaultConfig() *Config {
 type factory struct {
 	create   func() (sandboxer.Engine, error)
 	cfg      *Config
-	rootDir  string
+	jobsDir  string
 	store    ocistore.Manager
 	runtimes map[string]*config.Runtime
 }
@@ -47,11 +49,11 @@ func NewFactory(cfg *Config) sandboxer.Factory {
 	return f
 }
 
-func (f *factory) RootDir(d string) {
-	f.rootDir = d
+func (f *factory) JobsDir(d string) {
+	f.jobsDir = d
 }
 
-func (f *factory) SetOciStore(store ocistore.Manager) {
+func (f *factory) OciStore(store ocistore.Manager) {
 	f.store = store
 }
 
@@ -68,5 +70,5 @@ func (f *factory) doCreate() (sandboxer.Engine, error) {
 	if err != nil {
 		return nil, err
 	}
-	return New(f.rootDir, f.cfg, prov)
+	return New(f.jobsDir, f.cfg, prov)
 }
