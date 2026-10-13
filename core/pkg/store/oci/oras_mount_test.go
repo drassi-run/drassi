@@ -52,12 +52,31 @@ func TestOrasStore_Mount_Validation(t *testing.T) {
 	_, err = osStore.Mount(ctx, nil, WithBlock())
 	require.ErrorContains(t, err, "block device mount not supported")
 
-	// Missing fuse-overlayfs
-	_, err = NewOrasStore(&coreconfig.OrasStoreConfig{
-		StoreDir:            storeDir,
-		FuseOverlayfsBinary: "/nonexistent/bin",
-	})
-	require.NoError(t, err)
+	// 0 layers error
+	emptyImgConfig := ocispec.Image{}
+	cfgBytes, _ := json.Marshal(emptyImgConfig)
+	cfgDesc := ocispec.Descriptor{
+		MediaType: ocispec.MediaTypeImageConfig,
+		Digest:    digest.FromBytes(cfgBytes),
+		Size:      int64(len(cfgBytes)),
+	}
+	require.NoError(t, osStore.store.Push(ctx, cfgDesc, bytes.NewReader(cfgBytes)))
+
+	manifest0 := ocispec.Manifest{
+		Config: cfgDesc,
+		Layers: []ocispec.Descriptor{},
+	}
+	manifest0Bytes, _ := json.Marshal(manifest0)
+	manifest0Desc := ocispec.Descriptor{
+		MediaType: ocispec.MediaTypeImageManifest,
+		Digest:    digest.FromBytes(manifest0Bytes),
+		Size:      int64(len(manifest0Bytes)),
+	}
+	require.NoError(t, osStore.store.Push(ctx, manifest0Desc, bytes.NewReader(manifest0Bytes)))
+
+	img0 := newOrasImage("empty:v1", manifest0Desc, osStore.store)
+	_, err = osStore.Mount(ctx, img0, WithTarget(t.TempDir()))
+	require.ErrorContains(t, err, "image has no layers to mount")
 }
 
 func TestOrasStore_EnsureLayerUnpacked(t *testing.T) {

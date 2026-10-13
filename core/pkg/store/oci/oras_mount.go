@@ -111,6 +111,10 @@ func (s *orasStore) ensureLayerUnpacked(ctx context.Context, desc ocispec.Descri
 		return "", fmt.Errorf("extract layer %s (diffID %s): %w", desc.Digest, diffID, err)
 	}
 
+	if err := os.Chmod(tmpDir, 0755); err != nil {
+		return "", fmt.Errorf("chmod unpacked layer dir %s: %w", tmpDir, err)
+	}
+
 	if err := os.Rename(tmpDir, layerDir); err != nil {
 		// If another goroutine unpacked concurrently, check if target dir exists
 		if fi, statErr := os.Stat(layerDir); statErr == nil && fi.IsDir() {
@@ -145,6 +149,10 @@ func (s *orasStore) mountFuseOverlayfs(ctx context.Context, image Image, opts ..
 	manifest, err := orasImg.Manifest(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("get manifest: %w", err)
+	}
+
+	if len(manifest.Layers) == 0 {
+		return nil, errors.New("image has no layers to mount")
 	}
 
 	diffIDs, err := orasImg.RootFS(ctx)

@@ -8,12 +8,15 @@ package ocistore
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 
 	coreconfig "drassi.run/core/config"
+	xfs "drassi.run/core/util/fs"
+	"github.com/go-git/go-billy/v5/osfs"
 	"oras.land/oras-go/v2"
 	"oras.land/oras-go/v2/content/oci"
 	"oras.land/oras-go/v2/registry/remote"
@@ -106,7 +109,42 @@ func (s *orasStore) Mount(ctx context.Context, image Image, opts ...MountOption)
 }
 
 func (s *orasStore) Read(ctx context.Context, image Image, opts ...ReadOption) (io.ReadCloser, error) {
-	return nil, nil
+	ro := &readOptions{}
+	for _, opt := range opts {
+		opt(ro)
+	}
+
+	tempDir, err := os.MkdirTemp("/tmp", "drassi-oci-read-*")
+	if err != nil {
+		return nil, fmt.Errorf("create temp mount dir for read: %w", err)
+	}
+
+	mnt, err := s.Mount(ctx, image, WithTarget(tempDir))
+	if err != nil {
+		_ = os.Remove(tempDir)
+		return nil, fmt.Errorf("mount image for read: %w", err)
+	}
+
+	fsys := osfs.New(mnt.Target)
+	stream := xfs.Read(ctx, fsys, ro.Subpath)
+
+	r := &readCloser{
+		Reader: stream,
+		onClose: func() error {
+			var errs []error
+			if err := stream.Close(); err != nil {
+				errs = append(errs, err)
+			}
+			if err := mnt.Release(context.Background()); err != nil {
+				errs = append(errs, err)
+			}
+			if err := os.Remove(tempDir); err != nil && !os.IsNotExist(err) {
+				errs = append(errs, err)
+			}
+			return errors.Join(errs...)
+		},
+	}
+	return r, nil
 }
 
 func (s *orasStore) Close() error {
